@@ -1,0 +1,251 @@
+{
+  "source_commit": "556782e51e101c446b4c36265f35ea17fd3c31ff",
+  "entries": [
+    {
+      "path": "src/components/clubs/ClubLinksManager.tsx",
+      "start_line": 1,
+      "source_sha256": "022b476dd23047240caca64640fc4f92bfa04f9591f2aa7e9bb82030ac7379cc",
+      "excerpt_sha256": "01afe5c09d62b305eb78352ce538c92529d5305e600b82a6bd60deb2c4657ae2"
+    },
+    {
+      "path": "src/components/home/ClubLinksSection.tsx",
+      "start_line": 1,
+      "source_sha256": "18541e779dc1166dad4a97d11fa425e2bb7a036f86e7787de36b1b0610928297",
+      "excerpt_sha256": "18541e779dc1166dad4a97d11fa425e2bb7a036f86e7787de36b1b0610928297"
+    },
+    {
+      "path": "src/features/clubLinks/useClubQuickLinks.ts",
+      "start_line": 1,
+      "source_sha256": "340c21e57c8ebd0f0c4cbe483e5d04c82d71524958f94e551a42b69bb59e07e3",
+      "excerpt_sha256": "340c21e57c8ebd0f0c4cbe483e5d04c82d71524958f94e551a42b69bb59e07e3"
+    },
+    {
+      "path": "src/pages/ClubLinkEmbedPage.tsx",
+      "start_line": 1,
+      "source_sha256": "96592c8a7775c5e8930d062fcc4df4b0de748d5d450ad158cf9d629537abf5cc",
+      "excerpt_sha256": "96592c8a7775c5e8930d062fcc4df4b0de748d5d450ad158cf9d629537abf5cc"
+    },
+    {
+      "path": "src/lib/routeClubScope.ts",
+      "start_line": 1,
+      "source_sha256": "78c1e798731a2a175247abe13fe0db7539749534698d23b8e64690203c147e3f",
+      "excerpt_sha256": "78c1e798731a2a175247abe13fe0db7539749534698d23b8e64690203c147e3f"
+    },
+    {
+      "path": "src/lib/homeSectionSnapshot.ts",
+      "start_line": 1,
+      "source_sha256": "7a7af23f9a2a9b4e3a0b3da21549ad4a629e57a94f57b9c3f894c491bed4299c",
+      "excerpt_sha256": "7a7af23f9a2a9b4e3a0b3da21549ad4a629e57a94f57b9c3f894c491bed4299c"
+    },
+    {
+      "path": "src/lib/safeOpenUrl.ts",
+      "start_line": 1,
+      "source_sha256": "300642cf8ba91a016989c91a3518e2d035c49f39a36ffb744ea3439b91a67f18",
+      "excerpt_sha256": "300642cf8ba91a016989c91a3518e2d035c49f39a36ffb744ea3439b91a67f18"
+    },
+    {
+      "path": "src/lib/safeOpenFile.ts",
+      "start_line": 1,
+      "source_sha256": "191f24a22d4c96d5d0c091f4f4665dfd9f0de20c9af47637be27ae97a3eb1bab",
+      "excerpt_sha256": "191f24a22d4c96d5d0c091f4f4665dfd9f0de20c9af47637be27ae97a3eb1bab"
+    },
+    {
+      "path": "src/components/LegalPageEmbed.tsx",
+      "start_line": 1,
+      "source_sha256": "cf9c856f9670ba371f3173e2e88463f17c4b6a22e070b3a39c4e2a7935117540",
+      "excerpt_sha256": "cf9c856f9670ba371f3173e2e88463f17c4b6a22e070b3a39c4e2a7935117540"
+    },
+    {
+      "path": "src/hooks/useClubTheme.tsx",
+      "start_line": 1,
+      "source_sha256": "518cea8d2feec6224aa6cf2c70c3d062bc3c79fbf5ca0ffe66363bfe6df51e31",
+      "excerpt_sha256": "518cea8d2feec6224aa6cf2c70c3d062bc3c79fbf5ca0ffe66363bfe6df51e31"
+    },
+    {
+      "path": "src/hooks/useAuth.tsx",
+      "start_line": 1,
+      "source_sha256": "245a7f086722237e305f688fce56efb9b7e7f6262e479fe09c99fa2317b52bc8",
+      "excerpt_sha256": "04e6e4285f16ef11bed970e0898453bd1952047c90f5d105495cfdd5d4955e2f"
+    },
+    {
+      "path": "src/test/routeClubScope.test.ts",
+      "start_line": 1,
+      "source_sha256": "789e1809d3a5918f9c4f875b363006e223fe5ca3aaeba161a8ce68c22c0849aa",
+      "excerpt_sha256": "789e1809d3a5918f9c4f875b363006e223fe5ca3aaeba161a8ce68c22c0849aa"
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "start_line": 1,
+      "source_sha256": "348d4d13e34300d0fd47ad8051583bef049b36ca212de67a7ff03de091c78b1c",
+      "excerpt_sha256": "61fde3b5c7120ee2cd1a2feac334e52eec87f68e41bca78bcf7979834ef12ee7"
+    },
+    {
+      "path": "supabase/migrations/20260809224221_62548908-dcc8-4ac3-bd34-1c8167bd16f1.sql",
+      "start_line": 1,
+      "source_sha256": "5bc5ca54f7a31e574f8fed93fa503c0e32d2caf6031b7a29c417c8f54250238e",
+      "excerpt_sha256": "c941bb568dc2743e0666965c18c9edafa9c36c696eb68e157a67e6782cff1ac1"
+    },
+    {
+      "path": "supabase/migrations/20260809232528_d284eb4c-2205-4a09-80f0-778f37558781.sql",
+      "start_line": 1,
+      "source_sha256": "28e7c65b14b5f636c23a663a6f4660587f9a4edc08b924c9084b1b7c745a2398",
+      "excerpt_sha256": "4ed19dec5ad814ff6d159a582c719cbc4b878326d1e3652478f98ff42297c9e3"
+    },
+    {
+      "path": "supabase/migrations/20260417195631_a60831b6-63eb-4ff5-96e5-c52c66ff9a30.sql",
+      "start_line": 10,
+      "source_sha256": "85eaa5a53260b2a6e91d9689a0325ba5025cc99dd81f9787dfd041b521848eb9",
+      "excerpt_sha256": "3475b95107518f1a275b5a91bbf3aeadb17f4bc03fa6fcd17d2f9a5639ba8047"
+    },
+    {
+      "path": "supabase/migrations/20260721114111_aa56e96d-22f4-415a-bedd-486e04eb5849.sql",
+      "start_line": 1,
+      "source_sha256": "ced5658a57816f1e11aa35f5480c5173ecbc696af811392b40bd1a31cd8e80e8",
+      "excerpt_sha256": "39c09b5ef7cb3678d1072a8313c70dcb4a9c9630c21dd4d385afce73b779ca31"
+    },
+    {
+      "path": "src/pages/HomePage.tsx",
+      "start_line": 93,
+      "source_sha256": "4ceb1aad2e88770d1e8b90606fb6d0801e1084fadf4135d4ad1c55877681aed8",
+      "excerpt_sha256": "342d947d8f3b4c7c593e534dcc5a5b5f448634f37a0aa0d800370e473dbac373"
+    },
+    {
+      "path": "src/pages/HomePage.tsx",
+      "start_line": 2243,
+      "source_sha256": "4ceb1aad2e88770d1e8b90606fb6d0801e1084fadf4135d4ad1c55877681aed8",
+      "excerpt_sha256": "73a109426538c900027306912c5fc0b85da5e729e80042fcf038632c327c9ec0"
+    },
+    {
+      "path": "src/pages/ClubDetailPage.tsx",
+      "start_line": 1,
+      "source_sha256": "25e32cc4f75691c4df3d467be1389959d5da2fd04a2c1354c7e34f05dbab9dd8",
+      "excerpt_sha256": "0b32c18a9ed64c14710a74a990f65d80b18dbd5f0c3c55e8e74b88f7f6949d33"
+    },
+    {
+      "path": "src/pages/ClubDetailPage.tsx",
+      "start_line": 635,
+      "source_sha256": "25e32cc4f75691c4df3d467be1389959d5da2fd04a2c1354c7e34f05dbab9dd8",
+      "excerpt_sha256": "c1f6f17119648d424d8510883ffafa0db2a2afc708132897fd6847398c1ed877"
+    },
+    {
+      "path": "src/pages/ClubDetailPage.tsx",
+      "start_line": 2522,
+      "source_sha256": "25e32cc4f75691c4df3d467be1389959d5da2fd04a2c1354c7e34f05dbab9dd8",
+      "excerpt_sha256": "b3d1c6bcdfa59d488fd39d07870fbb348af5cdf7231e4a79c2230433392fb947"
+    },
+    {
+      "path": "src/App.tsx",
+      "start_line": 50,
+      "source_sha256": "4ec0ca3562be3caa2ad73bc0bf4a977a398f7dd030780fb33d5c3a1b4e506b62",
+      "excerpt_sha256": "2925efd087fd646a8ad758bdb35be4d02b7a27a9b2b0d641983242836fe94c83"
+    },
+    {
+      "path": "src/App.tsx",
+      "start_line": 431,
+      "source_sha256": "4ec0ca3562be3caa2ad73bc0bf4a977a398f7dd030780fb33d5c3a1b4e506b62",
+      "excerpt_sha256": "3bde6f377cd713adfaaef1110246aa3d9ffbb920fd66069b463212e34bf08e1d"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 1759,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "4d31957da48aa47b1a310ad3de0b8ad06536e6db6e34e6e4ea730f778427f64f"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 2310,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "83a739bc204691819ba4581f8d69a4c10574b5c53135c46c5cf5b0f6b4c32d35"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 9618,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "6154632ddb593533b7b59c4ed786f1b93b728ea9124be9c105d720ecc6019b25"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 7640,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "9ab33e4cc637fd0dee67b8ac97cafc40338d4c9f971a20d7c460942261a606fb"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 10083,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "29c9883e603ed7a9da4f70279049878394b7c34a25340cdf54acfe1c1dcf0450"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 1310,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "9d6fc3942303ba25bbdf92bcca409c938f1e894a46e2aeae9cf331d5d7ae0168"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 1130,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "6a5e8c2fa634f61ffbb0a7cac98ed07be2342ed3da380041f4a408643757a325"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 1214,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "eb9e8ebdbe7aa8933e1de6acecc1f9a2976af8a51993ec156b365f40bd3d8faa"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 1819,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "aff619d5513cb9c1ee43bbb794d3f21018d592dedd86af90520053915dba09db"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 9158,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "1e4aef939262f79de7f36f976c048f1e09ff8fbf839f56966d9558f34a18b298"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 10390,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "a59aa699e36dfacc177ed886091ff348202cf1a4656d4427023bb2378005ddf4"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "start_line": 10288,
+      "source_sha256": "75a7f51b0a098f4d0aabb8847eacb4a89b3b9d166de285ce8ccaaa1ccd4cb812",
+      "excerpt_sha256": "302ff2e9159b2f0edd1902d5574a60b72d3e0a796b2d35bb31b5daa1fab63c20"
+    }
+  ],
+  "redactions": [
+    {
+      "path": "src/components/clubs/ClubLinksManager.tsx",
+      "line": 235
+    },
+    {
+      "path": "src/hooks/useAuth.tsx",
+      "line": 1098
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "line": 40
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "line": 42
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "line": 109
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "line": 259
+    },
+    {
+      "path": "src/lib/safeOpenFile.test.ts",
+      "line": 271
+    }
+  ]
+}
