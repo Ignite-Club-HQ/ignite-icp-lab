@@ -36,6 +36,8 @@ import {
   type ChatTarget,
 } from "@/lib/notificationChatRouting";
 import { requestClubSwitchForChatTarget, requestClubSwitchForNotificationUrl } from "@/lib/notificationClubSwitch";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 
 /**
@@ -192,6 +194,7 @@ const NOTIFICATIONS_PER_PAGE = 30;
 
 export default function NotificationsPage() {
   const { user, refreshUnreadCount, clearUnreadCount } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const { activeClubFilter, setActiveClubTheme } = useClubTheme();
   usePageTitle("Notifications");
   const navigate = useNavigate();
@@ -254,6 +257,10 @@ export default function NotificationsPage() {
   const { data: notifications, isLoading } = useQuery({
     queryKey: ["notifications", user?.id, activeClubFilter ?? "all"],
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        return fixtureData.getLocalLabNotifications(user.id);
+      }
+
       const { data, error } = await supabase
         .from("notifications")
         .select("id, user_id, type, message, related_id, is_read, created_at, club_id")
@@ -298,7 +305,7 @@ export default function NotificationsPage() {
   // "All clubs" (nothing is hidden then).
   const { data: otherClubUnread } = useQuery({
     queryKey: ["notifications-other-clubs-unread", user?.id, activeClubFilter],
-    enabled: !!user?.id && !!activeClubFilter,
+    enabled: !!user?.id && !!activeClubFilter && !useIcpLab,
     staleTime: 30000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -333,7 +340,7 @@ export default function NotificationsPage() {
 
   // Real-time subscription for new notifications - direct cache updates
   useEffect(() => {
-    if (!user) return;
+    if (!user || useIcpLab) return;
 
     // Channel name is scoped to the user id AND to this page. `useAuth` runs
     // its own global `notifications-realtime` subscription for unread-count
@@ -400,10 +407,12 @@ export default function NotificationsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, queryClient, refreshUnreadCount]);
+  }, [user, queryClient, refreshUnreadCount, useIcpLab]);
 
   const markAsRead = useMutation({
     mutationFn: async (id: string) => {
+      if (useIcpLab) return id;
+
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
@@ -430,6 +439,8 @@ export default function NotificationsPage() {
     mutationFn: async () => {
       const ids = (notifications || []).filter((n) => !n.read).map((n) => n.id);
       if (ids.length === 0) return;
+      if (useIcpLab) return;
+
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
@@ -458,6 +469,8 @@ export default function NotificationsPage() {
 
   const deleteNotification = useMutation({
     mutationFn: async (id: string) => {
+      if (useIcpLab) return id;
+
       const { error } = await supabase
         .from("notifications")
         .delete()
@@ -481,6 +494,8 @@ export default function NotificationsPage() {
     mutationFn: async () => {
       const ids = (notifications || []).map((n) => n.id);
       if (ids.length === 0) return;
+      if (useIcpLab) return;
+
       const { error } = await supabase
         .from("notifications")
         .delete()

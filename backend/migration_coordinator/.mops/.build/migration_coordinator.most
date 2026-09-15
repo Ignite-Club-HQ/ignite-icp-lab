@@ -1,0 +1,44 @@
+// Version: 4.0.0
+type Migration__150412083 =
+  {
+    checksum : Text;
+    destination : Principal;
+    domain : Text;
+    id : Nat;
+    phase : Phase__609854338;
+    recordCount : Nat;
+    schemaVersion : Nat;
+    source : Principal
+  };
+type Migration__343460741 =
+  {
+    checksum : Text;
+    destination : Principal;
+    domain : Text;
+    id : Nat;
+    phase : Phase__307701426;
+    recordCount : Nat;
+    schemaVersion : Nat;
+    source : Principal
+  };
+type NewActor__679825786 =
+  {
+    var active : ?Migration__343460741;
+    var completed : [Migration__343460741];
+    var governor : ?Principal;
+    var nextId : Nat
+  };
+type OldActor__232881591 = {};
+type Phase__307701426 =
+  {#aborted; #committed; #exported; #imported; #started; #verified};
+type Phase__609854338 =
+  {#aborted; #committed; #exported; #imported; #started; #verified};
+{
+  "20260911_000000" : (_old : OldActor__232881591) -> NewActor__679825786
+}
+actor  {
+  stable var active : ?Migration__150412083;
+  stable var completed : [Migration__150412083];
+  stable var governor : ?Principal;
+  stable var nextId : Nat
+};

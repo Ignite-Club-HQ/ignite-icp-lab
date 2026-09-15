@@ -28,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAppAdmin } from "@/hooks/useIsAppAdmin";
@@ -124,6 +126,7 @@ export default function BroadcastChatPage() {
     return () => noteChatUnmount("Broadcast", k, null);
   }, []);
   const { user, refreshUnreadCount, decrementUnreadCount, initialized } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
   const navigate = useNavigate();
@@ -252,6 +255,10 @@ export default function BroadcastChatPage() {
   const { data: messagesData, isLoading } = useQuery({
     queryKey: ["broadcast-messages"],
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        return { messages: fixtureData.getLocalLabBroadcastMessages('broadcast-icp-001', user.id), hasOlderMessages: false, reactions: [], fromCache: true };
+      }
+
       // If offline, return cached messages using the shared online manager
       // so native app resume does not incorrectly fall back to stale cache.
       if (!isOnline) {

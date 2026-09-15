@@ -1,0 +1,76 @@
+[toolchain]
+moc = "1.14.0"
+
+[moc]
+args = ["--default-persistent-actors"]
+
+[dependencies]
+core = "2.6.1"
+
+[canisters.migration_coordinator]
+main = "backend/migration_coordinator/src/main.mo"
+candid = "backend/migration_coordinator/migration_coordinator.did"
+
+[canisters.migration_coordinator.migrations]
+chain = "backend/migration_coordinator/src/backend/migrations"
+check-limit = 1
+
+[canisters.notification_queue_motoko]
+main = "backend/notification_queue_motoko/src/main.mo"
+candid = "backend/notification_queue_motoko/notification_queue_motoko.did"
+
+[canisters.notification_queue_motoko.migrations]
+chain = "backend/notification_queue_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.events_domain_motoko]
+main = "backend/events_domain_motoko/src/main.mo"
+candid = "backend/events_domain_motoko/events_domain_motoko.did"
+
+[canisters.events_domain_motoko.migrations]
+chain = "backend/events_domain_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.competition_domain_motoko]
+main = "backend/competition_domain_motoko/src/main.mo"
+candid = "backend/competition_domain_motoko/competition_domain_motoko.did"
+
+[canisters.competition_domain_motoko.migrations]
+chain = "backend/competition_domain_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.messaging_domain_motoko]
+main = "backend/messaging_domain_motoko/src/main.mo"
+candid = "backend/messaging_domain_motoko/messaging_domain_motoko.did"
+
+[canisters.messaging_domain_motoko.migrations]
+chain = "backend/messaging_domain_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.media_metadata_motoko]
+main = "backend/media_metadata_motoko/src/main.mo"
+candid = "backend/media_metadata_motoko/media_metadata_motoko.did"
+
+[canisters.media_metadata_motoko.migrations]
+chain = "backend/media_metadata_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.club_links_motoko]
+main = "backend/club_links_motoko/src/main.mo"
+candid = "backend/club_links_motoko/club_links_motoko.did"
+
+[canisters.club_links_motoko.migrations]
+chain = "backend/club_links_motoko/src/backend/migrations"
+check-limit = 1
+
+[canisters.club_domain]
+main = "backend/club_links_motoko/src/main.mo"
+candid = "backend/club_links_motoko/club_links_motoko.did"
+
+[canisters.pii_access_control]
+main = "backend/pii_access_control/src/main.mo"
+candid = "backend/pii_access_control/pii_access_control.did"
+
+[canisters.secret_workload_identity]
+main = "backend/secret_workload_identity/src/main.mo"
+candid = "backend/secret_workload_identity/secret_workload_identity.did"

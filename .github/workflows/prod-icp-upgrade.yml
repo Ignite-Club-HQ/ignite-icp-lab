@@ -1,0 +1,112 @@
+name: Production ICP Backend Upgrade
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'ICP network to target for production upgrade'
+        required: true
+        default: 'production'
+        type: string
+      mode:
+        description: 'Deployment mode'
+        required: true
+        default: 'upgrade'
+        type: choice
+        options:
+          - upgrade
+          - install
+
+permissions:
+  contents: read
+
+jobs:
+  production-upgrade:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+
+    env:
+      ICP_NETWORK: ${{ inputs.network || vars.ICP_NETWORK || 'production' }}
+      ICP_MODE: ${{ inputs.mode || 'upgrade' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund --no-audit
+
+      - name: Guard against missing production secrets
+        shell: bash
+        run: |
+          test -n "${{ secrets.ICP_IDENTITY_PEM_BASE64 || '' }}" || {
+            echo "ICP_IDENTITY_PEM_BASE64 is required for production canister upgrade." >&2
+            exit 1
+          }
+          test -n "${{ secrets.ICP_NETWORK_URL || '' }}" || {
+            echo "ICP_NETWORK_URL is required for production canister upgrade." >&2
+            exit 1
+          }
+
+      - name: Write ICP identity
+        shell: bash
+        run: |
+          mkdir -p .icp
+          printf '%s' '${{ secrets.ICP_IDENTITY_PEM_BASE64 }}' | base64 --decode > .icp/production-identity.pem
+          chmod 600 .icp/production-identity.pem
+
+      - name: Validate Rust and app gates
+        run: |
+          cargo test --workspace --locked
+          cd frontend
+          npm run check:isolation
+          npm run check:prod-secrets
+          npm run deploy:staging
+          npm run build
+
+      - name: Install ICP CLI
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://internetcomputer.org/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build ICP backend artifacts
+        run: |
+          cargo build --workspace --release
+          cargo build --workspace --target wasm32-unknown-unknown --release
+
+      - name: Upgrade ICP canisters
+        shell: bash
+        env:
+          ICP_IDENTITY: .icp/production-identity.pem
+          ICP_NETWORK_URL: ${{ secrets.ICP_NETWORK_URL }}
+        run: |
+          icp --version
+          icp deploy \
+            --network "$ICP_NETWORK" \
+            --identity "$ICP_IDENTITY" \
+            --url "$ICP_NETWORK_URL" \
+            --mode "$ICP_MODE" \
+            --project-root "$GITHUB_WORKSPACE"
+
+      - name: Smoke verification post-upgrade
+        shell: bash
+        run: |
+          echo "Production upgrade workflow reached the post-upgrade validation gate." 
+          echo "This step should verify the upgraded canister endpoints and callback health before release." 
+          echo "No production credentials or real user data are used in this workflow." 

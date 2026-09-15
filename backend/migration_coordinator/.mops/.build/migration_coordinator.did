@@ -1,0 +1,31 @@
+type Phase = 
+ variant {
+   aborted;
+   committed;
+   exported;
+   imported;
+   started;
+   verified;
+ };
+type Migration = 
+ record {
+   checksum: text;
+   destination: principal;
+   domain: text;
+   id: nat;
+   phase: Phase;
+   recordCount: nat;
+   schemaVersion: nat;
+   source: principal;
+ };
+service : {
+  abort: (id: nat) -> (Migration);
+  begin: (domain: text, source: principal, destination: principal,
+   schemaVersion: nat, checksum: text) -> (Migration);
+  commit: (id: nat) -> (Migration);
+  initialize: () -> ();
+  markExported: (id: nat, recordCount: nat, checksum: text) -> (Migration);
+  markImported: (id: nat, recordCount: nat, checksum: text) -> (Migration);
+  status: () -> (opt Migration, vec Migration) query;
+  verify: (id: nat, recordCount: nat, checksum: text) -> (Migration);
+}

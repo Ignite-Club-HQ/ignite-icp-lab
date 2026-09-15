@@ -24,6 +24,7 @@ import { AddGroupMembersDialog } from "@/components/chat/AddGroupMembersDialog";
 import { ParticipantProfileSheet, type ParticipantRoleEntry } from "@/components/chat/ParticipantProfileSheet";
 import { cn } from "@/lib/utils";
 import { useOnlineSet } from "@/hooks/useUserPresence";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 // Highest-privilege first. App admin sinks to the end (internal-only).
 const ROLE_PRIORITY: string[] = [
@@ -113,6 +114,7 @@ export function ChatParticipantsList({
 }: ChatParticipantsListProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const previousCountRef = useRef<number | null>(null);
   const cacheKey = `chat-members-count-${chatType}-${chatId}`;
@@ -138,7 +140,7 @@ export function ChatParticipantsList({
         .maybeSingle();
       return data ?? null;
     },
-    enabled: enabled && chatType === "group",
+    enabled: enabled && chatType === "group" && !useIcpLab,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -211,7 +213,7 @@ export function ChatParticipantsList({
         .maybeSingle();
       return data?.club_id ?? null;
     },
-    enabled: enabled && !!effectiveTeamId,
+    enabled: enabled && !useIcpLab && !!effectiveTeamId,
     staleTime: 1000 * 60 * 30,
   });
 
@@ -245,13 +247,22 @@ export function ChatParticipantsList({
       ]);
       return !!teamRoleResult.data || !!clubRoleResult.data || !!appAdminResult.data;
     },
-    enabled: enabled && !!user && !!effectiveTeamId && resolvedClubId !== undefined,
+    enabled: enabled && !useIcpLab && !!user && !!effectiveTeamId && resolvedClubId !== undefined,
     staleTime: 1000 * 60 * 5,
   });
 
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ["chat-members", chatType, chatId, teamId, clubId, miniLeagueId, clubAdminMemberUserId, effectiveGroupMembershipMode],
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        return [{
+          id: user.id,
+          display_name: "Local ICP Member",
+          avatar_url: null,
+          role: "club_admin",
+        }] as Member[];
+      }
+
       // Club-admin conversation: all club admins + the member
       if (chatType === "club_admin" && clubId) {
         const { data: admins } = await supabase
@@ -461,7 +472,7 @@ export function ChatParticipantsList({
       }
       return map;
     },
-    enabled: enabled && memberIds.length > 0,
+    enabled: enabled && !useIcpLab && memberIds.length > 0,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -474,7 +485,7 @@ export function ChatParticipantsList({
       for (const row of data || []) map[row.user_id] = row.has_push;
       return map;
     },
-    enabled: enabled && memberIds.length > 0,
+    enabled: enabled && !useIcpLab && memberIds.length > 0,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -496,7 +507,7 @@ export function ChatParticipantsList({
       }
       return map;
     },
-    enabled: enabled && memberIds.length > 0 && chatType !== "club_admin",
+    enabled: enabled && !useIcpLab && memberIds.length > 0 && chatType !== "club_admin",
     staleTime: 1000 * 60 * 2,
   });
 
@@ -540,7 +551,7 @@ export function ChatParticipantsList({
       }
       return map;
     },
-    enabled: enabled && memberIds.length > 0,
+    enabled: enabled && !useIcpLab && memberIds.length > 0,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -557,7 +568,7 @@ export function ChatParticipantsList({
       if (error || !data) return [];
       return (data as Array<{ user_id: string }>).map((r) => r.user_id);
     },
-    enabled: enabled && memberIds.length > 0,
+    enabled: enabled && !useIcpLab && memberIds.length > 0,
     staleTime: 30 * 1000,
     refetchInterval: 45 * 1000,
   });

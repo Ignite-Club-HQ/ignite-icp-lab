@@ -1,0 +1,16 @@
+[toolchain]
+moc = "1.14.0"
+
+[moc]
+args = ["--default-persistent-actors"]
+
+[dependencies]
+core = "2.6.1"
+
+[canisters.club_links_motoko]
+main = "src/main.mo"
+candid = "club_links_motoko.did"
+
+[canisters.club_links_motoko.migrations]
+chain = "src/backend/migrations"
+check-limit = 1

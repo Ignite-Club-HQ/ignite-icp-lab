@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { PageLoading } from "@/components/ui/page-loading";
 import { getSportEmoji, SPORT_EMOJIS } from "@/lib/sportEmojis";
 import { useSponsorAnalytics } from "@/hooks/useSponsorAnalytics";
@@ -55,6 +57,7 @@ interface Sponsor {
 export default function ClubsPage() {
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -122,6 +125,10 @@ export default function ClubsPage() {
   const { data: clubs, isLoading } = useQuery({
     queryKey: ["clubs"],
     queryFn: async () => {
+      if (useIcpLab) {
+        return fixtureData.getLocalLabClubList() as Club[];
+      }
+
       const { data, error } = await supabase
         .from("clubs")
         .select("id, name, logo_url, description, sport, is_pro, created_by, primary_sponsor_id")

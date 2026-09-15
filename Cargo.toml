@@ -1,0 +1,20 @@
+[workspace]
+members = [
+	"backend/shard_router",
+	"backend/placement_registry",
+	"backend/timer_jobs",
+	"backend/identity_access",
+	"backend/club_domain",
+	"backend/events_domain",
+	"backend/competition_domain",
+	"backend/messaging_domain",
+	"backend/media_metadata",
+	"backend/notification_queue"
+]
+resolver = "2"
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"

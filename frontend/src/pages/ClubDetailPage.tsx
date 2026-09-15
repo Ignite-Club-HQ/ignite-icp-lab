@@ -104,6 +104,8 @@ import { MoveToTeamSheet } from "@/components/MoveToTeamSheet";
 import ClubRecentGames from "@/components/history/ClubRecentGames";
 import ClubCompetitionsSection from "@/components/competitions/ClubCompetitionsSection";
 import { friendlyQueryError, friendlyQueryErrorMessage } from "@/lib/friendlyQueryError";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 
 type ClubRole = "club_admin";
@@ -117,6 +119,7 @@ const MEMBERS_PER_PAGE = 10;
 export default function ClubDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -177,6 +180,10 @@ export default function ClubDetailPage() {
   const { data: club, isLoading } = useQuery({
     queryKey: ["club", id],
     queryFn: async () => {
+      if (useIcpLab && id) {
+        return fixtureData.getLocalLabClubDetail(id) ?? null;
+      }
+
       const { data, error } = await supabase
         .from("clubs")
         .select("*")
@@ -194,6 +201,10 @@ export default function ClubDetailPage() {
   const { data: clubMemberCount, isLoading: isMemberCountLoading, isError: isMemberCountError } = useQuery({
     queryKey: ["club-members-count", id],
     queryFn: async () => {
+      if (useIcpLab && id) {
+        return { total: 1, adults: 1, juniors: 0, growth: 0, monthChange: 0 };
+      }
+
       // Get team IDs for this club (exclude deleted teams)
       const { data: teamsData, error: teamsError } = await supabase
         .from("teams")

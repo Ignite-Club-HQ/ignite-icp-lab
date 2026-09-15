@@ -88,6 +88,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { EyeOff } from "lucide-react";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 const MESSAGES_PER_PAGE = 15;
 const isNativeRuntime = () => !!(window as any).Capacitor?.isNativePlatform?.();
@@ -220,6 +222,7 @@ interface UnifiedConversation {
 
 export default function MessagesPage() {
   const { user, initialized, refreshUnreadCount } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const { isOnline } = useOnlineStatus();
   usePageTitle("Messages");
   const navigate = useNavigate();
@@ -448,6 +451,10 @@ export default function MessagesPage() {
     retry: 3,
     refetchOnReconnect: "always",
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        return fixtureData.getLocalLabMessagesSnapshot(user.id);
+      }
+
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("club_id")
@@ -555,6 +562,10 @@ export default function MessagesPage() {
     queryKey: ["latest-broadcast"],
     refetchOnReconnect: "always",
     queryFn: async () => {
+      if (useIcpLab) {
+        return null;
+      }
+
       const { data } = await supabase
         .from("broadcast_messages")
         .select("text, created_at, image_url, author_id")
@@ -593,6 +604,14 @@ export default function MessagesPage() {
     retry: 3,
     refetchOnReconnect: "always",
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        const snapshot = fixtureData.getLocalLabMessagesSnapshot(user.id);
+        return {
+          teams: snapshot.teams,
+          latestMessages: snapshot.latestTeamMessages,
+        };
+      }
+
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("team_id")

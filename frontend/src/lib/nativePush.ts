@@ -24,6 +24,11 @@ let pluginsChecked = false;
 let pluginsAvailable = false;
 let firebaseLoadFailed = false;
 
+// Keep the optional native Firebase plugin out of the web bundle. Capacitor
+// resolves this module inside native builds where the plugin is installed.
+const loadOptionalNativeModule = (specifier: string) =>
+  new Function('moduleName', 'return import(moduleName)')(specifier) as Promise<any>;
+
 // Safely load Capacitor core
 async function loadCapacitor(): Promise<boolean> {
   if (capacitorLoaded) return Capacitor !== null;
@@ -92,7 +97,7 @@ async function tryLoadFirebase(): Promise<void> {
   if (FirebaseMessaging || firebaseLoadFailed) return;
   
   try {
-    const fcmModule = await import('@capacitor-firebase/messaging');
+    const fcmModule = await loadOptionalNativeModule('@capacitor-firebase/messaging');
     FirebaseMessaging = fcmModule.FirebaseMessaging;
     
     // Test if Firebase is actually usable

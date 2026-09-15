@@ -9,15 +9,21 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { safeOpenUrl } from "@/lib/safeOpenUrl";
 import { requireAccessToken, SessionExpiredError, SESSION_EXPIRED_MESSAGE } from "@/lib/requireAccessToken";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function AccountPage() {
   const { user, signOut } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [exportingData, setExportingData] = useState(false);
 
   const handleDeleteAccount = async () => {
+    if (useIcpLab) {
+      toast({ title: "Account deletion is disabled in ICP lab mode" });
+      return;
+    }
     if (deletingAccount) return;
     setDeletingAccount(true);
 
@@ -84,6 +90,10 @@ export default function AccountPage() {
   };
 
   const handleExportData = async () => {
+    if (useIcpLab) {
+      toast({ title: "Data export is disabled in ICP lab mode" });
+      return;
+    }
     if (exportingData) return;
     setExportingData(true);
 

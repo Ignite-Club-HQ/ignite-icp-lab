@@ -5,6 +5,8 @@ import { resolveSignedUrl } from "@/hooks/useSignedPhotoUrl";
 import type { DownloadFileResult } from "@capacitor/filesystem";
 import { DownloadSuccessToast } from "@/components/DownloadSuccessToast";
 
+const loadOptionalNativeModule = (specifier: string) =>
+  new Function("moduleName", "return import(moduleName)")(specifier) as Promise<any>;
 
 type DownloadResultWithLegacyUri = DownloadFileResult & { uri?: string };
 
@@ -114,7 +116,7 @@ async function downloadVideoInner(url: string, friendlyBaseName: string, toastId
 
   if (platform === "android") {
     try {
-      const { Media } = await import("@capacitor-community/media");
+      const { Media } = await loadOptionalNativeModule("@capacitor-community/media");
       const albumIdentifier = await ensureAndroidMediaAlbum(Media as any, "Ignite");
       const baseName = `${friendlyBaseName}-${stamp}-${Date.now()}`;
       const saved = await (Media as any).saveVideo({
@@ -282,7 +284,7 @@ async function downloadImageInner(url: string, friendlyBaseName: string, toastId
         //    Open action will work.
         let savedToGallery = false;
         try {
-          const { Media } = await import("@capacitor-community/media");
+          const { Media } = await loadOptionalNativeModule("@capacitor-community/media");
           const albumIdentifier = await ensureAndroidMediaAlbum(Media, "Ignite");
           await Media.savePhoto({
             path: cacheUri,
@@ -548,7 +550,7 @@ function showOpenDownloadedToast(
 
     if (candidates.length > 0) {
       try {
-        const { FileOpener } = await import("@capacitor-community/file-opener");
+        const { FileOpener } = await loadOptionalNativeModule("@capacitor-community/file-opener");
         for (const p of candidates) {
           try {
             await FileOpener.open({ filePath: p, contentType: contentType || fallbackType });

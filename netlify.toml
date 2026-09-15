@@ -1,0 +1,25 @@
+[build]
+  base = "frontend"
+  publish = "dist"
+  command = "npm ci --no-fund --no-audit && npm run build"
+
+[build.environment]
+  NODE_VERSION = "22.12.0"
+  CI = "true"
+
+[context.production]
+  command = "npm ci --no-fund --no-audit && npm run build"
+
+[context.deploy-preview]
+  command = "npm ci --no-fund --no-audit && npm run build"
+
+[context.branch-deploy]
+  command = "npm ci --no-fund --no-audit && npm run build"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Content-Security-Policy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; manifest-src 'none'; media-src 'self' blob:"

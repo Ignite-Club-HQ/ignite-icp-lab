@@ -39,6 +39,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -169,6 +171,7 @@ export default function ClubChatPage() {
   }, []);
   const { clubId } = useParams<{ clubId: string }>();
   const { user, profile, refreshUnreadCount, decrementUnreadCount, initialized } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
   const navigate = useNavigate();
@@ -353,6 +356,8 @@ export default function ClubChatPage() {
   const { data: club } = useQuery({
     queryKey: ["club", clubId],
     queryFn: async () => {
+      if (useIcpLab && clubId) return fixtureData.getLocalLabChatClub(clubId);
+
       const { data, error } = await supabase
         .from("clubs")
         .select("id, name, logo_url, is_pro")
@@ -384,7 +389,7 @@ export default function ClubChatPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: authReady && !!user?.id,
+    enabled: authReady && !!user?.id && !useIcpLab,
   });
 
   // Check if user is club admin
@@ -403,13 +408,15 @@ export default function ClubChatPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: authReady && !!clubId && !!user?.id,
+    enabled: authReady && !!clubId && !!user?.id && !useIcpLab,
   });
 
   // Check for club-level subscription (Club Chat requires CLUB-level Pro, not team-level Pro)
   const { data: clubSubscription, isLoading: isLoadingClubSubscription } = useQuery({
     queryKey: ["club-subscription", clubId],
     queryFn: async () => {
+      if (useIcpLab) return { is_pro: false, is_pro_football: false, admin_pro_override: false, admin_pro_football_override: false, expires_at: null };
+
       const { data } = await supabase
         .from("club_subscriptions")
         .select("is_pro, is_pro_football, admin_pro_override, admin_pro_football_override, expires_at")
@@ -455,6 +462,10 @@ export default function ClubChatPage() {
     queryKey: ["club-messages", clubId],
     queryFn: async () => {
       markChatFetch();
+      if (useIcpLab && clubId && user?.id) {
+        return { messages: fixtureData.getLocalLabClubMessages(clubId, user.id) as unknown as Message[], hasOlderMessages: false, reactions: [], fromCache: true };
+      }
+
       // If offline, return cached messages using the shared online manager
       // so native app resume does not incorrectly fall back to stale cache.
       if (!isOnline) {
@@ -1048,16 +1059,16 @@ export default function ClubChatPage() {
   // Polling fallback: when this club is on the polling path, periodically
   // invalidate the messages cache instead of holding a realtime WebSocket.
   useEffect(() => {
-    if (!clubId || clubRealtimeMode !== "polling") return;
+    if (!clubId || useIcpLab || clubRealtimeMode !== "polling") return;
     const id = window.setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["club-messages", clubId] });
     }, clubPollIntervalMs);
     return () => window.clearInterval(id);
-  }, [clubId, clubRealtimeMode, clubPollIntervalMs, queryClient]);
+  }, [clubId, clubRealtimeMode, clubPollIntervalMs, queryClient, useIcpLab]);
 
   // Realtime subscription - directly update cache instead of invalidating
   useEffect(() => {
-    if (!clubId) return;
+    if (!clubId || useIcpLab) return;
     if (clubRealtimeMode === "polling") return;
 
     const channel = supabase
@@ -1253,7 +1264,7 @@ export default function ClubChatPage() {
       if (unregister) unregister(); else supabase.removeChannel(channel);
       noteChannelRemoved(`club-messages-${clubId}`);
     };
-  }, [clubId, queryClient, clubRealtimeMode, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete]);
+  }, [clubId, queryClient, clubRealtimeMode, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete, useIcpLab]);
 
   const handleReply = useCallback((m: { id: string; text: string; authorName: string | null }) => {
     // Don't allow replying to optimistic or queued messages (temp/queued IDs)

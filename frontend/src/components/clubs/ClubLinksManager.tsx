@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { GripVertical, Plus, Trash2, Pencil, X } from "lucide-react";
 import { clubLinksService } from "@/lab/clubLinksService.mjs";
+import type { ClubLinksService } from "@/lab/ClubLinksService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { toast } from "@/hooks/use-toast";
 import { CLUB_LINK_ICONS } from "@/lab/clubLinkIcons";
 
 interface ClubLinkRecord {
+  revision?: bigint;
   id: string;
   title: string;
   subtitle: string | null;
@@ -29,6 +31,7 @@ interface ClubLinkRecord {
 }
 
 interface DraftState {
+  expectedRevision?: bigint;
   id?: string;
   title: string;
   subtitle: string;
@@ -69,14 +72,14 @@ function normalizeUrl(raw: string): string | null {
 /**
  * Club-admin management for the home page "Club Info & Links" tiles.
  */
-export default function ClubLinksManager({ clubId }: { clubId: string }) {
+export default function ClubLinksManager({ clubId, service = clubLinksService }: { clubId: string; service?: ClubLinksService }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DraftState | null>(null);
 
-  const { data: links = [], isLoading } = useQuery<ClubLinkRecord[]>({
+  const { data: links = [], isLoading, error, refetch } = useQuery<ClubLinkRecord[]>({
     queryKey: ["club-links-admin", clubId],
     queryFn: async () => {
-      return clubLinksService.listAdmin(clubId);
+      return service.listAdmin(clubId);
     },
   });
 
@@ -93,7 +96,7 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
       if (!value.title.trim()) throw new Error("Please enter a title.");
       if (!url) throw new Error("Please enter a valid web address.");
 
-      await clubLinksService.save(clubId, { ...value, title: value.title.trim(), subtitle: value.subtitle.trim() || null, url });
+      await service.save(clubId, { ...value, title: value.title.trim(), subtitle: value.subtitle.trim() || null, url });
     },
     onSuccess: async () => {
       setDraft(null);
@@ -106,8 +109,8 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await clubLinksService.remove(id);
+    mutationFn: async (link: ClubLinkRecord) => {
+      await service.remove(link.id, link.revision);
     },
     onSuccess: async () => {
       await invalidate();
@@ -119,8 +122,8 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await clubLinksService.setActive(id, is_active);
+    mutationFn: async ({ id, is_active, revision }: { id: string; is_active: boolean; revision?: bigint }) => {
+      await service.setActive(id, is_active, revision);
     },
     onSuccess: invalidate,
     onError: (error: Error) => {
@@ -134,10 +137,13 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
       if (target < 0 || target >= links.length) return;
       const a = links[index];
       const b = links[target];
-      await clubLinksService.reorder(clubId, a.id, b.id);
+      await service.reorder(clubId, a.id, b.id, a.revision);
     },
     onSuccess: invalidate,
+    onError: (error: Error) => toast({ title: "Couldn't reorder links", description: error.message, variant: "destructive" }),
   });
+
+  if (error) return <Card><CardContent className="space-y-4 p-4"><p role="alert">Could not load links: {error.message}</p><Button onClick={() => refetch()}>Retry loading links</Button></CardContent></Card>;
 
   return (
     <Card>
@@ -291,7 +297,7 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
                 <Switch
                   checked={link.is_active}
                   aria-label="Visible to members"
-                  onCheckedChange={(v) => toggleMutation.mutate({ id: link.id, is_active: v })}
+                  onCheckedChange={(v) => toggleMutation.mutate({ id: link.id, is_active: v, revision: link.revision })}
                 />
                 <Button
                   size="icon"
@@ -299,6 +305,7 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
                   aria-label="Edit link"
                   onClick={() =>
                     setDraft({
+                      expectedRevision: link.revision,
                       id: link.id,
                       title: link.title,
                       subtitle: link.subtitle || "",
@@ -315,7 +322,7 @@ export default function ClubLinksManager({ clubId }: { clubId: string }) {
                   size="icon"
                   variant="ghost"
                   aria-label="Remove link"
-                  onClick={() => deleteMutation.mutate(link.id)}
+                  onClick={() => deleteMutation.mutate(link)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>

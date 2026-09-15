@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { updateProfileCache } from "@/lib/profileCache";
 import { Capacitor } from "@capacitor/core";
 import { pickNativePhoto, shouldUseNativePicker } from "@/lib/nativePhotoPicker";
@@ -18,6 +19,7 @@ import { mimeToExtension } from "@/lib/binaryUtils";
 
 export default function EditProfilePage() {
   const { user, profile, refreshProfile } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState("");
@@ -38,6 +40,10 @@ export default function EditProfilePage() {
 
   const handleNativeAvatarPick = async () => {
     if (!user) return;
+    if (useIcpLab) {
+      toast({ title: "Profile photo upload is disabled in ICP lab mode" });
+      return;
+    }
     // CRITICAL: Do NOT set uploading state before Camera.getPhoto —
     // the re-render breaks the iOS gesture chain and the picker flashes/fails.
     try {
@@ -75,6 +81,10 @@ export default function EditProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    if (useIcpLab) {
+      toast({ title: "Profile photo upload is disabled in ICP lab mode" });
+      return;
+    }
 
     if (!file.type.startsWith('image/')) {
       toast({
@@ -134,6 +144,13 @@ export default function EditProfilePage() {
     }
 
     setSaving(true);
+
+    if (useIcpLab) {
+      setSaving(false);
+      toast({ title: "Profile changes are local to this lab session" });
+      navigate(-1);
+      return;
+    }
 
     const { error } = await supabase
       .from("profiles")

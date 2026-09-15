@@ -1,0 +1,229 @@
+// Version: 4.0.0
+type AccountExclusion__540528443 = {account_id : Text; club : Text};
+type AccountExclusion__842675230 = {account_id : Text; club : Text};
+type AccountRole__435864822 =
+  {account_id : Text; club : ?Text; role : Text; team : ?Text};
+type AccountRole__938621019 =
+  {account_id : Text; club : ?Text; role : Text; team : ?Text};
+type Account__345860826 =
+  {
+    id : Text;
+    legacy_subject : Principal;
+    principals : [Principal];
+    version : Nat64
+  };
+type Account__81034989 =
+  {
+    id : Text;
+    legacy_subject : Principal;
+    principals : [Principal];
+    version : Nat64
+  };
+type Acl__1000271646 =
+  {
+    children : [Child__635700739];
+    clubs : [Text];
+    exclusions : [Exclusion__462576786];
+    guardians : [Guardian__800114506];
+    roles : [RoleGrant__620763574];
+    teams : [Team__221823353]
+  };
+type Challenge__451875225 =
+  {
+    accepted : Bool;
+    account_id : Text;
+    expected_version : Nat64;
+    expires_at_ns : Nat64;
+    id : Nat64;
+    issuer : Principal;
+    target : Principal
+  };
+type Challenge__556160379 =
+  {
+    accepted : Bool;
+    account_id : Text;
+    expected_version : Nat64;
+    expires_at_ns : Nat64;
+    id : Nat64;
+    issuer : Principal;
+    target : Principal
+  };
+type Child__635700739 = {id : Text; parent : ?Principal; teams : [Text]};
+type Child__786810129 = {id : Text; parent : ?Principal; teams : [Text]};
+type ClubProfile__161387736 =
+  {
+    created_at_ms : Nat64;
+    description : ?Text;
+    id : Text;
+    is_active : Bool;
+    logo_url : ?Text;
+    name : Text;
+    primary_color : ?Text;
+    secondary_color : ?Text;
+    slug : Text
+  };
+type ClubProfile__348325873 =
+  {
+    created_at_ms : Nat64;
+    description : ?Text;
+    id : Text;
+    is_active : Bool;
+    logo_url : ?Text;
+    name : Text;
+    primary_color : ?Text;
+    secondary_color : ?Text;
+    slug : Text
+  };
+type ClubSettings__563909598 =
+  {
+    announcement : ?Text;
+    club_id : Text;
+    contact_email : ?Text;
+    membership_open : Bool;
+    public_directory : Bool
+  };
+type ClubSettings__9562197 =
+  {
+    announcement : ?Text;
+    club_id : Text;
+    contact_email : ?Text;
+    membership_open : Bool;
+    public_directory : Bool
+  };
+type ClubSponsor__36329789 =
+  {
+    club_id : Text;
+    id : Text;
+    is_active : Bool;
+    logo_url : ?Text;
+    name : Text;
+    sort_order : Nat32;
+    tier : Text;
+    website_url : ?Text
+  };
+type ClubSponsor__447712544 =
+  {
+    club_id : Text;
+    id : Text;
+    is_active : Bool;
+    logo_url : ?Text;
+    name : Text;
+    sort_order : Nat32;
+    tier : Text;
+    website_url : ?Text
+  };
+type ClubTeam__852155005 =
+  {
+    age_group : ?Text;
+    club_id : Text;
+    division : ?Text;
+    gender : ?Text;
+    id : Text;
+    is_active : Bool;
+    name : Text
+  };
+type ClubTeam__893483431 =
+  {
+    age_group : ?Text;
+    club_id : Text;
+    division : ?Text;
+    gender : ?Text;
+    id : Text;
+    is_active : Bool;
+    name : Text
+  };
+type Draft__1000124447 =
+  {
+    icon : Text;
+    is_active : Bool;
+    open_mode : Text;
+    subtitle : ?Text;
+    title : Text;
+    url : Text
+  };
+type Draft__39642067 =
+  {
+    icon : Text;
+    is_active : Bool;
+    open_mode : Text;
+    subtitle : ?Text;
+    title : Text;
+    url : Text
+  };
+type Exclusion__462576786 = {club : Text; user : Principal};
+type Exclusion__816714293 = {club : Text; user : Principal};
+type Family__359948053 = {account_id : Text; child_id : Text};
+type Family__589112616 = {account_id : Text; child_id : Text};
+type Guardian__109560915 = {child : Text; user : Principal};
+type Guardian__800114506 = {child : Text; user : Principal};
+type Link__525343951 =
+  {
+    club_id : Text;
+    created_at_ms : Nat64;
+    draft : Draft__1000124447;
+    id : Text;
+    sort_order : Nat32
+  };
+type Link__8310546 =
+  {
+    club_id : Text;
+    created_at_ms : Nat64;
+    draft : Draft__39642067;
+    id : Text;
+    sort_order : Nat32
+  };
+type Listing__1015496609 = {links : [Link__8310546]; revision : Nat64};
+type Listing__350354189 = {links : [Link__525343951]; revision : Nat64};
+type NewActor__260795035 =
+  {
+    var accountChallenges : [Challenge__451875225];
+    var accountExclusions : [AccountExclusion__540528443];
+    var accountFamilies : [Family__589112616];
+    var accountRoles : [AccountRole__938621019];
+    var accounts : [Account__81034989];
+    var acl : Acl__1000271646;
+    var aclVersion : Nat64;
+    var clubListings : [(Text, Listing__1015496609)];
+    var frozenClubs : [(Text, Nat64)];
+    var governor : Principal;
+    var nextChallengeId : Nat64;
+    var profiles : [ClubProfile__348325873];
+    var settings : [ClubSettings__9562197];
+    var sponsors : [ClubSponsor__36329789];
+    var teams : [ClubTeam__852155005]
+  };
+type OldActor__87171057 = {};
+type RoleGrant__416234965 =
+  {club : ?Text; role : Text; team : ?Text; user : Principal};
+type RoleGrant__620763574 =
+  {club : ?Text; role : Text; team : ?Text; user : Principal};
+type Team__221823353 = {club : Text; id : Text};
+type Team__55558721 = {club : Text; id : Text};
+{
+  "20260912_000000" : (_old : OldActor__87171057) -> NewActor__260795035
+}
+actor  {
+  stable var accountChallenges : [Challenge__556160379];
+  stable var accountExclusions : [AccountExclusion__842675230];
+  stable var accountFamilies : [Family__359948053];
+  stable var accountRoles : [AccountRole__435864822];
+  stable var accounts : [Account__345860826];
+  stable var acl :
+    {
+      children : [Child__786810129];
+      clubs : [Text];
+      exclusions : [Exclusion__816714293];
+      guardians : [Guardian__109560915];
+      roles : [RoleGrant__416234965];
+      teams : [Team__55558721]
+    };
+  stable var aclVersion : Nat64;
+  stable var clubListings : [(Text, Listing__350354189)];
+  stable var frozenClubs : [(Text, Nat64)];
+  stable var governor : Principal;
+  stable var nextChallengeId : Nat64;
+  stable var profiles : [ClubProfile__161387736];
+  stable var settings : [ClubSettings__563909598];
+  stable var sponsors : [ClubSponsor__447712544];
+  stable var teams : [ClubTeam__893483431]
+};

@@ -1,0 +1,59 @@
+type State = 
+ record {
+   assets: vec Asset;
+   capabilities: vec Capability;
+   governor: principal;
+   schema: nat32;
+ };
+type Capability = 
+ record {
+   action: text;
+   allowed: bool;
+   asset_id: text;
+   expires_at_ms: nat64;
+   owner: principal;
+   purpose: text;
+ };
+type Asset = 
+ record {
+   checksum: text;
+   child_sensitive: bool;
+   club_id: text;
+   content_length: nat64;
+   deleted: bool;
+   encrypted: bool;
+   expires_at_ms: nat64;
+   id: text;
+   kind: text;
+   mime: text;
+   owner: principal;
+   retention_until_ms: nat64;
+   storage_path: text;
+   visibility: text;
+ };
+service : {
+  delete_asset: (asset_id: text) -> (variant {
+                                       Err: text;
+                                       Ok: Asset;
+                                     });
+  export_state: () -> (variant {
+                         Err: text;
+                         Ok: State;
+                       }) query;
+  get_asset: (asset_id: text) -> (opt Asset) query;
+  initialize: () -> (variant {
+                       Err: text;
+                       Ok;
+                     });
+  issue_capability: (asset_id: text, action: text, purpose: text,
+   expires_at_ms: nat64) -> (variant {
+                               Err: text;
+                               Ok: Capability;
+                             });
+  register_asset: (club_id: text, kind: text, mime: text, checksum: text,
+   storage_path: text, visibility: text, expires_at_ms: nat64) ->
+   (variant {
+      Err: text;
+      Ok: Asset;
+    });
+}

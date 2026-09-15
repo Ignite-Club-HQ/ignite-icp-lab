@@ -1,0 +1,59 @@
+type Conversation = record {
+  id : text;
+  club_id : text;
+  team_id : opt text;
+  participants : vec principal;
+  next_sequence : nat64;
+};
+type Init = record { governor : principal };
+type Message = record {
+  conversation_id : text;
+  id : text;
+  sender : principal;
+  body : text;
+  sequence : nat64;
+  idempotency_key : text;
+};
+type MessagePage = record {
+  messages : vec Message;
+  next_sequence : opt nat64;
+  latest_sequence : nat64;
+};
+type Receipt = record {
+  conversation_id : text;
+  user : principal;
+  message_id : text;
+  read : bool;
+};
+type Unread = record {
+  conversation_id : text;
+  user : principal;
+  count : nat64;
+  last_read_sequence : nat64;
+};
+type Result = variant { Ok : Conversation; Err : text };
+type Result_1 = variant { Ok : Message; Err : text };
+type Result_2 = variant { Ok : Receipt; Err : text };
+type Result_3 = variant { Ok : State; Err : text };
+type Result_4 = variant { Ok : MessagePage; Err : text };
+type Result_5 = variant { Ok : Unread; Err : text };
+type Result_6 = variant { Ok : Message; Err : text };
+type State = record {
+  schema : nat32;
+  governor : principal;
+  conversations : vec Conversation;
+  messages : vec Message;
+  receipts : vec Receipt;
+  unread : vec Unread;
+};
+service : {
+  initialize : () -> (variant { Ok; Err : text });
+  create_conversation : (text, opt text, vec principal) -> (Result);
+  export_state : () -> (Result_3) query;
+  list_messages : (text, opt nat64) -> (vec Message) query;
+  list_messages_page : (text, opt nat64, nat16) -> (Result_4) query;
+  mark_read : (text, text) -> (Result_2);
+  send_message : (text, text, text) -> (Result_1);
+  unread_count : (text) -> (Result_5) query;
+  delete_message : (text) -> (Result_6);
+};

@@ -3,6 +3,9 @@ frontend/dist/
 .env
 .env.*
 !.env.example
-.icp/
+.icp/cache/
+.icp/data/mappings/local.ids.json
+.local-icp/
+target/
 *.pem
 frontend/.lab-cache/

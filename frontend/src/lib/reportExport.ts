@@ -1,5 +1,8 @@
 import { Capacitor } from "@capacitor/core";
 
+const loadOptionalNativeModule = (specifier: string) =>
+  new Function("moduleName", "return import(moduleName)")(specifier) as Promise<any>;
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || "report";
 }
@@ -27,7 +30,7 @@ async function writeTextFileNative(content: string, fileName: string): Promise<s
 }
 
 async function openTextFileNative(content: string, fileName: string, mimeType: string): Promise<void> {
-  const { FileOpener } = await import("@capacitor-community/file-opener");
+  const { FileOpener } = await loadOptionalNativeModule("@capacitor-community/file-opener");
   const uri = await writeTextFileNative(content, fileName);
 
   await FileOpener.open({

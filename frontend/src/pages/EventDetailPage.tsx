@@ -117,6 +117,8 @@ import { hasGameBoardSupport } from "@/lib/sportDetection";
 import { resolveEventRecipients, eventRecipientContext } from "@/features/events/eventRecipientPolicy";
 import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds } from "@/features/events/reminderRecipients";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -312,6 +314,7 @@ const AttendeeCard = ({
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, profile, refreshProfile } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
@@ -343,7 +346,7 @@ export default function EventDetailPage() {
   const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
   const { data: recentReminderMap } = useQuery({
     queryKey: ["event-recent-reminders", id],
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
     queryFn: async () => {
@@ -372,6 +375,10 @@ export default function EventDetailPage() {
   const { data: event, isLoading, error: eventError, isFetching: isEventFetching } = useQuery({
     queryKey: ["event", id],
     queryFn: async () => {
+      if (useIcpLab && id) {
+        return fixtureData.getLocalLabEventList().find((fixtureEvent) => fixtureEvent.id === id) ?? null;
+      }
+
       const { data, error } = await supabase
         .from("events")
         .select(`*, teams (name, default_match_arrival_minutes, default_rsvp_audience), clubs!club_id (name, is_pro, sport)`)
@@ -434,6 +441,8 @@ export default function EventDetailPage() {
   } = useQuery({
     queryKey: ["event-rsvps", id],
     queryFn: async () => {
+      if (useIcpLab) return [];
+
       // Fetch rsvps first
       const { data: rsvpData, error: rsvpError } = await supabase
         .from("rsvps")
@@ -506,6 +515,8 @@ export default function EventDetailPage() {
   const { data: eventGuests } = useQuery({
     queryKey: ["event-guests", id],
     queryFn: async () => {
+      if (useIcpLab) return [];
+
       const { data, error } = await supabase
         .from("event_guests")
         .select("*")
@@ -533,6 +544,8 @@ export default function EventDetailPage() {
   const { data: teamPlayerAdultIds } = useQuery({
     queryKey: ["team-player-adult-ids", (event as any)?.team_id],
     queryFn: async () => {
+      if (useIcpLab) return new Set<string>();
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -541,7 +554,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return new Set((data || []).map((r: any) => r.user_id as string));
     },
-    enabled: !!(event as any)?.team_id,
+    enabled: !!(event as any)?.team_id && !useIcpLab,
     staleTime: 60_000,
   });
 
@@ -551,6 +564,8 @@ export default function EventDetailPage() {
   const { data: clubPlayerAdultIds } = useQuery({
     queryKey: ["club-player-adult-ids", (event as any)?.club_id, (event as any)?.team_id],
     queryFn: async () => {
+      if (useIcpLab) return new Set<string>();
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -559,7 +574,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return new Set((data || []).map((r: any) => r.user_id as string));
     },
-    enabled: !!(event as any)?.club_id && !(event as any)?.team_id,
+    enabled: !!(event as any)?.club_id && !(event as any)?.team_id && !useIcpLab,
     staleTime: 60_000,
   });
 
@@ -576,6 +591,8 @@ export default function EventDetailPage() {
   const { data: duties, isLoading: isDutiesLoading } = useQuery({
     queryKey: ["event-duties", id],
     queryFn: async () => {
+      if (useIcpLab) return [];
+
       const { data, error } = await supabase
         .from("duties")
         .select(`*, profiles:assigned_to (display_name, avatar_url)`)
@@ -601,7 +618,7 @@ export default function EventDetailPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Check if user is admin for this event
@@ -647,7 +664,7 @@ export default function EventDetailPage() {
       
       return false;
     },
-    enabled: !!user && !!event,
+    enabled: !!user && !!event && !useIcpLab,
   });
 
   // Check if team has Pro Football subscription (for pitch board) or club has Pro Football
@@ -678,7 +695,7 @@ export default function EventDetailPage() {
       
       return false;
     },
-    enabled: !!event?.team_id,
+    enabled: !!event?.team_id && !useIcpLab,
   });
   
   // Check if team/club has Pro subscription (for other features like RSVP reminders)
@@ -711,7 +728,7 @@ export default function EventDetailPage() {
       
       return false;
     },
-    enabled: !!event?.team_id || !!event?.club_id,
+    enabled: (!!event?.team_id || !!event?.club_id) && !useIcpLab,
   });
 
   // Pro feature check: duty points only for Pro clubs/teams or app_admin
@@ -756,7 +773,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return (data || []).some((d: any) => normalizeDutyName(d.name) === "subs manager");
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!user && !useIcpLab,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -790,7 +807,7 @@ export default function EventDetailPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user && !!event?.team_id && !canAccessPitchBoard,
+    enabled: !!user && !!event?.team_id && !canAccessPitchBoard && !useIcpLab,
   });
 
   // Check if a game is currently in progress (for read-only spectator mode)
@@ -805,7 +822,7 @@ export default function EventDetailPage() {
         .maybeSingle();
       return data;
     },
-    enabled: !!id && !!isTeamMember && !canAccessPitchBoard && event?.type === 'game' && !!isSoccerClub && hasProFootball === true,
+    enabled: !!id && !!isTeamMember && !canAccessPitchBoard && !useIcpLab && event?.type === 'game' && !!isSoccerClub && hasProFootball === true,
     refetchInterval: 30000, // Poll every 30s to detect game start
   });
 
@@ -913,7 +930,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!event?.team_id && !!(canAccessPitchBoard || canViewPitchBoardReadOnly),
+    enabled: !!event?.team_id && !!(canAccessPitchBoard || canViewPitchBoardReadOnly) && !useIcpLab,
   });
 
   // Fetch team/club members for duty assignment and not responded list (with roles)
@@ -971,7 +988,7 @@ export default function EventDetailPage() {
       }));
 
     },
-    enabled: !!event,
+    enabled: !!event && !useIcpLab,
   });
 
   // Fetch mini-league players for mini-league events (for not responded list).
@@ -1221,12 +1238,13 @@ export default function EventDetailPage() {
       childrenTargetKey,
       user?.id,
     ],
-    queryFn: () =>
-      resolveRsvpChildren({
-        event: event as any,
-        userId: user?.id ?? null,
-        teamDefaultAudience: (event as any)?.teams?.default_rsvp_audience ?? null,
-      }),
+    queryFn: () => useIcpLab
+      ? [{ id: "child-icp-001", name: "ICP Junior", parent_id: user?.id ?? null }]
+      : resolveRsvpChildren({
+          event: event as any,
+          userId: user?.id ?? null,
+          teamDefaultAudience: (event as any)?.teams?.default_rsvp_audience ?? null,
+        }),
     enabled: !!user && !!(event?.team_id || event?.club_id),
   });
 
@@ -1246,7 +1264,7 @@ export default function EventDetailPage() {
   // SECURITY DEFINER RPC returns the minimum roster for THIS event only.
   const scopedRosterQuery = useQuery({
     queryKey: ["targeted-event-roster", id],
-    enabled: !!id && !!targetTeamIdsForFetch && !!(isAdmin || isAppAdmin),
+    enabled: !!id && !!targetTeamIdsForFetch && !!(isAdmin || isAppAdmin) && !useIcpLab,
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_targeted_event_attendance_roster", {
@@ -1302,11 +1320,12 @@ export default function EventDetailPage() {
       (event as any)?.rsvp_audience,
       targetTeamIdsForFetch ? [...targetTeamIdsForFetch].sort().join(",") : "",
     ],
-    queryFn: () =>
-      resolveEventChildRoster({
-        event: event as any,
-        teamDefaultAudience: (event as any)?.teams?.default_rsvp_audience ?? null,
-      }),
+    queryFn: () => useIcpLab
+      ? [{ id: "child-icp-001", name: "ICP Junior", parent_id: user?.id ?? null }]
+      : resolveEventChildRoster({
+          event: event as any,
+          teamDefaultAudience: (event as any)?.teams?.default_rsvp_audience ?? null,
+        }),
     enabled: !!event && !!(event.team_id || event.club_id),
   });
 
@@ -1346,7 +1365,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: childIdsOnTeam.length > 0,
+    enabled: childIdsOnTeam.length > 0 && !useIcpLab,
   });
 
   // Adults linked to an in-scope child are part of the event audience even
@@ -1381,7 +1400,7 @@ export default function EventDetailPage() {
         role_team_pairs: [],
       }));
     },
-    enabled: !!event && linkedAdultIdsForAttendance.length > 0,
+    enabled: !!event && linkedAdultIdsForAttendance.length > 0 && !useIcpLab,
   });
 
 
@@ -1422,6 +1441,8 @@ export default function EventDetailPage() {
   const { data: payments } = useQuery({
     queryKey: ["event-payments", id],
     queryFn: async () => {
+      if (useIcpLab) return [];
+
       const { data, error } = await supabase
         .from("event_payments")
         .select("user_id")
@@ -1429,7 +1450,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!id && !!(isAdmin || isAppAdmin),
+    enabled: !!id && !!(isAdmin || isAppAdmin) && !useIcpLab,
   });
 
   // Create set of paid user IDs for quick lookup
@@ -1439,7 +1460,7 @@ export default function EventDetailPage() {
   const isGameEvent = event?.type === "game" && !!event?.team_id;
   const { data: matchCaptainRow } = useQuery({
     queryKey: ["match-captain", id, "marker"],
-    enabled: !!id && isGameEvent,
+    enabled: !!id && isGameEvent && !useIcpLab,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("match_captains")
@@ -1452,7 +1473,7 @@ export default function EventDetailPage() {
   });
   const { data: potmRow } = useQuery({
     queryKey: ["player-of-match", id, "marker"],
-    enabled: !!id && isGameEvent,
+    enabled: !!id && isGameEvent && !useIcpLab,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("player_of_match")
@@ -1465,7 +1486,7 @@ export default function EventDetailPage() {
   });
   const { data: goalkeeperRows = [] } = useQuery({
     queryKey: ["match-goalkeepers", id],
-    enabled: !!id && isGameEvent,
+    enabled: !!id && isGameEvent && !useIcpLab,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("match_goalkeepers" as any)
@@ -1510,6 +1531,15 @@ export default function EventDetailPage() {
 
   const handlePayNow = async () => {
     if (!event || !user || !eventPrice) return;
+
+    if (useIcpLab) {
+      toast({
+        title: "Payments are disabled in ICP lab mode",
+        description: "This synthetic event cannot create a real checkout session.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     
     setIsProcessingPayment(true);
@@ -1651,6 +1681,30 @@ export default function EventDetailPage() {
 
   const rsvpMutation = useMutation({
     mutationFn: async (status: RsvpStatus) => {
+      if (useIcpLab) {
+        const localRsvp = {
+          id: myRsvp?.id || `local-rsvp-${id}-${user?.id}`,
+          event_id: id,
+          user_id: user?.id,
+          child_id: null,
+          status,
+          notes: rsvpNotes || null,
+          source: "user",
+          profiles: {
+            display_name: profile?.display_name || "Local ICP Member",
+            avatar_url: profile?.avatar_url || null,
+          },
+          children: null,
+        };
+        queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+          const rows = Array.isArray(current) ? current : [];
+          const existingIndex = rows.findIndex((row: any) => row.user_id === user?.id && !row.child_id);
+          if (existingIndex < 0) return [...rows, localRsvp];
+          return rows.map((row: any, index) => index === existingIndex ? { ...row, ...localRsvp } : row);
+        });
+        return;
+      }
+
       let rsvpId: string | null = null;
 
       // Offline path: queue the RSVP, return early
@@ -1701,6 +1755,8 @@ export default function EventDetailPage() {
       // RSVP notifications are handled by the on_rsvp_notify_admins database trigger
     },
     onSuccess: (_data, status) => {
+      if (useIcpLab) return;
+
       queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
       queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
       queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
@@ -1737,6 +1793,28 @@ export default function EventDetailPage() {
   const childRsvpMutation = useMutation({
     mutationFn: async ({ childId, status, childName }: { childId: string; status: RsvpStatus; childName?: string }) => {
       const existingRsvp = childRsvps.find((r) => r.child_id === childId);
+
+      if (useIcpLab) {
+        const localRsvp = {
+          id: existingRsvp?.id || `local-child-rsvp-${id}-${childId}`,
+          event_id: id,
+          user_id: user?.id,
+          child_id: childId,
+          status,
+          notes: existingRsvp?.notes || null,
+          source: "user",
+          profiles: null,
+          children: { id: childId, name: childName || "ICP Junior" },
+        };
+        queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+          const rows = Array.isArray(current) ? current : [];
+          const existingIndex = rows.findIndex((row: any) => row.child_id === childId);
+          if (existingIndex < 0) return [...rows, localRsvp];
+          return rows.map((row: any, index) => index === existingIndex ? { ...row, ...localRsvp } : row);
+        });
+        return;
+      }
+
       let rsvpId: string | null = null;
       
       if (existingRsvp) {
@@ -1784,6 +1862,8 @@ export default function EventDetailPage() {
       // RSVP notifications are handled by the on_rsvp_notify_admins database trigger
     },
     onSuccess: () => {
+      if (useIcpLab) return;
+
       queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
       queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
       queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
@@ -1974,6 +2054,16 @@ export default function EventDetailPage() {
   // Toggle payment status mutation
   const togglePaymentMutation = useMutation({
     mutationFn: async ({ userId, isPaid }: { userId: string; isPaid: boolean }) => {
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-payments", id], (current: unknown) => {
+          const rows = Array.isArray(current) ? current : [];
+          if (isPaid) return rows.filter((row: any) => row.user_id !== userId);
+          if (rows.some((row: any) => row.user_id === userId)) return rows;
+          return [...rows, { user_id: userId }];
+        });
+        return;
+      }
+
       if (isPaid) {
         // Remove payment record
         const { error } = await supabase
@@ -1997,6 +2087,11 @@ export default function EventDetailPage() {
       }
     },
     onSuccess: (_, variables) => {
+      if (useIcpLab) {
+        toast({ title: variables.isPaid ? "Payment removed locally" : "Marked as paid locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-payments", id] });
       toast({ title: variables.isPaid ? "Payment removed" : "Marked as paid" });
     },
@@ -2012,6 +2107,23 @@ export default function EventDetailPage() {
   // Add duty mutation
   const addDutyMutation = useMutation({
     mutationFn: async (args: { dutyName: string; startTime?: string; endTime?: string }) => {
+      if (useIcpLab) {
+        const localDuty = {
+          id: `local-duty-${id}-${Date.now()}`,
+          event_id: id,
+          name: args.dutyName,
+          status: "open" as DutyStatus,
+          assigned_to: null,
+          completed_at: null,
+          profiles: null,
+        };
+        queryClient.setQueryData(["event-duties", id], (current: unknown) => [
+          ...(Array.isArray(current) ? current : []),
+          localDuty,
+        ]);
+        return;
+      }
+
       // Combine event date with optional HH:MM times into ISO timestamps
       const buildTs = (hhmm?: string): string | null => {
         if (!hhmm || !event) return null;
@@ -2031,6 +2143,14 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        setNewDutyName("");
+        setSelectedPresetDuty("");
+        setAddDutyOpen(false);
+        toast({ title: "Duty added locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       setNewDutyName("");
       setSelectedPresetDuty("");
@@ -2049,6 +2169,17 @@ export default function EventDetailPage() {
   // Claim duty mutation
   const claimDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+          (Array.isArray(current) ? current : []).map((duty: any) =>
+            duty.id === dutyId
+              ? { ...duty, assigned_to: user?.id, profiles: { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } }
+              : duty,
+          ),
+        );
+        return;
+      }
+
       const { error } = await supabase
         .from("duties")
         .update({ assigned_to: user?.id })
@@ -2056,6 +2187,11 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        toast({ title: "Duty claimed locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       toast({ title: "Duty claimed!" });
     },
@@ -2083,6 +2219,17 @@ export default function EventDetailPage() {
     mutationFn: async (dutyId: string) => {
       // Get duty details before updating
       const duty = duties?.find(d => d.id === dutyId);
+
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+          (Array.isArray(current) ? current : []).map((row: any) =>
+            row.id === dutyId
+              ? { ...row, status: "completed" as DutyStatus, completed_at: new Date().toISOString() }
+              : row,
+          ),
+        );
+        return { outcome: "completed" as const };
+      }
 
       // Guard against premature completion — duties can only be marked complete
       // from match arrival time (for games) or event start time onwards.
@@ -2149,6 +2296,11 @@ export default function EventDetailPage() {
       return { outcome: "completed" as const };
     },
     onSuccess: (result) => {
+      if (useIcpLab) {
+        toast({ title: "Duty completed locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       if (result?.outcome === "completed") {
         toast({ title: "Duty completed!" });
@@ -2179,6 +2331,15 @@ export default function EventDetailPage() {
   // Undo duty completion (in case of accidental tap)
   const uncompleteDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+          (Array.isArray(current) ? current : []).map((row: any) =>
+            row.id === dutyId ? { ...row, status: "open" as DutyStatus, completed_at: null } : row,
+          ),
+        );
+        return;
+      }
+
       const { error } = await supabase
         .from("duties")
         .update({ status: "open" as DutyStatus, completed_at: null })
@@ -2186,6 +2347,11 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        toast({ title: "Duty reopened locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       toast({ title: "Marked as not complete" });
     },
@@ -2200,10 +2366,22 @@ export default function EventDetailPage() {
 
   const deleteDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+          (Array.isArray(current) ? current : []).filter((row: any) => row.id !== dutyId),
+        );
+        return;
+      }
+
       const { error } = await supabase.from("duties").delete().eq("id", dutyId);
       if (error) throw error;
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        toast({ title: "Duty removed locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       toast({ title: "Duty removed" });
     },
@@ -2212,6 +2390,17 @@ export default function EventDetailPage() {
   const assignDutyMutation = useMutation({
     mutationFn: async (userId: string | null) => {
       if (!selectedDutyId) return;
+
+      if (useIcpLab) {
+        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+          (Array.isArray(current) ? current : []).map((row: any) =>
+            row.id === selectedDutyId
+              ? { ...row, assigned_to: userId, profiles: userId === user?.id ? { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } : null }
+              : row,
+          ),
+        );
+        return;
+      }
       
       // Get the duty to check if it was previously unassigned
       const { data: dutyBefore } = await supabase
@@ -2238,6 +2427,14 @@ export default function EventDetailPage() {
       }
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        setAssignDialogOpen(false);
+        setSelectedDutyId(null);
+        setSelectedUserId("");
+        toast({ title: "Duty assignment updated locally" });
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
       setAssignDialogOpen(false);
       setSelectedDutyId(null);

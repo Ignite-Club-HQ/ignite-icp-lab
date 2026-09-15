@@ -1,0 +1,68 @@
+// Version: 4.0.0
+type Asset__386706430 =
+  {
+    checksum : Text;
+    child_sensitive : Bool;
+    club_id : Text;
+    content_length : Nat64;
+    deleted : Bool;
+    encrypted : Bool;
+    expires_at_ms : Nat64;
+    id : Text;
+    kind : Text;
+    mime : Text;
+    owner : Principal;
+    retention_until_ms : Nat64;
+    storage_path : Text;
+    visibility : Text
+  };
+type Asset__977198423 =
+  {
+    checksum : Text;
+    child_sensitive : Bool;
+    club_id : Text;
+    content_length : Nat64;
+    deleted : Bool;
+    encrypted : Bool;
+    expires_at_ms : Nat64;
+    id : Text;
+    kind : Text;
+    mime : Text;
+    owner : Principal;
+    retention_until_ms : Nat64;
+    storage_path : Text;
+    visibility : Text
+  };
+type Capability__20497438 =
+  {
+    action : Text;
+    allowed : Bool;
+    asset_id : Text;
+    expires_at_ms : Nat64;
+    owner : Principal;
+    purpose : Text
+  };
+type Capability__588632120 =
+  {
+    action : Text;
+    allowed : Bool;
+    asset_id : Text;
+    expires_at_ms : Nat64;
+    owner : Principal;
+    purpose : Text
+  };
+type NewActor__926606938 =
+  {
+    var assets : [Asset__977198423];
+    var capabilities : [Capability__20497438];
+    var governor : Principal
+  };
+type OldActor__619190206 = {};
+{
+  "20260912_000000" : (_old : OldActor__619190206) -> NewActor__926606938
+}
+actor  {
+  stable var assets : [Asset__386706430];
+  stable var capabilities : [Capability__588632120];
+  stable var governor : Principal
+};

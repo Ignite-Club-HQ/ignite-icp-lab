@@ -1,0 +1,72 @@
+// Version: 4.0.0
+type Conversation__1027848704 =
+  {
+    club_id : Text;
+    id : Text;
+    next_sequence : Nat64;
+    participants : [Principal];
+    team_id : ?Text
+  };
+type Conversation__994485044 =
+  {
+    club_id : Text;
+    id : Text;
+    next_sequence : Nat64;
+    participants : [Principal];
+    team_id : ?Text
+  };
+type Message__783466573 =
+  {
+    body : Text;
+    conversation_id : Text;
+    id : Text;
+    idempotency_key : Text;
+    sender : Principal;
+    sequence : Nat64
+  };
+type Message__958168791 =
+  {
+    body : Text;
+    conversation_id : Text;
+    id : Text;
+    idempotency_key : Text;
+    sender : Principal;
+    sequence : Nat64
+  };
+type NewActor__716563908 =
+  {
+    var conversations : [Conversation__994485044];
+    var governor : Principal;
+    var messages : [Message__783466573];
+    var receipts : [Receipt__612791904];
+    var unread : [Unread__994429873]
+  };
+type OldActor__663678379 = {};
+type Receipt__327386850 =
+  {conversation_id : Text; message_id : Text; read : Bool; user : Principal};
+type Receipt__612791904 =
+  {conversation_id : Text; message_id : Text; read : Bool; user : Principal};
+type Unread__188605990 =
+  {
+    conversation_id : Text;
+    count : Nat64;
+    last_read_sequence : Nat64;
+    user : Principal
+  };
+type Unread__994429873 =
+  {
+    conversation_id : Text;
+    count : Nat64;
+    last_read_sequence : Nat64;
+    user : Principal
+  };
+{
+  "20260912_000000" : (_old : OldActor__663678379) -> NewActor__716563908
+}
+actor  {
+  stable var conversations : [Conversation__1027848704];
+  stable var governor : Principal;
+  stable var messages : [Message__958168791];
+  stable var receipts : [Receipt__327386850];
+  stable var unread : [Unread__188605990]
+};

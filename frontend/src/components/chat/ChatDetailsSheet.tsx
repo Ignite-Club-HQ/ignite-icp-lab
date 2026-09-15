@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isVideoUrl } from "@/lib/videoUtils";
 import { cn } from "@/lib/utils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export type ChatDetailsType = ChatSharedMediaType | "support";
 
@@ -76,6 +77,7 @@ export function ChatDetailsSheet({
   onInviteToMiniLeague,
   onInviteToTeam,
 }: ChatDetailsSheetProps) {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
@@ -90,7 +92,7 @@ export function ChatDetailsSheet({
     chatId,
     // Scan a wider window of recent messages so the preview strip can show
     // up to 8 photos even when recent messages are mostly text/links.
-    { limit: 80, enabled: open },
+    { limit: 80, enabled: open && !useIcpLab },
   );
 
   const close = () => onOpenChange(false);
@@ -110,7 +112,7 @@ export function ChatDetailsSheet({
   const resolvedTeamIdForClub = chatType === "team" ? chatId : teamId;
   const { data: derivedClubId } = useQuery({
     queryKey: ["chat-details-sheet-club-id", resolvedTeamIdForClub, clubId, chatType, chatId],
-    enabled: open && !clubId && (chatType === "team" || (chatType === "group" && !!resolvedTeamIdForClub)),
+    enabled: open && !useIcpLab && !clubId && (chatType === "team" || (chatType === "group" && !!resolvedTeamIdForClub)),
     staleTime: 60_000,
     queryFn: async () => {
       if (!resolvedTeamIdForClub) return null;

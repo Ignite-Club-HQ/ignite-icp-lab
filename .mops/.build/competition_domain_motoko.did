@@ -1,0 +1,115 @@
+type TeamEntry = 
+ record {
+   club_id: text;
+   competition_id: text;
+   status: text;
+   team_id: text;
+ };
+type State = 
+ record {
+   competitions: vec Competition;
+   entries: vec TeamEntry;
+   governor: principal;
+   matches: vec Match;
+   roles: vec RoleGrant;
+   schema: nat32;
+   seasons: vec Season;
+   tokens: vec JoinToken;
+ };
+type Season = 
+ record {
+   competition_id: text;
+   name: text;
+   revision: nat64;
+   status: text;
+ };
+type RoleGrant = 
+ record {
+   competition_id: text;
+   role: text;
+   team_id: opt text;
+   user: principal;
+ };
+type Match = 
+ record {
+   away_score: nat16;
+   away_team: text;
+   competition_id: text;
+   home_score: nat16;
+   home_team: text;
+   id: text;
+   revision: nat64;
+   status: text;
+ };
+type JoinToken = 
+ record {
+   competition_id: text;
+   expires_at_ms: nat64;
+   id: text;
+   issued_by: principal;
+   team_id: text;
+   used: bool;
+ };
+type Competition = 
+ record {
+   club_id: text;
+   id: text;
+   name: text;
+   revision: nat64;
+   season: text;
+   status: text;
+ };
+service : {
+  claim_join_token: (token_id: text) -> (variant {
+                                           Err: text;
+                                           Ok: text;
+                                         });
+  create_competition: (club_id: text, name: text, season: text) ->
+   (variant {
+      Err: text;
+      Ok: Competition;
+    });
+  create_season: (competition_id: text, name: text) ->
+   (variant {
+      Err: text;
+      Ok: Season;
+    });
+  export_state: () -> (variant {
+                         Err: text;
+                         Ok: State;
+                       }) query;
+  grant_role: ("principal": principal, role: text, competition_id: text,
+   team_id: opt text) -> (variant {
+                            Err: text;
+                            Ok;
+                          });
+  initialize: () -> (variant {
+                       Err: text;
+                       Ok;
+                     });
+  issue_join_token: (competition_id: text, team_id: text, expires_at_ms:
+   nat64) -> (variant {
+                Err: text;
+                Ok: JoinToken;
+              });
+  record_match: (competition_id: text, home_team: text, away_team: text) ->
+   (variant {
+      Err: text;
+      Ok: Match;
+    });
+  register_team: (competition_id: text, team_id: text, club_id: text) ->
+   (variant {
+      Err: text;
+      Ok: TeamEntry;
+    });
+  set_match_result: (match_id: text, home_score: nat16, away_score: nat16,
+   expected_revision: nat64) -> (variant {
+                                   Err: text;
+                                   Ok: Match;
+                                 });
+  set_season_status: (competition_id: text, status: text, expected_revision:
+   nat64) -> (variant {
+                Err: text;
+                Ok: Season;
+              });
+}

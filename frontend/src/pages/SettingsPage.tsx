@@ -20,6 +20,7 @@ import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 // Check if we're on native platform at module load time
 let isNativePlatform = false;
@@ -63,6 +64,7 @@ interface EmailPreferences {
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   usePageTitle("Settings");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -77,7 +79,7 @@ export default function SettingsPage() {
   // Check if user is app admin
   useEffect(() => {
     const checkAppAdmin = async () => {
-      if (!user) return;
+      if (!user || useIcpLab) return;
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -87,7 +89,7 @@ export default function SettingsPage() {
       setIsAppAdmin(!!data);
     };
     checkAppAdmin();
-  }, [user]);
+  }, [user, useIcpLab]);
   
   // Push notification state
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -128,7 +130,7 @@ export default function SettingsPage() {
   // Load notification preferences
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!user) return;
+      if (!user || useIcpLab) return;
       
       const { data } = await supabase
         .from("notification_preferences")
@@ -160,12 +162,12 @@ export default function SettingsPage() {
     };
     
     loadPreferences();
-  }, [user]);
+  }, [user, useIcpLab]);
 
   // Load AI Chat Recap preference from profile
   useEffect(() => {
     const loadAiPref = async () => {
-      if (!user) return;
+      if (!user || useIcpLab) return;
       const { data } = await supabase
         .from("profiles")
         .select("ai_catch_up_enabled")
@@ -174,10 +176,10 @@ export default function SettingsPage() {
       if (data) setAiCatchUpEnabled((data as any).ai_catch_up_enabled ?? true);
     };
     loadAiPref();
-  }, [user]);
+  }, [user, useIcpLab]);
 
   const handleAiCatchUpChange = async (value: boolean) => {
-    if (!user) return;
+    if (!user || useIcpLab) return;
     setAiCatchUpLoading(true);
     const prev = aiCatchUpEnabled;
     setAiCatchUpEnabled(value);
@@ -276,7 +278,7 @@ export default function SettingsPage() {
   };
 
   const handlePreferenceChange = async (key: keyof NotificationPreferences, value: boolean) => {
-    if (!user) return;
+    if (!user || useIcpLab) return;
     
     const newPrefs = { ...preferences, [key]: value };
     setPreferences(newPrefs);
@@ -297,7 +299,7 @@ export default function SettingsPage() {
   };
 
   const handleEmailPreferenceChange = async (key: keyof EmailPreferences, value: boolean) => {
-    if (!user) return;
+    if (!user || useIcpLab) return;
     
     const newPrefs = { ...emailPreferences, [key]: value };
     setEmailPreferences(newPrefs);
@@ -318,7 +320,7 @@ export default function SettingsPage() {
   };
 
   const handleTestPush = async () => {
-    if (!user) return;
+    if (!user || useIcpLab) return;
     
     setTestingPush(true);
     toast({
@@ -435,7 +437,7 @@ export default function SettingsPage() {
                 localStorage.setItem('app-theme', newTheme);
                 setTheme(newTheme);
                 
-                if (user) {
+                if (user && !useIcpLab) {
                   try {
                     await supabase.from('profiles').update({ theme_preference: newTheme }).eq('id', user.id);
                   } catch (err) {

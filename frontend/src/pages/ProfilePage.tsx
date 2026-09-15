@@ -23,6 +23,7 @@ import { getSportEmoji } from "@/lib/sportEmojis";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { useUserClubPoints } from "@/hooks/useClubPoints";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 import igniteIcon from "@/assets/ignite-icon.png";
 
@@ -34,6 +35,7 @@ function getOrdinalSuffix(n: number): string {
 
 export default function ProfilePage() {
   const { user, profile, signOut } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const notificationNudge = useNotificationNudge(user?.id, "settings");
   usePageTitle("Profile");
   const { toast } = useToast();
@@ -96,7 +98,7 @@ export default function ProfilePage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !useIcpLab,
     staleTime: 0,
     refetchOnMount: true,
   });
@@ -114,7 +116,7 @@ export default function ProfilePage() {
         .limit(1);
       return data && data.length > 0;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Check if user has pro access
@@ -163,7 +165,7 @@ export default function ProfilePage() {
         sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override
       );
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Fetch user's clubs and teams
@@ -208,7 +210,7 @@ export default function ProfilePage() {
 
       return { clubs, teams };
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Fetch points history
@@ -230,7 +232,7 @@ export default function ProfilePage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Legacy duty history
@@ -257,7 +259,7 @@ export default function ProfilePage() {
       
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Redemption history
@@ -278,7 +280,7 @@ export default function ProfilePage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Combine points history
@@ -375,7 +377,7 @@ export default function ProfilePage() {
         points: row.points as number,
       };
     },
-    enabled: !!user && hasProAccess === true && !!activeClubFilter,
+    enabled: !!user && !useIcpLab && hasProAccess === true && !!activeClubFilter,
   });
 
   // Season-scoped rank (only when a specific season is selected within a filtered club)
@@ -393,7 +395,7 @@ export default function ProfilePage() {
       if (!row || !row.rank) return null;
       return { rank: row.rank as number, total: row.total as number, points: row.points as number };
     },
-    enabled: !!user && hasProAccess === true && !!activeClubFilter && selectedSeasonId !== "all",
+    enabled: !!user && !useIcpLab && hasProAccess === true && !!activeClubFilter && selectedSeasonId !== "all",
   });
 
   const displayedRank = selectedSeasonId !== "all" ? seasonRankData : rankData;
@@ -466,7 +468,7 @@ export default function ProfilePage() {
         subscription: subscriptions?.find(s => s.club_id === club.id) || null
       }));
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
     staleTime: 0,
   });
 
@@ -529,7 +531,7 @@ export default function ProfilePage() {
         clubSubscription: clubSubMap.get(team.club_id) || null
       }));
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Auto-expand team plans if no club plans exist but team plans do

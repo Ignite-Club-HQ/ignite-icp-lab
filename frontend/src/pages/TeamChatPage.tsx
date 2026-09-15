@@ -46,6 +46,8 @@ import MemberDetailSheet from "@/components/MemberDetailSheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -214,6 +216,7 @@ export default function TeamChatPage() {
   }, []);
   const { teamId } = useParams<{ teamId: string }>();
   const { user, profile, refreshUnreadCount, decrementUnreadCount, initialized } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
   const navigate = useNavigate();
@@ -385,6 +388,10 @@ export default function TeamChatPage() {
     setSearchQuery("");
     setSearchOpen(false);
     if (target?.created_at && teamId) {
+      if (useIcpLab) {
+        requestAnimationFrame(() => handleJumpToMessage(mid));
+        return;
+      }
       try {
         const ctx = await fetchMessagesAround({
           table: "team_messages",
@@ -419,6 +426,10 @@ export default function TeamChatPage() {
   } = useQuery({
     queryKey: ["team", teamId],
     queryFn: async () => {
+      if (useIcpLab && teamId) {
+        return fixtureData.getLocalLabChatTeam(teamId);
+      }
+
       const { data, error } = await supabase
         .from("teams")
         .select("*, clubs!club_id (name, id, logo_url)")
@@ -512,7 +523,7 @@ export default function TeamChatPage() {
       
       return !!teamRoleResult.data || !!clubRoleResult.data || !!appAdminResult.data;
     },
-    enabled: !!teamId && authReady && !!user?.id,
+    enabled: !!teamId && authReady && !!user?.id && !useIcpLab,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -609,6 +620,14 @@ export default function TeamChatPage() {
     queryKey: ["team-messages", teamId],
     queryFn: async () => {
       markChatFetch();
+      if (useIcpLab && teamId && user?.id) {
+        return {
+          messages: fixtureData.getLocalLabTeamMessages(teamId, user.id) as unknown as Message[],
+          hasOlderMessages: false,
+          fromCache: true,
+        };
+      }
+
       // If offline, return cached messages using the React Query online manager
       // so native app resume does not incorrectly fall back to stale cache.
       if (!isOnline) {
@@ -1159,6 +1178,10 @@ export default function TeamChatPage() {
   const loadOlderMessages = useCallback(async () => {
     const currentMessages = localMessagesRef.current;
     if (!currentMessages?.length || isLoadingOlder || !hasOlderMessages) return;
+    if (useIcpLab) {
+      setHasOlderMessages(false);
+      return;
+    }
 
     setIsLoadingOlder(true);
 
@@ -1276,7 +1299,7 @@ export default function TeamChatPage() {
     } finally {
       setIsLoadingOlder(false);
     }
-  }, [teamId, queryClient, isLoadingOlder, hasOlderMessages, queueAnchoredPrepend]);
+  }, [teamId, queryClient, isLoadingOlder, hasOlderMessages, queueAnchoredPrepend, useIcpLab]);
 
   // Keep the loader ref in sync for the anchor hook to call.
   useEffect(() => {
@@ -1287,7 +1310,7 @@ export default function TeamChatPage() {
   // pushes can arrive before the latest query contains the new row, especially
   // on Android cold-starts, so replace first paint with a small target window.
   useEffect(() => {
-    if (!targetMessageId || !teamId || !authReady) return;
+    if (!targetMessageId || !teamId || !authReady || useIcpLab) return;
     let cancelled = false;
 
     const hydrateTargetWindow = async () => {
@@ -1346,15 +1369,15 @@ export default function TeamChatPage() {
   const { mode: teamRealtimeMode, intervalMs: teamPollIntervalMs } = useClubRealtimeMode(team?.club_id ?? null);
 
   useEffect(() => {
-    if (!teamId || teamRealtimeMode !== "polling") return;
+    if (!teamId || useIcpLab || teamRealtimeMode !== "polling") return;
     const id = window.setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
     }, teamPollIntervalMs);
     return () => window.clearInterval(id);
-  }, [teamId, teamRealtimeMode, teamPollIntervalMs, queryClient]);
+  }, [teamId, teamRealtimeMode, teamPollIntervalMs, queryClient, useIcpLab]);
 
   useEffect(() => {
-    if (!teamId) return;
+    if (!teamId || useIcpLab) return;
     if (teamRealtimeMode === "polling") return;
 
     const channel = supabase
@@ -1605,6 +1628,9 @@ export default function TeamChatPage() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async ({ text, image_url, reply_to_id }: { text: string; image_url: string | null; reply_to_id: string | null }) => {
+      // Lab mode: optimistic cache-only delivery, no backend write and no persistence.
+      if (useIcpLab) return deliveredSend();
+
       // If offline, queue the message instead
       if (!navigator.onLine) {
         queueMessage({
@@ -1744,6 +1770,8 @@ export default function TeamChatPage() {
     },
 
     onSettled: (_, __, variables) => {
+      if (useIcpLab) return;
+
       // Invalidate messages page preview so latest message shows
       queryClient.invalidateQueries({ queryKey: ["my-teams-with-messages"] });
       // Award engagement points (fire and forget)
@@ -1763,12 +1791,27 @@ export default function TeamChatPage() {
   const updateMessageMutation = useMutation({
     mutationFn: async () => {
       if (!editingMessage) return;
+      if (useIcpLab) {
+        const editedText = message.trim();
+        const editedAt = new Date().toISOString();
+        queryClient.setQueryData(["team-messages", teamId], (old: any) => old ? {
+          ...old,
+          messages: (old.messages || []).map((row: Message) =>
+            row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
+          ),
+        } : old);
+        setLocalMessages((current) => current?.map((row) =>
+          row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
+        ));
+        return;
+      }
       const { error } = await supabase.from("team_messages").update({ text: message.trim() }).eq("id", editingMessage.id);
       if (error) throw error;
     },
     onSuccess: () => {
       setMessage("");
       setEditingMessage(null);
+      if (useIcpLab) return;
       queryClient.invalidateQueries({ queryKey: queryKeyMemo });
       // silent success
     },
@@ -1847,15 +1890,17 @@ export default function TeamChatPage() {
     enabled: !!teamId,
     cacheKey: `team:${teamId ?? ""}`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "team_messages",
-        scope: { team_id: teamId! },
-        query: q,
-        signal,
-        selectColumns:
-          "id, text, image_url, created_at, edited_at, author_id, team_id, reply_to_id, is_club_announcement, club_announcement_name, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
-        hasAnnouncements: true,
-      })) as Message[],
+      useIcpLab
+        ? (localMessagesRef.current ?? []).filter((row) => fuzzyMatchesQuery(row.text, q))
+        : ((await searchChatHistory({
+            table: "team_messages",
+            scope: { team_id: teamId! },
+            query: q,
+            signal,
+            selectColumns:
+              "id, text, image_url, created_at, edited_at, author_id, team_id, reply_to_id, is_club_announcement, club_announcement_name, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
+            hasAnnouncements: true,
+          })) as Message[]),
   });
 
   const filteredMessages = useMemo(() => {

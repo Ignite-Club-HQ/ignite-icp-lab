@@ -1,7 +1,9 @@
 export function permitsLocalRequest(input, origin) {
   try {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, origin);
-    return url.origin === origin && /^\/icp\/api\/(?:v2|v3)\//.test(url.pathname) && !url.username && !url.password;
+    const base = new URL(origin);
+    const isAllowedPath = /^\/icp\/api\/(?:v2|v3|v4)\//.test(url.pathname);
+    return url.origin === base.origin && ['http:', 'https:'].includes(base.protocol) && ['http:', 'https:'].includes(url.protocol) && isAllowedPath && !url.username && !url.password && !url.hash;
   } catch { return false; }
 }
 export function installNetworkGuard() {

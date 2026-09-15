@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext", "moduleResolution": "Bundler", "jsx": "react-jsx",
+    "strict": true, "noEmit": true, "allowJs": true, "skipLibCheck": true,
+    "esModuleInterop": true, "baseUrl": ".", "paths": { "@/*": ["src/*"] }
+  },
+    "files": ["src/lab/LabApp.tsx", "src/lab/localActor.ts", "src/lab/icpClubLinksService.ts", "src/lab/routedClubLinksService.ts", "src/lab/hybridClubLinksService.ts", "src/lab/syntheticSupabaseProvider.ts", "src/lab/localSupabaseAdapter.ts", "src/lab/syntheticPlacementRegistry.ts", "src/lab/placementRegistryClient.ts", "src/lab/syntheticAccountLinking.ts", "src/lab/syntheticTimerQueue.ts", "src/lab/fixtureDataLayer.ts", "src/lab/localRuntimeMode.ts"]
+}

@@ -1,0 +1,39 @@
+// Version: 1.0.0
+type AuditRecord__150512130 =
+  {
+    allowed : Bool;
+    field_id : Text;
+    operation : Text;
+    pii_id : Text;
+    purpose : Text;
+    requesting_principal : Principal;
+    timestamp : Nat64
+  };
+type KeyMetadata__584840596 =
+  {
+    created_at : Nat64;
+    key_id : Text;
+    rotation_due_at : Nat64;
+    status : {#Active; #Revoked; #RotationPending; #Shredded}
+  };
+type PiiRecord__938674599 =
+  {
+    access_count : Nat64;
+    ciphertext : [Nat8];
+    created_at : Nat64;
+    domain_owner : Principal;
+    field_id : Text;
+    last_accessed : Nat64;
+    master_key_id : Text;
+    nonce : [Nat8];
+    pii_id : Text
+  };
+actor {
+  stable var audit_log : [AuditRecord__150512130];
+  stable var governor : Principal;
+  stable var key_metadata_list : [KeyMetadata__584840596];
+  stable var last_key_rotation : Nat64;
+  stable var master_key_id_current : Text;
+  stable var metadata_version : Nat32;
+  stable var pii_records : [PiiRecord__938674599]
+};

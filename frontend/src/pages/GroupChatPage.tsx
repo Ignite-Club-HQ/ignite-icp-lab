@@ -137,6 +137,8 @@ import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
 import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 
 
@@ -291,6 +293,7 @@ export default function GroupChatPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, profile, refreshUnreadCount, decrementUnreadCount, initialized } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
   const queryClient = useQueryClient();
@@ -461,6 +464,10 @@ export default function GroupChatPage() {
     setSearchQuery("");
     setSearchOpen(false);
     if (target?.created_at && groupId) {
+      if (useIcpLab) {
+        requestAnimationFrame(() => handleJumpToMessage(mid));
+        return;
+      }
       try {
         const ctx = await fetchMessagesAround({
           table: "group_messages",
@@ -499,6 +506,10 @@ export default function GroupChatPage() {
   } = useQuery({
     queryKey: ["chat-group", groupId],
     queryFn: async () => {
+      if (useIcpLab && groupId && user?.id) {
+        return fixtureData.getLocalLabGroup(groupId, user.id) as ChatGroup | null;
+      }
+
       const { data, error } = await supabase
         .from("chat_groups")
         .select("*")
@@ -517,6 +528,8 @@ export default function GroupChatPage() {
     queryFn: async () => {
       const mlId = group?.mini_league_id;
       if (!mlId) return null;
+      if (useIcpLab) return null;
+
       const { data } = await supabase
         .from("mini_leagues")
         .select("id, name, club_id")
@@ -579,7 +592,7 @@ export default function GroupChatPage() {
       
       return !!teamRoleResult.data || !!clubRoleResult.data || !!appAdminResult.data;
     },
-    enabled: !!groupId && authReady && !!group,
+    enabled: !!groupId && authReady && !!group && !useIcpLab,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -622,6 +635,11 @@ export default function GroupChatPage() {
 
     queryFn: async () => {
       markChatFetch();
+      if (useIcpLab && groupId && user?.id) {
+        const messages = fixtureData.getLocalLabGroupMessages(groupId, user.id) as GroupMessage[];
+        return { messages, hasOlderMessages: false, reactions: [], fromCache: true };
+      }
+
       // If offline, return cached messages using the shared online manager
       // so native app resume does not incorrectly fall back to stale cache.
       if (!isOnline) {
@@ -1623,7 +1641,7 @@ export default function GroupChatPage() {
 
   // Real-time subscription - directly update cache instead of invalidating
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || useIcpLab) return;
     if (groupRealtimeMode === "polling") return;
 
     const channel = supabase
@@ -1812,7 +1830,7 @@ export default function GroupChatPage() {
       if (unregister) unregister(); else supabase.removeChannel(channel);
       noteChannelRemoved(`group-messages-${groupId}`);
     };
-  }, [groupId, queryClient, groupRealtimeMode, user?.id, reconcileScope, applyGroupReaction, applyGroupReactionDelete]);
+  }, [groupId, queryClient, groupRealtimeMode, user?.id, reconcileScope, applyGroupReaction, applyGroupReactionDelete, useIcpLab]);
 
 
   // Vault mirroring runs ONLY for confirmed-delivered messages, preserving the
@@ -1850,6 +1868,8 @@ export default function GroupChatPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async ({ text, image_url, reply_to_id }: { text: string; image_url: string | null; reply_to_id: string | null }) => {
       if (!user || !groupId) return;
+
+      if (useIcpLab) return deliveredSend();
       
       // If offline, queue the message
       if (!navigator.onLine) {
@@ -1977,6 +1997,8 @@ export default function GroupChatPage() {
     },
 
     onSettled: (_, __, variables) => {
+      if (useIcpLab) return;
+
       // Invalidate messages page preview so latest message shows
       queryClient.invalidateQueries({ queryKey: ["my-chat-groups-with-messages"] });
       // Award engagement points (fire and forget)
@@ -1997,6 +2019,20 @@ export default function GroupChatPage() {
   const updateMessageMutation = useMutation({
     mutationFn: async () => {
       if (!editingMessage) return;
+      if (useIcpLab) {
+        const editedText = message.trim();
+        const editedAt = new Date().toISOString();
+        queryClient.setQueryData(["group-messages", groupId], (old: any) => old ? {
+          ...old,
+          messages: (old.messages || []).map((row: GroupMessage) =>
+            row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
+          ),
+        } : old);
+        setLocalMessages((current) => current?.map((row) =>
+          row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
+        ));
+        return;
+      }
       const { error } = await supabase
         .from("group_messages")
         .update({ text: message.trim() })
@@ -2006,6 +2042,7 @@ export default function GroupChatPage() {
     onSuccess: () => {
       setMessage("");
       setEditingMessage(null);
+      if (useIcpLab) return;
       queryClient.invalidateQueries({ queryKey: ["group-messages", groupId] });
       // silent success
     },
@@ -2017,6 +2054,14 @@ export default function GroupChatPage() {
   // Delete message mutation (hard delete)
   const deleteMessageMutation = useMutation({
     mutationFn: async (messageId: string) => {
+      if (useIcpLab) {
+        queryClient.setQueryData(["group-messages", groupId], (old: any) => old ? {
+          ...old,
+          messages: (old.messages || []).filter((row: GroupMessage) => row.id !== messageId),
+        } : old);
+        setLocalMessages((current) => current?.filter((row) => row.id !== messageId));
+        return;
+      }
       const { error } = await supabase
         .from("group_messages")
         .delete()
@@ -2037,6 +2082,8 @@ export default function GroupChatPage() {
       return { previousData, messageId };
     },
     onSuccess: (_, messageId) => {
+      if (useIcpLab) return;
+
       // Remove from localStorage cache to prevent reappearing
       removeMessageFromCache("group", groupId!, messageId);
       // Clear the messagesPage cache
@@ -2064,6 +2111,34 @@ export default function GroupChatPage() {
     mutationFn: async ({ messageId, reactionType }: { messageId: string; reactionType: string }) => {
       if (!user) return { action: 'none' as const };
 
+      const normalizedReactionType = normalizeGroupReactionType(reactionType);
+      if (useIcpLab) {
+        const intent = lastReactionIntentRef.current[messageId];
+        const currentData = queryClient.getQueryData<{ reactions?: MessageReaction[] }>([
+          "group-messages",
+          groupId,
+        ]);
+        const currentReaction = currentData?.reactions?.find(
+          (reaction) => reaction.group_message_id === messageId && reaction.user_id === user.id,
+        );
+
+        if (intent?.action === "remove") {
+          return { action: "removed" as const, reactionId: currentReaction?.id ?? null, messageId };
+        }
+
+        const localReaction = {
+          id: currentReaction?.id?.startsWith("temp-reaction-")
+            ? `local-reaction-${Date.now()}`
+            : (currentReaction?.id ?? `local-reaction-${Date.now()}`),
+          user_id: user.id,
+          reaction_type: normalizedReactionType,
+          group_message_id: messageId,
+        };
+        return intent?.action === "update"
+          ? { action: "updated" as const, reaction: localReaction, oldReactionId: currentReaction?.id, messageId }
+          : { action: "added" as const, reaction: localReaction, messageId };
+      }
+
       // Ensure the auth token is fresh — a stale/expired JWT causes RLS to
       // reject the insert/update with "Failed to update reaction".
       try {
@@ -2072,8 +2147,6 @@ export default function GroupChatPage() {
         console.error('[Reaction] Session not ready:', e);
         throw new Error('Not authenticated');
       }
-
-      const normalizedReactionType = normalizeGroupReactionType(reactionType);
 
       console.log('[Reaction] Starting mutation for message:', messageId, 'type:', normalizedReactionType);
 
@@ -2411,13 +2484,15 @@ export default function GroupChatPage() {
     enabled: !!groupId,
     cacheKey: `group:${groupId ?? ""}`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "group_messages",
-        scope: { group_id: groupId! },
-        query: q,
-        signal,
-        selectColumns: "id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
-      })) as GroupMessage[],
+      useIcpLab
+        ? (localMessagesRef.current ?? []).filter((row) => fuzzyMatchesQuery(row.text, q))
+        : (await searchChatHistory({
+            table: "group_messages",
+            scope: { group_id: groupId! },
+            query: q,
+            signal,
+            selectColumns: "id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
+          })) as GroupMessage[],
   });
 
   const filteredMessages = useMemo(() => {
@@ -2546,6 +2621,8 @@ export default function GroupChatPage() {
   // Delete group mutation
   const deleteGroupMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) return;
+
       // Soft-delete: keep the row so app admins can restore within the retention window.
       const { error } = await supabase
         .from("chat_groups")
@@ -2557,6 +2634,14 @@ export default function GroupChatPage() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (useIcpLab) {
+        queryClient.removeQueries({ queryKey: ["chat-group", groupId] });
+        queryClient.removeQueries({ queryKey: ["group-messages", groupId] });
+        toast.success("Local chat removed");
+        navigate("/messages");
+        return;
+      }
+
       toast.success("Chat removed. An app admin can restore it if needed.");
       queryClient.invalidateQueries({ queryKey: ["my-chat-groups"] });
       queryClient.invalidateQueries({ queryKey: ["my-chat-groups-with-messages"] });

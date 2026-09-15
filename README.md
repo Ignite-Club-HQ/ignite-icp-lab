@@ -10,8 +10,9 @@ Complete sanitized React source and backend source references for an incremental
 - `reference/SOURCE_MANIFEST.json`: original source paths and hashes, substitutions and omissions.
 - `reference/SUPABASE_CALL_SITES.json`: frontend Supabase call-site map to guide subsequent domains.
 - `docs/PORTING_PLAN.md`: scope, architecture, remaining work and verification limits.
+- `docs/NEXT_IMPLEMENTATION_PLAN.md`: prioritized gaps and implementation sequence for the 10-role ICP topology.
 
-The full source is available for refactoring, but the entire original app is not enabled. Unported source cannot enter the default runtime bundle. The only active domain is the synthetic club-links editor and member preview. No ICP canister or working ICP adapter exists yet.
+The full source is available for refactoring, but the entire original app is not enabled. Unported source cannot enter the default runtime bundle. The active domain is the synthetic club-links editor and member preview, with explicit fixture or local ICP selection. A local Rust canister and signed synthetic actor adapter are now implemented, with synthetic account linking and tested full-snapshot recovery. The original demo network is currently stopped with a stale binding; the latest recovery checks used a separate local test project. See [the POC runbook](docs/CLUB_LINKS_POC.md) for setup, permission coverage, tests and limits.
 
 ## Run in the lab Codespace
 
@@ -26,10 +27,10 @@ npm run dev
 
 Dependency download requires registry access. The checked-in `.npmrc` disables lifecycle scripts. No original install hooks, deployment scripts, production environment files or native signing configuration are copied. The lockfile retains the source resolution snapshot; some unused legacy transitive dependencies may remain, but no legacy integration is permitted into the runtime graph.
 
-Open forwarded port 5180. Add and edit synthetic links; they reset on reload. External navigation and file opening are disabled. Production users cannot log in.
+Open private forwarded port 5180. Fixture changes reset when the fixture session closes. To persist synthetic links in the local canister, follow the POC runbook and select Local ICP canister. External navigation and file opening are disabled. Production users cannot log in.
 
 ## Isolation
 
-The active bundle uses an explicit source allowlist, disabled Supabase clients, a separate bootstrap, restrictive CSP and a browser network guard. Its only application API route is `/icp/api/`, proxied by the development server to fixed loopback `127.0.0.1:4943`. There is no backend at that address supplied by this transfer and no fallback. The preview build currently demonstrates fixtures only.
+The active bundle uses an explicit source allowlist, disabled Supabase clients, a separate bootstrap, restrictive CSP and a browser network guard. Its only application API route is `/icp/api/`, proxied by the development server to fixed loopback `127.0.0.1:4943`, with a local-only public canister configuration endpoint. The local backend must be started explicitly; there is no fallback. Static preview builds do not provide the development proxy and must fail closed for ICP mode.
 
 These safeguards do not constitute an operating-system sandbox for the entire Codespace. Do not expose production credentials to it, run the old application bootstrap, or enable unreviewed modules. Production files and services were not modified to prepare this repository.

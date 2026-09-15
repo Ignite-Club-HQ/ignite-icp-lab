@@ -33,6 +33,8 @@ import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { useScheduleBroadcastListener } from "@/hooks/useScheduleBroadcastListener";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
@@ -78,6 +80,7 @@ export default function EventsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeClubFilter } = useClubTheme();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const teamFilter = searchParams.get("team");
   // Use club theme filter if set, otherwise use URL param
   const clubFilter = activeClubFilter || searchParams.get("club");
@@ -163,6 +166,10 @@ export default function EventsPage() {
   const { data: userClubs } = useQuery({
     queryKey: ["user-clubs-for-filter", user?.id],
     queryFn: async () => {
+      if (useIcpLab) {
+        return fixtureData.getLocalLabClubList();
+      }
+
       const start = performance.now();
       diagLog("userClubs:start");
       const { data: roles, error } = await supabase

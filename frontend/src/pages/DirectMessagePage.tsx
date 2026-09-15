@@ -15,6 +15,8 @@ import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -246,6 +248,7 @@ export default function DirectMessagePage() {
     return () => noteChatUnmount("DirectMessage", k, null);
   }, []);
   const { conversationId } = useParams<{ conversationId: string }>();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, profile, initialized, refreshUnreadCount, decrementUnreadCount } = useAuth();
@@ -380,6 +383,8 @@ export default function DirectMessagePage() {
   const { data: conversation, isLoading: conversationLoading } = useQuery({
     queryKey: ["dm-conversation", conversationId],
     queryFn: async () => {
+      if (useIcpLab && conversationId && user?.id) return fixtureData.getLocalLabDirectConversation(conversationId, user.id);
+
       const { data, error } = await supabase
         .from("direct_conversations")
         .select("*")
@@ -506,6 +511,10 @@ export default function DirectMessagePage() {
     queryKey: dmQueryKey,
     queryFn: async () => {
       markChatFetch();
+      if (useIcpLab && conversationId && user?.id) {
+        return { messages: fixtureData.getLocalLabDirectMessages(conversationId, user.id), hasOlderMessages: false, reactions: [], fromCache: true };
+      }
+
       const { data: rawMessages, error } = await supabase
         .from("direct_messages")
         .select("id, text, image_url, created_at, edited_at, author_id, conversation_id, reply_to_id, deleted_at, forwarded_from_user_id, forwarded_at, forwarded_source_label")

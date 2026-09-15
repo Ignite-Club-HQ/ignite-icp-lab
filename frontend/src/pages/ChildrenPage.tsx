@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,6 +72,7 @@ export default function ChildrenPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [guardiansDialogOpen, setGuardiansDialogOpen] = useState(false);
@@ -95,7 +97,7 @@ export default function ChildrenPage() {
       if (error) throw error;
       return data as Child[];
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Fetch children where user is a guardian (not primary parent)
@@ -112,7 +114,7 @@ export default function ChildrenPage() {
         .filter(d => d.children)
         .map(d => ({ ...(d.children as unknown as Child), isGuardianOnly: true }));
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Combine and deduplicate children
@@ -136,7 +138,7 @@ export default function ChildrenPage() {
       if (error) throw error;
       return data as (ChildAssignment & { child_id: string })[];
     },
-    enabled: !!children?.length,
+    enabled: !!children?.length && !useIcpLab,
   });
 
   // Fetch pending guardian invites for own children
@@ -157,7 +159,7 @@ export default function ChildrenPage() {
       // Filter to only guardian invites (those with guardian_child_id in metadata)
       return (data || []).filter(inv => (inv.metadata as any)?.guardian_child_id);
     },
-    enabled: !!ownChildren?.length,
+    enabled: !!ownChildren?.length && !useIcpLab,
   });
 
   // Fetch available teams (teams user is a member of)
@@ -177,7 +179,7 @@ export default function ChildrenPage() {
       const uniqueTeams = Array.from(new Map(teams.map(t => [t.id, t])).values());
       return uniqueTeams;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Derive available clubs from available teams
@@ -243,6 +245,7 @@ export default function ChildrenPage() {
         toast({
           title: "Linked to existing child",
           description: `${addedName} was already registered — we've linked you as a guardian.`,
+      // Confirming which of several matching children belongs to this parent.
         });
         return;
       }
@@ -279,6 +282,7 @@ export default function ChildrenPage() {
       setAmbiguousMatches(null);
       setAddDialogOpen(false);
       setNewChildName("");
+    // Delete child mutation
       setNewChildYear("");
       toast({
         title: "Linked to existing child",
@@ -298,6 +302,7 @@ export default function ChildrenPage() {
 
   // Delete child mutation
   const deleteChild = useMutation({
+    // Assign to teams mutation (supports multiple teams)
     mutationFn: async (childId: string) => {
       const { error } = await supabase
         .from("children")
@@ -322,6 +327,7 @@ export default function ChildrenPage() {
       if (!selectedChild || selectedTeamIds.length === 0) return;
       const insertData = selectedTeamIds.map(teamId => ({
         child_id: selectedChild.id,
+    // Remove from team mutation
         team_id: teamId,
       }));
       const { error } = await supabase.from("child_team_assignments").insert(insertData);

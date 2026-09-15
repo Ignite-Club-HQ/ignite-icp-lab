@@ -9,3 +9,13 @@ Use frontend/src/lab/ClubLinksService.ts as the initial service boundary. The ex
 No network or credential isolation of the Codespace itself has been certified. The browser guard, CSP and runtime allowlist are application safeguards. Review Codespace credentials and keep forwarded ports private; do not claim zero risk. Do not run old source tests that import production integration modules or scripts. Run the dedicated lab tests and build.
 
 Fetch https://skills.internetcomputer.org/llms.txt and the current skills index once per session. Before writing ICP code, read the matching current skills and referenced guidance. Do not use deprecated tooling from memory. No ICP backend has been implemented by this source transfer.
+
+<!-- ic-skills:managed:start -->
+<!-- state: configured (on-demand) -->
+Fetch the skills index once per session and keep each skill's name, description,
+and SKILL.md URL:
+https://skills.internetcomputer.org/.well-known/skills/index.json
+Before writing ICP code for a task, fetch the matching skill's SKILL.md
+(https://skills.internetcomputer.org/.well-known/skills/{name}/SKILL.md) and follow
+it. Skills are authoritative — prefer them over general knowledge.
+<!-- ic-skills:managed:end -->

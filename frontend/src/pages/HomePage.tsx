@@ -77,6 +77,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
@@ -420,6 +422,7 @@ export default function HomePage() {
     () => getCachedNextUp<{ memberships: any; events: Event[]; cachedAt: number }>(user?.id),
     [user?.id],
   );
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
 
   // Home perf: mark mount + track primary-query return + first paint. See
   // src/lib/homeOpenLatency.ts. Best-effort; one sample per open.
@@ -446,6 +449,10 @@ export default function HomePage() {
   const { data: membershipAndEvents, isLoading, isFetching, isFetched } = useQuery({
     queryKey: ["user-memberships-and-events", user?.id],
     queryFn: async () => {
+      if (useIcpLab && user?.id) {
+        return fixtureData.getLocalLabHomeSnapshot(user.id);
+      }
+
       // Step 1: Fetch user roles.
       // CRITICAL: throw on error (do NOT silently return empty). On resume from
       // background / phone unlock, the access token can be mid-rotation and

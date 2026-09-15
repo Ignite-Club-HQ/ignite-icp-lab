@@ -1,6 +1,9 @@
 import { Capacitor } from "@capacitor/core";
 import { safeOpenUrl } from "./safeOpenUrl";
 
+const loadOptionalNativeModule = (specifier: string) =>
+  new Function("moduleName", "return import(moduleName)")(specifier) as Promise<any>;
+
 /**
  * Recognized Supabase storage URL forms that require authorization before
  * download/open. Kept in sync with the classifier used by resolveSignedUrl.
@@ -186,7 +189,7 @@ async function downloadToCache(
 async function openWithViewer(localPath: string, primaryType: string): Promise<boolean> {
   let FileOpener: { open: (o: { filePath: string; contentType?: string; openWithDefault?: boolean }) => Promise<void> };
   try {
-    ({ FileOpener } = await import("@capacitor-community/file-opener"));
+    ({ FileOpener } = await loadOptionalNativeModule("@capacitor-community/file-opener"));
   } catch (err) {
     console.warn("[safeOpenFile] FileOpener unavailable:", describeError(err));
     return false;

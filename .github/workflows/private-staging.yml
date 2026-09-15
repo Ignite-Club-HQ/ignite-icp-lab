@@ -1,0 +1,62 @@
+name: Private Staging Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  staging-gate:
+    runs-on: ubuntu-latest
+    environment: private-staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund --no-audit
+
+      - name: Rust workspace validation
+        run: cargo test --workspace --locked
+
+      - name: Frontend isolation and secret guard
+        working-directory: frontend
+        run: |
+          npm run check:isolation
+          npm run check:prod-secrets
+          npm run deploy:staging
+
+      - name: Build lab bundle
+        working-directory: frontend
+        run: npm run build
+
+      - name: Run worker and staging smoke tests
+        working-directory: frontend
+        run: |
+          npx vitest run \
+            lab-tests/external-worker-boundary.test.tsx \
+            lab-tests/secret-workload-client.test.tsx \
+            lab-tests/external-worker-coordinator.test.tsx \
+            lab-tests/external-worker-integration.test.tsx \
+            lab-tests/external-worker-provider-registry.test.tsx \
+            lab-tests/phase-3-queue-production.test.tsx
+
+      - name: Deploy to Netlify staging
+        if: success()
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod --dir=frontend/dist --site ${{ secrets.NETLIFY_SITE_ID }} --auth ${{ secrets.NETLIFY_AUTH_TOKEN }}

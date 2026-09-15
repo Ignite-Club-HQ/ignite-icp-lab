@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarFallbackStyle, getAvatarInitial } from "@/lib/avatarColor";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { ensureFreshSession, isAuthLikeError } from "@/lib/ensureFreshSession";
 import { removeMessageFromCache } from "@/lib/messageCache";
 import { MessageContent } from "./MessageContent";
@@ -179,6 +180,7 @@ function ChatMessageInner({
   const optimisticReactionsRef = useRef<Reaction[]>(reactions);
   const isReactionMutatingRef = useRef(false);
   const queryClient = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const { isBlocked } = useBlockedUsers();
   const {
     armDismissGuard,
@@ -302,6 +304,22 @@ function ChatMessageInner({
       existingReaction?: Reaction;
     }) => {
       const messageIdField = getMessageIdField();
+
+      // Lab mode: cache-only reaction result, no backend write and no persistence.
+      if (useIcpLab) {
+        if (!currentUserId) return;
+        if (existingReaction?.reaction_type === reactionType) {
+          return { action: "delete" as const, reactionId: existingReaction.id };
+        }
+        const localReaction = {
+          id: `local-reaction-${id}-${Date.now()}`,
+          user_id: currentUserId,
+          reaction_type: reactionType,
+        };
+        return existingReaction
+          ? { action: "update" as const, reaction: localReaction }
+          : { action: "insert" as const, reaction: localReaction };
+      }
 
       // Ensure the session is fresh before mutating so RLS sees auth.uid().
       // Refresh-and-retry once if we hit an auth-like failure mid-flight.
@@ -476,6 +494,7 @@ function ChatMessageInner({
       if (reactionId.startsWith("temp-")) {
         return;
       }
+      if (useIcpLab) return;
       const doDelete = async () => {
         const { error } = await supabase
           .from("message_reactions")
@@ -528,6 +547,7 @@ function ChatMessageInner({
 
   const deleteMessageMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) return;
       const { error } = await supabase
         .from(getTableName())
         .delete()
@@ -549,6 +569,7 @@ function ChatMessageInner({
       return { previousMessages };
     },
     onSuccess: () => {
+      if (useIcpLab) return;
       const targetId = queryKey[1] as string;
       if (targetId) {
         removeMessageFromCache(messageType, targetId, id);

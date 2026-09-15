@@ -104,6 +104,8 @@ import TeamCompetitionsSection from "@/components/competitions/TeamCompetitionsS
 import { PlayHQTeamLinkCard } from "@/components/PlayHQTeamLinkCard";
 import { friendlyQueryError, friendlyQueryErrorMessage } from "@/lib/friendlyQueryError";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 
 
 type TeamRole = "player" | "parent" | "coach" | "team_admin";
@@ -121,6 +123,7 @@ const teamRoleOptions: { value: TeamRole; label: string }[] = [
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -160,6 +163,10 @@ export default function TeamDetailPage() {
   const { data: team, isLoading, fetchStatus: teamFetchStatus } = useQuery({
     queryKey: ["team", id],
     queryFn: async () => {
+      if (useIcpLab && id) {
+        return fixtureData.getLocalLabTeamDetail(id) ?? null;
+      }
+
       const { data, error } = await supabase
         .from("teams")
         .select("*, clubs!club_id (id, name, is_pro, sport, class_mode_enabled, bot_user_id)")
@@ -226,6 +233,8 @@ export default function TeamDetailPage() {
   const { data: isEnrolledInClass } = useQuery({
     queryKey: ["class-enrolment-check", id, user?.id],
     queryFn: async () => {
+      if (useIcpLab) return false;
+
       const { data, error } = await supabase
         .from("class_enrolments")
         .select("id")
@@ -241,6 +250,23 @@ export default function TeamDetailPage() {
   const { data: teamSubscription } = useQuery({
     queryKey: ["team-subscription", id],
     queryFn: async () => {
+      if (useIcpLab && id) {
+        return {
+          team_id: id,
+          is_pro: false,
+          is_pro_football: false,
+          trial_ends_at: null,
+          is_trial: false,
+          cancelled_at: null,
+          disable_auto_subs: false,
+          rotation_speed: 1,
+          team_size: 7,
+          formation: null,
+          minutes_per_half: 45,
+          disable_position_swaps: false,
+        };
+      }
+
       const { data, error } = await supabase
         .from("team_subscriptions")
         .select("*")
@@ -255,6 +281,18 @@ export default function TeamDetailPage() {
   const { data: clubSubscription, isLoading: isClubSubscriptionLoading, isFetching: isClubSubscriptionFetching } = useQuery({
     queryKey: ["club-subscription", team?.club_id],
     queryFn: async () => {
+      if (useIcpLab && team?.club_id) {
+        return {
+          club_id: team.club_id,
+          is_pro: false,
+          is_pro_football: false,
+          is_trial: false,
+          cancelled_at: null,
+          disable_auto_subs: false,
+          rotation_speed: 1,
+        };
+      }
+
       const { data, error } = await supabase
         .from("club_subscriptions")
         .select("*")

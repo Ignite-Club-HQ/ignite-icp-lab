@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 // ──────────────────────────────────────────────
 const ADMOB_ENABLED = false;
 
+const loadOptionalNativeModule = (specifier: string) =>
+  new Function("moduleName", "return import(moduleName)")(specifier) as Promise<any>;
+
 interface AdMobConfig {
   platform: string;
   app_id: string;
@@ -56,7 +59,7 @@ export function useAdMobInit() {
 
     const init = async () => {
       try {
-        const { AdMob } = await import("@capacitor-community/admob");
+        const { AdMob } = await loadOptionalNativeModule("@capacitor-community/admob");
         await AdMob.initialize({
           initializeForTesting: false,
         });
@@ -79,7 +82,7 @@ export function useAdMobBanner(show: boolean) {
     if (!ADMOB_ENABLED || !show || !config?.is_enabled || !config.banner_ad_unit_id || !isNative()) {
       // Hide banner if conditions not met
       if (shown.current) {
-        import("@capacitor-community/admob").then(({ AdMob }) => {
+        loadOptionalNativeModule("@capacitor-community/admob").then(({ AdMob }) => {
           AdMob.removeBanner().catch(() => {});
           shown.current = false;
         });
@@ -90,7 +93,7 @@ export function useAdMobBanner(show: boolean) {
     const showBanner = async () => {
       if (shown.current) return;
       try {
-        const { AdMob, BannerAdSize, BannerAdPosition } = await import("@capacitor-community/admob");
+        const { AdMob, BannerAdSize, BannerAdPosition } = await loadOptionalNativeModule("@capacitor-community/admob");
         await AdMob.showBanner({
           adId: config.banner_ad_unit_id,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
@@ -108,7 +111,7 @@ export function useAdMobBanner(show: boolean) {
 
     return () => {
       if (shown.current) {
-        import("@capacitor-community/admob").then(({ AdMob }) => {
+        loadOptionalNativeModule("@capacitor-community/admob").then(({ AdMob }) => {
           AdMob.removeBanner().catch(() => {});
           shown.current = false;
         });

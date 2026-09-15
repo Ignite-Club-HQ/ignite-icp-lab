@@ -8,7 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, IcpAuthProvider } from "@/hooks/useAuth";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider } from "next-themes";
 import { ClubThemeProvider } from "@/hooks/useClubTheme";
@@ -136,6 +137,7 @@ const EventGroupPitchPage = lazyWithRetry(() => import("./pages/EventGroupPitchP
 const AppSettingsPage = lazyWithRetry(() => import("./pages/AppSettingsPage"));
 const AdminAICatchUpPage = lazyWithRetry(() => import("./pages/AdminAICatchUpPage"));
 const AdminIcpLlmTestPage = lazyWithRetry(() => import("./pages/AdminIcpLlmTestPage"));
+const PlacementAdminSettingsPage = lazyWithRetry(() => import("./pages/PlacementAdminSettingsPage"));
 const AdMobSettingsPage = lazyWithRetry(() => import("./pages/AdMobSettingsPage"));
 const ClassEnrolmentPage = lazyWithRetry(() => import("./pages/ClassEnrolmentPage"));
 const PayFeesPage = lazyWithRetry(() => import("./pages/PayFeesPage"));
@@ -374,11 +376,13 @@ const App = () => {
   }, []);
 
 
+  const useIcpAuth = resolveLocalAuthMode(window.location.search, true);
+  const AuthBoundary = useIcpAuth ? IcpAuthProvider : AuthProvider;
 
   return (
   <ThemeProvider attribute="class" defaultTheme={INITIAL_THEME} enableSystem={false} storageKey="app-theme">
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <AuthBoundary>
         <AccessibilityPrefsProvider>
         <ClubThemeProvider>
           <TooltipProvider>
@@ -499,6 +503,7 @@ const App = () => {
                   <Route path="/admin/push-analytics" element={<PushAnalyticsPage />} />
                   <Route path="/admin/notification-preferences" element={<NotificationPreferencesPage />} />
                   <Route path="/admin/settings" element={<AppSettingsPage />} />
+                  <Route path="/admin/placement-settings" element={<PlacementAdminSettingsPage />} />
                   <Route path="/admin/ai-catch-up" element={<AdminAICatchUpPage />} />
                   <Route path="/admin/icp-llm-test" element={<AdminIcpLlmTestPage />} />
                   <Route path="/admin/admob" element={<AdMobSettingsPage />} />
@@ -539,7 +544,7 @@ const App = () => {
           </TooltipProvider>
         </ClubThemeProvider>
         </AccessibilityPrefsProvider>
-      </AuthProvider>
+      </AuthBoundary>
     </QueryClientProvider>
   </ThemeProvider>
   );

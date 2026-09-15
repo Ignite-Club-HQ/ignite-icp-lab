@@ -1202,3 +1202,48 @@ export function useAuth() {
   }
   return context;
 }
+
+/** Local ICP session seam for staged frontend migration work. */
+export function IcpAuthProvider({ children, persona = "member" }: { children: ReactNode; persona?: string }) {
+  const principal = `icp-${persona}`;
+  const user = {
+    id: principal,
+    aud: "authenticated",
+    role: "authenticated",
+    email: `${persona}@ignite-icp.test`,
+    app_metadata: { provider: "icp" },
+    user_metadata: { display_name: persona },
+    identities: [],
+    created_at: new Date(0).toISOString(),
+    updated_at: new Date(0).toISOString(),
+  } as unknown as User;
+  const profile = {
+    id: principal,
+    display_name: persona,
+    avatar_url: null,
+    ignite_points: 0,
+    theme_preference: null,
+  };
+  const value = {
+    user,
+    session: null,
+    profile,
+    loading: false,
+    profileLoading: false,
+    profileError: false,
+    initialized: true,
+    sessionRestoration: "authenticated" as const,
+    profileResolved: true,
+    unreadCount: 0,
+    unreadMessagesCount: 0,
+    signUp: async () => ({ error: new Error("ICP account provisioning is not wired in this staging seam."), needsEmailConfirmation: false }),
+    signIn: async () => ({ error: null }),
+    signInWithGoogle: async () => ({ error: new Error("Google authentication is disabled in the local ICP shell.") }),
+    signOut: async () => {},
+    refreshProfile: async () => {},
+    refreshUnreadCount: async () => {},
+    clearUnreadCount: () => {},
+    decrementUnreadCount: () => {},
+  } satisfies AuthContextType;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

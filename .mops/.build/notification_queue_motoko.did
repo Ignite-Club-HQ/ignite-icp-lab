@@ -1,0 +1,51 @@
+type Status = 
+ variant {
+   Delivered;
+   Failed;
+   Pending;
+   Processing;
+ };
+type Results = 
+ variant {
+   Err: text;
+   Ok: vec Notification;
+ };
+type ResultNat16 = 
+ variant {
+   Err: text;
+   Ok: nat16;
+ };
+type Result = 
+ variant {
+   Err: text;
+   Ok: Notification;
+ };
+type Notification = 
+ record {
+   attempts: nat32;
+   body: text;
+   club: text;
+   id: text;
+   idempotency_key: text;
+   kind: text;
+   next_attempt_ms: nat64;
+   status: Status;
+   user: text;
+ };
+service : {
+  acknowledge: (id: text, key: text) -> (Result);
+  claim: (now_ms: nat64, limit: nat16) -> (Results);
+  enqueue: (id: text, user: text, club: text, kind: text, body: text, key:
+   text) -> (Result);
+  fail: (id: text, error: text, retry_at_ms: opt nat64) -> (Result);
+  get_notification: (id: text) -> (opt Notification) query;
+  grant_worker: ("principal": principal) -> (variant {
+                                               Err: text;
+                                               Ok;
+                                             });
+  initialize: () -> (variant {
+                       Err: text;
+                       Ok;
+                     });
+  recover: () -> (ResultNat16);
+}
