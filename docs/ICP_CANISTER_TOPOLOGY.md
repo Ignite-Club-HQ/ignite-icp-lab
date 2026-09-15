@@ -6,8 +6,9 @@ Production subnet, residency, cycle, and operator approvals remain required.
 
 ## Decision
 
-Use **10 logical product/control roles** as the baseline, with an optional
-separately approved vetKeys proxy boundary for confidential PII workflows:
+Use **10 logical product/control roles** plus **3 declared privacy/migration
+roles** for a total current lab topology of **13 roles**. A separately approved
+vetKeys proxy remains conditional and is not part of the default topology:
 
 | # | Canister role | Shard key | Owns |
 | ---: | --- | --- | --- |
@@ -21,19 +22,19 @@ separately approved vetKeys proxy boundary for confidential PII workflows:
 | 8 | `media_metadata` | asset/club shard | Albums, photo/file metadata, comments, visibility, capabilities, retention, deletion state |
 | 9 | `notification_queue` | recipient/region shard | Durable notification records, claims, retries, idempotency, delivery state |
 | 10 | `timer_jobs` | workflow/region shard | Durable schedules, claims, retries, recovery, upgrade re-arming |
+| 11 | `migration_coordinator` | migration/domain | Durable migration evidence and phase coordination; does not own domain records |
+| 12 | `pii_access_control` | account/region | Synthetic PII policy, encrypted-field access decisions, audit, rotation, and erasure proof |
+| 13 | `secret_workload_identity` | workflow/region | External-worker registration, scoped secret-operation authorization, and audit evidence |
 
-The existing repository contains roles 1, 2, 4, 9, and 10 in proof-of-concept
-form. Role 3 (`identity_access`) now has an initial stable-memory canister POC
-and local manifest entry. Roles 5, 6, 7, and 8 remain the next domain-canister
-implementation slices.
+All 13 roles have local POC implementations and entries in the disposable
+`local` environment in `icp.yaml`. Product and worker roles remain gated by
+their parity, scale, privacy, upgrade/recovery, and operational evidence. A
+production vetKeys proxy is intentionally not part of the default topology
+until its subnet, residency, funding, trust boundary, and cross-subnet call
+behavior are approved. Vault services remain external and are never ordinary
+canisters.
 
-The repository also contains a synthetic Motoko migration coordinator, which
-is control-plane infrastructure rather than a new product domain. A production
-vetKeys proxy is intentionally not part of the default topology until its
-subnet, residency, funding, trust boundary, and cross-subnet call behavior are
-approved. Vault services remain external and are never ordinary canisters.
-
-## Why 10 is the baseline
+## Why 10 product/control roles remain the baseline
 
 - One canister per club creates excessive upgrade, monitoring, routing, and
   cycle overhead and makes hot-club operations harder to govern.
@@ -47,10 +48,11 @@ approved. Vault services remain external and are never ordinary canisters.
 - Notification and timer state are separated from business domains because
   both require durable claim/retry/recovery behavior and external workers.
 
-This is the minimum practical logical topology for the currently inventoried
-product domains. Physical deployment may run multiple replicas/shards of the
-same role. The number of physical canisters grows with workload, residency,
-hot-club isolation, and cycle capacity; it is not fixed at ten forever.
+These ten roles are the minimum practical topology for the inventoried product
+and control domains. The migration, PII-policy, and workload-identity roles are
+separate cross-cutting lab services. Physical deployment may run multiple
+replicas/shards of the same role. The number of physical canisters grows with
+workload, residency, hot-club isolation, and cycle capacity; it is not fixed.
 
 ## Domain allocation
 
@@ -76,6 +78,9 @@ hot-club isolation, and cycle capacity; it is not fixed at ten forever.
 | Email, push delivery, Drive, PlayHQ, Google, LLM | External workers/integrations | Explicit capability and bounded-call boundary |
 | Placement, residency, operator governance | `placement_registry` | Current synthetic control plane |
 | Routing and shard assignment | `shard_router` | Current synthetic control plane |
+| Migration phase evidence | `migration_coordinator` | Local Motoko POC; future migration execution remains separately authorized |
+| PII access policy and audit | `pii_access_control` | Synthetic policy/rotation/erasure POC; no production PII |
+| External worker identity | `secret_workload_identity` | Synthetic scoped worker authorization and audit POC; vault credentials remain external |
 
 ## Physical sharding rules
 
@@ -124,19 +129,16 @@ The following are intentionally not included as ordinary ICP domain state:
 
 ## Implementation sequence
 
-1. Keep the current five proof canisters green.
-2. Implement `identity_access` authorization and account contracts.
-3. Split `club_domain` from the current Club Links POC without changing its
-   stable schema; add clubs, teams, and configuration contracts.
-4. Implement `events_domain` and attach timer workflows only after RLS parity.
-5. Implement `competition_domain` with independent ownership and join-token
-   capability checks.
-6. Implement `messaging_domain` with sequence/idempotency/unread/receipt tests.
-7. Implement `media_metadata` with capability, retention, deletion, and chunk
-   handoff contracts.
-8. Promote notification/timer workers from synthetic queue proofs to bounded
-   domain workflows.
-9. Add physical shards only after measured load, residency, and hot-tenant
+1. Keep all 13 local POCs and their committed Candid contracts green.
+2. Complete source authorization and automation parity in domain order.
+3. Finish provider-neutral frontend migration and domain adapter wiring.
+4. Complete bounded pagination, idempotency, scale, and populated-state
+   upgrade/recovery for product domains.
+5. Promote notification/timer and external-worker boundaries to complete
+   recipient/domain/site capability behavior.
+6. Implement the separately approved encrypted-media, vetKeys/protected-engine,
+   and vault boundaries without storing raw keys or credentials in canisters.
+7. Add physical shards only after measured load, residency, and hot-tenant
    evidence justifies them.
 
 A domain is not considered implemented merely because its canister compiles. It

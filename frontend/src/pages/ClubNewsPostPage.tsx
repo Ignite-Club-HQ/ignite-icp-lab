@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClubNewsPost, useClubTeamsForNews, useTeamNamesByIds } from "@/features/news/useClubNews";
 import { parseNewsAttachments } from "@/features/news/newsAttachments";
 import NewsArticleBody from "@/components/news/NewsArticleBody";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 
 
@@ -18,6 +19,7 @@ import NewsArticleBody from "@/components/news/NewsArticleBody";
 export default function ClubNewsPostPage() {
   const { newsId } = useParams<{ newsId: string }>();
   const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   const { data: post, isLoading } = useClubNewsPost(newsId);
   const { data: teams = [] } = useClubTeamsForNews(post?.club_id ?? null);
   const { data: targetTeams = [] } = useTeamNamesByIds(post?.target_team_ids);
@@ -42,6 +44,7 @@ export default function ClubNewsPostPage() {
   const { data: author } = useQuery({
     queryKey: ["club-news-author", post?.author_id],
     queryFn: async () => {
+      if (useIcpLab) return "Local ICP Member";
       const { data } = await supabase
         .from("profiles")
         .select("display_name")

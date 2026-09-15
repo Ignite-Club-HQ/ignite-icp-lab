@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { readHomeSectionSnapshot, writeHomeSectionSnapshot } from "@/lib/homeSectionSnapshot";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabNewsPost, getLocalLabNewsPosts, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 /**
  * Club News data access.
@@ -31,9 +33,13 @@ const NEWS_COLUMNS =
 
 export function useClubNewsFeed(clubId?: string | null, limit = 50) {
   const snapshotScope = `${clubId ?? "all"}_${limit}`;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   return useQuery<ClubNewsRow[]>({
     queryKey: ["club-news", clubId ?? "all", limit],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabNewsPosts(clubId ?? "club-icp-001").slice(0, limit) as ClubNewsRow[];
+      }
       let query = supabase
         .from("club_news")
         .select(NEWS_COLUMNS)
@@ -65,9 +71,11 @@ export function useLatestClubNews(clubId?: string | null) {
 }
 
 export function useClubNewsPost(newsId?: string | null) {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   return useQuery<ClubNewsRow | null>({
     queryKey: ["club-news-post", newsId],
     queryFn: async () => {
+      if (useIcpLab) return getLocalLabNewsPost(newsId!) as ClubNewsRow | null;
       const { data, error } = await supabase
         .from("club_news")
         .select(NEWS_COLUMNS)
@@ -86,9 +94,11 @@ export function useClubNewsPost(newsId?: string | null) {
  */
 export function useNewsPublishableClubs() {
   const { user } = useAuth();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   return useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["news-publishable-clubs", user?.id],
     queryFn: async () => {
+      if (useIcpLab) return [];
       const { data, error } = await supabase
         .from("user_roles")
         .select("club_id, role")
@@ -112,9 +122,15 @@ export function useNewsPublishableClubs() {
 }
 
 export function useClubTeamsForNews(clubId?: string | null) {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   return useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["club-teams-for-news", clubId],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map(({ id, name }) => ({ id, name }));
+      }
       const { data, error } = await supabase
         .from("teams")
         .select("id, name")
@@ -135,9 +151,15 @@ export function useClubTeamsForNews(clubId?: string | null) {
  */
 export function useTeamNamesByIds(teamIds?: string[] | null) {
   const ids = Array.from(new Set((teamIds || []).filter(Boolean)));
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   return useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["news-team-names", ids.slice().sort().join(",")],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => ids.includes(team.id))
+          .map(({ id, name }) => ({ id, name }));
+      }
       const { data, error } = await supabase.from("teams").select("id, name").in("id", ids);
       if (error) throw error;
       return (data || []) as Array<{ id: string; name: string }>;

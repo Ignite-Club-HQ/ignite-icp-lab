@@ -40,12 +40,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { downloadTextReport } from "@/lib/reportExport";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabRewardRedemptions, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 export default function ClubRewardsReportPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   
   // Default to current month
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -58,6 +62,7 @@ export default function ClubRewardsReportPage() {
   const { data: clubSubscription, isLoading: isLoadingSub } = useQuery({
     queryKey: ["club-subscription", clubId],
     queryFn: async () => {
+      if (useIcpLab) return { is_pro: true };
       const { data } = await supabase
         .from("club_subscriptions")
         .select("*")
@@ -72,6 +77,7 @@ export default function ClubRewardsReportPage() {
   const { data: isAppAdmin } = useQuery({
     queryKey: ["is-app-admin", user?.id],
     queryFn: async () => {
+      if (useIcpLab) return true;
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -86,6 +92,7 @@ export default function ClubRewardsReportPage() {
   const { data: isClubAdmin } = useQuery({
     queryKey: ["is-club-admin-rewards-report", user?.id, clubId],
     queryFn: async () => {
+      if (useIcpLab) return true;
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -105,6 +112,11 @@ export default function ClubRewardsReportPage() {
   const { data: teams = [] } = useQuery({
     queryKey: ["club-teams-for-report", clubId],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map(({ id, name }) => ({ id, name }));
+      }
       const { data, error } = await supabase
         .from("teams")
         .select("id, name")
@@ -120,6 +132,10 @@ export default function ClubRewardsReportPage() {
   const { data: club } = useQuery({
     queryKey: ["club-info", clubId],
     queryFn: async () => {
+      if (useIcpLab) {
+        const localClub = getLocalLabClubDetail(clubId!);
+        return localClub ? { name: localClub.name } : null;
+      }
       const { data, error } = await supabase
         .from("clubs")
         .select("name")
@@ -135,6 +151,12 @@ export default function ClubRewardsReportPage() {
   const { data: redemptions = [], isLoading } = useQuery({
     queryKey: ["rewards-report", clubId, startDate, endDate, selectedTeamId],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabRewardRedemptions(clubId!).filter((redemption) => {
+          const redeemedAt = new Date(redemption.redeemed_at);
+          return redeemedAt >= startDate && redeemedAt <= endDate;
+        });
+      }
       // First, get redemptions within date range
       let query = supabase
         .from("reward_redemptions")
@@ -333,6 +355,14 @@ export default function ClubRewardsReportPage() {
             <h1 className="text-xl font-semibold">Rewards Report</h1>
             <p className="text-sm text-muted-foreground">{club?.name}</p>
           </div>
+
+          {useIcpLab && (
+            <Alert>
+              <AlertDescription>
+                This report uses synthetic ICP lab data. Reward fulfilment and redemption changes are unavailable.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         <Button onClick={handleDownload} disabled={isLoading || redemptions.length === 0} size="sm">
           <Download className="h-4 w-4 mr-2" />

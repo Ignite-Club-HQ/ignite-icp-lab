@@ -71,4 +71,15 @@ test('provides local fixture data for the core hybrid pages', () => {
   const events = fixtureData.getLocalLabEventList();
   expect(events.find((event) => event.id === 'event-icp-001')?.clubs?.name).toBe('ICP Test Club');
   expect(events[0]?.type).toBe('game');
+
+  const news = fixtureData.getLocalLabNewsPosts('club-icp-001');
+  expect(news[0]?.title).toContain('ICP');
+  expect(fixtureData.getLocalLabNewsPost('news-icp-001')?.author_id).toBe('icp-member');
+
+  const leaderboard = fixtureData.getLocalLabLeaderboard('club-icp-001');
+  expect(leaderboard[0]?.is_viewer).toBe(true);
+
+  const rewards = fixtureData.getLocalLabRewards('club-icp-001');
+  expect(rewards[0]?.points_required).toBe(50);
+  expect(fixtureData.getLocalLabRewardRedemptions('club-icp-001')[0]?.status).toBe('pending');
 });

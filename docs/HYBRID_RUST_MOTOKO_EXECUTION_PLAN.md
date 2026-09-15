@@ -85,13 +85,22 @@ provider-neutral test and adapter.
 
 ## Current implementation status
 
+This section is the reconciled repository status. Where older phase text below
+describes work as upcoming, this section and the detailed remaining-work table
+take precedence.
+
 Completed or proven in the lab:
 
+- 13 logical roles are declared in `icp-domain-topology.json` and all 13 are
+  present in the disposable `local` environment in `icp.yaml`
 - placement and residency control-plane POC
 - shard routing and migration-fence POC
-- Club Links Rust domain POC
+- Motoko club/team/Club Links product-domain POC, with the Rust implementation
+  retained as reference evidence
 - identity/access Rust POC
-- events, competition, messaging, and media Rust domain POCs
+- Motoko events, competition, messaging, media, notification, PII-access, and
+  secret-workload-identity POCs, with Rust reference implementations where the
+  language comparison requires them
 - Rust/Motoko migration coordinator boundary
 - Rust notification queue
 - Motoko notification queue with explicit migration chain
@@ -127,6 +136,14 @@ Completed or proven in the lab:
   and Motoko notification implementations
 - topology-wide multi-canister backup and restore proof: all deployed Rust and
   Motoko canisters snapshot, checksum verification, and restore successfully
+- synthetic external-worker boundary, provider-scoped email/push/payment/audit
+  registry, queue retry/dead-letter behavior, and workload-scope tests
+- initial field-level PII classification matrix and separate media-metadata,
+  PII-policy, and secret-workload boundaries
+- partial frontend migration: 99 application pages still import the Supabase
+  client, 22 of those pages currently have an explicit ICP-lab guard, and 77
+  still need classification as hybrid, Supabase-only, external-boundary, or
+  not-enabled
 
 Not production-ready:
 
@@ -146,6 +163,129 @@ Not production-ready:
 - domain-specific interrupted route/migration recovery proof and production
   operations evidence
 - production residency, capacity, mobile, and security approvals
+
+## Detailed remaining-work backlog
+
+The remaining work is ordered by dependency and evidence value. Completion of
+a local POC does not promote a domain to production-ready.
+
+### R1. Finish provider-neutral frontend migration
+
+**Current evidence:** fixture-backed or guarded paths exist for the main home,
+club/team detail, event detail, messaging entry points, profile/settings,
+notifications, news, leaderboard, and rewards surfaces. Direct Supabase imports
+remain in 99 application pages; 77 have no explicit ICP-lab guard.
+
+**Work remaining:**
+
+- classify every routed page as `hybrid`, `supabase_only`,
+  `external_boundary`, or `not_enabled`;
+- replace page-level SDK calls with domain services for clubs/teams,
+  memberships/roles, events, competitions, messaging, media, notifications,
+  rewards, and placement administration;
+- migrate the create/edit/join flows for clubs, teams, events, competitions,
+  seasons, mini-leagues, roles, enrolment, and EOI;
+- add typed adapters for every active Candid domain instead of expanding
+  fixtures indefinitely;
+- keep payment, advertising, OAuth/recovery, push, Drive/import, AI, and other
+  provider-backed pages explicit external or Supabase-only boundaries until
+  their approved workers exist;
+- dispose actors, sessions, and query caches on identity, site, tenant, or
+  placement change;
+- add route-level browser tests proving ICP mode makes no Supabase request and
+  explicit Supabase mode preserves existing behavior.
+
+**Exit evidence:** every routed page has a declared backend status, no hybrid
+page imports a provider SDK directly, unsupported writes show an explicit
+read-only/not-enabled state, and browser tests prove no silent fallback.
+
+### R2. Promote authorization and automation parity
+
+**Current evidence:** the source inventories, parity matrix, evidence register,
+and a broad synthetic RLS test suite exist. All product and worker rows except
+synthetic placement/routing remain `poc_needs_parity`.
+
+**Work remaining:**
+
+- reconcile every source policy/helper/RPC with a domain authorization method;
+- close the remaining identity/profile/recovery/consent, club membership,
+  event guardian/RSVP, competition role, messaging DM/group/moderation, media
+  guardian/storage-prefix, notification recipient/preference, and timer
+  callback gaps;
+- map every Edge Function and scheduled workflow to a domain method, timer,
+  queue, external worker, Supabase-only path, or `not_enabled`;
+- attach source references and executable positive/negative evidence before
+  changing any matrix status to `implemented_and_proven`.
+
+**Exit evidence:** every enabled row meets the promotion rule in
+`PARITY_IMPLEMENTATION_MATRIX.md`.
+
+### R3. Complete domain production-shape behavior
+
+- add bounded pagination and payload limits to every collection;
+- make every retriable mutation durably idempotent;
+- complete events/training/formation/pitch workflows and competition
+  divisions/ladders/official roles;
+- complete messaging reactions, replies, polls, reports, moderation,
+  retention, attachments, and hot-conversation handling;
+- complete media albums, comments, reports, checksums, chunks, attachment
+  references, deletion, and retention;
+- enforce `identity_access` decisions inside each domain rather than trusting
+  frontend claims;
+- add populated-state upgrade, snapshot, restore, and interruption probes per
+  domain.
+
+### R4. Implement the approved privacy and storage boundary
+
+- reconcile the field matrix with every sanitized source column;
+- approve owner, retention, residency, encryption, consent, and erasure policy
+  for each PII and child-media class;
+- implement the vetted vetKeys/protected-engine design, purpose-bound key
+  capabilities, rotation, revocation, and crypto-erasure;
+- implement encrypted media chunk transfer plus external scanning/moderation;
+- prove unavailable key or vault services fail closed without plaintext
+  fallback.
+
+This work remains synthetic until subnet, funding, hardware, residency, legal,
+and security decisions are separately approved.
+
+### R5. Finish external-worker and vault integration
+
+**Current evidence:** provider-scoped worker, queue, retry, dead-letter, and
+audit behavior is implemented as a synthetic lab boundary.
+
+**Work remaining:** real vault attestation, short-lived workload credentials,
+provider webhook verification, secret rotation/revocation, immutable audit
+storage, and separately authorized email, push, payment, media, third-party,
+and AI workers. No production secret belongs in this repository.
+
+### R6. Complete placement-admin integration
+
+- mount the placement settings surface in the actual app-admin navigation;
+- enforce app-admin/placement-admin authorization;
+- wire country policy, target/version, residency, health, availability, and
+  audit controls through the typed registry adapter;
+- require authoritative club country and keep device country advisory;
+- add Site A/B/C connection slots and cache/session isolation.
+
+### R7. Complete durability, measurement, and operations
+
+- run domain-specific interrupted route/migration and populated-state upgrade
+  recovery;
+- verify cross-canister references, schema evolution, cycle exhaustion, and
+  partial failures;
+- complete Rust/Motoko cycle, stable-growth, concurrency, migration, and
+  maintenance measurements;
+- add production-shaped monitoring, cycle budgets, health/backlog metrics,
+  incident runbooks, recovery ownership, and approval workflows.
+
+### R8. Complete production-readiness gates
+
+Require privacy/child-safety, security, dependency, RLS, residency, subnet,
+mobile/background, backup/restore, cycle, external-worker, vault, and
+operational approvals before enabling any newly provisioned ICP workload.
+Existing Supabase workloads remain authoritative; migration execution,
+dual-writing, and silent reassignment remain out of scope.
 
 ## Step-by-step execution
 
@@ -333,7 +473,9 @@ and production gates.
 
 ### Step 11A: Implement and prove authorization and automation parity
 
-**Status:** Upcoming. The source inventories are complete, but parity is not.
+**Status:** In progress. Source inventories, a structural checker, an evidence
+register, and broad synthetic RLS tests exist, but domain rows have not yet met
+the promotion rule.
 
 Use [RLS_DOMAIN_INVENTORY.md](RLS_DOMAIN_INVENTORY.md) and
 [EDGE_FUNCTION_AND_TIMER_INVENTORY.md](EDGE_FUNCTION_AND_TIMER_INVENTORY.md) as
@@ -391,7 +533,9 @@ domain is called ported because its canister compiles or its router passes.
 
 ### Step 11B: Execute Secret Integration & External Delivery Worker Strategy
 
-**Status:** Upcoming / Reference plan defined in [EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md](EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md).
+**Status:** Synthetic boundary implemented; real infrastructure remains
+upcoming. The reference plan is
+[EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md](EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md).
 
 Authoritatively decouple and manage all 41 Edge Function secrets:
 
@@ -404,6 +548,10 @@ Authoritatively decouple and manage all 41 Edge Function secrets:
 Exit gate: Synthetic worker harness verifies that unauthorized callers, invalid scopes, and expired leases are rejected without exposing raw secrets in canister memory or frontend bundles.
 
 ### Step 12: Complete hybrid frontend routing
+
+**Status:** In progress. The core fixture-backed page path is established, but
+only 22 of 99 pages that directly import Supabase currently have an explicit
+ICP-lab guard. See R1 for the reconciled page-migration backlog.
 
 - Generate typed actors for every active Rust and Motoko canister.
 - Resolve placement, site target (`site_id`), and domain shard before each
@@ -422,9 +570,9 @@ simulated site targets with no external requests or provider leakage.
 
 ### Step 12A: Promote placement settings into the live app-admin surface
 
-**Status:** Upcoming. The lab has a synthetic settings panel and a live
-placement registry contract, but they are not connected to a production-shaped
-application admin workflow.
+**Status:** Local contract/client/panel and authorization probe implemented.
+Mounting the surface in the actual application admin route, completing
+multi-site connection slots, and production-shaped operational evidence remain.
 
 Tasks:
 
@@ -514,7 +662,10 @@ Exit gate: explicit production approval; otherwise remain in synthetic lab mode.
 
 ### Step 15A: Deploy External Worker Infrastructure & Secret Management
 
-**Status:** Upcoming / Detailed plan in [EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md](EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md).
+**Status:** Synthetic worker/provider boundary implemented; real vault and
+provider infrastructure is separately authorized, production-only work.
+Detailed plan:
+[EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md](EXTERNAL_WORKER_SECRETS_DEPLOYMENT_PLAN.md).
 
 Operationalize the external worker boundary for all 41 API secrets and credentials:
 

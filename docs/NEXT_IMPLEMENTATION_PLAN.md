@@ -1,4 +1,4 @@
-# Next Implementation Plan: 10-Role ICP Hybrid Topology
+# Detailed Implementation Plan: 13-Role ICP Hybrid Topology
 
 ## Purpose
 
@@ -27,7 +27,7 @@ The target is a coexistence-only hybrid system:
 
 ### Logical topology
 
-The selected baseline is 10 logical canister roles, as defined in
+The selected baseline is 13 logical canister roles, as defined in
 [ICP_CANISTER_TOPOLOGY.md](ICP_CANISTER_TOPOLOGY.md):
 
 1. `placement_registry`
@@ -40,47 +40,49 @@ The selected baseline is 10 logical canister roles, as defined in
 8. `media_metadata`
 9. `notification_queue`
 10. `timer_jobs`
+11. `migration_coordinator`
+12. `pii_access_control`
+13. `secret_workload_identity`
 
 ### Implemented in the repository
 
-- `placement_registry`: synthetic control-plane canister with placement,
-  country policy, availability, residency, targets, operators, and audit state.
-- `shard_router`: synthetic global routing and migration-fence canister.
-- `club_domain`: Club Links proof-of-concept, stable account linking,
-  authorization, snapshots, and recovery fencing.
-- `identity_access`: initial stable-memory account/access POC with principal
-  linking, revocation, scoped roles, family links, exclusions, and Candid drift
-  protection.
-- `notification_queue`: durable queue proof with authenticated caller fencing,
-  claim, acknowledgement, retry, and recovery behavior.
-- `timer_jobs`: durable schedule proof with claim, retry, recovery, and upgrade
-  re-arming behavior.
-- Provider-neutral frontend routing for Club Links, messages, media,
-  notifications, and timers.
-- Complete sanitized RLS/domain inventory in [RLS_DOMAIN_INVENTORY.md](RLS_DOMAIN_INVENTORY.md).
+- All 13 logical roles are declared in `icp-domain-topology.json` and in the
+  disposable `local` environment in `icp.yaml`.
+- Rust control-plane/infrastructure implementations exist for placement,
+  routing, identity, and timers.
+- Motoko product/worker implementations exist for club, events, competitions,
+  messaging, media metadata, notifications, migration coordination, PII
+  access, and secret workload identity.
+- Rust reference implementations remain where required for equivalent
+  Rust/Motoko behavior, upgrade, and performance comparison.
+- Live local probes cover placement/federation, identity, club, events,
+  competitions, messaging, media, notifications, timers, worker capabilities,
+  and selected upgrade/recovery behavior.
+- The full local topology has backup/checksum/restore evidence.
+- Provider-neutral frontend foundations, synthetic Supabase/ICP adapters,
+  placement-admin controls, and fixture-backed page migration are in progress.
+- RLS, Edge Function, PII-field, parity, and evidence inventories are present.
 
 ### Immediate structural gaps
 
-- `Cargo.toml` now includes the identity/access crate; four topology domain
-  roles still have no crate.
-- `icp.yaml` now declares `club_links` and `identity_access`; placement,
-  routing, workers, and future domain canisters still need deployment profiles.
-- `frontend/scripts/local-icp.mjs` generates both Club Links and identity/access
-  init arguments, but a live multi-canister actor probe is still required.
-- `notification_queue` has authenticated access fencing but not full recipient,
-  club, preference, or service-worker capability parity.
-- `timer_jobs` has authenticated caller fencing but not operator/workflow
-  authorization or a real domain callback.
-- `shard_router` and `placement_registry` have control-plane authorization but
-  not an integrated multi-domain route proof.
-- Messaging and media are routers/contracts, not domain canisters.
-- Identity/access, events, competitions, and media metadata now have local
-  canister POCs; events and competitions still require full RLS parity, scale,
-  pagination, and production workflow gates.
-- No topology-wide Candid compatibility, upgrade, restore, or multi-canister
-  local deployment test exists.
-- No complete per-domain RLS parity record exists beyond the Club Links boundary
-  and the inventory itself.
+- Domain implementations remain POCs until their complete source authorization
+  and automation parity rows are promoted.
+- Events, competitions, messaging, and media still need complete pagination,
+  idempotency, scale, moderation/retention, and domain-specific upgrade/recovery
+  evidence.
+- Notification and timer workers need complete recipient/preference/domain
+  parity and production scheduler/provider evidence.
+- The privacy boundary still needs approved vetKeys/protected-engine, encrypted
+  byte storage, scanning/moderation, key lifecycle, and vault integration.
+- The synthetic external-worker boundary exists, but real provider/vault
+  infrastructure remains outside the lab.
+- Frontend migration is partial: 99 application pages directly import
+  Supabase, 22 currently have an explicit ICP-lab guard, and 77 still require
+  classification and provider-neutral migration.
+- Placement-admin controls work in the lab but are not mounted as the complete
+  application admin workflow.
+- Local topology durability is proven broadly; domain-specific interrupted
+  route/migration recovery and production operations evidence remain.
 
 ## Priority order
 
@@ -126,7 +128,7 @@ Placement settings follow-up:
 
 ### Phase 0: Lock the architecture and generated contracts
 
-**Goal:** make the 10-role topology mechanically discoverable and prevent
+**Goal:** make the 13-role topology mechanically discoverable and prevent
 partial deployment from being mistaken for a complete system.
 
 Tasks:
@@ -144,8 +146,8 @@ Tasks:
   - `local-domain-pocs`;
   - `local-full-lab`.
 - Keep the default local environment disposable and loopback-only.
-- Update local lifecycle backup/restore to enumerate every deployed canister,
-  not only `club_links`.
+- Keep local lifecycle backup/restore coverage aligned with every deployed
+  canister and add domain-specific interrupted recovery cases.
 - Add Candid drift checks for every implemented crate.
 
 Acceptance:
@@ -481,18 +483,25 @@ The topology is ready for a new ICP workload only when:
 
 ## Current next action
 
-Phase 0 is partially implemented: topology validation, identity/access
-manifest wiring, local identity init generation, generated bindings, and a
-provider-neutral identity adapter are in place. Phase 1 now has an
-identity/access POC with stable account IDs, principal linking, revocation,
-scoped roles, family links, exclusions, access decisions, and Candid drift
-tests. The next action is the disposable live multi-canister deployment and
-actor probe in `frontend/scripts/test-identity-access.mjs` for
-`identity_access` plus `club_links`; do not add events, competition,
-messaging, or media business methods until that probe and the identity adapter
-are complete.
-events, competition, messaging, or media business methods until that probe and
-the identity adapter are complete.
+The current dependency-ordered work is:
+
+1. finish classifying and migrating frontend routes through provider-neutral
+   domain services, beginning with club/team/event/competition create-edit-join
+   and membership/role administration;
+2. promote parity rows in domain order using source references and executable
+   positive/negative evidence;
+3. complete domain pagination, idempotency, moderation/retention, scale, and
+   populated-state upgrade/recovery behavior;
+4. finish the approved privacy, encrypted-media, vetKeys/protected-engine, and
+   vault boundaries;
+5. finish placement-admin application integration, multi-site cache/session
+   isolation, and domain-route dispatch;
+6. complete external-worker, operations, measurement, mobile, residency,
+   security, and production-readiness gates.
+
+The authoritative current status and acceptance details are maintained in
+the “Detailed remaining-work backlog” in
+[HYBRID_RUST_MOTOKO_EXECUTION_PLAN.md](HYBRID_RUST_MOTOKO_EXECUTION_PLAN.md).
 
 ## Integrated hybrid-plan crosswalk
 
@@ -518,11 +527,10 @@ bound caches, respects read-only state, and fails closed on missing routes,
 stale decisions, disabled backends, and provider errors. UI components must not
 call Supabase or ICP SDKs directly.
 
-**4. ICP domain canisters:** Implement the five missing crates in dependency
-order: `identity_access`, `events_domain`, `competition_domain`,
-`messaging_domain`, and `media_metadata`. Each needs bounded stable schemas,
-Candid, indexes, pagination, in-canister authorization, idempotency, snapshots,
-upgrade tests, and recovery probes. Do not copy PostgreSQL tables blindly.
+**4. ICP domain canisters:** The planned domain canisters now exist as local
+POCs. Promote them by completing bounded schemas, indexes, pagination,
+in-canister authorization, idempotency, snapshots, upgrade tests, recovery
+probes, and source-parity evidence. Do not copy PostgreSQL tables blindly.
 
 **5. Topology and delivery:** Add implemented roles to local manifests and
 lifecycle orchestration. Define shard creation/retirement, hot-workload

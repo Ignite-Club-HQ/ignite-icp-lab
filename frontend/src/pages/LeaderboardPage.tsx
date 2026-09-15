@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubList, getLocalLabLeaderboard, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 type WindowKey = "week" | "month" | "all";
 type Scope = "club" | "team" | "teams";
@@ -49,6 +51,7 @@ export default function LeaderboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [scope, setScope] = useState<Scope>("club");
@@ -60,6 +63,7 @@ export default function LeaderboardPage() {
     queryKey: ["leaderboard-my-clubs", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+      if (useIcpLab) return getLocalLabClubList().map(({ id, name }) => ({ id, name }));
       const { data, error } = await supabase
         .from("user_roles")
         .select("club_id, clubs:club_id(id, name, deleted_at)")
@@ -92,6 +96,11 @@ export default function LeaderboardPage() {
     queryKey: ["leaderboard-teams", clubId],
     queryFn: async () => {
       if (!clubId) return [];
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map(({ id, name }) => ({ id, name }));
+      }
       const { data, error } = await supabase.rpc("list_leaderboard_teams", { _club_id: clubId });
       if (error) throw error;
       return (data ?? []) as { id: string; name: string }[];
@@ -112,6 +121,10 @@ export default function LeaderboardPage() {
   const { data: rows, isLoading } = useQuery({
     queryKey: ["leaderboard", scope, scope === "team" ? teamId : clubId, windowKey, user?.id],
     queryFn: async () => {
+      if (useIcpLab) {
+        const selectedClubId = clubId ?? "club-icp-001";
+        return getLocalLabLeaderboard(selectedClubId) as Row[];
+      }
       if (scope === "club") {
         if (!clubId) return [];
         const { data, error } = await supabase.rpc("get_club_leaderboard", {
@@ -143,6 +156,16 @@ export default function LeaderboardPage() {
     queryKey: ["leaderboard-teams-rank", clubId, windowKey],
     queryFn: async () => {
       if (!clubId) return [];
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map((team, index) => ({
+            rank: index + 1,
+            team_id: team.id,
+            team_name: team.name,
+            points: 120 - index * 20,
+          }));
+      }
       const { data, error } = await supabase.rpc("get_teams_leaderboard", {
         _club_id: clubId,
         _window: windowKey,

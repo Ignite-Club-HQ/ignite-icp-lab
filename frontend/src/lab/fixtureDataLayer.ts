@@ -375,13 +375,13 @@ export function getLocalLabNewsPosts(clubId: string) {
     id: 'news-icp-001',
     club_id: clubId,
     title: 'Local ICP lab news',
-    body: 'Synthetic news post rendered from the local lab fixture layer.',
     content: 'Synthetic news post rendered from the local lab fixture layer.',
     image_url: null,
     published_at: new Date(0).toISOString(),
-    created_at: new Date(0).toISOString(),
-    created_by: 'icp-member',
-    is_published: true,
+    author_id: 'icp-member',
+    target_team_ids: [] as string[],
+    is_important: false,
+    attachments: [],
   }];
 }
 
@@ -392,8 +392,8 @@ export function getLocalLabNewsPost(postId: string) {
 /** Synthetic leaderboard rows. */
 export function getLocalLabLeaderboard(clubId: string) {
   return [
-    { user_id: 'icp-member', display_name: 'Local ICP Member', avatar_url: null, points: 120, rank: 1, club_id: clubId },
-    { user_id: 'icp-peer', display_name: 'Local ICP Peer', avatar_url: null, points: 80, rank: 2, club_id: clubId },
+    { user_id: 'icp-member', display_name: 'Local ICP Member', avatar_url: null, points: 120, rank: 1, club_id: clubId, is_viewer: true, hidden: false },
+    { user_id: 'icp-peer', display_name: 'Local ICP Peer', avatar_url: null, points: 80, rank: 2, club_id: clubId, is_viewer: false, hidden: false },
   ];
 }
 
@@ -404,9 +404,35 @@ export function getLocalLabRewards(clubId: string) {
     club_id: clubId,
     name: 'Local ICP lab reward',
     description: 'Synthetic reward. Redemption is disabled in the lab.',
-    points_cost: 50,
+    points_required: 50,
+    reward_type: 'general' as const,
     is_active: true,
+    is_default: true,
+    logo_url: null,
+    qr_code_url: null,
+    show_qr_code: false,
+    sponsor_id: null,
     created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic redemption rows for the read-only rewards report. */
+export function getLocalLabRewardRedemptions(clubId: string) {
+  return [{
+    id: 'redemption-icp-001',
+    club_id: clubId,
+    points_spent: 50,
+    status: 'pending' as const,
+    redeemed_at: new Date().toISOString(),
+    child_id: null,
+    user_id: 'icp-member',
+    club_rewards: {
+      id: 'reward-icp-001',
+      name: 'Local ICP lab reward',
+      reward_type: 'general',
+    },
+    children: null,
+    profiles: { id: 'icp-member', display_name: 'Local ICP Member' },
   }];
 }
 
