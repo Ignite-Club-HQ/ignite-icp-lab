@@ -1,7 +1,14 @@
 import { Actor } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/competition_domain/declarations/competition_domain.did.js';
-import type { Competition as IcpCompetition, _SERVICE } from './bindings/competition_domain/declarations/competition_domain.did.js';
+import type {
+  Competition as IcpCompetition,
+  JoinToken,
+  Match,
+  Season,
+  TeamEntry,
+  _SERVICE,
+} from './bindings/competition_domain/declarations/competition_domain.did.js';
 import { createLocalAgent, fetchLocalLabConfig } from './localActor';
 
 export interface LocalCompetitionSummary {
@@ -17,6 +24,18 @@ export interface LocalCompetitionSummary {
   clubs: { name: string } | null;
   competition_entries: unknown[];
   revision: bigint;
+}
+
+export interface LocalCompetitionEntry extends TeamEntry {}
+export interface LocalCompetitionSeason extends Season {}
+export interface LocalCompetitionMatch extends Match {}
+
+export interface LocalCompetitionState {
+  competition: LocalCompetitionSummary;
+  entries: LocalCompetitionEntry[];
+  seasons: LocalCompetitionSeason[];
+  matches: LocalCompetitionMatch[];
+  joinTokens: JoinToken[];
 }
 
 function convertCompetition(competition: IcpCompetition): LocalCompetitionSummary {
@@ -40,20 +59,40 @@ export function isLocalCompetitionCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /competition domain canister is not configured/i.test(error.message);
 }
 
-export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_state' | 'create_competition' | 'claim_join_token'>) {
+export function createCompetitionDomainClient(
+  actor: Pick<
+    _SERVICE,
+    'export_state' | 'create_competition' | 'claim_join_token' | 'create_season' | 'set_season_status' | 'record_match' | 'set_match_result'
+  >,
+) {
+  const readState = async () => {
+    const result = await actor.export_state();
+    if ('Err' in result) throw new Error(result.Err);
+    return result.Ok;
+  };
+  const getCompetitionState = async (id: string): Promise<LocalCompetitionState> => {
+    const state = await readState();
+    const competition = state.competitions.find((candidate) => candidate.id === id);
+    if (!competition) throw new Error('Competition not found');
+    return {
+      competition: convertCompetition(competition),
+      entries: state.entries.filter((entry) => entry.competition_id === id),
+      seasons: state.seasons.filter((season) => season.competition_id === id),
+      matches: state.matches.filter((match) => match.competition_id === id),
+      joinTokens: state.tokens.filter((token) => token.competition_id === id),
+    };
+  };
+
   return {
     async listCompetitions(): Promise<LocalCompetitionSummary[]> {
-      const result = await actor.export_state();
-      if ('Err' in result) throw new Error(result.Err);
-      return result.Ok.competitions.map(convertCompetition);
+      const state = await readState();
+      return state.competitions.map(convertCompetition);
+    },
+    async getCompetitionState(id: string): Promise<LocalCompetitionState> {
+      return getCompetitionState(id);
     },
     async getCompetition(id: string): Promise<LocalCompetitionSummary> {
-      const result = await actor.export_state();
-      if ('Err' in result) throw new Error(result.Err);
-      const competitions = result.Ok.competitions.map(convertCompetition);
-      const competition = competitions.find((candidate) => candidate.id === id);
-      if (!competition) throw new Error('Competition not found');
-      return competition;
+      return (await getCompetitionState(id)).competition;
     },
     async createCompetition(clubId: string, name: string, season: string): Promise<LocalCompetitionSummary> {
       const result = await actor.create_competition(clubId, name, season);
@@ -62,6 +101,26 @@ export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_stat
     },
     async claimJoinToken(token: string): Promise<string> {
       const result = await actor.claim_join_token(token);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async createSeason(competitionId: string, name: string): Promise<Season> {
+      const result = await actor.create_season(competitionId, name);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async setSeasonStatus(seasonId: string, status: string, revision: bigint): Promise<Season> {
+      const result = await actor.set_season_status(seasonId, status, revision);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async recordMatch(competitionId: string, homeTeam: string, awayTeam: string): Promise<Match> {
+      const result = await actor.record_match(competitionId, homeTeam, awayTeam);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async setMatchResult(matchId: string, homeScore: number, awayScore: number, revision: bigint): Promise<Match> {
+      const result = await actor.set_match_result(matchId, homeScore, awayScore, revision);
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok;
     },
@@ -84,7 +143,11 @@ export async function listLocalCompetitions(persona: string): Promise<LocalCompe
 }
 
 export async function getLocalCompetition(persona: string, id: string): Promise<LocalCompetitionSummary> {
-  return createCompetitionDomainClient(await connectCompetitionActor(persona)).getCompetition(id);
+  return (await getLocalCompetitionState(persona, id)).competition;
+}
+
+export async function getLocalCompetitionState(persona: string, id: string): Promise<LocalCompetitionState> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).getCompetitionState(id);
 }
 
 export async function createLocalCompetition(

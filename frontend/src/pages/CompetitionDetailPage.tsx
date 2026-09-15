@@ -26,7 +26,7 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { Crown } from "lucide-react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalCompetition, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
+import { getLocalCompetitionState, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionDetailPage() {
@@ -44,11 +44,12 @@ function IcpCompetitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const localIcpPersona = personas[0]?.id ?? "club-admin";
-  const { data: competition, isLoading, error } = useQuery({
+  const { data: state, isLoading, error } = useQuery({
     queryKey: ["local-icp-competition", id, localIcpPersona],
     enabled: !!id,
-    queryFn: () => getLocalCompetition(localIcpPersona, id!),
+    queryFn: () => getLocalCompetitionState(localIcpPersona, id!),
   });
+  const competition = state?.competition;
   const unavailable = isLocalCompetitionCanisterUnavailable(error);
 
   if (isLoading) {
@@ -107,7 +108,7 @@ function IcpCompetitionDetailPage() {
         <CardContent className="p-4 space-y-2 text-sm">
           <p className="font-medium">Local ICP competition record</p>
           <p className="text-muted-foreground">
-            Entries, divisions, fixtures, ladders, invitations, and administration remain disabled until those canister workflows are wired.
+            Entries, seasons, matches, and join-token state below come from the local canister export. Division, ladder, invitation administration, and team-name resolution remain disabled until their provider-neutral workflows are wired.
           </p>
           <dl className="grid gap-2 sm:grid-cols-2 pt-2">
             <div>
@@ -123,6 +124,82 @@ function IcpCompetitionDetailPage() {
               <dd>{competition.revision.toString()}</dd>
             </div>
           </dl>
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">Seasons</h2>
+              <Badge variant="outline">{state?.seasons.length ?? 0}</Badge>
+            </div>
+            {state?.seasons.length ? (
+              <div className="space-y-2">
+                {state.seasons.map((season) => (
+                  <div key={`${season.competition_id}-${season.name}`} className="flex items-center justify-between text-sm">
+                    <span>{season.name}</span>
+                    <Badge variant={season.status === "active" ? "default" : "secondary"}>{season.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No seasons in the local canister state.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">Team entries</h2>
+              <Badge variant="outline">{state?.entries.length ?? 0}</Badge>
+            </div>
+            {state?.entries.length ? (
+              <div className="space-y-2">
+                {state.entries.map((entry) => (
+                  <div key={`${entry.competition_id}-${entry.team_id}`} className="flex items-center justify-between text-sm">
+                    <span className="font-mono text-xs">{entry.team_id}</span>
+                    <Badge variant="secondary">{entry.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No team entries in the local canister state.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Matches</h2>
+            <Badge variant="outline">{state?.matches.length ?? 0}</Badge>
+          </div>
+          {state?.matches.length ? (
+            <div className="space-y-2">
+              {state.matches.map((match) => (
+                <div key={match.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
+                  <span className="truncate">{match.home_team}</span>
+                  <span className="font-mono text-xs">
+                    {match.status === "scheduled" ? "vs" : `${match.home_score} - ${match.away_score}`}
+                  </span>
+                  <span className="truncate text-right">{match.away_team}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No matches in the local canister state.</p>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Join tokens</h2>
+            <Badge variant="outline">{state?.joinTokens.length ?? 0}</Badge>
+          </div>
+          <p className="text-muted-foreground">
+            Token issuance and administration remain unavailable in ICP mode. Claimed token state is shown only as exported canister metadata.
+          </p>
         </CardContent>
       </Card>
     </div>

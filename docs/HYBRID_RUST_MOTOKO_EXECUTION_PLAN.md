@@ -151,9 +151,10 @@ Completed or proven in the lab:
   writes; attendance, recurrence, timers, and complete duty lifecycle remain
   pending
 - competition frontend connectivity has started with typed local
-  `competition_domain` list, read-only detail, basic create, and join-token
-  claim adapters on the competitions pages; team entry, settings, seasons,
-  fixtures, results, organiser visibility, and invitation flows remain pending
+  `competition_domain` list, detail-state, basic create, and join-token claim
+  adapters on the competitions pages; exported team entries, seasons, matches,
+  and join-token metadata are now visible, while mutations, settings,
+  organiser visibility, and invitation flows remain pending
 
 Not production-ready:
 
