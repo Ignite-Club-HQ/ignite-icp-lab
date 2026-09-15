@@ -119,7 +119,7 @@ import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
-import { getLocalEvent, isLocalEventsCanisterUnavailable } from "@/lab/localEventsService";
+import { getLocalEvent, isLocalEventsCanisterUnavailable, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
@@ -1700,10 +1700,13 @@ export default function EventDetailPage() {
   const rsvpMutation = useMutation({
     mutationFn: async (status: RsvpStatus) => {
       if (useIcpLab) {
+        if (!id) throw new Error("Missing event ID");
+        const localAccountId = user?.id ?? localIcpPersona;
+        await setLocalEventRsvp(localIcpPersona, id, localAccountId, status);
         const localRsvp = {
-          id: myRsvp?.id || `local-rsvp-${id}-${user?.id}`,
+          id: myRsvp?.id || `local-rsvp-${id}-${localAccountId}`,
           event_id: id,
-          user_id: user?.id,
+          user_id: localAccountId,
           child_id: null,
           status,
           notes: rsvpNotes || null,
@@ -1716,7 +1719,7 @@ export default function EventDetailPage() {
         };
         queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
           const rows = Array.isArray(current) ? current : [];
-          const existingIndex = rows.findIndex((row: any) => row.user_id === user?.id && !row.child_id);
+          const existingIndex = rows.findIndex((row: any) => row.user_id === localAccountId && !row.child_id);
           if (existingIndex < 0) return [...rows, localRsvp];
           return rows.map((row: any, index) => index === existingIndex ? { ...row, ...localRsvp } : row);
         });
@@ -2126,20 +2129,7 @@ export default function EventDetailPage() {
   const addDutyMutation = useMutation({
     mutationFn: async (args: { dutyName: string; startTime?: string; endTime?: string }) => {
       if (useIcpLab) {
-        const localDuty = {
-          id: `local-duty-${id}-${Date.now()}`,
-          event_id: id,
-          name: args.dutyName,
-          status: "open" as DutyStatus,
-          assigned_to: null,
-          completed_at: null,
-          profiles: null,
-        };
-        queryClient.setQueryData(["event-duties", id], (current: unknown) => [
-          ...(Array.isArray(current) ? current : []),
-          localDuty,
-        ]);
-        return;
+        throw new Error("Open duty creation is not connected to the local events canister yet.");
       }
 
       // Combine event date with optional HH:MM times into ISO timestamps
@@ -2188,10 +2178,15 @@ export default function EventDetailPage() {
   const claimDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
       if (useIcpLab) {
+        if (!id) throw new Error("Missing event ID");
+        const duty = duties?.find((candidate) => candidate.id === dutyId);
+        if (!duty?.name) throw new Error("Duty not found");
+        const localAccountId = user?.id ?? localIcpPersona;
+        await setLocalEventDuty(localIcpPersona, id, localAccountId, duty.name);
         queryClient.setQueryData(["event-duties", id], (current: unknown) =>
           (Array.isArray(current) ? current : []).map((duty: any) =>
             duty.id === dutyId
-              ? { ...duty, assigned_to: user?.id, profiles: { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } }
+              ? { ...duty, assigned_to: localAccountId, profiles: { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } }
               : duty,
           ),
         );
@@ -2239,14 +2234,7 @@ export default function EventDetailPage() {
       const duty = duties?.find(d => d.id === dutyId);
 
       if (useIcpLab) {
-        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
-          (Array.isArray(current) ? current : []).map((row: any) =>
-            row.id === dutyId
-              ? { ...row, status: "completed" as DutyStatus, completed_at: new Date().toISOString() }
-              : row,
-          ),
-        );
-        return { outcome: "completed" as const };
+        throw new Error("Duty completion is not connected to the local events canister yet.");
       }
 
       // Guard against premature completion — duties can only be marked complete
@@ -2350,12 +2338,7 @@ export default function EventDetailPage() {
   const uncompleteDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
       if (useIcpLab) {
-        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
-          (Array.isArray(current) ? current : []).map((row: any) =>
-            row.id === dutyId ? { ...row, status: "open" as DutyStatus, completed_at: null } : row,
-          ),
-        );
-        return;
+        throw new Error("Duty reopening is not connected to the local events canister yet.");
       }
 
       const { error } = await supabase
@@ -2385,10 +2368,7 @@ export default function EventDetailPage() {
   const deleteDutyMutation = useMutation({
     mutationFn: async (dutyId: string) => {
       if (useIcpLab) {
-        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
-          (Array.isArray(current) ? current : []).filter((row: any) => row.id !== dutyId),
-        );
-        return;
+        throw new Error("Duty deletion is not connected to the local events canister yet.");
       }
 
       const { error } = await supabase.from("duties").delete().eq("id", dutyId);

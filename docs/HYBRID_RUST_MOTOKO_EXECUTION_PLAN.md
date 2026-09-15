@@ -146,6 +146,10 @@ Completed or proven in the lab:
   [lab-route-classification.json](../frontend/lab-route-classification.json); guard
   coverage includes fixture/read-only and unavailable states rather than
   proving that every page has a live ICP actor
+- event frontend connectivity includes local `events_domain` list/detail/create/edit
+  paths plus canister-backed event-detail self-RSVP and assigned-duty claim
+  writes; attendance, recurrence, timers, and complete duty lifecycle remain
+  pending
 
 Not production-ready:
 

@@ -98,3 +98,41 @@ test('events domain client gets and updates events without fallback semantics', 
   });
   expect(updateEvent).toHaveBeenCalledWith('event-3', 'Updated game', 'Updated description', 3n, 4n);
 });
+
+test('events domain client writes RSVP and assigned duty decisions', async () => {
+  const setRsvp = vi.fn(async () => ({
+    Ok: {
+      event_id: 'event-4',
+      account_id: 'account-1',
+      state: 'going',
+      updated_at_ms: 5n,
+    },
+  }));
+  const setDuty = vi.fn(async () => ({
+    Ok: {
+      event_id: 'event-4',
+      account_id: 'account-1',
+      duty: 'Linesperson',
+    },
+  }));
+  const client = createEventsDomainClient({
+    list_events: vi.fn(),
+    create_event: vi.fn(),
+    update_event: vi.fn(),
+    set_rsvp: setRsvp,
+    set_duty: setDuty,
+  } as unknown as _SERVICE);
+
+  await expect(client.setRsvp('event-4', 'account-1', 'going')).resolves.toMatchObject({
+    event_id: 'event-4',
+    account_id: 'account-1',
+    state: 'going',
+  });
+  await expect(client.setDuty('event-4', 'account-1', 'Linesperson')).resolves.toMatchObject({
+    event_id: 'event-4',
+    account_id: 'account-1',
+    duty: 'Linesperson',
+  });
+  expect(setRsvp).toHaveBeenCalledWith('event-4', 'account-1', 'going');
+  expect(setDuty).toHaveBeenCalledWith('event-4', 'account-1', 'Linesperson');
+});

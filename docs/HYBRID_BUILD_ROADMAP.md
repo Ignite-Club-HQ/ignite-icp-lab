@@ -58,8 +58,10 @@ The current worktree adds or completes ICP-mode guards across the remaining
 - administration, messaging, media, notification, import, backup, billing,
   advertising, AI, and other external-integration boundaries.
 - event list, detail, create, and edit now use typed signed local `events_domain`
-  actor paths for basic event reads/writes; the list keeps an explicit local
-  fixture fallback only when that canister is not configured.
+  actor paths for basic event reads/writes; event detail also writes self-RSVP
+  decisions and assigned-duty claims to the local canister. The list/detail
+  paths keep an explicit local fixture fallback only when that canister is not
+  configured.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
@@ -107,7 +109,8 @@ Implement and wire typed adapters in this order:
 
 1. identity, roles, memberships, guardians, exclusions, and invites;
 2. club/team reads and writes, including creation and placement assignment;
-3. event reads/writes, recurrence, RSVP, duties, attendance, and timers;
+3. event reads/writes, remaining duty lifecycle, attendance, recurrence, and
+   timers;
 4. competitions, seasons, entries, divisions, fixtures, results, and join
    capabilities;
 5. messaging, notifications, and media metadata;

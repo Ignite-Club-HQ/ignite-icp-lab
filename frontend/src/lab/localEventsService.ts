@@ -1,7 +1,7 @@
 import { Actor } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
-import type { Event as IcpEvent, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
+import type { Duty, Event as IcpEvent, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
 import { createLocalAgent, fetchLocalLabConfig } from './localActor';
 
 export interface LocalScheduleEvent {
@@ -84,7 +84,7 @@ export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /events domain canister is not configured/i.test(error.message);
 }
 
-export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event'>) {
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event' | 'set_rsvp' | 'set_duty'>) {
   return {
     async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
       const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
@@ -118,6 +118,16 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
       const result = await actor.update_event(id, title, description, startsAtMs, endsAtMs);
       if ('Err' in result) throw new Error(result.Err);
       return convertEvent(result.Ok);
+    },
+    async setRsvp(eventId: string, accountId: string, state: string): Promise<Rsvp> {
+      const result = await actor.set_rsvp(eventId, accountId, state);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async setDuty(eventId: string, accountId: string, duty: string): Promise<Duty> {
+      const result = await actor.set_duty(eventId, accountId, duty);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
     },
   };
 }
@@ -162,4 +172,12 @@ export async function updateLocalEvent(
   endsAtMs: bigint,
 ): Promise<LocalScheduleEvent> {
   return createEventsDomainClient(await connectEventsActor(persona)).updateEvent(id, title, description, startsAtMs, endsAtMs);
+}
+
+export async function setLocalEventRsvp(persona: string, eventId: string, accountId: string, state: string): Promise<Rsvp> {
+  return createEventsDomainClient(await connectEventsActor(persona)).setRsvp(eventId, accountId, state);
+}
+
+export async function setLocalEventDuty(persona: string, eventId: string, accountId: string, duty: string): Promise<Duty> {
+  return createEventsDomainClient(await connectEventsActor(persona)).setDuty(eventId, accountId, duty);
 }
