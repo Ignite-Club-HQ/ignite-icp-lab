@@ -152,10 +152,13 @@ function authorizationFor(registry, identity) {
   for (const key of registry.exclusionKeys) clubIds.add(key.slice(key.indexOf(':') + 1));
 
   const decisions = [...clubIds].map(clubId => accessFor(registry, identity, clubId));
+  // App-admin authority is cross-club and must not depend on the caller
+  // having any club-scoped role, team membership or family relationship.
+  const appAdmin = identity.roles.some(role => role.role === 'app_admin');
   return {
     accountId: identity.accountId,
     principalText: identity.principalText,
-    appAdmin: decisions.some(decision => decision.isAppAdmin),
+    appAdmin,
     adminClubIds: decisions
       .filter(decision => decision.isClubAdmin && !decision.isAppAdmin)
       .map(decision => decision.clubId),

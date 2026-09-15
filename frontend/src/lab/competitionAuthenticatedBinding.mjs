@@ -45,6 +45,30 @@ function toPage(page) {
   };
 }
 
+function snapshotToWire(snapshot) {
+  return {
+    schema_version: snapshot.schemaVersion,
+    next_sequence: snapshot.nextSequence,
+    competitions: snapshot.competitions.map(toWire),
+    requests: snapshot.requests.map(request => ({
+      key: request.key,
+      fingerprint: request.fingerprint,
+      result: toWire(request.result),
+    })),
+  };
+}
+
+function reconciliationToWire(reconciliation) {
+  return {
+    equal: reconciliation.equal,
+    missing_ids: [...reconciliation.missingIds],
+    unexpected_ids: [...reconciliation.unexpectedIds],
+    changed_ids: [...reconciliation.changedIds],
+    request_ledger_equal: reconciliation.requestLedgerEqual,
+    sequence_equal: reconciliation.sequenceEqual,
+  };
+}
+
 function fromCreate(request) {
   return {
     name: request.name,
@@ -115,6 +139,13 @@ export function createSyntheticAuthenticatedCompetitionFactory({
           serverActor.principalText !== identity.principalText) {
         throw new Error('Identity authorization mismatch');
       }
+      const requireDurableService = () => {
+        if (typeof service.exportSnapshot !== 'function' ||
+            typeof service.importSnapshot !== 'function' ||
+            typeof service.reconcileSnapshot !== 'function') {
+          throw new Error('Competition service does not support durability operations');
+        }
+      };
       const transport = transportFactory({
         config: LOCAL_ACTOR_CONFIGS.competition,
         dispatch: async ({ method, args }) => {
@@ -142,6 +173,18 @@ export function createSyntheticAuthenticatedCompetitionFactory({
                   args.expected_revision,
                   args.request_id,
                 )));
+              case 'export_snapshot':
+                requireDurableService();
+                return success(snapshotToWire(await service.exportSnapshot(serverActor)));
+              case 'import_snapshot':
+                requireDurableService();
+                await service.importSnapshot(serverActor, fromSnapshotWire(args.snapshot));
+                return success(null);
+              case 'reconcile_snapshot':
+                requireDurableService();
+                return success(reconciliationToWire(
+                  await service.reconcileSnapshot(serverActor, fromSnapshotWire(args.snapshot)),
+                ));
               default:
                 throw new Error(`Unknown competition actor method: ${method}`);
             }
@@ -155,6 +198,9 @@ export function createSyntheticAuthenticatedCompetitionFactory({
         get_competition: request => transport.call('get_competition', request),
         create_competition: request => transport.call('create_competition', request),
         update_competition: request => transport.call('update_competition', request),
+        export_snapshot: () => transport.call('export_snapshot', {}),
+        import_snapshot: request => transport.call('import_snapshot', request),
+        reconcile_snapshot: request => transport.call('reconcile_snapshot', request),
       };
     },
   };
@@ -179,6 +225,30 @@ function fromWire(row) {
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function fromSnapshotWire(wire) {
+  return {
+    schemaVersion: wire.schema_version,
+    nextSequence: wire.next_sequence,
+    competitions: wire.competitions.map(fromWire),
+    requests: wire.requests.map(request => ({
+      key: request.key,
+      fingerprint: request.fingerprint,
+      result: fromWire(request.result),
+    })),
+  };
+}
+
+function reconciliationFromWire(wire) {
+  return {
+    equal: wire.equal,
+    missingIds: wire.missing_ids,
+    unexpectedIds: wire.unexpected_ids,
+    changedIds: wire.changed_ids,
+    requestLedgerEqual: wire.request_ledger_equal,
+    sequenceEqual: wire.sequence_equal,
   };
 }
 
@@ -252,6 +322,20 @@ export function createAuthenticatedCompetitionService(factory, identity) {
       return fromWire(unwrap(await (await actor()).update_competition(
         toPatchRequest(id, patch, expectedRevision, requestId),
       )));
+    },
+    async exportSnapshot(caller) {
+      assertBoundActor(caller, identity);
+      return fromSnapshotWire(unwrap(await (await actor()).export_snapshot()));
+    },
+    async importSnapshot(caller, snapshot) {
+      assertBoundActor(caller, identity);
+      unwrap(await (await actor()).import_snapshot({ snapshot: snapshotToWire(snapshot) }));
+    },
+    async reconcileSnapshot(caller, snapshot) {
+      assertBoundActor(caller, identity);
+      return reconciliationFromWire(unwrap(await (await actor()).reconcile_snapshot({
+        snapshot: snapshotToWire(snapshot),
+      })));
     },
   };
 }

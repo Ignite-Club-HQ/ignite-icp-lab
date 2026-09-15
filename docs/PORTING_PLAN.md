@@ -137,6 +137,29 @@ metadata across local transport reconstruction only; domain state remains owned
 by the synthetic provider and this is not stable-memory or deployed-canister
 upgrade evidence.
 
+The competition durability seam is now authorized and actor-exposed rather
+than a bare, unauthenticated service method. `exportSnapshot`,
+`importSnapshot`, and `reconcileSnapshot` on
+`frontend/src/lab/competitionService.mjs` now require an actor argument and
+reject any caller whose server-resolved authorization is not app-admin; a
+per-club admin cannot invoke them. `frontend/src/lab/CompetitionBindings.ts`
+and `frontend/src/lab/competitionAuthenticatedBinding.mjs` add Candid-shaped
+`export_snapshot`/`import_snapshot`/`reconcile_snapshot` actor methods and
+wire/domain snapshot mapping, dispatched through the shared local actor
+transport and gated by the same server-owned authorization projection used
+for reads and writes. This closes the gap between service-level durability
+evidence and the authenticated actor boundary; a real canister's
+stable-memory export/import hooks would need equivalent authorization.
+
+Implementing this also surfaced and fixed a defect in
+`frontend/src/lab/identityAccessService.mjs`: `authorizationFor` previously
+derived `appAdmin` only from per-club access decisions, so a caller whose
+only role was a club-independent `app_admin` role (no club-scoped role,
+team, or family relationship) resolved to `appAdmin: false`. `appAdmin` is
+now derived directly from the caller's roles, independent of any club
+association, consistent with app-admin authority being cross-club. This is
+still synthetic fixture evidence, not production role parity.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

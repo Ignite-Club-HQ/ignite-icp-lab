@@ -20,6 +20,10 @@ const outsider = {
   accountId: 'synthetic-outsider-account',
   memberClubIds: [DEMO_MEMBER_CLUB_ID],
 };
+const appAdmin = {
+  accountId: 'synthetic-app-admin-account',
+  appAdmin: true,
+};
 
 function seed() {
   return createFixtureCompetitionService({
@@ -135,14 +139,14 @@ test('snapshot export/import preserves populated state, retries and future IDs',
     visibility: 'private',
   }, 'durable-create');
   const updated = await source.update(admin, created.id, { name: 'Durable Cup Updated' }, created.revision, 'durable-update');
-  const snapshot = await source.exportSnapshot();
+  const snapshot = await source.exportSnapshot(appAdmin);
   assert.equal(snapshot.schemaVersion, 1);
   assert.equal(snapshot.competitions.length, 5);
   assert.equal(snapshot.requests.length, 2);
 
   const restored = createFixtureCompetitionService();
-  await restored.importSnapshot(snapshot);
-  assert.deepEqual(await restored.reconcileSnapshot(snapshot), {
+  await restored.importSnapshot(appAdmin, snapshot);
+  assert.deepEqual(await restored.reconcileSnapshot(appAdmin, snapshot), {
     equal: true,
     missingIds: [],
     unexpectedIds: [],
@@ -164,7 +168,7 @@ test('snapshot export/import preserves populated state, retries and future IDs',
 
 test('snapshot reconciliation reports drift and invalid import is atomic', async () => {
   const service = seed();
-  const snapshot = await service.exportSnapshot();
+  const snapshot = await service.exportSnapshot(appAdmin);
   const drifted = structuredClone(snapshot);
   drifted.competitions[0].name = 'Tampered';
   drifted.competitions.push({
@@ -172,17 +176,17 @@ test('snapshot reconciliation reports drift and invalid import is atomic', async
     id: 'unexpected',
     name: 'Unexpected',
   });
-  const report = await service.reconcileSnapshot(drifted);
+  const report = await service.reconcileSnapshot(appAdmin, drifted);
   assert.equal(report.equal, false);
   assert.deepEqual(report.changedIds, [snapshot.competitions[0].id]);
   assert.deepEqual(report.unexpectedIds, []);
   assert.deepEqual(report.missingIds, ['unexpected']);
 
-  await assert.rejects(service.importSnapshot({
+  await assert.rejects(service.importSnapshot(appAdmin, {
     ...snapshot,
     competitions: [snapshot.competitions[0], snapshot.competitions[0]],
   }), /duplicate competition IDs/);
-  assert.deepEqual(await service.reconcileSnapshot(snapshot), {
+  assert.deepEqual(await service.reconcileSnapshot(appAdmin, snapshot), {
     equal: true,
     missingIds: [],
     unexpectedIds: [],
@@ -192,11 +196,24 @@ test('snapshot reconciliation reports drift and invalid import is atomic', async
   });
 });
 
+test('durability operations require an app-admin actor, not a club admin', async () => {
+  const service = seed();
+  await assert.rejects(service.exportSnapshot(admin), /app admin required/);
+  await assert.rejects(service.exportSnapshot(null), /Authenticated account required/);
+  const snapshot = await service.exportSnapshot(appAdmin);
+  await assert.rejects(service.importSnapshot(admin, snapshot), /app admin required/);
+  await assert.rejects(service.reconcileSnapshot({ ...admin, appAdmin: false }, snapshot), /app admin required/);
+  await assert.rejects(
+    service.importSnapshot({ ...member, appAdmin: 'true' }, snapshot),
+    /app admin required/,
+  );
+});
+
 test('snapshot bounds and schema validation fail closed', async () => {
   const service = seed();
-  const snapshot = await service.exportSnapshot();
-  await assert.rejects(service.importSnapshot({ ...snapshot, schemaVersion: 2 }), /Unsupported/);
-  await assert.rejects(service.importSnapshot({
+  const snapshot = await service.exportSnapshot(appAdmin);
+  await assert.rejects(service.importSnapshot(appAdmin, { ...snapshot, schemaVersion: 2 }), /Unsupported/);
+  await assert.rejects(service.importSnapshot(appAdmin, {
     ...snapshot,
     requests: Array.from({ length: 2001 }, (_, index) => ({
       key: `request-${index}`,

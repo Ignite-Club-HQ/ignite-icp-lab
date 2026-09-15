@@ -100,10 +100,12 @@ export interface CompetitionService {
 
 /**
  * Stable-memory/export seam for a future canister implementation. Import must
- * validate the complete bounded snapshot before replacing live state.
+ * validate the complete bounded snapshot before replacing live state. These
+ * are cross-club administrative operations: only an app-admin actor may call
+ * them, independent of any per-club admin scope.
  */
 export interface DurableCompetitionService extends CompetitionService {
-  exportSnapshot(): Promise<CompetitionSnapshot>;
-  importSnapshot(snapshot: CompetitionSnapshot): Promise<void>;
-  reconcileSnapshot(snapshot: CompetitionSnapshot): Promise<CompetitionReconciliation>;
+  exportSnapshot(actor: CompetitionActor): Promise<CompetitionSnapshot>;
+  importSnapshot(actor: CompetitionActor, snapshot: CompetitionSnapshot): Promise<void>;
+  reconcileSnapshot(actor: CompetitionActor, snapshot: CompetitionSnapshot): Promise<CompetitionReconciliation>;
 }

@@ -21,6 +21,11 @@ function requireActor(actor) {
   if (!actor?.accountId?.trim()) fail('Authenticated account required');
 }
 
+function requireAppAdmin(actor) {
+  requireActor(actor);
+  if (actor.appAdmin !== true) fail('Not authorized: app admin required for durability operations');
+}
+
 function isAdmin(actor, clubId) {
   return !!actor && (actor.appAdmin === true || actor.adminClubIds?.includes(clubId));
 }
@@ -281,7 +286,8 @@ export function createFixtureCompetitionService({ initial = [] } = {}) {
       return rememberOrReplay(key, fingerprint, row);
     },
 
-    async exportSnapshot() {
+    async exportSnapshot(actor) {
+      requireAppAdmin(actor);
       const snapshot = {
         schemaVersion: 1,
         nextSequence: sequence,
@@ -295,7 +301,8 @@ export function createFixtureCompetitionService({ initial = [] } = {}) {
       return clone(sortedSnapshot(snapshot));
     },
 
-    async importSnapshot(snapshot) {
+    async importSnapshot(actor, snapshot) {
+      requireAppAdmin(actor);
       const validated = sortedSnapshot(validateSnapshot(snapshot));
       const nextRows = new Map(validated.competitions.map(row => [row.id, clone(row)]));
       const nextRequests = new Map(validated.requests.map(request => [
@@ -310,9 +317,10 @@ export function createFixtureCompetitionService({ initial = [] } = {}) {
       sequence = validated.nextSequence;
     },
 
-    async reconcileSnapshot(snapshot) {
+    async reconcileSnapshot(actor, snapshot) {
+      requireAppAdmin(actor);
       const expected = sortedSnapshot(validateSnapshot(snapshot));
-      const actual = await this.exportSnapshot();
+      const actual = await this.exportSnapshot(actor);
       const actualRows = new Map(actual.competitions.map(row => [row.id, row]));
       const expectedRows = new Map(expected.competitions.map(row => [row.id, row]));
       const missingIds = expected.competitions

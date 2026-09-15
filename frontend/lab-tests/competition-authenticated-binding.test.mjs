@@ -22,6 +22,10 @@ const member = {
   principalText: 'synthetic-member-principal',
   memberClubIds: [DEMO_ORGANIZER_CLUB_ID],
 };
+const appAdmin = {
+  accountId: 'synthetic-app-admin-account',
+  principalText: 'synthetic-app-admin-principal',
+};
 
 const identityRecords = [
   {
@@ -33,6 +37,11 @@ const identityRecords = [
     accountId: member.accountId,
     principalText: member.principalText,
     roles: [{ role: 'member', clubId: DEMO_ORGANIZER_CLUB_ID }],
+  },
+  {
+    accountId: appAdmin.accountId,
+    principalText: appAdmin.principalText,
+    roles: [{ role: 'app_admin' }],
   },
 ];
 
@@ -166,4 +175,60 @@ test('authenticated actor exposes explicit Candid-shaped results and retry-safe 
     },
   });
   assert.deepEqual(replay, updated);
+});
+
+test('durability actor methods are restricted to an app-admin caller and preserve domain snapshots', async () => {
+  const { factory } = setup();
+  const adminBound = createAuthenticatedCompetitionService(factory, appAdmin);
+  const created = await adminBound.create(appAdmin, {
+    name: 'Snapshot Cup',
+    organizerClubId: DEMO_ORGANIZER_CLUB_ID,
+    status: 'active',
+    visibility: 'private',
+  }, 'snapshot-create');
+  const snapshot = await adminBound.exportSnapshot(appAdmin);
+  assert.equal(snapshot.schemaVersion, 1);
+  assert.ok(snapshot.competitions.some(row => row.id === created.id));
+
+  const clubAdminBound = createAuthenticatedCompetitionService(factory, admin);
+  await assert.rejects(clubAdminBound.exportSnapshot(admin), /app admin required/);
+  await assert.rejects(clubAdminBound.importSnapshot(admin, snapshot), /app admin required/);
+  await assert.rejects(clubAdminBound.reconcileSnapshot(admin, snapshot), /app admin required/);
+
+  const reconciliation = await adminBound.reconcileSnapshot(appAdmin, snapshot);
+  assert.deepEqual(reconciliation, {
+    equal: true,
+    missingIds: [],
+    unexpectedIds: [],
+    changedIds: [],
+    requestLedgerEqual: true,
+    sequenceEqual: true,
+  });
+
+  const { factory: freshFactory } = setup();
+  const freshBound = createAuthenticatedCompetitionService(freshFactory, appAdmin);
+  await freshBound.importSnapshot(appAdmin, snapshot);
+  const restored = await freshBound.get(appAdmin, created.id);
+  assert.equal(restored.name, 'Snapshot Cup');
+  assert.equal(restored.revision, created.revision);
+});
+
+test('forged app-admin fields on the caller object cannot unlock durability operations', async () => {
+  const { factory } = setup();
+  const bound = createAuthenticatedCompetitionService(factory, member);
+  const forged = { ...member, appAdmin: true, adminClubIds: [DEMO_ORGANIZER_CLUB_ID] };
+  await assert.rejects(bound.exportSnapshot(forged), /app admin required/);
+});
+
+test('durability actor rejects a snapshot from a foreign canister configuration', async () => {
+  const { factory } = setup();
+  const actor = await factory.connect(appAdmin);
+  const exported = await actor.export_snapshot();
+  assert.ok('Ok' in exported);
+  const tampered = {
+    ...exported.Ok,
+    competitions: [exported.Ok.competitions[0], exported.Ok.competitions[0]],
+  };
+  const rejected = await actor.import_snapshot({ snapshot: tampered });
+  assert.ok('Err' in rejected);
 });

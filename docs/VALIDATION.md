@@ -79,6 +79,25 @@
   transport reconstruction, configuration mismatch rejection, request-input
   drift rejection, duplicate snapshot rejection, and atomic preservation of
   the previous checkpoint after invalid import.
+- `node --test lab-tests/competition-service.test.mjs`: passed, 9 tests
+  including a new authorization test proving `exportSnapshot`,
+  `importSnapshot`, and `reconcileSnapshot` reject a club admin, a null
+  actor, and a caller with a falsy/non-boolean `appAdmin` field, requiring a
+  true app-admin actor for every durability operation.
+- `node --test lab-tests/competition-authenticated-binding.test.mjs`: passed,
+  8 tests including new coverage that the authenticated actor's
+  `export_snapshot`/`import_snapshot`/`reconcile_snapshot` methods are
+  reachable only for a server-resolved app-admin caller, that forged
+  `appAdmin`/`adminClubIds` fields on the caller object are ignored, that
+  wire/domain snapshot and reconciliation mapping round-trips correctly
+  through a fresh service instance, and that a malformed (duplicate-ID)
+  snapshot is rejected atomically at the actor boundary.
+- Fixed a real defect surfaced by this work: `identityAccessService.mjs`
+  previously computed `appAdmin` only from per-club access decisions, so an
+  app-admin identity with no club-scoped role resolved to `appAdmin: false`.
+  `authorizationFor` now derives `appAdmin` directly from the caller's roles.
+  `node --test lab-tests/identity-access-service.test.mjs` (7 tests) and the
+  full suite continue to pass after the fix.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

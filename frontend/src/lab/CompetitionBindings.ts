@@ -2,8 +2,10 @@ import type {
   CompetitionDraft,
   CompetitionPage,
   CompetitionPatch,
+  CompetitionReconciliation,
   CompetitionRecord,
-  CompetitionService,
+  CompetitionSnapshot,
+  DurableCompetitionService,
 } from "./CompetitionService";
 
 /**
@@ -68,6 +70,28 @@ export interface CompetitionUpdateRequest {
   };
 }
 
+export interface CompetitionSnapshotRequestWire {
+  key: string;
+  fingerprint: string;
+  result: CompetitionWireRecord;
+}
+
+export interface CompetitionSnapshotWire {
+  schema_version: number;
+  next_sequence: number;
+  competitions: CompetitionWireRecord[];
+  requests: CompetitionSnapshotRequestWire[];
+}
+
+export interface CompetitionReconciliationWire {
+  equal: boolean;
+  missing_ids: string[];
+  unexpected_ids: string[];
+  changed_ids: string[];
+  request_ledger_equal: boolean;
+  sequence_equal: boolean;
+}
+
 export interface CompetitionDomainActor {
   list_competitions(
     request: CompetitionListRequest,
@@ -81,6 +105,18 @@ export interface CompetitionDomainActor {
   update_competition(
     request: CompetitionUpdateRequest,
   ): Promise<CompetitionDomainResult<CompetitionWireRecord>>;
+  /**
+   * Cross-club administrative durability operations. The actor enforces
+   * app-admin authorization from the bound caller; no role or account
+   * argument is accepted from the request.
+   */
+  export_snapshot(): Promise<CompetitionDomainResult<CompetitionSnapshotWire>>;
+  import_snapshot(
+    request: { snapshot: CompetitionSnapshotWire },
+  ): Promise<CompetitionDomainResult<null>>;
+  reconcile_snapshot(
+    request: { snapshot: CompetitionSnapshotWire },
+  ): Promise<CompetitionDomainResult<CompetitionReconciliationWire>>;
 }
 
 export interface CompetitionIdentity {
@@ -100,7 +136,7 @@ export interface AuthenticatedCompetitionServiceFactory {
   create(
     factory: AuthenticatedCompetitionActorFactory,
     identity: CompetitionIdentity,
-  ): CompetitionService;
+  ): DurableCompetitionService;
 }
 
 export type CompetitionBindingDomainTypes = {
@@ -108,4 +144,6 @@ export type CompetitionBindingDomainTypes = {
   page: CompetitionPage;
   draft: CompetitionDraft;
   patch: CompetitionPatch;
+  snapshot: CompetitionSnapshot;
+  reconciliation: CompetitionReconciliation;
 };
