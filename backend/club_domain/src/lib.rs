@@ -163,7 +163,7 @@ impl ClubDomain {
             .any(|club| club.id == club_id && club.owner == actor)
             || self.can_manage_club(actor, club_id)
             || self.roles.iter().any(|grant| {
-                grant.account == actor && grant.club == club_id && grant.role == "member"
+                grant.account == actor && grant.club == club_id
             })
     }
 
@@ -178,7 +178,7 @@ impl ClubDomain {
             || self.roles.iter().any(|grant| {
                 grant.account == actor
                     && grant.club == team.club
-                    && (grant.role == "member" || grant.team.as_deref() == Some(team_id))
+                    && grant.team.as_deref() == Some(team_id)
             })
     }
 }
@@ -242,6 +242,7 @@ mod tests {
         assert!(domain
             .grant_role(admin, player, "player", "club-a", Some("team-a"))
             .is_ok());
+        assert!(domain.can_view_club(player, "club-a"));
         assert!(domain.can_view_team(player, "team-a"));
         assert!(!domain.can_view_team(player, "team-b"));
     }
@@ -272,9 +273,13 @@ mod tests {
             .create_club(governor, "club-b", "Lakeside FC")
             .unwrap();
         domain
+            .create_team(governor, "team-a", "club-a", "Under 14")
+            .unwrap();
+        domain
             .grant_role(governor, member, "member", "club-a", None)
             .unwrap();
         assert!(domain.can_view_club(member, "club-a"));
         assert!(!domain.can_view_club(member, "club-b"));
+        assert!(!domain.can_view_team(member, "team-a"));
     }
 }

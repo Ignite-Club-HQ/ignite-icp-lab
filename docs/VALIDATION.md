@@ -441,3 +441,22 @@ canister parity.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Club-domain membership read-scope validation slice - 2026-09-15
+
+Mapped the local club-domain read predicates to the inert `is_club_member` and
+`is_team_member` helpers. A local role grant for the club now confers club
+read access, including a grant scoped to a team belonging to that club. Team
+read access requires an exact matching team scope; a club-level `member` grant
+does not disclose every team. Focused regressions cover both directions and
+the existing cross-club negative cases remain green.
+
+`cargo test --locked` passed 5 unit tests and `cargo build --locked --release`
+passed. Parent/guardian-derived membership and team/club exclusion precedence
+remain outside this small local model, so this does not establish complete
+source membership or RLS parity. The full lab suite and loopback smoke result
+will be recorded only after those checks run.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.
