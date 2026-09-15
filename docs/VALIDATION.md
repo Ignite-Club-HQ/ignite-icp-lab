@@ -23,6 +23,11 @@
   snapshot export/import, request-ledger and future-ID preservation, drift
   reconciliation, atomic rejection of malformed snapshots, and snapshot
   bounds/schema checks.
+- `node --test lab-tests/identity-access-service.test.mjs`: passed, 7
+  synthetic identity/access tests covering principal-to-account resolution,
+  admin/member/team/parent/guardian branches, exclusion behavior, child
+  access, profile visibility, fixture validation, and explicit no-fallback
+  selection.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
@@ -39,6 +44,9 @@
 - Snapshot evidence is synthetic adapter recovery only. No deployed canister
   stable-memory upgrade, backup/restore, interrupted recovery, or managed
   network persistence was tested or claimed.
+- Identity/access evidence is synthetic only. No real authentication,
+  principal verification, account linking, production role migration, or
+  production authorization parity was introduced.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

@@ -89,6 +89,16 @@ survive restore, while drift and malformed snapshots fail closed. This is
 upgrade/recovery evidence for the local adapter only; it is not stable-memory
 or backup/restore evidence from a deployed canister.
 
+The next provider-neutral dependency is the identity/access contract in
+`frontend/src/lab/IdentityAccessService.ts` with its synthetic adapter in
+`frontend/src/lab/identityAccessService.mjs`. It resolves stable account IDs
+from synthetic principals, evaluates club/team roles, parent and guardian
+relationships, and exclusions, and keeps admin authorization independent from
+membership exclusion. Private/member profile visibility and child access are
+also bounded. This remains synthetic evidence outside the runtime allowlist;
+no real authentication, principal verification, account linking, or
+production role migration is enabled.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.
