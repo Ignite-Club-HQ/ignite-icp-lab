@@ -394,3 +394,14 @@ scopes. The new stable role state is initialized with a forward-only Motoko
 migration; Candid declarations and local bindings were regenerated.
 
 `mops check --fix`, `mops build`, and the local product-probe syntax check
+
+passed. The live four-canister probe was not run because its disposable synthetic ID configuration was unavailable.
+## Motoko team-message update authorization slice - 2026-09-15
+
+Mapped the inert source `team_messages` update policy to the local Motoko
+canister. `update_message` accepts only the author of a message attached to a
+team conversation, validates the bounded replacement body, and preserves its
+identity, conversation, sender, sequence, and idempotency key. Moderation
+roles deliberately do not confer edit authority. `mops check --fix`, `mops
+build`, and product-probe syntax checks pass. The local-only product probe now
+checks author success, immutable-field preservation, outsider and team-admin

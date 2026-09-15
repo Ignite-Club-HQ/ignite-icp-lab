@@ -97,4 +97,9 @@ service : {
       Err: text;
       Ok: Unread;
     }) query;
+  update_message: (message_id: text, body: text) ->
+   (variant {
+      Err: text;
+      Ok: Message;
+    });
 }

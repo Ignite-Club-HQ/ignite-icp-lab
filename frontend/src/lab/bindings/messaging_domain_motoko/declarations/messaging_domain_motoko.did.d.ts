@@ -96,6 +96,11 @@ export interface _SERVICE {
     { 'Ok' : Unread } |
       { 'Err' : string }
   >,
+  'update_message' : ActorMethod<
+    [string, string],
+    { 'Ok' : Message } |
+      { 'Err' : string }
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

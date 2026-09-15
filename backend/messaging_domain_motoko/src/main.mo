@@ -160,6 +160,36 @@ persistent actor {
       };
     }
   };
+  public shared ({ caller }) func update_message(message_id : Text, body : Text) : async { #Ok : Types.Message; #Err : Text } {
+    auth(caller);
+    if (not valid(body)) return #Err("Invalid message");
+    var found_idx : ?Nat = null;
+    var idx = 0;
+    for (message in messages.values()) {
+      if (message.id == message_id) { found_idx := ?idx };
+      idx += 1;
+    };
+    switch (found_idx) {
+      case null { #Err("Message not found") };
+      case (?i) {
+        let current = messages[i];
+        if (not current.sender.equal(caller)) return #Err("Message author required");
+        var is_team_message = false;
+        for (conversation in conversations.values()) {
+          if (conversation.id == current.conversation_id and conversation.team_id != null) {
+            is_team_message := true;
+          };
+        };
+        if (not is_team_message) return #Err("Team message required");
+        let updated : Types.Message = { current with body };
+        messages := Array.tabulate<Types.Message>(messages.size(), func(position) {
+          if (position == i) updated else messages[position]
+        });
+        #Ok(updated)
+      };
+    }
+  };
+
 
   public shared ({ caller }) func mark_read(conversation_id : Text, message_id : Text) : async { #Ok : Types.Receipt; #Err : Text } {
     auth(caller);

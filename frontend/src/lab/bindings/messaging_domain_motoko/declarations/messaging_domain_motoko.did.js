@@ -108,6 +108,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Variant({ 'Ok' : Unread, 'Err' : IDL.Text })],
         ['query'],
       ),
+    'update_message' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : Message, 'Err' : IDL.Text })],
+        [],
+      ),
   });
 };
 

@@ -91,6 +91,12 @@ const replayedMessage = ok(await messaging.send_message(conversation.id, 'hello 
 check(firstMessage.sequence === 1n && replayedMessage.id === firstMessage.id, 'message ordering/idempotency mismatch');
 const secondMessage = ok(await messaging.send_message(conversation.id, 'second message', 'message-key-2'), 'second message send');
 const page = await messaging.list_messages(conversation.id, [1n]);
+const editedMessage = ok(await messaging.update_message(firstMessage.id, 'edited Motoko domain'), 'author message update');
+check(editedMessage.id === firstMessage.id && editedMessage.conversation_id === firstMessage.conversation_id && editedMessage.sender.toText() === governor.getPrincipal().toText() && editedMessage.sequence === firstMessage.sequence && editedMessage.idempotency_key === firstMessage.idempotency_key && editedMessage.body === 'edited Motoko domain', 'message update changed immutable fields');
+await err(memberMessaging.update_message(firstMessage.id, 'member tampering'), 'non-author message update');
+const nonTeamConversation = ok(await messaging.create_conversation(club, [], [governor.getPrincipal()]), 'non-team conversation create');
+const nonTeamMessage = ok(await messaging.send_message(nonTeamConversation.id, 'non-team message', 'non-team-message-key'), 'non-team message send');
+await err(messaging.update_message(nonTeamMessage.id, 'non-team update'), 'non-team message update');
 check(page.length === 1 && page[0].id === secondMessage.id, 'message cursor mismatch');
 const boundedPage = ok(await messaging.list_messages_page(conversation.id, [], 1), 'bounded message page');
 check(boundedPage.messages.length === 1 && boundedPage.latest_sequence === 2n, 'bounded message page mismatch');
@@ -112,6 +118,7 @@ ok(await messaging.grant_role(syntheticIdentity('parent').getPrincipal(), 'coach
 ok(await coachMessaging.delete_message(secondMessage.id), 'coach message delete');
 const clubAdminMessage = ok(await messaging.send_message(conversation.id, 'club admin target', 'message-key-3'), 'club-admin target message');
 ok(await messaging.grant_role(syntheticIdentity('club_admin').getPrincipal(), 'club_admin', [club], []), 'club-admin role grant');
+await err(teamAdminMessaging.update_message(clubAdminMessage.id, 'team-admin tampering'), 'team-admin message update');
 ok(await clubAdminMessaging.delete_message(clubAdminMessage.id), 'club-admin message delete');
 const appAdminMessage = ok(await messaging.send_message(conversation.id, 'app admin target', 'message-key-4'), 'app-admin target message');
 ok(await messaging.grant_role(syntheticIdentity('app_admin').getPrincipal(), 'app_admin', [], []), 'app-admin role grant');
