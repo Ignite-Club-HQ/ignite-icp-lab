@@ -150,7 +150,7 @@ impl ClubDomain {
         self.roles.iter().any(|grant| {
             grant.account == actor
                 && grant.club == club_id
-                && (grant.role == "club_admin" || grant.role == "owner")
+                && grant.role == "club_admin"
         })
     }
 
@@ -213,6 +213,20 @@ mod tests {
             .unwrap();
         assert!(domain.can_manage_club(admin, "club-1"));
         assert!(!domain.can_manage_club(outsider, "club-1"));
+
+        domain
+            .grant_role(admin, outsider, "owner", "club-1", None)
+            .unwrap();
+        assert!(!domain.can_manage_club(outsider, "club-1"));
+        assert_eq!(
+            domain
+                .create_team(outsider, "team-denied", "club-1", "Under 14")
+                .unwrap_err(),
+            "Club admin required"
+        );
+        assert!(domain
+            .create_team(admin, "team-admin", "club-1", "Under 14")
+            .is_ok());
     }
 
     #[test]

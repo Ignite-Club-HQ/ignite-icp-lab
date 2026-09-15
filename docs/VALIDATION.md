@@ -460,3 +460,22 @@ will be recorded only after those checks run.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Club-domain administrative role validation slice - 2026-09-15
+
+Mapped local club-management authority to the inert `is_club_admin` helper,
+which recognizes only a global `app_admin` analogue or a matching
+`club_admin` role. The local governor remains the global administrative
+authority; a role grant labelled `owner` no longer grants club-wide management
+authority. The focused regression proves that such a grant cannot create a
+team, while a matching `club_admin` can.
+
+`cargo test --locked` passed 5 unit tests and `cargo build --locked --release`
+passed. This is a bounded local authorization correction, not evidence of
+complete source role-management, membership, exclusion, lifecycle, pagination,
+or live Rust canister parity. The full lab suite and loopback smoke result will
+be recorded only after those checks run.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.
