@@ -118,6 +118,25 @@ describe('local competition service', () => {
     expect(claimJoinToken).toHaveBeenCalledWith('token-1');
   });
 
+  test('issues a join token through the local canister actor', async () => {
+    const issueJoinToken = vi.fn(async () => ({
+      Ok: { id: 'token-1', competition_id: 'competition-1', team_id: 'team-1', issued_by: principal, expires_at_ms: 20n, used: false },
+    }));
+    const client = createCompetitionDomainClient({
+      export_state: vi.fn(),
+      create_competition: vi.fn(),
+      claim_join_token: vi.fn(),
+      issue_join_token: issueJoinToken,
+    } as unknown as _SERVICE);
+
+    await expect(client.issueJoinToken('competition-1', 'team-1', 20n)).resolves.toMatchObject({
+      id: 'token-1',
+      team_id: 'team-1',
+      used: false,
+    });
+    expect(issueJoinToken).toHaveBeenCalledWith('competition-1', 'team-1', 20n);
+  });
+
   test('registers a team through the local canister actor', async () => {
     const registerTeam = vi.fn(async () => ({
       Ok: { competition_id: 'competition-1', team_id: 'team-1', club_id: 'club-1', status: 'registered' },

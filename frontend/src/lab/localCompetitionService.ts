@@ -62,7 +62,7 @@ export function isLocalCompetitionCanisterUnavailable(error: unknown): boolean {
 export function createCompetitionDomainClient(
   actor: Pick<
     _SERVICE,
-    'export_state' | 'create_competition' | 'claim_join_token' | 'create_season' | 'set_season_status' | 'record_match' | 'set_match_result' | 'register_team'
+    'export_state' | 'create_competition' | 'claim_join_token' | 'issue_join_token' | 'create_season' | 'set_season_status' | 'record_match' | 'set_match_result' | 'register_team'
   >,
 ) {
   const readState = async () => {
@@ -101,6 +101,11 @@ export function createCompetitionDomainClient(
     },
     async claimJoinToken(token: string): Promise<string> {
       const result = await actor.claim_join_token(token);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async issueJoinToken(competitionId: string, teamId: string, expiresAtMs: bigint): Promise<JoinToken> {
+      const result = await actor.issue_join_token(competitionId, teamId, expiresAtMs);
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok;
     },
@@ -175,6 +180,15 @@ export async function registerLocalCompetitionTeam(
   clubId: string,
 ): Promise<TeamEntry> {
   return createCompetitionDomainClient(await connectCompetitionActor(persona)).registerTeam(competitionId, teamId, clubId);
+}
+
+export async function issueLocalCompetitionJoinToken(
+  persona: string,
+  competitionId: string,
+  teamId: string,
+  expiresAtMs: bigint,
+): Promise<JoinToken> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).issueJoinToken(competitionId, teamId, expiresAtMs);
 }
 
 export async function createLocalCompetitionSeason(persona: string, competitionId: string, name: string): Promise<Season> {

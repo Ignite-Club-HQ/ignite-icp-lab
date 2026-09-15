@@ -29,6 +29,7 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import {
   createLocalCompetitionSeason,
   getLocalCompetitionState,
+  issueLocalCompetitionJoinToken,
   isLocalCompetitionCanisterUnavailable,
   registerLocalCompetitionTeam,
   recordLocalCompetitionMatch,
@@ -57,6 +58,8 @@ function IcpCompetitionDetailPage() {
   const [seasonName, setSeasonName] = useState("");
   const [registrationTeamId, setRegistrationTeamId] = useState("");
   const [registrationClubId, setRegistrationClubId] = useState("");
+  const [tokenTeamId, setTokenTeamId] = useState("");
+  const [tokenExpiry, setTokenExpiry] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [resultMatchId, setResultMatchId] = useState("");
@@ -104,6 +107,23 @@ function IcpCompetitionDetailPage() {
       toast({ title: "Local ICP team registered" });
     },
     onError: (mutationError: Error) => toast({ title: "Could not register team", description: mutationError.message, variant: "destructive" }),
+  });
+  const issueTokenMutation = useMutation({
+    mutationFn: () => {
+      if (!id || !tokenTeamId.trim()) throw new Error("Team ID is required.");
+      const expiresAt = new Date(tokenExpiry);
+      if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+        throw new Error("Choose a future token expiry.");
+      }
+      return issueLocalCompetitionJoinToken(localIcpPersona, id, tokenTeamId.trim(), BigInt(expiresAt.getTime()));
+    },
+    onSuccess: async () => {
+      setTokenTeamId("");
+      setTokenExpiry("");
+      await refresh();
+      toast({ title: "Local ICP join token issued" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not issue join token", description: mutationError.message, variant: "destructive" }),
   });
   const matchMutation = useMutation({
     mutationFn: () => {
@@ -365,8 +385,26 @@ function IcpCompetitionDetailPage() {
             <Badge variant="outline">{state?.joinTokens.length ?? 0}</Badge>
           </div>
           <p className="text-muted-foreground">
-            Token issuance and administration remain unavailable in ICP mode. Claimed token state is shown only as exported canister metadata.
+            Issue a token for an existing team. The club admin actor must manage this competition; invitation emails and broader administration remain unavailable.
           </p>
+          <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => { event.preventDefault(); issueTokenMutation.mutate(); }}>
+            <Input value={tokenTeamId} onChange={(event) => setTokenTeamId(event.target.value)} placeholder="Team ID" />
+            <Input type="datetime-local" value={tokenExpiry} onChange={(event) => setTokenExpiry(event.target.value)} />
+            <Button type="submit" disabled={issueTokenMutation.isPending || !tokenTeamId.trim() || !tokenExpiry}>
+              {issueTokenMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Issue token
+            </Button>
+          </form>
+          {state?.joinTokens.length ? (
+            <div className="space-y-1 text-xs">
+              {state.joinTokens.map((token) => (
+                <div key={token.id} className="flex justify-between gap-2">
+                  <span className="font-mono">{token.id}</span>
+                  <span>{token.team_id} · {token.used ? "used" : "available"}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>

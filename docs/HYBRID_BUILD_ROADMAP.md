@@ -79,7 +79,7 @@ The current worktree adds or completes ICP-mode guards across the remaining
   match recording, and match-result controls; unsupported divisions,
   invitations, and broader membership administration remain explicit
   unavailable boundaries. It also exposes the supported local team-registration
-  mutation for existing team IDs.
+  and join-token issuance mutations for existing team IDs.
 - Team chat now reads and sends team messages through the authenticated local
   `messaging_domain` actor when ICP mode is selected, and uses the canister
   unread/read-receipt methods for the team badge and read state. Message
