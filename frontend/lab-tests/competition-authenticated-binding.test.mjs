@@ -9,6 +9,7 @@ import {
   createAuthenticatedCompetitionService,
   createSyntheticAuthenticatedCompetitionFactory,
 } from '../src/lab/competitionAuthenticatedBinding.mjs';
+import { createFixtureIdentityAccessService } from '../src/lab/identityAccessService.mjs';
 
 const admin = {
   accountId: 'synthetic-admin-account',
@@ -22,6 +23,19 @@ const member = {
   memberClubIds: [DEMO_ORGANIZER_CLUB_ID],
 };
 
+const identityRecords = [
+  {
+    accountId: admin.accountId,
+    principalText: admin.principalText,
+    roles: [{ role: 'club_admin', clubId: DEMO_ORGANIZER_CLUB_ID }],
+  },
+  {
+    accountId: member.accountId,
+    principalText: member.principalText,
+    roles: [{ role: 'member', clubId: DEMO_ORGANIZER_CLUB_ID }],
+  },
+];
+
 function setup() {
   const service = createFixtureCompetitionService({
     initial: [{
@@ -33,13 +47,8 @@ function setup() {
       createdAt: '2026-01-01T00:00:00.000Z',
     }],
   });
-  const factory = createSyntheticAuthenticatedCompetitionFactory({
-    service,
-    identities: {
-      [admin.principalText]: admin,
-      [member.principalText]: member,
-    },
-  });
+  const identityAccess = createFixtureIdentityAccessService({ identities: identityRecords });
+  const factory = createSyntheticAuthenticatedCompetitionFactory({ service, identityAccess });
   return { service, factory };
 }
 
@@ -84,7 +93,34 @@ test('identity mismatch, anonymous use and unknown principals fail closed', asyn
   await assert.rejects(factory.connect({
     principalText: 'unknown-principal',
     accountId: admin.accountId,
-  }), /not registered/);
+  }), /unknown|not registered/);
+});
+
+test('competition binding requires provider-neutral identity access rather than inline role state', async () => {
+  const { service } = setup();
+  assert.throws(() => createSyntheticAuthenticatedCompetitionFactory({
+    service,
+    identities: { [admin.principalText]: admin },
+  }), /identity access/);
+  const identityAccess = createFixtureIdentityAccessService({ identities: identityRecords });
+  const factory = createSyntheticAuthenticatedCompetitionFactory({ service, identityAccess });
+  const actor = await factory.connect({
+    principalText: admin.principalText,
+    accountId: admin.accountId,
+    appAdmin: false,
+    adminClubIds: [],
+  });
+  const created = await actor.create_competition({
+    request_id: 'identity-wired-create',
+    name: 'Identity Wired Cup',
+    description: [],
+    organizer_club_id: DEMO_ORGANIZER_CLUB_ID,
+    sport: [],
+    season: [],
+    status: 'draft',
+    visibility: 'private',
+  });
+  assert.ok('Ok' in created);
 });
 
 test('authenticated actor exposes explicit Candid-shaped results and retry-safe updates', async () => {

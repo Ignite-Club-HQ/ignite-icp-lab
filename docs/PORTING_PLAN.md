@@ -99,6 +99,14 @@ also bounded. This remains synthetic evidence outside the runtime allowlist;
 no real authentication, principal verification, account linking, or
 production role migration is enabled.
 
+The competition binding now consumes that identity/access service instead of
+maintaining a second inline role registry. Its actor connection resolves the
+principal to an account and obtains a server-owned authorization projection;
+caller-supplied role fields are not consulted. This proves the local
+cross-domain seam while retaining synthetic-only, fail-closed behavior. The
+projection is not a generated identity canister binding and does not enable
+any route.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

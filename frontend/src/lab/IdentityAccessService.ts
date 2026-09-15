@@ -11,6 +11,14 @@ export interface IdentityAccount {
   principalText: string;
 }
 
+export interface IdentityAuthorization {
+  accountId: string;
+  principalText: string;
+  appAdmin: boolean;
+  adminClubIds: readonly string[];
+  memberClubIds: readonly string[];
+}
+
 export interface SyntheticProfile {
   accountId: string;
   displayName: string;
@@ -38,6 +46,7 @@ export interface IdentityAccessDecision {
  */
 export interface IdentityAccessService {
   resolveAccount(principalText: string): Promise<IdentityAccount>;
+  resolveAuthorization(principalText: string): Promise<IdentityAuthorization>;
   getProfile(
     principalText: string,
     requestedAccountId: string,

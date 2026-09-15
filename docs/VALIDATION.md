@@ -28,6 +28,10 @@
   admin/member/team/parent/guardian branches, exclusion behavior, child
   access, profile visibility, fixture validation, and explicit no-fallback
   selection.
+- The authenticated competition binding tests now inject the provider-neutral
+  identity/access adapter instead of an inline role registry. They prove
+  server-owned authorization projection, identity mismatch rejection, and
+  that forged frontend role fields cannot elevate a caller.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
@@ -47,6 +51,8 @@
 - Identity/access evidence is synthetic only. No real authentication,
   principal verification, account linking, production role migration, or
   production authorization parity was introduced.
+- The cross-domain binding seam is local only; no identity canister, generated
+  identity bindings, live actor, route wiring, or provider fallback was added.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

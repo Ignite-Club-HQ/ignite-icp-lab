@@ -82,23 +82,30 @@ function requireIdentity(identity) {
 }
 
 /**
- * Build a server-owned synthetic identity registry. The caller supplies only
- * a principal and account ID; roles and memberships are resolved here, not
- * trusted from frontend input.
+ * Build a synthetic authenticated actor factory backed by the provider-neutral
+ * identity/access service. The caller supplies only a principal and account
+ * ID; roles and memberships are resolved there, not trusted from frontend
+ * input.
  */
-export function createSyntheticAuthenticatedCompetitionFactory({ service, identities }) {
-  if (!service || !identities || typeof identities !== 'object') {
-    throw new Error('Authenticated competition factory requires service and identities');
+export function createSyntheticAuthenticatedCompetitionFactory({ service, identityAccess }) {
+  if (!service || !identityAccess ||
+      typeof identityAccess.resolveAccount !== 'function' ||
+      typeof identityAccess.resolveAuthorization !== 'function') {
+    throw new Error('Authenticated competition factory requires service and identity access');
   }
 
   return {
     async connect(identity) {
       requireIdentity(identity);
-      const authority = identities[identity.principalText];
-      if (!authority || authority.accountId !== identity.accountId) {
+      const account = await identityAccess.resolveAccount(identity.principalText);
+      if (account.accountId !== identity.accountId) {
         throw new Error('Identity is not registered for this synthetic canister');
       }
-      const serverActor = clone(authority);
+      const serverActor = await identityAccess.resolveAuthorization(identity.principalText);
+      if (serverActor.accountId !== identity.accountId ||
+          serverActor.principalText !== identity.principalText) {
+        throw new Error('Identity authorization mismatch');
+      }
       return {
         async list_competitions(request) {
           try {

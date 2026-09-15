@@ -138,6 +138,33 @@ function accessFor(registry, identity, clubId) {
   };
 }
 
+function authorizationFor(registry, identity) {
+  const clubIds = new Set();
+  for (const role of identity.roles) {
+    if (role.clubId) clubIds.add(role.clubId);
+    if (role.teamId && registry.teams.has(role.teamId)) {
+      clubIds.add(registry.teams.get(role.teamId));
+    }
+  }
+  for (const child of registry.childById.values()) {
+    if (child.clubId) clubIds.add(child.clubId);
+  }
+  for (const key of registry.exclusionKeys) clubIds.add(key.slice(key.indexOf(':') + 1));
+
+  const decisions = [...clubIds].map(clubId => accessFor(registry, identity, clubId));
+  return {
+    accountId: identity.accountId,
+    principalText: identity.principalText,
+    appAdmin: decisions.some(decision => decision.isAppAdmin),
+    adminClubIds: decisions
+      .filter(decision => decision.isClubAdmin && !decision.isAppAdmin)
+      .map(decision => decision.clubId),
+    memberClubIds: decisions
+      .filter(decision => decision.isMember)
+      .map(decision => decision.clubId),
+  };
+}
+
 export function createFixtureIdentityAccessService({
   identities = [],
   children = [],
@@ -149,6 +176,10 @@ export function createFixtureIdentityAccessService({
     async resolveAccount(principalText) {
       const identity = requireCaller(registry, principalText);
       return { accountId: identity.accountId, principalText: identity.principalText };
+    },
+
+    async resolveAuthorization(principalText) {
+      return authorizationFor(registry, requireCaller(registry, principalText));
     },
 
     async getProfile(principalText, requestedAccountId) {

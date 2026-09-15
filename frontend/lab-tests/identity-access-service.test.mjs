@@ -88,6 +88,22 @@ test('resolves account IDs from principals and rejects unknown or anonymous call
   await assert.rejects(access.resolveAccount('unknown'), /Anonymous or unknown/);
 });
 
+test('authorization projection is server-owned and exposes only derived club scopes', async () => {
+  const access = service();
+  assert.deepEqual(await access.resolveAuthorization('principal-club-admin'), {
+    accountId: 'club-admin-account',
+    principalText: 'principal-club-admin',
+    appAdmin: false,
+    adminClubIds: [CLUB],
+    memberClubIds: [CLUB],
+  });
+  const excluded = await access.resolveAuthorization('principal-excluded-admin');
+  assert.deepEqual(excluded.adminClubIds, [CLUB]);
+  assert.deepEqual(excluded.memberClubIds, []);
+  const appAdmin = await access.resolveAuthorization('principal-app-admin');
+  assert.equal(appAdmin.appAdmin, true);
+});
+
 test('admin, member, team, parent and guardian branches are explicit', async () => {
   const access = service();
   assert.equal((await access.getClubAccess('principal-app-admin', CLUB)).isAdmin, true);
