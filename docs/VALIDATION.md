@@ -75,6 +75,10 @@
   not encode Candid, issue HTTP requests, verify principals, connect to a
   canister, or provide stable-memory upgrade evidence. Its synthetic
   `/icp/api/v2` metadata is configuration evidence, not a live endpoint.
+- Transport checkpoint tests also cover replay-safe request recovery across
+  transport reconstruction, configuration mismatch rejection, request-input
+  drift rejection, duplicate snapshot rejection, and atomic preservation of
+  the previous checkpoint after invalid import.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

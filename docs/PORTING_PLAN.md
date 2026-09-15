@@ -128,6 +128,15 @@ canister. Transport tests prove that both domains use the same `/icp/api/v2`
 boundary and distinct synthetic canister IDs. The transport and both bindings
 remain outside `frontend/lab-runtime-files.json`.
 
+The shared transport also has a bounded checkpoint seam for request-ledger
+evidence. Export/import validates schema, fixed domain configuration, method
+names, request IDs, duplicate entries, serialized size, and atomic replacement.
+Reconstructed transports replay an identical request without dispatching again
+and reject the same request ID with different input. This preserves retry
+metadata across local transport reconstruction only; domain state remains owned
+by the synthetic provider and this is not stable-memory or deployed-canister
+upgrade evidence.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

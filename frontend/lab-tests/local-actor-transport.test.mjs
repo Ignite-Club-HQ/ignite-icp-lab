@@ -43,6 +43,75 @@ test('shared transport validates fixed synthetic configs and preserves call boun
   await assert.rejects(transport.call('get-profile', {}), /Invalid local actor method/);
 });
 
+test('transport checkpoints replay-safe calls across reconstruction and reject drift atomically', async () => {
+  let dispatches = 0;
+  const first = createLocalActorTransport({
+    config: LOCAL_ACTOR_CONFIGS.competition,
+    dispatch: async call => {
+      dispatches += 1;
+      return { Ok: { method: call.method, accepted: true } };
+    },
+  });
+  const request = { request_id: 'transport-recovery-1', value: 'original' };
+  const result = await first.call('create_competition', request);
+  const snapshot = first.exportSnapshot();
+  assert.equal(dispatches, 1);
+  assert.equal(snapshot.nextSequence, 1);
+
+  const recovered = createLocalActorTransport({
+    config: LOCAL_ACTOR_CONFIGS.competition,
+    snapshot,
+    dispatch: async () => {
+      throw new Error('Recovered replay must not dispatch');
+    },
+  });
+  assert.deepEqual(await recovered.call('create_competition', request), result);
+  assert.throws(
+    () => recovered.importSnapshot({
+      ...snapshot,
+      config: LOCAL_ACTOR_CONFIGS.identity,
+    }),
+    /configuration mismatch/,
+  );
+  assert.deepEqual(await recovered.call('create_competition', request), result);
+  await assert.rejects(
+    recovered.call('create_competition', { ...request, value: 'drifted' }),
+    /reused with different input/,
+  );
+});
+
+test('transport snapshot import validates atomically and bounds the request ledger', async () => {
+  const transport = createLocalActorTransport({
+    config: LOCAL_ACTOR_CONFIGS.identity,
+    dispatch: async call => ({ Ok: call.method }),
+  });
+  await transport.call('resolve_account', { request_id: 'checkpoint-1' });
+  const valid = transport.exportSnapshot();
+  assert.throws(
+    () => transport.importSnapshot({
+      ...valid,
+      requests: [valid.requests[0], valid.requests[0]],
+    }),
+    /Duplicate/,
+  );
+  assert.deepEqual(transport.exportSnapshot(), valid);
+  assert.throws(
+    () => createLocalActorTransport({
+      config: LOCAL_ACTOR_CONFIGS.identity,
+      snapshot: { ...valid, schemaVersion: 99 },
+      dispatch: async () => null,
+    }),
+    /Unsupported/,
+  );
+  for (let index = 0; index < 255; index += 1) {
+    await transport.call('bounded_call', { request_id: `bounded-${index}` });
+  }
+  await assert.rejects(
+    transport.call('bounded_call', { request_id: 'bounded-over-limit' }),
+    /ledger limit/,
+  );
+});
+
 test('identity and competition bindings share the local transport config seam', async () => {
   const seen = [];
   const transportFactory = options => {
