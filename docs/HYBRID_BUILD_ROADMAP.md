@@ -67,6 +67,10 @@ The current worktree adds or completes ICP-mode guards across the remaining
   entries, seasons, matches, and join-token metadata; create the supported
   basic competition record; or claim a supported join token when that canister
   is configured.
+- competition detail also exposes the contract-supported local season creation,
+  match recording, and match-result controls; unsupported divisions,
+  invitations, and membership administration remain explicit unavailable
+  boundaries.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:

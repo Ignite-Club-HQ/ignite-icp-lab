@@ -153,8 +153,9 @@ Completed or proven in the lab:
 - competition frontend connectivity has started with typed local
   `competition_domain` list, detail-state, basic create, and join-token claim
   adapters on the competitions pages; exported team entries, seasons, matches,
-  and join-token metadata are now visible, while mutations, settings,
-  organiser visibility, and invitation flows remain pending
+  and join-token metadata are now visible; season creation, match recording,
+  and match-result writes are connected, while settings, organiser visibility,
+  and invitation flows remain pending
 
 Not production-ready:
 

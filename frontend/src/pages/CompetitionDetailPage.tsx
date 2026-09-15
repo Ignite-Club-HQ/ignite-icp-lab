@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Trophy, Plus, Loader2, Check, X, Shield, Megaphone, Send, Settings, Link as LinkIcon, CircleCheck, Circle, ChevronDown, Users, Sparkles, CloudRain, CalendarClock, Bell, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,13 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { Crown } from "lucide-react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalCompetitionState, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
+import {
+  createLocalCompetitionSeason,
+  getLocalCompetitionState,
+  isLocalCompetitionCanisterUnavailable,
+  recordLocalCompetitionMatch,
+  setLocalCompetitionMatchResult,
+} from "@/lab/localCompetitionService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionDetailPage() {
@@ -43,7 +49,15 @@ export default function CompetitionDetailPage() {
 function IcpCompetitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const [seasonName, setSeasonName] = useState("");
+  const [homeTeam, setHomeTeam] = useState("");
+  const [awayTeam, setAwayTeam] = useState("");
+  const [resultMatchId, setResultMatchId] = useState("");
+  const [homeScore, setHomeScore] = useState("");
+  const [awayScore, setAwayScore] = useState("");
   const { data: state, isLoading, error } = useQuery({
     queryKey: ["local-icp-competition", id, localIcpPersona],
     enabled: !!id,
@@ -51,6 +65,53 @@ function IcpCompetitionDetailPage() {
   });
   const competition = state?.competition;
   const unavailable = isLocalCompetitionCanisterUnavailable(error);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["local-icp-competition", id, localIcpPersona] });
+  const seasonMutation = useMutation({
+    mutationFn: () => {
+      if (!id || !seasonName.trim()) throw new Error("Season name is required.");
+      return createLocalCompetitionSeason(localIcpPersona, id, seasonName.trim());
+    },
+    onSuccess: async () => {
+      setSeasonName("");
+      await refresh();
+      toast({ title: "Local ICP season created" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not create season", description: mutationError.message, variant: "destructive" }),
+  });
+  const matchMutation = useMutation({
+    mutationFn: () => {
+      if (!id || !homeTeam.trim() || !awayTeam.trim()) throw new Error("Both team IDs are required.");
+      return recordLocalCompetitionMatch(localIcpPersona, id, homeTeam.trim(), awayTeam.trim());
+    },
+    onSuccess: async () => {
+      setHomeTeam("");
+      setAwayTeam("");
+      await refresh();
+      toast({ title: "Local ICP match recorded" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not record match", description: mutationError.message, variant: "destructive" }),
+  });
+  const resultMutation = useMutation({
+    mutationFn: () => {
+      const parsedHome = Number(homeScore);
+      const parsedAway = Number(awayScore);
+      if (!resultMatchId.trim()) throw new Error("Match ID is required.");
+      if (!Number.isInteger(parsedHome) || parsedHome < 0 || !Number.isInteger(parsedAway) || parsedAway < 0) {
+        throw new Error("Scores must be non-negative whole numbers.");
+      }
+      const match = state?.matches.find((candidate) => candidate.id === resultMatchId.trim());
+      if (!match) throw new Error("Match not found in local canister state.");
+      return setLocalCompetitionMatchResult(localIcpPersona, resultMatchId.trim(), parsedHome, parsedAway, match.revision);
+    },
+    onSuccess: async () => {
+      setResultMatchId("");
+      setHomeScore("");
+      setAwayScore("");
+      await refresh();
+      toast({ title: "Local ICP match result saved" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not save match result", description: mutationError.message, variant: "destructive" }),
+  });
 
   if (isLoading) {
     return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -124,6 +185,49 @@ function IcpCompetitionDetailPage() {
               <dd>{competition.revision.toString()}</dd>
             </div>
           </dl>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <div>
+            <h2 className="font-semibold">Supported local ICP actions</h2>
+            <p className="text-sm text-muted-foreground">
+              These controls call the competition canister directly. Invitations, divisions, and team membership remain unavailable.
+            </p>
+          </div>
+          <form
+            className="grid gap-2 sm:grid-cols-[1fr_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              seasonMutation.mutate();
+            }}
+          >
+            <Input value={seasonName} onChange={(event) => setSeasonName(event.target.value)} placeholder="New season name" />
+            <Button type="submit" disabled={seasonMutation.isPending}>Create season</Button>
+          </form>
+          <form
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              matchMutation.mutate();
+            }}
+          >
+            <Input value={homeTeam} onChange={(event) => setHomeTeam(event.target.value)} placeholder="Home team ID" />
+            <Input value={awayTeam} onChange={(event) => setAwayTeam(event.target.value)} placeholder="Away team ID" />
+            <Button type="submit" disabled={matchMutation.isPending}>Record match</Button>
+          </form>
+          <form
+            className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              resultMutation.mutate();
+            }}
+          >
+            <Input value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} placeholder="Match ID" />
+            <Input value={homeScore} onChange={(event) => setHomeScore(event.target.value)} inputMode="numeric" placeholder="Home score" />
+            <Input value={awayScore} onChange={(event) => setAwayScore(event.target.value)} inputMode="numeric" placeholder="Away score" />
+            <Button type="submit" disabled={resultMutation.isPending}>Save result</Button>
+          </form>
         </CardContent>
       </Card>
       <div className="grid gap-4 md:grid-cols-2">

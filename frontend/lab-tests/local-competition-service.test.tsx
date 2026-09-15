@@ -117,4 +117,50 @@ describe('local competition service', () => {
     await expect(client.claimJoinToken('token-1')).resolves.toBe('claimed');
     expect(claimJoinToken).toHaveBeenCalledWith('token-1');
   });
+
+  test('creates seasons, records matches, and saves match results', async () => {
+    const createSeason = vi.fn(async () => ({
+      Ok: { competition_id: 'competition-1', name: 'Spring', status: 'draft', revision: 1n },
+    }));
+    const recordMatch = vi.fn(async () => ({
+      Ok: {
+        id: 'match-1',
+        competition_id: 'competition-1',
+        home_team: 'team-a',
+        away_team: 'team-b',
+        home_score: 0,
+        away_score: 0,
+        status: 'scheduled',
+        revision: 1n,
+      },
+    }));
+    const setMatchResult = vi.fn(async () => ({
+      Ok: {
+        id: 'match-1',
+        competition_id: 'competition-1',
+        home_team: 'team-a',
+        away_team: 'team-b',
+        home_score: 2,
+        away_score: 1,
+        status: 'completed',
+        revision: 2n,
+      },
+    }));
+    const client = createCompetitionDomainClient({
+      export_state: vi.fn(),
+      create_competition: vi.fn(),
+      claim_join_token: vi.fn(),
+      create_season: createSeason,
+      set_season_status: vi.fn(),
+      record_match: recordMatch,
+      set_match_result: setMatchResult,
+    } as unknown as _SERVICE);
+
+    await expect(client.createSeason('competition-1', 'Spring')).resolves.toMatchObject({ name: 'Spring' });
+    await expect(client.recordMatch('competition-1', 'team-a', 'team-b')).resolves.toMatchObject({ id: 'match-1' });
+    await expect(client.setMatchResult('match-1', 2, 1, 1n)).resolves.toMatchObject({ home_score: 2, away_score: 1 });
+    expect(createSeason).toHaveBeenCalledWith('competition-1', 'Spring');
+    expect(recordMatch).toHaveBeenCalledWith('competition-1', 'team-a', 'team-b');
+    expect(setMatchResult).toHaveBeenCalledWith('match-1', 2, 1, 1n);
+  });
 });

@@ -162,3 +162,26 @@ export async function createLocalCompetition(
 export async function claimLocalCompetitionJoinToken(persona: string, token: string): Promise<string> {
   return createCompetitionDomainClient(await connectCompetitionActor(persona)).claimJoinToken(token);
 }
+
+export async function createLocalCompetitionSeason(persona: string, competitionId: string, name: string): Promise<Season> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).createSeason(competitionId, name);
+}
+
+export async function recordLocalCompetitionMatch(
+  persona: string,
+  competitionId: string,
+  homeTeam: string,
+  awayTeam: string,
+): Promise<Match> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).recordMatch(competitionId, homeTeam, awayTeam);
+}
+
+export async function setLocalCompetitionMatchResult(
+  persona: string,
+  matchId: string,
+  homeScore: number,
+  awayScore: number,
+  revision: bigint,
+): Promise<Match> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).setMatchResult(matchId, homeScore, awayScore, revision);
+}
