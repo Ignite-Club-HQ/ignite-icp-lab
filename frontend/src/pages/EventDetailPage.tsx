@@ -2390,6 +2390,11 @@ export default function EventDetailPage() {
       if (!selectedDutyId) return;
 
       if (useIcpLab) {
+        if (!id) throw new Error("Missing event ID");
+        const duty = duties?.find((candidate) => candidate.id === selectedDutyId);
+        if (!duty?.name) throw new Error("Duty not found");
+        if (!userId) throw new Error("Unassigning duties is not connected to the local events canister yet.");
+        await setLocalEventDuty(localIcpPersona, id, userId, duty.name);
         queryClient.setQueryData(["event-duties", id], (current: unknown) =>
           (Array.isArray(current) ? current : []).map((row: any) =>
             row.id === selectedDutyId
