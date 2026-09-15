@@ -107,6 +107,16 @@ cross-domain seam while retaining synthetic-only, fail-closed behavior. The
 projection is not a generated identity canister binding and does not enable
 any route.
 
+The identity domain now also has a dedicated Candid-shaped actor boundary in
+`frontend/src/lab/IdentityBindings.ts` and
+`frontend/src/lab/identityAuthenticatedBinding.mjs`. Its caller principal is
+implicit in the bound actor; account resolution, authorization projection,
+profile reads, club access, and parent/guardian child checks are all adapted
+through the provider-neutral identity service. It is a local authenticated
+harness only and remains outside the runtime allowlist. The next gate is
+replacing this harness with generated declarations and a disposable local
+identity canister before any identity-backed route is enabled.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

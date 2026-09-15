@@ -32,6 +32,11 @@
   identity/access adapter instead of an inline role registry. They prove
   server-owned authorization projection, identity mismatch rejection, and
   that forged frontend role fields cannot elevate a caller.
+- `node --test lab-tests/identity-authenticated-binding.test.mjs`: passed, 4
+  synthetic Candid-shaped identity actor tests covering account and
+  authorization mapping, provider-neutral service adaptation, implicit
+  caller identity, anonymous/unknown/mismatched rejection, explicit error
+  variants, private profile protection, and missing-child denial.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
@@ -53,6 +58,10 @@
   production authorization parity was introduced.
 - The cross-domain binding seam is local only; no identity canister, generated
   identity bindings, live actor, route wiring, or provider fallback was added.
+- The identity binding is likewise a Candid-shaped local harness, not
+  generated declarations or a deployed canister. It does not prove real
+  principal verification, stable-memory upgrades, account linking, or
+  production authentication.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported
