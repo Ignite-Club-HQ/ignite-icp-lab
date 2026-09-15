@@ -31,7 +31,7 @@
   { "path": "src/pages/ClubUpgradePage.tsx", "status": "external_boundary", "icpBehavior": "unavailable", "nextDependency": "approved_billing_worker" },
   { "path": "src/pages/ClubsPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "club_domain" },
   { "path": "src/pages/CompetitionDetailPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_read", "nextDependency": "competition_domain_entries_fixtures_results" },
-  { "path": "src/pages/CompetitionJoinPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
+  { "path": "src/pages/CompetitionJoinPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_write", "nextDependency": "competition_domain_team_entry_division" },
   { "path": "src/pages/CompetitionSettingsPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
   { "path": "src/pages/CompetitionsPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_read", "nextDependency": "competition_domain_page_detail" },
   { "path": "src/pages/CompleteProfilePage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },

@@ -31,6 +31,7 @@ describe('local competition service', () => {
     const client = createCompetitionDomainClient({
       export_state: exportState,
       create_competition: vi.fn(),
+      claim_join_token: vi.fn(),
     } as unknown as _SERVICE);
 
     await expect(client.listCompetitions()).resolves.toEqual([
@@ -70,6 +71,7 @@ describe('local competition service', () => {
         },
       })),
       create_competition: vi.fn(),
+      claim_join_token: vi.fn(),
     } as unknown as _SERVICE);
 
     await expect(client.getCompetition('competition-1')).resolves.toMatchObject({
@@ -93,6 +95,7 @@ describe('local competition service', () => {
     const client = createCompetitionDomainClient({
       export_state: vi.fn(),
       create_competition: createCompetition,
+      claim_join_token: vi.fn(),
     } as unknown as _SERVICE);
 
     await expect(client.createCompetition('club-1', 'Cup', '2026')).resolves.toMatchObject({
@@ -101,5 +104,17 @@ describe('local competition service', () => {
       status: 'draft',
     });
     expect(createCompetition).toHaveBeenCalledWith('club-1', 'Cup', '2026');
+  });
+
+  test('claims a join token through the local canister actor', async () => {
+    const claimJoinToken = vi.fn(async () => ({ Ok: 'claimed' }));
+    const client = createCompetitionDomainClient({
+      export_state: vi.fn(),
+      create_competition: vi.fn(),
+      claim_join_token: claimJoinToken,
+    } as unknown as _SERVICE);
+
+    await expect(client.claimJoinToken('token-1')).resolves.toBe('claimed');
+    expect(claimJoinToken).toHaveBeenCalledWith('token-1');
   });
 });

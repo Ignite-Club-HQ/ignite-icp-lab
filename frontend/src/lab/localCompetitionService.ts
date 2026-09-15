@@ -40,7 +40,7 @@ export function isLocalCompetitionCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /competition domain canister is not configured/i.test(error.message);
 }
 
-export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_state' | 'create_competition'>) {
+export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_state' | 'create_competition' | 'claim_join_token'>) {
   return {
     async listCompetitions(): Promise<LocalCompetitionSummary[]> {
       const result = await actor.export_state();
@@ -59,6 +59,11 @@ export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_stat
       const result = await actor.create_competition(clubId, name, season);
       if ('Err' in result) throw new Error(result.Err);
       return convertCompetition(result.Ok);
+    },
+    async claimJoinToken(token: string): Promise<string> {
+      const result = await actor.claim_join_token(token);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
     },
   };
 }
@@ -89,4 +94,8 @@ export async function createLocalCompetition(
   season: string,
 ): Promise<LocalCompetitionSummary> {
   return createCompetitionDomainClient(await connectCompetitionActor(persona)).createCompetition(clubId, name, season);
+}
+
+export async function claimLocalCompetitionJoinToken(persona: string, token: string): Promise<string> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).claimJoinToken(token);
 }

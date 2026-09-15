@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { safeSessionSet, buildAuthPathWithIntent } from "@/lib/authRedirectStorage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { claimLocalCompetitionJoinToken } from "@/lab/localCompetitionService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type CompInfo = {
   id: string;
@@ -33,25 +35,79 @@ export default function CompetitionJoinPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-md mx-auto px-4 py-10">
-        <Card>
-          <CardContent className="p-6 space-y-4 text-center">
-            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Competition joining is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Join-token lookup, team entry, division assignment, and membership changes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate("/competitions")}>
-              Back to competitions
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpCompetitionJoinPage />;
   }
 
   return <SupabaseCompetitionJoinPage />;
+}
+
+function IcpCompetitionJoinPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const [token, setToken] = useState(searchParams.get("token") || "");
+  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+
+  const handleClaim = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
+      toast({ title: "Join token is required", variant: "destructive" });
+      return;
+    }
+    setClaiming(true);
+    try {
+      const result = await claimLocalCompetitionJoinToken(localIcpPersona, trimmedToken);
+      setClaimed(true);
+      toast({ title: "Local ICP join token claimed", description: result || "The token was accepted." });
+    } catch (error) {
+      toast({
+        title: "Could not claim local ICP join token",
+        description: error instanceof Error ? error.message : "The local canister rejected the token.",
+        variant: "destructive",
+      });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  return (
+    <div className="container max-w-md mx-auto px-4 py-10">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-primary" /> Join local ICP competition
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This local path claims the supported competition join token. Team selection, division assignment, and membership changes remain disabled until their canister methods exist.
+          </p>
+          <form onSubmit={handleClaim} className="space-y-3">
+            <Label htmlFor="icp-join-token">Join token</Label>
+            <Input
+              id="icp-join-token"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              placeholder="Paste the local ICP join token"
+              disabled={claiming || claimed}
+            />
+            <Button type="submit" disabled={claiming || claimed} className="w-full">
+              {claiming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {claimed ? "Token claimed" : "Claim token"}
+            </Button>
+          </form>
+          {claimed && (
+            <Button variant="outline" onClick={() => navigate("/competitions")} className="w-full">
+              Back to competitions
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function SupabaseCompetitionJoinPage() {
