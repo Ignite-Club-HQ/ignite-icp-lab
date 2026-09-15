@@ -62,6 +62,9 @@ The current worktree adds or completes ICP-mode guards across the remaining
   decisions and assigned-duty claims to the local canister. The list/detail
   paths keep an explicit local fixture fallback only when that canister is not
   configured.
+- local event creation also applies the contract-supported daily, weekly, or
+  monthly recurrence rule when an end date is supplied; generated child-event
+  materialization and reminder/timer delivery remain outside this slice.
 - the competitions list, detail, create, and join pages now use typed signed local
   `competition_domain` actor paths to read exported local state including team
   entries, seasons, matches, and join-token metadata; create the supported
@@ -125,7 +128,8 @@ Implement and wire typed adapters in this order:
 
 1. identity, roles, memberships, guardians, exclusions, and invites;
 2. club/team reads and writes, including creation and placement assignment;
-3. event reads/writes, remaining duty lifecycle, attendance, recurrence, and
+3. event reads/writes, remaining duty lifecycle, attendance, recurrence
+   materialization, and
    timers;
 4. remaining competition settings pages, organiser visibility and invitation
    flows, team-entry administration beyond basic registration, division UI,

@@ -61,7 +61,7 @@ import {
   type ConflictCheckResult,
 } from "@/features/events/trainingConflictPolicy";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { createLocalEvent } from "@/lab/localEventsService";
+import { createLocalEvent, setLocalEventRecurrence } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social" | "mini_league";
@@ -112,6 +112,8 @@ function IcpCreateEventPage() {
     return now.toISOString().slice(0, 16);
   });
   const [saving, setSaving] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState("none");
+  const [recurrenceUntil, setRecurrenceUntil] = useState("");
 
   const handleIcpSubmit = async () => {
     const trimmedTitle = title.trim();
@@ -136,6 +138,13 @@ function IcpCreateEventPage() {
         BigInt(start.getTime()),
         BigInt(end.getTime()),
       );
+      if (recurrenceFrequency !== "none") {
+        const until = new Date(recurrenceUntil);
+        if (!Number.isFinite(until.getTime()) || until.getTime() <= start.getTime()) {
+          throw new Error("Choose a recurrence end date after the event start.");
+        }
+        await setLocalEventRecurrence(localIcpPersona, event.id, recurrenceFrequency, BigInt(until.getTime()));
+      }
       toast({ title: "Event created in local ICP", description: event.title });
       navigate(`/events/${event.id}?backend=icp&persona=${encodeURIComponent(localIcpPersona)}`);
     } catch (error) {
@@ -157,7 +166,7 @@ function IcpCreateEventPage() {
             <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
             <h1 className="text-lg font-semibold">Create local ICP event</h1>
             <p className="text-sm text-muted-foreground">
-              This writes a basic event to the local events canister. Recurrence, duties, reminders, payments, and notifications remain disabled.
+              This writes an event to the local events canister. Recurrence is supported; duties, reminders, payments, and notifications remain disabled.
             </p>
           </div>
           <div className="space-y-2">
@@ -179,6 +188,26 @@ function IcpCreateEventPage() {
           <div className="space-y-2">
             <Label htmlFor="icp-event-description">Description</Label>
             <Textarea id="icp-event-description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="icp-event-recurrence">Recurrence</Label>
+              <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>
+                <SelectTrigger id="icp-event-recurrence"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Does not repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {recurrenceFrequency !== "none" && (
+              <div className="space-y-2">
+                <Label htmlFor="icp-event-recurrence-until">Repeat until</Label>
+                <Input id="icp-event-recurrence-until" type="date" value={recurrenceUntil} onChange={(event) => setRecurrenceUntil(event.target.value)} />
+              </div>
+            )}
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => navigate("/events?backend=icp")}>

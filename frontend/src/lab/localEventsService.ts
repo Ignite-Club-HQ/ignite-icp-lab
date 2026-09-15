@@ -1,7 +1,7 @@
 import { Actor } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
-import type { Attendance, Duty, Event as IcpEvent, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
+import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
 import { createLocalAgent, fetchLocalLabConfig } from './localActor';
 
 export interface LocalScheduleEvent {
@@ -84,7 +84,7 @@ export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /events domain canister is not configured/i.test(error.message);
 }
 
-export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event' | 'set_rsvp' | 'set_attendance' | 'set_duty'>) {
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event' | 'set_rsvp' | 'set_attendance' | 'set_duty' | 'set_recurrence'>) {
   return {
     async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
       const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
@@ -131,6 +131,11 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
     },
     async setDuty(eventId: string, accountId: string, duty: string): Promise<Duty> {
       const result = await actor.set_duty(eventId, accountId, duty);
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
+    },
+    async setRecurrence(eventId: string, frequency: string, untilMs: bigint): Promise<Recurrence> {
+      const result = await actor.set_recurrence(eventId, frequency, untilMs);
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok;
     },
@@ -195,4 +200,13 @@ export async function setLocalEventAttendance(
 
 export async function setLocalEventDuty(persona: string, eventId: string, accountId: string, duty: string): Promise<Duty> {
   return createEventsDomainClient(await connectEventsActor(persona)).setDuty(eventId, accountId, duty);
+}
+
+export async function setLocalEventRecurrence(
+  persona: string,
+  eventId: string,
+  frequency: string,
+  untilMs: bigint,
+): Promise<Recurrence> {
+  return createEventsDomainClient(await connectEventsActor(persona)).setRecurrence(eventId, frequency, untilMs);
 }

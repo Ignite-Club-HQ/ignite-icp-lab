@@ -123,6 +123,9 @@ test('events domain client writes RSVP, attendance, and assigned duty decisions'
       duty: 'Linesperson',
     },
   }));
+  const setRecurrence = vi.fn(async () => ({
+    Ok: { event_id: 'event-4', frequency: 'weekly', until_ms: 20n },
+  }));
   const client = createEventsDomainClient({
     list_events: vi.fn(),
     create_event: vi.fn(),
@@ -130,6 +133,7 @@ test('events domain client writes RSVP, attendance, and assigned duty decisions'
     set_rsvp: setRsvp,
     set_attendance: setAttendance,
     set_duty: setDuty,
+    set_recurrence: setRecurrence,
   } as unknown as _SERVICE);
 
   await expect(client.setRsvp('event-4', 'account-1', 'going')).resolves.toMatchObject({
@@ -148,6 +152,11 @@ test('events domain client writes RSVP, attendance, and assigned duty decisions'
     account_id: 'account-1',
     duty: 'Linesperson',
   });
+  await expect(client.setRecurrence('event-4', 'weekly', 20n)).resolves.toMatchObject({
+    event_id: 'event-4',
+    frequency: 'weekly',
+  });
+  expect(setRecurrence).toHaveBeenCalledWith('event-4', 'weekly', 20n);
   expect(setRsvp).toHaveBeenCalledWith('event-4', 'account-1', 'going');
   expect(setAttendance).toHaveBeenCalledWith('event-4', 'account-1', true, 'Checked in');
   expect(setDuty).toHaveBeenCalledWith('event-4', 'account-1', 'Linesperson');
