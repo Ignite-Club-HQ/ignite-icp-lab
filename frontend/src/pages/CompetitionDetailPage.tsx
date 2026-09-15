@@ -31,6 +31,7 @@ import {
   getLocalCompetitionState,
   isLocalCompetitionCanisterUnavailable,
   recordLocalCompetitionMatch,
+  setLocalCompetitionSeasonStatus,
   setLocalCompetitionMatchResult,
 } from "@/lab/localCompetitionService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
@@ -77,6 +78,15 @@ function IcpCompetitionDetailPage() {
       toast({ title: "Local ICP season created" });
     },
     onError: (mutationError: Error) => toast({ title: "Could not create season", description: mutationError.message, variant: "destructive" }),
+  });
+  const seasonStatusMutation = useMutation({
+    mutationFn: ({ competitionId, status, revision }: { competitionId: string; status: string; revision: bigint }) =>
+      setLocalCompetitionSeasonStatus(localIcpPersona, competitionId, status, revision),
+    onSuccess: async () => {
+      await refresh();
+      toast({ title: "Local ICP season status updated" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not update season status", description: mutationError.message, variant: "destructive" }),
   });
   const matchMutation = useMutation({
     mutationFn: () => {
@@ -240,9 +250,25 @@ function IcpCompetitionDetailPage() {
             {state?.seasons.length ? (
               <div className="space-y-2">
                 {state.seasons.map((season) => (
-                  <div key={`${season.competition_id}-${season.name}`} className="flex items-center justify-between text-sm">
+                  <div key={`${season.competition_id}-${season.name}`} className="flex items-center justify-between gap-2 text-sm">
                     <span>{season.name}</span>
-                    <Badge variant={season.status === "active" ? "default" : "secondary"}>{season.status}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={season.status === "active" ? "default" : "secondary"}>{season.status}</Badge>
+                      {season.status !== "active" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={seasonStatusMutation.isPending}
+                          onClick={() => seasonStatusMutation.mutate({
+                            competitionId: competition.id,
+                            status: "active",
+                            revision: season.revision,
+                          })}
+                        >
+                          Activate
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

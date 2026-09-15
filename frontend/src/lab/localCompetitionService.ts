@@ -167,6 +167,15 @@ export async function createLocalCompetitionSeason(persona: string, competitionI
   return createCompetitionDomainClient(await connectCompetitionActor(persona)).createSeason(competitionId, name);
 }
 
+export async function setLocalCompetitionSeasonStatus(
+  persona: string,
+  competitionId: string,
+  status: string,
+  revision: bigint,
+): Promise<Season> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).setSeasonStatus(competitionId, status, revision);
+}
+
 export async function recordLocalCompetitionMatch(
   persona: string,
   competitionId: string,
