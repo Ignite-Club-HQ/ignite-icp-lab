@@ -16,7 +16,6 @@ export const idlFactory = ({ IDL }) => {
     'next_sequence' : IDL.Nat64,
     'club_id' : IDL.Text,
   });
-  const Result = IDL.Variant({ 'Ok' : Conversation, 'Err' : IDL.Text });
   const Message = IDL.Record({
     'id' : IDL.Text,
     'conversation_id' : IDL.Text,
@@ -25,7 +24,6 @@ export const idlFactory = ({ IDL }) => {
     'sequence' : IDL.Nat64,
     'idempotency_key' : IDL.Text,
   });
-  const Result_6 = IDL.Variant({ 'Ok' : Message, 'Err' : IDL.Text });
   const Unread = IDL.Record({
     'conversation_id' : IDL.Text,
     'count' : IDL.Nat64,
@@ -38,6 +36,12 @@ export const idlFactory = ({ IDL }) => {
     'user' : IDL.Principal,
     'message_id' : IDL.Text,
   });
+  const RoleGrant = IDL.Record({
+    'role' : IDL.Text,
+    'user' : IDL.Principal,
+    'team_id' : IDL.Opt(IDL.Text),
+    'club_id' : IDL.Opt(IDL.Text),
+  });
   const State = IDL.Record({
     'messages' : IDL.Vec(Message),
     'schema' : IDL.Nat32,
@@ -45,26 +49,35 @@ export const idlFactory = ({ IDL }) => {
     'governor' : IDL.Principal,
     'conversations' : IDL.Vec(Conversation),
     'receipts' : IDL.Vec(Receipt),
+    'roles' : IDL.Vec(RoleGrant),
   });
-  const Result_3 = IDL.Variant({ 'Ok' : State, 'Err' : IDL.Text });
   const MessagePage = IDL.Record({
     'messages' : IDL.Vec(Message),
     'latest_sequence' : IDL.Nat64,
     'next_sequence' : IDL.Opt(IDL.Nat64),
   });
-  const Result_4 = IDL.Variant({ 'Ok' : MessagePage, 'Err' : IDL.Text });
-  const Result_2 = IDL.Variant({ 'Ok' : Receipt, 'Err' : IDL.Text });
-  const Result_1 = IDL.Variant({ 'Ok' : Message, 'Err' : IDL.Text });
-  const Result_5 = IDL.Variant({ 'Ok' : Unread, 'Err' : IDL.Text });
   
   return IDL.Service({
     'create_conversation' : IDL.Func(
         [IDL.Text, IDL.Opt(IDL.Text), IDL.Vec(IDL.Principal)],
-        [Result],
+        [IDL.Variant({ 'Ok' : Conversation, 'Err' : IDL.Text })],
         [],
       ),
-    'delete_message' : IDL.Func([IDL.Text], [Result_6], []),
-    'export_state' : IDL.Func([], [Result_3], ['query']),
+    'delete_message' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : Message, 'Err' : IDL.Text })],
+        [],
+      ),
+    'export_state' : IDL.Func(
+        [],
+        [IDL.Variant({ 'Ok' : State, 'Err' : IDL.Text })],
+        ['query'],
+      ),
+    'grant_role' : IDL.Func(
+        [IDL.Principal, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
+        [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
+        [],
+      ),
     'initialize' : IDL.Func(
         [],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
@@ -77,12 +90,24 @@ export const idlFactory = ({ IDL }) => {
       ),
     'list_messages_page' : IDL.Func(
         [IDL.Text, IDL.Opt(IDL.Nat64), IDL.Nat16],
-        [Result_4],
+        [IDL.Variant({ 'Ok' : MessagePage, 'Err' : IDL.Text })],
         ['query'],
       ),
-    'mark_read' : IDL.Func([IDL.Text, IDL.Text], [Result_2], []),
-    'send_message' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [Result_1], []),
-    'unread_count' : IDL.Func([IDL.Text], [Result_5], ['query']),
+    'mark_read' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : Receipt, 'Err' : IDL.Text })],
+        [],
+      ),
+    'send_message' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Variant({ 'Ok' : Message, 'Err' : IDL.Text })],
+        [],
+      ),
+    'unread_count' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'Ok' : Unread, 'Err' : IDL.Text })],
+        ['query'],
+      ),
   });
 };
 

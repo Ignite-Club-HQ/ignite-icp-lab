@@ -27,6 +27,10 @@ const media = Actor.createActor(mediaIdl, { agent, canisterId: ids.media });
 const memberAgent = await HttpAgent.create({ host, identity: syntheticIdentity('team_member'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 });
 const memberMessaging = Actor.createActor(messagingIdl, { agent: memberAgent, canisterId: ids.messaging });
 const outsiderEvents = Actor.createActor(eventsIdl, { agent: outsiderAgent, canisterId: ids.events });
+const teamAdminMessaging = Actor.createActor(messagingIdl, { agent: await HttpAgent.create({ host, identity: syntheticIdentity('team_member'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 }), canisterId: ids.messaging });
+const coachMessaging = Actor.createActor(messagingIdl, { agent: await HttpAgent.create({ host, identity: syntheticIdentity('parent'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 }), canisterId: ids.messaging });
+const clubAdminMessaging = Actor.createActor(messagingIdl, { agent: await HttpAgent.create({ host, identity: syntheticIdentity('club_admin'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 }), canisterId: ids.messaging });
+const appAdminMessaging = Actor.createActor(messagingIdl, { agent: await HttpAgent.create({ host, identity: syntheticIdentity('app_admin'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 }), canisterId: ids.messaging });
 const outsiderMessaging = Actor.createActor(messagingIdl, { agent: outsiderAgent, canisterId: ids.messaging });
 const outsiderMedia = Actor.createActor(mediaIdl, { agent: outsiderAgent, canisterId: ids.media });
 const check = (condition, message) => { if (!condition) throw new Error(message); };
@@ -99,7 +103,25 @@ await err(messaging.list_messages_page(conversation.id, [99n], 10), 'stale messa
 await err(outsiderMessaging.send_message(conversation.id, 'outside', 'message-key-outside'), 'unauthorized message send');
 await err(messaging.create_conversation(club, [team], [member]), 'non-participant conversation creator');
 await err(outsiderMessaging.delete_message(firstMessage.id), 'non-author message delete');
-ok(await messaging.delete_message(secondMessage.id), 'author message delete');
+await err(outsiderMessaging.grant_role(member, 'team_admin', [club], [team]), 'non-governor role grant');
+await err(messaging.grant_role(member, 'team_admin', [club], []), 'invalid team-admin scope');
+await err(messaging.grant_role(member, 'unsupported_role', [club], [team]), 'unsupported role grant');
+ok(await messaging.grant_role(member, 'team_admin', [club], [team]), 'team-admin role grant');
+ok(await teamAdminMessaging.delete_message(firstMessage.id), 'team-admin message delete');
+ok(await messaging.grant_role(syntheticIdentity('parent').getPrincipal(), 'coach', [club], [team]), 'coach role grant');
+ok(await coachMessaging.delete_message(secondMessage.id), 'coach message delete');
+const clubAdminMessage = ok(await messaging.send_message(conversation.id, 'club admin target', 'message-key-3'), 'club-admin target message');
+ok(await messaging.grant_role(syntheticIdentity('club_admin').getPrincipal(), 'club_admin', [club], []), 'club-admin role grant');
+ok(await clubAdminMessaging.delete_message(clubAdminMessage.id), 'club-admin message delete');
+const appAdminMessage = ok(await messaging.send_message(conversation.id, 'app admin target', 'message-key-4'), 'app-admin target message');
+ok(await messaging.grant_role(syntheticIdentity('app_admin').getPrincipal(), 'app_admin', [], []), 'app-admin role grant');
+ok(await appAdminMessaging.delete_message(appAdminMessage.id), 'app-admin message delete');
+const crossClubAdmin = Actor.createActor(messagingIdl, { agent: await HttpAgent.create({ host, identity: syntheticIdentity('other_admin'), shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 }), canisterId: ids.messaging });
+const crossClubMessage = ok(await messaging.send_message(conversation.id, 'cross-club target', 'message-key-5'), 'cross-club target message');
+ok(await messaging.grant_role(syntheticIdentity('other_admin').getPrincipal(), 'club_admin', [`${club}-other`], []), 'cross-club admin role grant');
+await err(crossClubAdmin.delete_message(crossClubMessage.id), 'cross-club admin message delete');
+ok(await messaging.delete_message(crossClubMessage.id), 'author message delete');
+const retainedMessage = ok(await messaging.send_message(conversation.id, 'retained message', 'message-key-6'), 'retained message');
 
 // Media metadata Motoko verification
 const mediaInit = await media.initialize();
@@ -128,7 +150,8 @@ check(states.events.recurrences.some(item => item.event_id === event.id && item.
 check(states.competition.competitions.some(item => item.id === createdCompetition.id && item.club_id === club), 'competition export mismatch');
 check(states.competition.seasons.some(item => item.competition_id === createdCompetition.id && item.name === 'Spring 2026'), 'competition season export mismatch');
 check(states.competition.matches.some(item => item.id === scheduledMatch.id && item.home_team === team && item.away_team === awayTeam), 'competition match export mismatch');
-check(states.messaging.messages.some(item => item.conversation_id === conversation.id && (item.body === 'hello Motoko domain' || item.body === 'second message')), 'messaging export mismatch');
+check(states.messaging.messages.some(item => item.id === retainedMessage.id && item.body === 'retained message'), 'messaging export mismatch');
+check(states.messaging.roles.some(item => item.user.toText() === member.toText() && item.role === 'team_admin' && item.club_id[0] === club && item.team_id[0] === team), 'messaging role export mismatch');
 check(states.messaging.unread.some(item => item.conversation_id === conversation.id && item.user.toText() === member.toText()), 'messaging unread export mismatch');
 check(states.media.assets.some(item => item.id === asset.id && item.deleted), 'media export mismatch');
 console.log(JSON.stringify({ status: 'PASS', implementation: 'motoko', host, ids, checks: ['events motoko', 'competition motoko', 'messaging motoko', 'media metadata motoko', 'authorization', 'replay safety', 'bounded pagination', 'read receipts', 'capability security', 'durable exports'] }, null, 2));

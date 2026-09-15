@@ -40,6 +40,11 @@ export default defineConfig({
     },
     { name: 'isolated-runtime-allowlist', enforce: 'pre',
       load(id) {
+        const clean = id.split('?')[0];
+        if (clean.startsWith(path.resolve(process.cwd(), 'src') + path.sep)) {
+          const relative = path.relative(process.cwd(), clean).replaceAll('\\', '/');
+          if (!allowed.has(relative)) throw new Error(`Unported module blocked from lab runtime: ${relative}`);
+        }
         return null;
       },
     },

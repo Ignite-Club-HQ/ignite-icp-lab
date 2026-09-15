@@ -8,6 +8,7 @@ import Types "types";
 
 persistent actor {
   var governor : Principal;
+  var roles : [Types.RoleGrant];
   var conversations : [Types.Conversation];
   var messages : [Types.Message];
   var receipts : [Types.Receipt];
@@ -27,6 +28,49 @@ persistent actor {
   func valid(value : Text) : Bool { value != "" and value.size() <= 128 };
 
   func isGovernor(caller : Principal) : Bool { governor.equal(caller) };
+  public shared ({ caller }) func grant_role(principal : Principal, role : Text, club_id : ?Text, team_id : ?Text) : async { #Ok; #Err : Text } {
+    auth(caller);
+    if (not isGovernor(caller)) return #Err("Governor only");
+    if (principal.equal(Principal.anonymous()) or not validRoleAssignment(role, club_id, team_id)) return #Err("Invalid role assignment");
+    if (not roles.any(func(grant) = grant.user.equal(principal) and grant.role == role and grant.club_id == club_id and grant.team_id == team_id)) {
+      roles := roles.concat([{ user = principal; role; club_id; team_id }]);
+    };
+    #Ok
+  };
+
+
+  func hasRole(caller : Principal, role : Text, club_id : ?Text, team_id : ?Text) : Bool {
+    roles.any(func(grant) {
+      grant.user.equal(caller) and grant.role == role and grant.club_id == club_id and grant.team_id == team_id
+    })
+  };
+
+  func validRoleAssignment(role : Text, club_id : ?Text, team_id : ?Text) : Bool {
+    switch (role) {
+      case ("app_admin") { club_id == null and team_id == null };
+      case ("club_admin") { club_id != null and team_id == null };
+      case ("team_admin") { club_id != null and team_id != null };
+      case ("coach") { club_id != null and team_id != null };
+      case (_) { false };
+    }
+  };
+
+  func canModerateTeamMessage(caller : Principal, message : Types.Message) : Bool {
+    for (conversation in conversations.values()) {
+      if (conversation.id == message.conversation_id) {
+        switch (conversation.team_id) {
+          case null { return false };
+          case (?team_id) {
+            return hasRole(caller, "team_admin", ?conversation.club_id, ?team_id)
+              or hasRole(caller, "coach", ?conversation.club_id, ?team_id)
+              or hasRole(caller, "club_admin", ?conversation.club_id, null)
+              or hasRole(caller, "app_admin", null, null);
+          };
+        };
+      };
+    };
+    false
+  };
 
   func canAccessConversation(caller : Principal, conversation_id : Text) : Bool {
     for (item in conversations.values()) {
@@ -200,7 +244,7 @@ persistent actor {
       case null { #Err("Message not found") };
       case (?i) {
         let msg = messages[i];
-        if (not msg.sender.equal(caller)) return #Err("Message author required");
+        if (not msg.sender.equal(caller) and not canModerateTeamMessage(caller, msg)) return #Err("Message deletion forbidden");
         messages := Array.tabulate<Types.Message>(messages.size() - 1, func(pos) {
           if (pos < i) messages[pos] else messages[pos + 1]
         });
@@ -211,6 +255,6 @@ persistent actor {
 
   public query ({ caller }) func export_state() : async { #Ok : Types.State; #Err : Text } {
     if (not isGovernor(caller)) return #Err("Governor only");
-    #Ok({ schema = 1; governor; conversations; messages; receipts; unread })
+    #Ok({ schema = 1; governor; roles; conversations; messages; receipts; unread })
   };
 };

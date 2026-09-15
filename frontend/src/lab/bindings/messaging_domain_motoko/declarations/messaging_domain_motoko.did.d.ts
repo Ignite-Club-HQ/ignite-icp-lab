@@ -17,7 +17,6 @@ export interface Conversation {
   'next_sequence' : bigint,
   'club_id' : string,
 }
-export interface Init { 'governor' : Principal }
 export interface Message {
   'id' : string,
   'conversation_id' : string,
@@ -37,20 +36,12 @@ export interface Receipt {
   'user' : Principal,
   'message_id' : string,
 }
-export type Result = { 'Ok' : Conversation } |
-  { 'Err' : string };
-export type Result_1 = { 'Ok' : Message } |
-  { 'Err' : string };
-export type Result_2 = { 'Ok' : Receipt } |
-  { 'Err' : string };
-export type Result_3 = { 'Ok' : State } |
-  { 'Err' : string };
-export type Result_4 = { 'Ok' : MessagePage } |
-  { 'Err' : string };
-export type Result_5 = { 'Ok' : Unread } |
-  { 'Err' : string };
-export type Result_6 = { 'Ok' : Message } |
-  { 'Err' : string };
+export interface RoleGrant {
+  'role' : string,
+  'user' : Principal,
+  'team_id' : [] | [string],
+  'club_id' : [] | [string],
+}
 export interface State {
   'messages' : Array<Message>,
   'schema' : number,
@@ -58,6 +49,7 @@ export interface State {
   'governor' : Principal,
   'conversations' : Array<Conversation>,
   'receipts' : Array<Receipt>,
+  'roles' : Array<RoleGrant>,
 }
 export interface Unread {
   'conversation_id' : string,
@@ -68,16 +60,42 @@ export interface Unread {
 export interface _SERVICE {
   'create_conversation' : ActorMethod<
     [string, [] | [string], Array<Principal>],
-    Result
+    { 'Ok' : Conversation } |
+      { 'Err' : string }
   >,
-  'delete_message' : ActorMethod<[string], Result_6>,
-  'export_state' : ActorMethod<[], Result_3>,
+  'delete_message' : ActorMethod<
+    [string],
+    { 'Ok' : Message } |
+      { 'Err' : string }
+  >,
+  'export_state' : ActorMethod<[], { 'Ok' : State } | { 'Err' : string }>,
+  'grant_role' : ActorMethod<
+    [Principal, string, [] | [string], [] | [string]],
+    { 'Ok' : null } |
+      { 'Err' : string }
+  >,
   'initialize' : ActorMethod<[], { 'Ok' : null } | { 'Err' : string }>,
   'list_messages' : ActorMethod<[string, [] | [bigint]], Array<Message>>,
-  'list_messages_page' : ActorMethod<[string, [] | [bigint], number], Result_4>,
-  'mark_read' : ActorMethod<[string, string], Result_2>,
-  'send_message' : ActorMethod<[string, string, string], Result_1>,
-  'unread_count' : ActorMethod<[string], Result_5>,
+  'list_messages_page' : ActorMethod<
+    [string, [] | [bigint], number],
+    { 'Ok' : MessagePage } |
+      { 'Err' : string }
+  >,
+  'mark_read' : ActorMethod<
+    [string, string],
+    { 'Ok' : Receipt } |
+      { 'Err' : string }
+  >,
+  'send_message' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : Message } |
+      { 'Err' : string }
+  >,
+  'unread_count' : ActorMethod<
+    [string],
+    { 'Ok' : Unread } |
+      { 'Err' : string }
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

@@ -383,3 +383,14 @@ scope, and cross-domain callback scheduling is rejected. Legacy jobs without a
 callback remain compatible. The focused timer Rust suite passes 6 integration
 tests. Lease expiry, dead letters, and a live callback-capability probe remain
 open. No production data, credentials, or scheduler integration was used.
+
+## Motoko team-message deletion authorization slice - 2026-09-15
+
+Mapped the inert source `team_messages` deletion policy to the local Motoko
+canister: an author, team-scoped `team_admin` or `coach`, club-scoped
+`club_admin`, or global `app_admin` may delete a team message. Governor-only
+role grants reject anonymous principals, unsupported roles, and invalid role
+scopes. The new stable role state is initialized with a forward-only Motoko
+migration; Candid declarations and local bindings were regenerated.
+
+`mops check --fix`, `mops build`, and the local product-probe syntax check

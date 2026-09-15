@@ -23,6 +23,9 @@ for (const key of Object.keys(process.env)) {
 }
 const pkg=JSON.parse(read('package.json'));
 for (const key of ['preinstall','install','postinstall','prepare','prebuild','postbuild','deploy']) assert(!pkg.scripts[key], 'Unexpected lifecycle/deployment script');
+const main=read('src/main.tsx');
+assert(main.includes("import('./lab/LabApp')"), 'Lab entrypoint must load the allowlisted LabApp');
+assert(!main.includes("import('./App')"), 'Unported App must not enter the lab bundle');
 assert(!fs.existsSync(path.join(root,'public/sw.js')), 'Service workers are forbidden');
 assert(read('src/main.tsx').includes('installNetworkGuard();'), 'Missing network guard');
 assert(read('src/integrations/supabase/client.ts').includes('new Proxy(disabled'), 'Supabase fail-closed stub missing');
