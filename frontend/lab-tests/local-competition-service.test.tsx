@@ -118,6 +118,25 @@ describe('local competition service', () => {
     expect(claimJoinToken).toHaveBeenCalledWith('token-1');
   });
 
+  test('registers a team through the local canister actor', async () => {
+    const registerTeam = vi.fn(async () => ({
+      Ok: { competition_id: 'competition-1', team_id: 'team-1', club_id: 'club-1', status: 'registered' },
+    }));
+    const client = createCompetitionDomainClient({
+      export_state: vi.fn(),
+      create_competition: vi.fn(),
+      claim_join_token: vi.fn(),
+      register_team: registerTeam,
+    } as unknown as _SERVICE);
+
+    await expect(client.registerTeam('competition-1', 'team-1', 'club-1')).resolves.toMatchObject({
+      competition_id: 'competition-1',
+      team_id: 'team-1',
+      status: 'registered',
+    });
+    expect(registerTeam).toHaveBeenCalledWith('competition-1', 'team-1', 'club-1');
+  });
+
   test('creates seasons, records matches, and saves match results', async () => {
     const createSeason = vi.fn(async () => ({
       Ok: { competition_id: 'competition-1', name: 'Spring', status: 'draft', revision: 1n },

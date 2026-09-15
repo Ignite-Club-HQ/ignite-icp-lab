@@ -30,6 +30,7 @@ import {
   createLocalCompetitionSeason,
   getLocalCompetitionState,
   isLocalCompetitionCanisterUnavailable,
+  registerLocalCompetitionTeam,
   recordLocalCompetitionMatch,
   setLocalCompetitionSeasonStatus,
   setLocalCompetitionMatchResult,
@@ -54,6 +55,8 @@ function IcpCompetitionDetailPage() {
   const { toast } = useToast();
   const localIcpPersona = personas[0]?.id ?? "club-admin";
   const [seasonName, setSeasonName] = useState("");
+  const [registrationTeamId, setRegistrationTeamId] = useState("");
+  const [registrationClubId, setRegistrationClubId] = useState("");
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [resultMatchId, setResultMatchId] = useState("");
@@ -87,6 +90,20 @@ function IcpCompetitionDetailPage() {
       toast({ title: "Local ICP season status updated" });
     },
     onError: (mutationError: Error) => toast({ title: "Could not update season status", description: mutationError.message, variant: "destructive" }),
+  });
+  const registerTeamMutation = useMutation({
+    mutationFn: () => {
+      if (!id || !registrationTeamId.trim()) throw new Error("Team ID is required.");
+      const clubId = registrationClubId.trim() || competition?.organizer_club_id;
+      if (!clubId) throw new Error("Club ID is required.");
+      return registerLocalCompetitionTeam(localIcpPersona, id, registrationTeamId.trim(), clubId);
+    },
+    onSuccess: async () => {
+      setRegistrationTeamId("");
+      await refresh();
+      toast({ title: "Local ICP team registered" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not register team", description: mutationError.message, variant: "destructive" }),
   });
   const matchMutation = useMutation({
     mutationFn: () => {
@@ -175,6 +192,26 @@ function IcpCompetitionDetailPage() {
           </Badge>
         </div>
       </header>
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <h2 className="font-semibold">Register a team</h2>
+            <p className="text-sm text-muted-foreground">Register an existing local team by ID. The club admin actor must manage this competition.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input value={registrationTeamId} onChange={(event) => setRegistrationTeamId(event.target.value)} placeholder="Team ID" />
+            <Input
+              value={registrationClubId}
+              onChange={(event) => setRegistrationClubId(event.target.value)}
+              placeholder={`Club ID (defaults to ${competition.organizer_club_id})`}
+            />
+          </div>
+          <Button onClick={() => registerTeamMutation.mutate()} disabled={registerTeamMutation.isPending || !registrationTeamId.trim()}>
+            {registerTeamMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Register team
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="p-4 space-y-2 text-sm">
           <p className="font-medium">Local ICP competition record</p>

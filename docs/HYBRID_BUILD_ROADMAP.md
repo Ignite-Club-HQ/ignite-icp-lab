@@ -69,8 +69,9 @@ The current worktree adds or completes ICP-mode guards across the remaining
   is configured.
 - competition detail also exposes the contract-supported local season creation,
   match recording, and match-result controls; unsupported divisions,
-  invitations, and membership administration remain explicit unavailable
-  boundaries.
+  invitations, and broader membership administration remain explicit
+  unavailable boundaries. It also exposes the supported local team-registration
+  mutation for existing team IDs.
 - Team chat now reads and sends team messages through the authenticated local
   `messaging_domain` actor when ICP mode is selected, and uses the canister
   unread/read-receipt methods for the team badge and read state. Message
@@ -127,7 +128,8 @@ Implement and wire typed adapters in this order:
 3. event reads/writes, remaining duty lifecycle, attendance, recurrence, and
    timers;
 4. remaining competition settings pages, organiser visibility and invitation
-   flows, team-entry mutations, division UI, season/match mutations, fixtures,
+   flows, team-entry administration beyond basic registration, division UI,
+   season/match mutations, fixtures,
    results, and complete join capabilities;
 5. messaging, notifications, and media metadata (Team Chat basic reads/writes
    plus unread/read receipts are connected; deletion, reactions, replies, and
