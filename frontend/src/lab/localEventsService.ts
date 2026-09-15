@@ -9,8 +9,12 @@ export interface LocalScheduleEvent {
   title: string;
   type: 'game' | 'training' | 'social';
   event_date: string;
+  start_time: string | null;
+  end_time: string | null;
   address: string | null;
   suburb: string | null;
+  state: string | null;
+  postcode: string | null;
   location_name: string | null;
   club_id: string;
   team_id: string | null;
@@ -21,8 +25,14 @@ export interface LocalScheduleEvent {
   parent_event_id: string | null;
   opponent: string | null;
   teams: { name: string } | null;
-  clubs: { name: string; sport: string | null };
+  clubs: { name: string; sport: string | null; is_pro: boolean };
   description: string;
+  created_by: string;
+  updated_at: string;
+  target_team_ids: string[] | null;
+  arrival_minutes_before: number | null;
+  rsvp_audience: string | null;
+  adults_only: boolean | null;
   starts_at_ms: bigint;
   ends_at_ms: bigint;
 }
@@ -40,9 +50,13 @@ function convertEvent(event: IcpEvent): LocalScheduleEvent {
     id: event.id,
     title: event.title,
     type: titleToType(event.title),
-    event_date: Number.isFinite(start.getTime()) ? start.toISOString().slice(0, 10) : new Date(0).toISOString().slice(0, 10),
+    event_date: Number.isFinite(start.getTime()) ? start.toISOString() : new Date(0).toISOString(),
+    start_time: Number.isFinite(start.getTime()) ? start.toISOString().slice(11, 16) : null,
+    end_time: Number.isFinite(Number(event.ends_at_ms)) ? new Date(Number(event.ends_at_ms)).toISOString().slice(11, 16) : null,
     address: null,
     suburb: null,
+    state: null,
+    postcode: null,
     location_name: 'Local ICP canister',
     club_id: event.club_id,
     team_id: event.team_id[0] ?? null,
@@ -53,8 +67,14 @@ function convertEvent(event: IcpEvent): LocalScheduleEvent {
     parent_event_id: null,
     opponent: null,
     teams: event.team_id.length ? { name: 'ICP team' } : null,
-    clubs: { name: 'ICP club', sport: null },
+    clubs: { name: 'ICP club', sport: null, is_pro: false },
     description: event.description,
+    created_by: event.creator.toText(),
+    updated_at: new Date(0).toISOString(),
+    target_team_ids: null,
+    arrival_minutes_before: null,
+    rsvp_audience: null,
+    adults_only: false,
     starts_at_ms: event.starts_at_ms,
     ends_at_ms: event.ends_at_ms,
   };

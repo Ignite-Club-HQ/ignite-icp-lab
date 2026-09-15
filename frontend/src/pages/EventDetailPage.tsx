@@ -119,6 +119,8 @@ import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { getLocalEvent, isLocalEventsCanisterUnavailable } from "@/lab/localEventsService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -317,6 +319,8 @@ export default function EventDetailPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPersona = searchParams.get("persona");
+  const localIcpPersona = requestedPersona && personas.includes(requestedPersona) ? requestedPersona : "member";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addDutyOpen, setAddDutyOpen] = useState(false);
@@ -370,13 +374,20 @@ export default function EventDetailPage() {
   const notificationNudge = useNotificationNudge(user?.id, "event");
 
   // Track when user views this event
-  useEventViewTracking(id, user?.id);
+  useEventViewTracking(id, useIcpLab ? undefined : user?.id);
 
   const { data: event, isLoading, error: eventError, isFetching: isEventFetching } = useQuery({
-    queryKey: ["event", id],
+    queryKey: ["event", useIcpLab ? "icp" : "supabase", localIcpPersona, id],
     queryFn: async () => {
       if (useIcpLab && id) {
-        return fixtureData.getLocalLabEventList().find((fixtureEvent) => fixtureEvent.id === id) ?? null;
+        try {
+          return await getLocalEvent(localIcpPersona, id);
+        } catch (error) {
+          if (isLocalEventsCanisterUnavailable(error)) {
+            return fixtureData.getLocalLabEventList().find((fixtureEvent) => fixtureEvent.id === id) ?? null;
+          }
+          throw error;
+        }
       }
 
       const { data, error } = await supabase
@@ -524,7 +535,13 @@ export default function EventDetailPage() {
       if (error) throw error;
       
       // Fetch adder profiles
-      const adderIds = [...new Set(data.map(g => g.added_by))];
+      const adderIds = Array.from(
+        new Set<string>(
+          (data ?? []).flatMap((guest) =>
+            typeof guest.added_by === "string" ? [guest.added_by] : [],
+          ),
+        ),
+      );
       let adderMap: Record<string, string> = {};
       if (adderIds.length > 0) {
         const { data: profiles } = await selectCachedProfilesByIds(adderIds);
@@ -1037,10 +1054,11 @@ export default function EventDetailPage() {
     queryKey: ["mini-league-adults-for-event", event?.mini_league_id],
     queryFn: async () => {
       const parentIds = Array.from(
-        new Set(
+        new Set<string>(
           (miniLeaguePlayers || [])
-            .map((p: any) => p.parent_user_id)
-            .filter((id: string | null): id is string => !!id),
+            .flatMap((player: any) =>
+              typeof player.parent_user_id === "string" ? [player.parent_user_id] : [],
+            ),
         ),
       );
       if (parentIds.length === 0) return [] as Array<{ id: string; display_name: string | null; avatar_url: string | null; roles: string[] }>;
@@ -2573,7 +2591,13 @@ export default function EventDetailPage() {
           memberQuery = memberQuery.eq("club_id", event.club_id);
         }
         const { data: members } = await memberQuery;
-        uniqueMembers = [...new Set(members?.map(m => m.user_id) || [])];
+        uniqueMembers = Array.from(
+          new Set<string>(
+            (members ?? []).flatMap((member) =>
+              typeof member.user_id === "string" ? [member.user_id] : [],
+            ),
+          ),
+        );
       }
 
       // Always post cancellation message to team, club, or mini-league chat

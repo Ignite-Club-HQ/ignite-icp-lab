@@ -47,7 +47,7 @@
   { "path": "src/pages/EditTeamPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "club_domain" },
   { "path": "src/pages/EoiAdminPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
   { "path": "src/pages/EoiCompletePage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
-  { "path": "src/pages/EventDetailPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "events_domain" },
+  { "path": "src/pages/EventDetailPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_read", "nextDependency": "events_domain_rsvp_attendance_duties" },
   { "path": "src/pages/EventGroupPitchPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "events_domain" },
   { "path": "src/pages/EventsPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_read", "nextDependency": "events_domain_write_workflows" },
   { "path": "src/pages/GroupChatPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "messaging_domain" },

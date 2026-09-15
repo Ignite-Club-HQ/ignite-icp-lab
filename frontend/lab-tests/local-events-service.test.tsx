@@ -17,12 +17,12 @@ test('events domain client maps scoped canister events into schedule rows', asyn
   }]);
   const client = createEventsDomainClient({ list_events: listEvents } as unknown as _SERVICE);
 
-  await expect(client.listEvents('club-1', 'team-1')).resolves.toEqual([
+  await expect(client.listEvents('club-1', 'team-1')).resolves.toMatchObject([
     expect.objectContaining({
       id: 'event-1',
       title: 'Training night',
       type: 'training',
-      event_date: '2026-01-02',
+      event_date: '2026-01-02T18:00:00.000Z',
       club_id: 'club-1',
       team_id: 'team-1',
       location_name: 'Local ICP canister',

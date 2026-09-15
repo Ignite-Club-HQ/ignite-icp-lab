@@ -57,7 +57,7 @@ The current worktree adds or completes ICP-mode guards across the remaining
 - identity/recovery and administrative handoff routes;
 - administration, messaging, media, notification, import, backup, billing,
   advertising, AI, and other external-integration boundaries.
-- event list, create, and edit now use typed signed local `events_domain`
+- event list, detail, create, and edit now use typed signed local `events_domain`
   actor paths for basic event reads/writes; the list keeps an explicit local
   fixture fallback only when that canister is not configured.
 
