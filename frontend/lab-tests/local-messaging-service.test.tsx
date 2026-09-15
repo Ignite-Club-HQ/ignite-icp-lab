@@ -27,16 +27,21 @@ describe('local messaging service', () => {
       sequence: 1n,
       idempotency_key: 'key-1',
     }]);
+    const unreadCount = vi.fn(async () => ({ Ok: { conversation_id: 'conversation-1', user: principal, count: 3n, last_read_sequence: 1n } }));
     const client = createMessagingDomainClient({
       export_state: exportState,
       list_messages: listMessages,
       send_message: vi.fn(),
+      mark_read: vi.fn(),
+      unread_count: unreadCount,
     } as unknown as _SERVICE);
 
     await expect(client.listTeamMessages('team-1')).resolves.toMatchObject([
       { id: 'message-1', team_id: 'team-1', text: 'Hello', author_id: principal.toText() },
     ]);
     expect(listMessages).toHaveBeenCalledWith('conversation-1', []);
+    await expect(client.getTeamUnreadCount('team-1')).resolves.toBe(3);
+    expect(unreadCount).toHaveBeenCalledWith('conversation-1');
   });
 
   test('sends an idempotent team message through the local actor', async () => {
@@ -65,9 +70,12 @@ describe('local messaging service', () => {
       })),
       list_messages: vi.fn(),
       send_message: sendMessage,
+      mark_read: vi.fn(async () => ({ Ok: { conversation_id: 'conversation-1', user: principal, message_id: 'message-2', read: true } })),
+      unread_count: vi.fn(),
     } as unknown as _SERVICE);
 
     await expect(client.sendTeamMessage('team-1', 'Hi', 'key-2')).resolves.toMatchObject({ id: 'message-2', text: 'Hi' });
     expect(sendMessage).toHaveBeenCalledWith('conversation-1', 'Hi', 'key-2');
+    await expect(client.markTeamRead('team-1', 'message-2')).resolves.toBeUndefined();
   });
 });

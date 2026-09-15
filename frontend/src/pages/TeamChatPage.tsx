@@ -48,7 +48,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
-import { listLocalTeamMessages, sendLocalTeamMessage } from "@/lab/localMessagingService";
+import {
+  getLocalTeamUnreadCount,
+  listLocalTeamMessages,
+  markLocalTeamRead,
+  sendLocalTeamMessage,
+} from "@/lab/localMessagingService";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -290,10 +295,17 @@ export default function TeamChatPage() {
   useEffect(() => { if (teamId) markChatOpened("team", teamId); }, [teamId]);
   const summarizeTriggerRef = useRef<(() => void) | null>(null);
   const { featureDisabled: aiCatchUpDisabled } = useAICatchUpAvailability("team", teamId);
-  const { data: teamUnreadCount = 0 } = useUnreadMessageCounts<number>(user?.id ?? null, {
+  const { data: supabaseTeamUnreadCount = 0 } = useUnreadMessageCounts<number>(user?.id ?? null, {
     enabled: !useIcpLab && !!teamId,
     select: (d) => (teamId ? d.teams[teamId] ?? 0 : 0),
   });
+  const { data: localTeamUnreadCount = 0 } = useQuery({
+    queryKey: ["local-team-unread-count", teamId],
+    queryFn: () => getLocalTeamUnreadCount("team_member", teamId!),
+    enabled: useIcpLab && !!teamId,
+    refetchInterval: 30_000,
+  });
+  const teamUnreadCount = useIcpLab ? localTeamUnreadCount : supabaseTeamUnreadCount;
 
   const profileRef = useRef(profile);
   profileRef.current = profile;
@@ -694,6 +706,24 @@ export default function TeamChatPage() {
           cachedReactionsByMessage.set(cachedMessage.id, cachedMessage.reactions);
         }
       });
+
+      useEffect(() => {
+        if (!useIcpLab || !teamId || !messagesData?.messages.length) return;
+        const latestMessage = messagesData.messages[messagesData.messages.length - 1];
+        let cancelled = false;
+        markLocalTeamRead("team_member", teamId, latestMessage.id)
+          .then(() => {
+            if (!cancelled) {
+              queryClient.setQueryData(["local-team-unread-count", teamId], 0);
+            }
+          })
+          .catch((error) => {
+            if (!cancelled) console.warn("[TeamChat] Failed to mark local messages read", error);
+          });
+        return () => {
+          cancelled = true;
+        };
+      }, [useIcpLab, teamId, messagesData, queryClient]);
       
       // Fetch profiles with cache - will return cached data immediately if available, or fetch from DB
       // Use allSettled so a single hung/failing RPC cannot block the entire message render.

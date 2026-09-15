@@ -72,9 +72,10 @@ The current worktree adds or completes ICP-mode guards across the remaining
   invitations, and membership administration remain explicit unavailable
   boundaries.
 - Team chat now reads and sends team messages through the authenticated local
-  `messaging_domain` actor when ICP mode is selected. Message delivery uses
-  canister idempotency keys; unsupported profile, reaction, reply, and
-  moderation features remain on their existing explicit boundaries.
+  `messaging_domain` actor when ICP mode is selected, and uses the canister
+  unread/read-receipt methods for the team badge and read state. Message
+  delivery uses canister idempotency keys; unsupported profile, reaction,
+  reply, and moderation features remain on their existing explicit boundaries.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
@@ -129,7 +130,7 @@ Implement and wire typed adapters in this order:
    flows, team-entry mutations, division UI, season/match mutations, fixtures,
    results, and complete join capabilities;
 5. messaging, notifications, and media metadata (Team Chat basic reads/writes
-   are connected; unread/read receipts, deletion, reactions, replies, and
+   plus unread/read receipts are connected; deletion, reactions, replies, and
    moderation still require contract and page support);
 6. placement administration and multi-site connection management.
 

@@ -30,7 +30,9 @@ function convertMessage(message: IcpMessage, teamId: string): LocalChatMessage {
   };
 }
 
-export function createMessagingDomainClient(actor: Pick<_SERVICE, 'export_state' | 'list_messages' | 'send_message'>) {
+export function createMessagingDomainClient(
+  actor: Pick<_SERVICE, 'export_state' | 'list_messages' | 'send_message' | 'mark_read' | 'unread_count'>,
+) {
   return {
     async findTeamConversation(teamId: string): Promise<Conversation> {
       const result = await actor.export_state();
@@ -49,6 +51,17 @@ export function createMessagingDomainClient(actor: Pick<_SERVICE, 'export_state'
       const result = await actor.send_message(conversation.id, text, idempotencyKey);
       if ('Err' in result) throw new Error(result.Err);
       return convertMessage(result.Ok, teamId);
+    },
+    async getTeamUnreadCount(teamId: string): Promise<number> {
+      const conversation = await this.findTeamConversation(teamId);
+      const result = await actor.unread_count(conversation.id);
+      if ('Err' in result) throw new Error(result.Err);
+      return Number(result.Ok.count);
+    },
+    async markTeamRead(teamId: string, messageId: string): Promise<void> {
+      const conversation = await this.findTeamConversation(teamId);
+      const result = await actor.mark_read(conversation.id, messageId);
+      if ('Err' in result) throw new Error(result.Err);
     },
   };
 }
@@ -70,4 +83,12 @@ export async function listLocalTeamMessages(persona: string, teamId: string): Pr
 
 export async function sendLocalTeamMessage(persona: string, teamId: string, text: string, idempotencyKey: string): Promise<LocalChatMessage> {
   return createMessagingDomainClient(await connectMessagingActor(persona)).sendTeamMessage(teamId, text, idempotencyKey);
+}
+
+export async function getLocalTeamUnreadCount(persona: string, teamId: string): Promise<number> {
+  return createMessagingDomainClient(await connectMessagingActor(persona)).getTeamUnreadCount(teamId);
+}
+
+export async function markLocalTeamRead(persona: string, teamId: string, messageId: string): Promise<void> {
+  return createMessagingDomainClient(await connectMessagingActor(persona)).markTeamRead(teamId, messageId);
 }
