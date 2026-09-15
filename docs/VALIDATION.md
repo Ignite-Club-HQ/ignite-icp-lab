@@ -422,4 +422,22 @@ expand administrator authority for those separate behaviors.
 `mops check --fix`, `mops build`, and the local product-probe syntax check
 passed. The dedicated lab suite also passed: 9 Node tests, 31 Vitest files /
 181 tests, lab typecheck, isolation check, production build, and the fresh
-loopback Vite server smoke test. The live four-canister probe was not run
+loopback Vite server smoke test. The live four-canister probe was not run because its disposable synthetic ID configuration was unavailable.
+
+## Club-domain team ownership validation slice - 2026-09-15
+
+Hardened the local `club_domain` create-team path so a caller with club
+management authority cannot create an orphan team for an unknown club. This
+enforces the roadmap's same-club relationship validation before a `Team` is
+stored, and preserves authorization-first ordering so unauthorized callers do
+not receive club-existence details. The focused regression test proves even
+the local governor cannot create a team for a missing club.
+
+`cargo test --locked` passed 5 unit tests and `cargo build --locked --release`
+passed. This is a bounded local write-integrity result, not evidence of
+complete source `teams` lifecycle, role, exclusion, pagination, or live Rust
+canister parity.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.

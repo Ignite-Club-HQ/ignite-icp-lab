@@ -80,6 +80,9 @@ impl ClubDomain {
         if !self.can_manage_club(actor, club_id) {
             return Err("Club admin required".into());
         }
+        if !self.clubs.iter().any(|club| club.id == club_id) {
+            return Err("Unknown club".into());
+        }
         if team_id.trim().is_empty() || name.trim().is_empty() {
             return Err("Invalid team fields".into());
         }
@@ -241,6 +244,20 @@ mod tests {
             .is_ok());
         assert!(domain.can_view_team(player, "team-a"));
         assert!(!domain.can_view_team(player, "team-b"));
+    }
+
+    #[test]
+    fn team_creation_requires_an_existing_club() {
+        let governor = Principal::from_slice(&[1u8; 29]);
+        let mut domain = ClubDomain::new(governor);
+
+        assert_eq!(
+            domain
+                .create_team(governor, "team-orphan", "club-missing", "Under 14")
+                .unwrap_err(),
+            "Unknown club"
+        );
+        assert!(!domain.can_view_team(governor, "team-orphan"));
     }
 
     #[test]
