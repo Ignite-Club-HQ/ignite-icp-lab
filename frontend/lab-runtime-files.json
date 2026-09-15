@@ -50,6 +50,8 @@
   "src/lab/bindings/identity_access/declarations/identity_access.did.js",
   "src/lab/localEventsService.ts",
   "src/lab/bindings/events_domain/declarations/events_domain.did.js",
+  "src/lab/localCompetitionService.ts",
+  "src/lab/bindings/competition_domain/declarations/competition_domain.did.js",
   "src/lab/syntheticIdentities.mjs",
   "src/lab/bindings/declarations/club_links.did.js",
   "src/lab/networkGuard.mjs",

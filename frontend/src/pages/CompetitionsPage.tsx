@@ -13,28 +13,90 @@ import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { useMemo } from "react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { isLocalCompetitionCanisterUnavailable, listLocalCompetitions } from "@/lab/localCompetitionService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionsPage() {
   usePageTitle("Competitions");
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-3xl mx-auto px-4 py-6">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-3 text-center">
-            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Competitions are unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Competition lists, invitations, ladders, and administration are not connected to an ICP service yet.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpCompetitionsPage />;
   }
 
   return <SupabaseCompetitionsPage />;
+}
+
+function IcpCompetitionsPage() {
+  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const { data: competitions = [], isLoading, error } = useQuery({
+    queryKey: ["local-icp-competitions", localIcpPersona],
+    queryFn: () => listLocalCompetitions(localIcpPersona),
+  });
+  const unavailable = isLocalCompetitionCanisterUnavailable(error);
+
+  return (
+    <div className="container max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <header>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Trophy className="h-6 w-6 text-primary" /> Competitions
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Local ICP competition state from the lab canister.
+        </p>
+      </header>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading local ICP competitions...</p>
+      ) : error ? (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h2 className="text-lg font-semibold">
+              {unavailable ? "Competitions need a local ICP canister" : "Competitions couldn't be loaded"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {unavailable
+                ? "Deploy the local competition_domain canister to enable this page in ICP mode."
+                : error.message}
+            </p>
+          </CardContent>
+        </Card>
+      ) : competitions.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            No local ICP competitions yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {competitions.map((competition) => (
+            <Card key={competition.id}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2 shrink-0">
+                  <Trophy className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate flex items-center gap-2">
+                    <span className="truncate">{competition.name}</span>
+                    <span className="shrink-0 inline-flex items-center px-1.5 py-px rounded text-[9px] font-semibold uppercase tracking-wider bg-sky-500/15 text-sky-700 dark:text-sky-400">
+                      ICP
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[competition.season, competition.clubs?.name].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                <Badge variant={competition.status === "active" ? "default" : "secondary"} className="capitalize">
+                  {competition.status}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SupabaseCompetitionsPage() {

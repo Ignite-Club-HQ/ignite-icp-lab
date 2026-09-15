@@ -150,6 +150,10 @@ Completed or proven in the lab:
   paths plus canister-backed event-detail self-RSVP and assigned-duty claim
   writes; attendance, recurrence, timers, and complete duty lifecycle remain
   pending
+- competition frontend connectivity has started with a typed local
+  `competition_domain` list adapter on the competitions page; detail, create,
+  join, settings, seasons, fixtures, results, and invitation flows remain
+  pending
 
 Not production-ready:
 

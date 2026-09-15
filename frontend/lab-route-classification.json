@@ -33,7 +33,7 @@
   { "path": "src/pages/CompetitionDetailPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
   { "path": "src/pages/CompetitionJoinPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
   { "path": "src/pages/CompetitionSettingsPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
-  { "path": "src/pages/CompetitionsPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain_list_query" },
+  { "path": "src/pages/CompetitionsPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_read", "nextDependency": "competition_domain_page_detail" },
   { "path": "src/pages/CompleteProfilePage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
   { "path": "src/pages/CreateAssociationPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "association_domain" },
   { "path": "src/pages/CreateClubPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "club_domain" },
