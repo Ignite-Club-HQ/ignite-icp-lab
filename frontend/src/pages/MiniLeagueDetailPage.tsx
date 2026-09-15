@@ -20,6 +20,8 @@ const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMin
 import { ManageMiniLeagueAdminsSheet } from "@/components/mini-league/ManageMiniLeagueAdminsSheet";
 import PendingInvitesList from "@/components/PendingInvitesList";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 interface MiniLeagueEvent {
   id: string;
@@ -35,6 +37,18 @@ interface MiniLeagueEvent {
 }
 
 export default function MiniLeagueDetailPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return (
+      <IcpUnavailablePage
+        title="Mini-league details are unavailable in ICP lab mode"
+        description="Mini-league members, schedules, game data, and administrative actions are not connected to typed ICP services yet."
+      />
+    );
+  }
+  return <SupabaseMiniLeagueDetailPage />;
+}
+
+function SupabaseMiniLeagueDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -258,13 +272,21 @@ export default function MiniLeagueDetailPage() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const clubWideIds = new Set((adminRoles || []).map(r => r.user_id));
-      const scopedIds = new Set((scopedAdmins || []).map(r => r.user_id));
+      const clubWideIds = new Set<string>(
+        (adminRoles || []).flatMap((role) =>
+          typeof role.user_id === "string" ? [role.user_id] : [],
+        ),
+      );
+      const scopedIds = new Set<string>(
+        (scopedAdmins || []).flatMap((admin) =>
+          typeof admin.user_id === "string" ? [admin.user_id] : [],
+        ),
+      );
       const allAdminIds = new Set<string>([...clubWideIds, ...scopedIds]);
       const guardianUserIds = (guardianRows || []).map((r: any) => r.guardian_id).filter(Boolean) as string[];
       const allParentIds = [...new Set([...parentUserIds, ...guardianUserIds])];
 
-      const allUserIds = [...new Set([
+      const allUserIds = [...new Set<string>([
         ...allParentIds,
         ...allAdminIds,
       ])];

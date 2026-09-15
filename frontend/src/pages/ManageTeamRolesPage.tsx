@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin";
 
@@ -45,8 +46,35 @@ const roleColors: Record<AppRole, string> = {
   parent: "bg-yellow-500/20 text-yellow-500",
   app_admin: "bg-destructive/20 text-destructive",
 };
+type UserRoleGroup = { profile: any; roles: any[] };
 
 export default function ManageTeamRolesPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Shield className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Team role management is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Team roles, requests, removals, and administrative changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseManageTeamRolesPage />;
+}
+
+function SupabaseManageTeamRolesPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -185,7 +213,7 @@ export default function ManageTeamRolesPage() {
   // Exclude the club's broadcast/bot account from the member list
   const botUserId = (team as any)?.clubs?.bot_user_id ?? null;
 
-  const userRoles = roles?.reduce((acc, role) => {
+  const userRoles: Record<string, UserRoleGroup> = roles?.reduce((acc, role) => {
     const userId = role.profiles?.id;
     if (!userId || userId === botUserId) return acc;
     if (!acc[userId]) {
@@ -193,7 +221,7 @@ export default function ManageTeamRolesPage() {
     }
     acc[userId].roles.push(role);
     return acc;
-  }, {} as Record<string, { profile: any; roles: any[] }>);
+  }, {} as Record<string, UserRoleGroup>) ?? {};
 
   return (
     <div className="py-6 space-y-6">
@@ -225,7 +253,7 @@ export default function ManageTeamRolesPage() {
             <div className="space-y-3">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
             </div>
-          ) : Object.keys(userRoles || {}).length === 0 ? (
+          ) : Object.keys(userRoles).length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="p-8 text-center">
                 <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -233,7 +261,7 @@ export default function ManageTeamRolesPage() {
               </CardContent>
             </Card>
           ) : (
-            Object.entries(userRoles || {}).map(([userId, { profile, roles: userRoleList }]) => (
+            Object.entries(userRoles).map(([userId, { profile, roles: userRoleList }]) => (
               <Card key={userId}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 mb-3">

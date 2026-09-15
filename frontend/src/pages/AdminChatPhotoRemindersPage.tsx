@@ -28,7 +28,17 @@ const DEFAULTS: Settings = {
   cooldown_days: 7,
 };
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminChatPhotoRemindersPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Photo-reminder administration is unavailable in ICP lab mode" description="Media scanning, reminder selection, and delivery remain disabled external-worker workflows." />;
+  }
+  return <SupabaseAdminChatPhotoRemindersPage />;
+}
+
+function SupabaseAdminChatPhotoRemindersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();

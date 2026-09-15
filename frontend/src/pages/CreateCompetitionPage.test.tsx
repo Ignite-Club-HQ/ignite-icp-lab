@@ -6,8 +6,8 @@
  * after the first failed. The fix moves the personal path onto a transactional
  * `create_personal_competition` RPC. These tests pin that contract.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -80,15 +80,27 @@ async function fillNameAndSubmit(nameValue = "Twilight Cup") {
 }
 
 beforeEach(() => {
+  window.history.replaceState({}, "", "/?backend=supabase");
   navigateMock.mockReset();
   toastMock.mockReset();
   rpcMock.mockReset();
   fromInsertMock.mockReset();
 });
 
+afterEach(cleanup);
+
 // ---- Tests --------------------------------------------------------------
 
 describe("CreateCompetitionPage — personal organiser (atomic RPC)", () => {
+  it("does not mount the Supabase workflow in ICP mode", async () => {
+    window.history.replaceState({}, "", "/?backend=icp");
+    await renderPage();
+
+    expect(await screen.findByText(/competition creation is unavailable in ICP lab mode/i)).toBeTruthy();
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(fromInsertMock).not.toHaveBeenCalled();
+  });
+
   it("calls the transactional RPC once and never inserts shell/role/competition from the client", async () => {
     rpcMock.mockResolvedValueOnce({
       data: [{ competition_id: "comp-1", club_id: "club-1" }],

@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfileById } from "@/lib/profileCache";
 import { SPORT_EMOJIS, getSportEmoji, isClassModeSport } from "@/lib/sportEmojis";
 import { isCachedAppAdmin, getCachedRoles } from "@/lib/rolesCache";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const SPORTS = Object.keys(SPORT_EMOJIS);
 
@@ -29,6 +30,7 @@ export default function CreateClubPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -52,6 +54,11 @@ export default function CreateClubPage() {
     }
     setNameChecking(true);
     const handle = setTimeout(async () => {
+      if (useIcpLab) {
+        setNameTaken(false);
+        setNameChecking(false);
+        return;
+      }
       const { data } = await supabase
         .from("clubs")
         .select("id")
@@ -61,7 +68,7 @@ export default function CreateClubPage() {
       setNameChecking(false);
     }, 400);
     return () => clearTimeout(handle);
-  }, [name]);
+  }, [name, useIcpLab]);
 
   // Deterministic monogram colour from the club name so the placeholder logo
   // looks intentional rather than empty. Falls back to a neutral hue.
@@ -79,8 +86,9 @@ export default function CreateClubPage() {
   // Check if user is app admin
   const cachedIsAppAdmin = isCachedAppAdmin();
   const { data: isAppAdmin = cachedIsAppAdmin ?? false } = useQuery({
-    queryKey: ["isAppAdmin", user?.id],
+    queryKey: ["isAppAdmin", user?.id, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return true;
       const { data } = await supabase
         .from("user_roles")
         .select("id")
@@ -95,8 +103,9 @@ export default function CreateClubPage() {
 
   // Check if club creation is locked
   const { data: isClubCreationLocked = false, isLoading: isLoadingSettings } = useQuery({
-    queryKey: ["appSettings", "club_creation_locked"],
+    queryKey: ["appSettings", "club_creation_locked", useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return false;
       const { data } = await supabase
         .from("app_settings")
         .select("value")
@@ -109,8 +118,9 @@ export default function CreateClubPage() {
 
   // Check if user's profile name is "Reviewer"
   const { data: isReviewerProfile = false } = useQuery({
-    queryKey: ["isReviewerProfile", user?.id],
+    queryKey: ["isReviewerProfile", user?.id, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return false;
       const { data } = await selectCachedProfileById(user!.id);
       return data?.display_name === "Reviewer";
     },
@@ -153,6 +163,14 @@ export default function CreateClubPage() {
         variant: "destructive",
       });
       setMoreOpen(true);
+      return;
+    }
+
+    if (useIcpLab) {
+      toast({
+        title: "Club creation is unavailable in ICP lab mode",
+        description: "The form is a local preview and no club data has been persisted.",
+      });
       return;
     }
 
@@ -270,6 +288,11 @@ export default function CreateClubPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 py-6 space-y-8 max-w-lg mx-auto">
+          {useIcpLab && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+              Preview only: club creation is not persisted in ICP lab mode.
+            </div>
+          )}
           {/* Locked Notice */}
           {!canCreateClub && !isLoadingSettings && (
             <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-6 text-center">

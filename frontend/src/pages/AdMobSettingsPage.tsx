@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { PageLoading } from "@/components/ui/page-loading";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 interface AdMobConfig {
   id: string;
@@ -21,6 +22,32 @@ interface AdMobConfig {
 }
 
 export default function AdMobSettingsPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Smartphone className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">AdMob settings are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Native advertising identifiers and provider configuration remain outside the ICP application boundary.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAdMobSettingsPage />;
+}
+
+function SupabaseAdMobSettingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 

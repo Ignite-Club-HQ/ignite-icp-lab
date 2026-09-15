@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type EventType = "game" | "training" | "all";
 
@@ -58,6 +59,34 @@ interface AttendanceStatsPageProps {
 }
 
 export default function AttendanceStatsPage({ teamIdOverride, embedded }: AttendanceStatsPageProps = {}) {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className={embedded ? "py-4" : "container max-w-3xl mx-auto px-4 py-10"}>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <BarChart3 className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Attendance reporting is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Event attendance, member profiles, exports, and reporting aggregates are not connected to an ICP service yet.
+            </p>
+            {!embedded && (
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAttendanceStatsPage teamIdOverride={teamIdOverride} embedded={embedded} />;
+}
+
+function SupabaseAttendanceStatsPage({ teamIdOverride, embedded }: AttendanceStatsPageProps = {}) {
   const params = useParams<{ teamId: string }>();
   const teamId = teamIdOverride ?? params.teamId;
   const { user } = useAuth();
@@ -185,7 +214,11 @@ export default function AttendanceStatsPage({ teamIdOverride, embedded }: Attend
       const rows = rpcChildren || [];
       if (rows.length === 0) return [];
 
-      const parentIds = [...new Set(rows.map((r: any) => r.parent_id).filter(Boolean))];
+      const parentIds = Array.from(
+        new Set<string>(
+          rows.flatMap((r: any) => typeof r.parent_id === "string" ? [r.parent_id] : []),
+        ),
+      );
       let profileMap: Record<string, { id: string; display_name: string | null }> = {};
       if (parentIds.length > 0) {
         const { data: profiles } = await selectCachedProfilesByIds(parentIds);

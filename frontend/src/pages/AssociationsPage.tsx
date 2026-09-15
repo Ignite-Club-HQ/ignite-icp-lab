@@ -8,10 +8,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function AssociationsPage() {
-  const { user } = useAuth();
   usePageTitle("Associations");
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <Network className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Associations are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Association membership and administration are not connected to an ICP service yet.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAssociationsPage />;
+}
+
+function SupabaseAssociationsPage() {
+  const { user } = useAuth();
   const { hasAnyClubPro, isLoading: proLoading } = useUserHasAnyClubPro();
 
   const { data: associations = [], isLoading } = useQuery({

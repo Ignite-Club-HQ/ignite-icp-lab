@@ -35,6 +35,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { isLocalEventsCanisterUnavailable, listLocalEvents } from "@/lab/localEventsService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 import { WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
@@ -81,6 +83,8 @@ export default function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeClubFilter } = useClubTheme();
   const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
+  const requestedPersona = searchParams.get("persona");
+  const localIcpPersona = requestedPersona && personas.includes(requestedPersona) ? requestedPersona : "member";
   const teamFilter = searchParams.get("team");
   // Use club theme filter if set, otherwise use URL param
   const clubFilter = activeClubFilter || searchParams.get("club");
@@ -164,7 +168,7 @@ export default function EventsPage() {
 
   // Fetch user's clubs (clubs they are members of)
   const { data: userClubs } = useQuery({
-    queryKey: ["user-clubs-for-filter", user?.id],
+    queryKey: ["user-clubs-for-filter", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona],
     queryFn: async () => {
       if (useIcpLab) {
         return fixtureData.getLocalLabClubList();
@@ -232,8 +236,12 @@ export default function EventsPage() {
   });
   // Get user's accessible team, club, and mini league IDs for event filtering
   const { data: userMemberships, isLoading: membershipsLoading } = useQuery({
-    queryKey: ["user-memberships-for-events", user?.id],
+    queryKey: ["user-memberships-for-events", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona],
     queryFn: async () => {
+      if (useIcpLab) {
+        return fixtureData.getLocalLabHomeSnapshot(user?.id ?? 'icp-member').memberships;
+      }
+
       // Proactively refresh JWT if it's near expiry — prevents an expired
       // token from making user_roles return null and silently emptying the
       // schedule.
@@ -362,7 +370,7 @@ export default function EventsPage() {
         isAppAdmin,
       };
     },
-    enabled: !!user,
+    enabled: !!user || useIcpLab,
     // Roles + memberships change rarely; 30min stale eliminates the repeat
     // waterfall on tab focus / navigation returns.
     staleTime: 30 * 60 * 1000,
@@ -375,8 +383,15 @@ export default function EventsPage() {
   // optionally narrowed to the current club filter. Reuses membership team IDs
   // so we don't re-run the roles + children waterfall.
   const { data: userTeams } = useQuery({
-    queryKey: ["user-teams-for-filter", user?.id, clubFilter, userMemberships?.teamIds],
+    queryKey: ["user-teams-for-filter", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona, clubFilter, userMemberships?.teamIds],
     queryFn: async () => {
+      if (useIcpLab) {
+        return fixtureData.getLocalLabTeamList().map((team) => ({
+          id: team.id,
+          name: team.name,
+          club_id: team.club_id,
+        }));
+      }
       const teamIds = userMemberships?.teamIds || [];
       if (teamIds.length === 0) return [];
       let query = supabase.from("teams").select("id, name, club_id").in("id", teamIds).order("name");
@@ -384,7 +399,7 @@ export default function EventsPage() {
       const { data: teams } = await query;
       return teams || [];
     },
-    enabled: !!user && !!userMemberships,
+    enabled: (!!user || useIcpLab) && !!userMemberships,
     staleTime: 30 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
@@ -392,8 +407,9 @@ export default function EventsPage() {
   // Mini-leagues the user can filter the schedule by — only ones they're actually a member of
   // (parent of a player, mini_league_admin, or league_admin/app_admin for the club).
   const { data: userMiniLeagues } = useQuery({
-    queryKey: ["user-mini-leagues-for-filter", user?.id, userMemberships?.miniLeagueIds, clubFilter],
+    queryKey: ["user-mini-leagues-for-filter", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona, userMemberships?.miniLeagueIds, clubFilter],
     queryFn: async () => {
+      if (useIcpLab) return [] as { id: string; name: string; club_id: string }[];
       const ids = userMemberships?.miniLeagueIds || [];
       if (ids.length === 0) return [] as { id: string; name: string; club_id: string }[];
       let query = supabase.from("mini_leagues").select("id, name, club_id").in("id", ids).order("name");
@@ -401,7 +417,7 @@ export default function EventsPage() {
       const { data } = await query;
       return data || [];
     },
-    enabled: !!user && !!userMemberships,
+    enabled: (!!user || useIcpLab) && !!userMemberships,
     staleTime: 30 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
@@ -412,13 +428,28 @@ export default function EventsPage() {
   );
 
   const { data: eventsData, isLoading, isFetching, isError: eventsIsError, refetch: refetchEvents } = useQuery({
-    queryKey: ["events", user?.id, filter, teamFilter, clubFilter, viewMode, pastDaysBack, userMemberships?.teamIds, userMemberships?.clubIds, userMemberships?.miniLeagueIds],
+    queryKey: ["events", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona, filter, teamFilter, clubFilter, viewMode, pastDaysBack, userMemberships?.teamIds, userMemberships?.clubIds, userMemberships?.miniLeagueIds],
     queryFn: async () => {
       const overall = performance.now();
       diagLog("events:start", { hasMemberships: !!userMemberships });
       if (!userMemberships) return [];
 
       const { teamIds, clubIds, miniLeagueIds } = userMemberships;
+      if (useIcpLab) {
+        try {
+          const selectedTeamId = teamFilter && !teamFilter.startsWith("ml:") ? teamFilter : undefined;
+          const events = await listLocalEvents(localIcpPersona, clubFilter, selectedTeamId);
+          const typedEvents = filter === "all" ? events : events.filter((event) => event.type === filter);
+          return typedEvents as Event[];
+        } catch (error) {
+          if (isLocalEventsCanisterUnavailable(error)) {
+            const events = fixtureData.getLocalLabEventList();
+            return (filter === "all" ? events : events.filter((event) => event.type === filter)) as Event[];
+          }
+          throw error;
+        }
+      }
+
       if (teamIds.length === 0 && clubIds.length === 0) {
         diagLog("events:end-empty-memberships");
         return [];
@@ -558,7 +589,7 @@ export default function EventsPage() {
 
       return finalEvents;
     },
-    enabled: !!user && !!userMemberships,
+    enabled: (!!user || useIcpLab) && !!userMemberships,
     staleTime: 5 * 60 * 1000, // 5min — avoid re-running the full events query on every tab focus
     // Render from cache first; background-refetch only if stale. Big snappiness
     // win on navigation — previously every mount paid a full round-trip.
@@ -597,7 +628,7 @@ export default function EventsPage() {
 
   // Get IDs of events user has viewed
   const eventIds = events?.map(e => e.id) || [];
-  const { data: viewedEventIds } = useUserEventViews(user?.id, eventIds);
+  const { data: viewedEventIds } = useUserEventViews(useIcpLab ? undefined : user?.id, useIcpLab ? [] : eventIds);
 
   const handleClubChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
@@ -723,7 +754,7 @@ export default function EventsPage() {
         hasMemberships: !!userMemberships,
         abortedInFlight: aborted,
       });
-      queryClient.refetchQueries({ queryKey: ["user-memberships-for-events", user?.id] });
+      queryClient.refetchQueries({ queryKey: ["user-memberships-for-events"] });
       queryClient.refetchQueries({ queryKey: ["events"] });
     };
     const timer = setInterval(kick, 6000);
@@ -844,7 +875,7 @@ export default function EventsPage() {
               setIsRefreshing(true);
               try {
                 await Promise.all([
-                  queryClient.invalidateQueries({ queryKey: ["user-memberships-for-events", user?.id] }),
+                  queryClient.invalidateQueries({ queryKey: ["user-memberships-for-events"] }),
                   queryClient.invalidateQueries({ queryKey: ["events"] }),
                 ]);
               } finally {
@@ -925,7 +956,7 @@ export default function EventsPage() {
       <QueryErrorBanner
         hasError={isOnline && eventsIsError && !isFetching}
         onRetry={async () => {
-          await Promise.allSettled([refetchEvents(), queryClient.refetchQueries({ queryKey: ["user-memberships-for-events", user?.id] })]);
+          await Promise.allSettled([refetchEvents(), queryClient.refetchQueries({ queryKey: ["user-memberships-for-events"] })]);
         }}
         message="Couldn't load schedule. Tap to retry."
       />
@@ -945,7 +976,7 @@ export default function EventsPage() {
             onClick={async () => {
               await Promise.allSettled([
                 refetchEvents(),
-                queryClient.refetchQueries({ queryKey: ["user-memberships-for-events", user?.id] }),
+                queryClient.refetchQueries({ queryKey: ["user-memberships-for-events"] }),
               ]);
             }}
           >

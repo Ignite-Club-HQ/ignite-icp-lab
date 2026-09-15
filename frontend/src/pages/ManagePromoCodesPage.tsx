@@ -36,7 +36,17 @@ import { getCachedRoles } from "@/lib/rolesCache";
 type ScopeType = "club" | "team";
 type PromoType = "subscription" | "storage";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ManagePromoCodesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Promo-code administration is unavailable in ICP lab mode" description="Promo codes remain part of the disabled external billing boundary." />;
+  }
+  return <SupabaseManagePromoCodesPage />;
+}
+
+function SupabaseManagePromoCodesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -104,7 +114,13 @@ export default function ManagePromoCodesPage() {
       
       // Fetch creator profiles separately if needed
       if (data && data.length > 0) {
-        const creatorIds = [...new Set(data.map(p => p.created_by).filter(Boolean))];
+        const creatorIds = Array.from(
+          new Set<string>(
+            data.flatMap((promo) =>
+              typeof promo.created_by === "string" ? [promo.created_by] : [],
+            ),
+          ),
+        );
         if (creatorIds.length > 0) {
           const { data: profiles } = await selectCachedProfilesByIds(creatorIds);
           

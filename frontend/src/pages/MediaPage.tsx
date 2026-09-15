@@ -101,7 +101,17 @@ function PhotoSkeleton() {
 // date don't show a view count since scroll views weren't recorded yet.
 const PHOTO_VIEWS_FEATURE_LAUNCH = new Date("2026-04-18T00:00:00Z");
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function MediaPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Media is unavailable in ICP lab mode" description="Media metadata, authorization, and protected object storage are not connected to approved ICP and storage boundaries yet." />;
+  }
+  return <SupabaseMediaPage />;
+}
+
+function SupabaseMediaPage() {
   const { user } = useAuth();
   usePageTitle("Media");
   const queryClient = useQueryClient();

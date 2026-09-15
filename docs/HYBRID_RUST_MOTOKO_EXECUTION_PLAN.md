@@ -18,6 +18,7 @@ The target is coexistence-only:
 
 Primary references:
 
+- [HYBRID_BUILD_ROADMAP.md](HYBRID_BUILD_ROADMAP.md)
 - [NEXT_IMPLEMENTATION_PLAN.md](NEXT_IMPLEMENTATION_PLAN.md)
 - [HYBRID_IMPLEMENTATION_PLAN.md](HYBRID_IMPLEMENTATION_PLAN.md)
 - [ICP_CANISTER_TOPOLOGY.md](ICP_CANISTER_TOPOLOGY.md)
@@ -140,10 +141,11 @@ Completed or proven in the lab:
   registry, queue retry/dead-letter behavior, and workload-scope tests
 - initial field-level PII classification matrix and separate media-metadata,
   PII-policy, and secret-workload boundaries
-- partial frontend migration: 99 application pages still import the Supabase
-  client, 22 of those pages currently have an explicit ICP-lab guard, and 77
-  still need classification as hybrid, Supabase-only, external-boundary, or
-  not-enabled
+- partial frontend migration: all 99 application pages that directly import
+  the Supabase client now have an explicit ICP-lab guard and are recorded in
+  [lab-route-classification.json](../frontend/lab-route-classification.json); guard
+  coverage includes fixture/read-only and unavailable states rather than
+  proving that every page has a live ICP actor
 
 Not production-ready:
 
@@ -173,8 +175,15 @@ a local POC does not promote a domain to production-ready.
 
 **Current evidence:** fixture-backed or guarded paths exist for the main home,
 club/team detail, event detail, messaging entry points, profile/settings,
-notifications, news, leaderboard, and rewards surfaces. Direct Supabase imports
-remain in 99 application pages; 77 have no explicit ICP-lab guard.
+notifications, news, leaderboard, rewards, club/team lifecycle, event-write,
+competition, season, mini-league, enrolment/EOI, role, association, reporting,
+administrative, messaging, media, and external-boundary surfaces. The roles
+page has a signed local `identity_access` actor read path, and the schedule
+page has a signed local `events_domain` actor read path with fixture fallback
+only when that local canister is not configured. All 99 application pages with
+direct Supabase imports now have an explicit ICP-lab guard. Many write or
+external-integration routes intentionally fail closed until typed ICP services
+or approved external boundaries exist.
 
 **Work remaining:**
 
@@ -549,9 +558,14 @@ Exit gate: Synthetic worker harness verifies that unauthorized callers, invalid 
 
 ### Step 12: Complete hybrid frontend routing
 
-**Status:** In progress. The core fixture-backed page path is established, but
-only 22 of 99 pages that directly import Supabase currently have an explicit
-ICP-lab guard. See R1 for the reconciled page-migration backlog.
+**Status:** In progress. The core fixture-backed page path is established and
+all 99 pages that directly import Supabase now have an explicit ICP-lab guard.
+Most newly guarded writes and external integrations are explicit unavailable
+states rather than live canister integrations. The next routing deliverable is
+a committed page classification inventory and broader route-level regression
+coverage. See R1 and
+[HYBRID_BUILD_ROADMAP.md](HYBRID_BUILD_ROADMAP.md) for the reconciled backlog
+and adapter-wiring sequence.
 
 - Generate typed actors for every active Rust and Motoko canister.
 - Resolve placement, site target (`site_id`), and domain shard before each

@@ -67,7 +67,8 @@ function publicConfig() {
   if (!status.managed || status.root_key_source !== 'managed' || !['http://localhost:4943/','http://127.0.0.1:4943/'].includes(status.api_url)) throw new Error('Not the expected loopback network');
   const mapping = JSON.parse(fs.readFileSync(path.join(root,'.icp/cache/mappings/local.ids.json'),'utf8'));
   const clubLinksId = mapping.club_links_motoko || mapping.club_links;
-  const data = { network: 'local', canisterId: clubLinksId, identityAccessCanisterId: mapping.identity_access, rootKey: status.root_key };
+  const canisterIds = Object.fromEntries(Object.entries(mapping).filter(([, value]) => typeof value === 'string' && value.length > 0));
+  const data = { network: 'local', canisterId: clubLinksId, identityAccessCanisterId: mapping.identity_access, canisterIds, rootKey: status.root_key };
   if (!data.canisterId || !data.identityAccessCanisterId || !/^[0-9a-f]{266}$/i.test(data.rootKey)) throw new Error('Missing local binding');
   fs.writeFileSync(path.join(local,'public.json'), JSON.stringify(data,null,2)+'\n');
   return data;

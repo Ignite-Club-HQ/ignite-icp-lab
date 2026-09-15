@@ -23,7 +23,17 @@ interface SingleFrameDrill {
   arrowCount: number;
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminDrillsPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Drill administration is unavailable in ICP lab mode" description="Platform drill content and administrative changes are not connected to an ICP domain service yet." />;
+  }
+  return <SupabaseAdminDrillsPage />;
+}
+
+function SupabaseAdminDrillsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

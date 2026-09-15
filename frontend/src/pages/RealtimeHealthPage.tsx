@@ -67,7 +67,17 @@ type RealtimeStatsResponse =
   | { supported: true; concurrent_connections: number; messages_per_sec?: number; channel_joins_per_sec?: number; window_seconds: number; fetched_at: string }
   | { supported: false; reason: string };
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function RealtimeHealthPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Realtime health monitoring is unavailable in ICP lab mode" description="This dashboard monitors Supabase realtime infrastructure and has no equivalent ICP service contract." />;
+  }
+  return <SupabaseRealtimeHealthPage />;
+}
+
+function SupabaseRealtimeHealthPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 

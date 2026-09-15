@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const VIDEO_GUIDE_CONTENT = `# Ignite Sports Club App - Complete Video Recording Guide
 
@@ -1640,4 +1641,24 @@ const VideoGuideDownloadPageProtected = () => {
   return <VideoGuideDownloadPage />;
 };
 
-export default VideoGuideDownloadPageProtected;
+export default function VideoGuideDownloadPageRoute() {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Administrative video guides are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Supabase administrator authorization and guide export are not enabled for local ICP identities.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <VideoGuideDownloadPageProtected />;
+}

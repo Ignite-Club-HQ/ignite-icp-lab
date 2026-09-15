@@ -1,0 +1,80 @@
+import { Actor } from '@icp-sdk/core/agent';
+import { Principal } from '@icp-sdk/core/principal';
+import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
+import type { Event as IcpEvent, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
+import { createLocalAgent, fetchLocalLabConfig } from './localActor';
+
+export interface LocalScheduleEvent {
+  id: string;
+  title: string;
+  type: 'game' | 'training' | 'social';
+  event_date: string;
+  address: string | null;
+  suburb: string | null;
+  location_name: string | null;
+  club_id: string;
+  team_id: string | null;
+  mini_league_id: string | null;
+  is_cancelled: boolean;
+  is_bye: boolean | null;
+  is_recurring: boolean;
+  parent_event_id: string | null;
+  opponent: string | null;
+  teams: { name: string } | null;
+  clubs: { name: string; sport: string | null };
+}
+
+function titleToType(title: string): LocalScheduleEvent['type'] {
+  const normalized = title.toLowerCase();
+  if (normalized.includes('training')) return 'training';
+  if (normalized.includes('social')) return 'social';
+  return 'game';
+}
+
+function convertEvent(event: IcpEvent): LocalScheduleEvent {
+  const start = new Date(Number(event.starts_at_ms));
+  return {
+    id: event.id,
+    title: event.title,
+    type: titleToType(event.title),
+    event_date: Number.isFinite(start.getTime()) ? start.toISOString().slice(0, 10) : new Date(0).toISOString().slice(0, 10),
+    address: null,
+    suburb: null,
+    location_name: 'Local ICP canister',
+    club_id: event.club_id,
+    team_id: event.team_id[0] ?? null,
+    mini_league_id: null,
+    is_cancelled: false,
+    is_bye: false,
+    is_recurring: false,
+    parent_event_id: null,
+    opponent: null,
+    teams: event.team_id.length ? { name: 'ICP team' } : null,
+    clubs: { name: 'ICP club', sport: null },
+  };
+}
+
+export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
+  return error instanceof Error && /events domain canister is not configured/i.test(error.message);
+}
+
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events'>) {
+  return {
+    async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
+      const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
+      return events.map(convertEvent);
+    },
+  };
+}
+
+export async function listLocalEvents(persona: string, clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
+  const config = await fetchLocalLabConfig();
+  const eventsCanisterId = config.canisterIds?.events_domain ?? config.canisterIds?.events_domain_motoko;
+  if (!eventsCanisterId) throw new Error('Local events domain canister is not configured.');
+  const agent = await createLocalAgent(config, persona, location.origin);
+  const actor = Actor.createActor<_SERVICE>(idlFactory, {
+    agent,
+    canisterId: Principal.fromText(eventsCanisterId),
+  });
+  return createEventsDomainClient(actor).listEvents(clubId, teamId);
+}

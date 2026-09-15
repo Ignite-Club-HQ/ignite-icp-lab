@@ -455,6 +455,7 @@ export function getLocalLabHomeSnapshot(userId: string) {
     clubAdminClubIds: ['club-icp-001'],
     leagueAdminClubIds: [],
     miniLeagueIds: [],
+    isAppAdmin: false,
     roles: [{ role: 'club_admin', club_id: 'club-icp-001', team_id: null }],
   };
 

@@ -14,7 +14,17 @@ import { useToast } from "@/hooks/use-toast";
 import { PageLoading } from "@/components/ui/page-loading";
 import { LegalReacceptanceAdminCard } from "@/components/admin/LegalReacceptanceAdminCard";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AppSettingsPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Application settings are unavailable in ICP lab mode" description="Platform settings remain Supabase-authoritative until provider-neutral administration contracts are connected." />;
+  }
+  return <SupabaseAppSettingsPage />;
+}
+
+function SupabaseAppSettingsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

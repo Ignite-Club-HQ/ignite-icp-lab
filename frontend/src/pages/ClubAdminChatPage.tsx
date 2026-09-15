@@ -142,7 +142,17 @@ const getCachedClubAdminMessages = (conversationId: string): ClubAdminMessage[] 
     })),
   }));
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ClubAdminChatPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Club admin chat is unavailable in ICP lab mode" description="Administrative messaging, realtime delivery, and media workflows are not connected to the ICP messaging service yet." />;
+  }
+  return <SupabaseClubAdminChatPage />;
+}
+
+function SupabaseClubAdminChatPage() {
   // [chat-perf-diag] track mount/unmount lifetime
   React.useEffect(() => {
     const k = noteChatMount("ClubAdminChat", null);
@@ -356,7 +366,13 @@ export default function ClubAdminChatPage() {
 
         const messageIds = dataToDisplay.map((m) => m.id);
         const replyToIds = dataToDisplay.filter((m) => m.reply_to_id).map((m) => m.reply_to_id as string);
-        const authorIds = [...new Set(dataToDisplay.map((m) => m.author_id))];
+        const authorIds = Array.from(
+          new Set<string>(
+            dataToDisplay.flatMap((message) =>
+              typeof message.author_id === "string" ? [message.author_id] : [],
+            ),
+          ),
+        );
 
         // allSettled (not all): a hung/failed reactions or profile lookup must
         // degrade to empty enrichment, never block the message body.

@@ -14,6 +14,8 @@ import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
 import { safeSessionSet, buildAuthPathWithIntent } from "@/lib/authRedirectStorage";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabProfile } from "@/lab/fixtureDataLayer";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -37,6 +39,7 @@ export default function JoinClubPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   const [joined, setJoined] = useState(false);
   const autoJoinAttempted = useRef(false);
   
@@ -45,8 +48,9 @@ export default function JoinClubPage() {
 
   // Fetch invite details using secure RPC function
   const { data: invite, isLoading: inviteLoading, error: inviteError } = useQuery({
-    queryKey: ["club-invite", token],
+    queryKey: ["club-invite", token, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return null;
       const { data, error } = await supabase
         .rpc("get_club_invite_by_token", { _token: token! });
       if (error) throw error;
@@ -78,8 +82,9 @@ export default function JoinClubPage() {
 
   // Fetch user's existing roles in this club
   const { data: existingRoles } = useQuery({
-    queryKey: ["user-club-roles", invite?.club_id, user?.id],
+    queryKey: ["user-club-roles", invite?.club_id, user?.id, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return [];
       const { data } = await supabase
         .from("user_roles")
         .select("role")
@@ -93,8 +98,9 @@ export default function JoinClubPage() {
   // Fetch user's profile to check if profile is complete
   // Use staleTime: 0 to ensure fresh data when returning from profile completion
   const { data: userProfile, isLoading: profileLoading } = useQuery({
-    queryKey: ["user-profile-for-join-club", user?.id],
+    queryKey: ["user-profile-for-join-club", user?.id, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) return getLocalLabProfile(user!.id);
       const { data } = await selectCachedProfileById(user!.id);
       return data;
     },
@@ -134,6 +140,9 @@ export default function JoinClubPage() {
 
   const joinMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) {
+        throw new Error("Club joining is unavailable in ICP lab mode");
+      }
       if (!invite || !user) throw new Error("Missing data");
 
       // Check if invite is expired
@@ -273,7 +282,9 @@ export default function JoinClubPage() {
           <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Invite Links Disabled</h2>
           <p className="text-muted-foreground mb-4">
-            Shareable invite links are no longer supported. Please ask your club admin to send you an email invite instead.
+            {useIcpLab
+              ? "Club joining is unavailable in ICP lab mode. No membership changes have been made."
+              : "Shareable invite links are no longer supported. Please ask your club admin to send you an email invite instead."}
           </p>
           <Button onClick={() => navigate("/")}>Go to Home</Button>
         </CardContent>

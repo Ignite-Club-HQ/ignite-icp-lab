@@ -29,8 +29,35 @@ import { BulkRolloverDialog } from "@/components/seasons/BulkRolloverDialog";
 import { SeasonEoiConfigCard } from "@/components/seasons/SeasonEoiConfigCard";
 import { EoiEmbedCard } from "@/components/eoi/EoiEmbedCard";
 import { useClubSeasons } from "@/hooks/useClubSeasons";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function SeasonDetailPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Archive className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Season details are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Team rollover, activation, archiving, EOI configuration, and season analytics are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseSeasonDetailPage />;
+}
+
+function SupabaseSeasonDetailPage() {
   const { clubId, seasonId } = useParams<{ clubId: string; seasonId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();

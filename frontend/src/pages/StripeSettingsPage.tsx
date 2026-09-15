@@ -9,8 +9,35 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function StripeSettingsPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <CreditCard className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Payment settings are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Stripe and member-payment configuration remain external provider boundaries. No settings have been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseStripeSettingsPage />;
+}
+
+function SupabaseStripeSettingsPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();

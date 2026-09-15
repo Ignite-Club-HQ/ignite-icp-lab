@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getPasswordResetRedirectUrl } from "@/lib/passwordResetRedirect";
 import { z } from "zod";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 
@@ -46,6 +47,30 @@ const passwordSchema = z.object({
 });
 
 export default function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Lock className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Password recovery is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Supabase password recovery does not apply to local ICP identities. No recovery request was sent.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseResetPasswordPage />;
+}
+
+function SupabaseResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);

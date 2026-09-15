@@ -10,6 +10,7 @@ import { Loader2, CheckCircle2, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { WEEKDAYS } from "@/lib/eoiUtils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type EoiConfig = {
   season_id: string;
@@ -32,6 +33,28 @@ type EoiConfig = {
 };
 
 export default function PublicEoiFormPage() {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Expressions of interest are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Public EOI configuration, view tracking, and submissions are not connected to an ICP service yet.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabasePublicEoiFormPage />;
+}
+
+function SupabasePublicEoiFormPage() {
   const { clubSlug, seasonSlug } = useParams<{ clubSlug: string; seasonSlug: string }>();
 
   const [loading, setLoading] = useState(true);

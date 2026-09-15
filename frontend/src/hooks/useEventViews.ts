@@ -126,7 +126,11 @@ export function useUserEventViews(userId: string | undefined, eventIds: string[]
         .in("event_id", normalizedIds);
 
       if (error) throw error;
-      return new Set(data?.map((v) => v.event_id) || []);
+      return new Set<string>(
+        (data ?? []).flatMap((view) =>
+          typeof view.event_id === "string" ? [view.event_id] : [],
+        ),
+      );
     },
     enabled: !!userId && normalizedIds.length > 0,
   });

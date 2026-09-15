@@ -34,12 +34,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionLegalLinks } from "@/components/SubscriptionLegalLinks";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { invalidateProAccessQueries } from "@/lib/invalidateProAccess";
 import { useDesktopUpgradeGate } from "@/hooks/useDesktopUpgradeGate";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 
 const PRO_FEATURES = [
@@ -89,6 +92,11 @@ const isSoccerClub = (sport: string | null | undefined): boolean => {
 };
 
 type PlanTier = "starter" | "standard" | "unlimited";
+type UpgradeClub = Pick<
+  Database["public"]["Tables"]["clubs"]["Row"],
+  "id" | "name" | "sport" | "class_mode_enabled"
+>;
+type UpgradeTeam = Pick<Database["public"]["Tables"]["teams"]["Row"], "id" | "name" | "logo_url" | "level_age">;
 
 export default function ClubUpgradePage() {
   const { clubId } = useParams<{ clubId: string }>();
@@ -98,6 +106,8 @@ export default function ClubUpgradePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { activeClubFilter } = useClubTheme();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const providerKey = useIcpLab ? "icp" : "supabase";
   const [promoCode, setPromoCode] = useState("");
   const [promoCodeFootball, setPromoCodeFootball] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -112,13 +122,14 @@ export default function ClubUpgradePage() {
 
 
   useEffect(() => {
-    if (!activeClubFilter || !clubId || activeClubFilter === clubId) return;
+    if (useIcpLab || !activeClubFilter || !clubId || activeClubFilter === clubId) return;
     const query = searchParams.toString();
     navigate(`/clubs/${activeClubFilter}/upgrade${query ? `?${query}` : ""}`, { replace: true });
-  }, [activeClubFilter, clubId, navigate, searchParams]);
+  }, [useIcpLab, activeClubFilter, clubId, navigate, searchParams]);
 
   // Handle payment success/cancelled from URL params
   useEffect(() => {
+    if (useIcpLab) return;
     const paymentStatus = searchParams.get('payment');
     if (paymentStatus === 'success') {
       toast({
@@ -135,12 +146,13 @@ export default function ClubUpgradePage() {
         variant: "destructive",
       });
     }
-  }, [searchParams, toast, queryClient, clubId]);
+  }, [useIcpLab, searchParams, toast, queryClient, clubId]);
 
   // Check if user is a club admin
   const { data: isClubAdmin, isLoading: loadingAdminCheck } = useQuery({
-    queryKey: ["is-club-admin", user?.id, clubId],
+    queryKey: ["is-club-admin", user?.id, clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return true;
       const { data } = await supabase
         .from("user_roles")
         .select("role, club_id")
@@ -159,9 +171,18 @@ export default function ClubUpgradePage() {
     enabled: !!user && !!clubId,
   });
 
-  const { data: club, isLoading: clubLoading } = useQuery({
-    queryKey: ["club", clubId],
+  const { data: club, isLoading: clubLoading } = useQuery<UpgradeClub | null>({
+    queryKey: ["club", clubId, "upgrade", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        const fixture = getLocalLabClubDetail(clubId!);
+        return fixture ? {
+          id: fixture.id,
+          name: fixture.name,
+          sport: fixture.sport,
+          class_mode_enabled: false,
+        } : null;
+      }
       const { data, error } = await supabase
         .from("clubs")
         .select("*")
@@ -174,8 +195,9 @@ export default function ClubUpgradePage() {
   });
 
   const { data: teamCount = 0 } = useQuery({
-    queryKey: ["club-team-count", clubId],
+    queryKey: ["club-team-count", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return getLocalLabTeamList().filter((team) => team.club_id === clubId).length;
       const { count, error } = await supabase
         .from("teams")
         .select("*", { count: "exact", head: true })
@@ -187,9 +209,14 @@ export default function ClubUpgradePage() {
   });
 
   // Fetch teams for team-specific upgrade option
-  const { data: teams = [] } = useQuery({
-    queryKey: ["club-teams", clubId],
+  const { data: teams = [] } = useQuery<UpgradeTeam[]>({
+    queryKey: ["club-teams", clubId, "upgrade", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map((team) => ({ id: team.id, name: team.name, logo_url: null, level_age: null }));
+      }
       const { data, error } = await supabase
         .from("teams")
         .select("id, name, logo_url, level_age")
@@ -202,8 +229,9 @@ export default function ClubUpgradePage() {
   });
 
   const { data: subscription } = useQuery({
-    queryKey: ["club-subscription", clubId],
+    queryKey: ["club-subscription", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return null;
       const { data } = await supabase
         .from("club_subscriptions")
         .select("*")
@@ -229,13 +257,14 @@ export default function ClubUpgradePage() {
   const daysUntilExpiry = expiresAt ? differenceInDays(expiresAt, new Date()) : null;
   const isNearExpiry = daysUntilExpiry !== null && daysUntilExpiry <= 30 && daysUntilExpiry > 0;
   const isNative = isNativePlatform();
-  const isClassMode = !!(club as any)?.class_mode_enabled;
+  const isClassMode = !!club?.class_mode_enabled;
   const showSponsorOption = false;
 
   // Query active sponsors for this club to determine if sponsor-funded
   const { data: activeSponsors = [] } = useQuery({
-    queryKey: ["club-active-sponsors", clubId],
+    queryKey: ["club-active-sponsors", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return [];
       const { data } = await supabase
         .from("sponsors")
         .select("id, name, logo_url, is_active")
@@ -251,7 +280,7 @@ export default function ClubUpgradePage() {
 
   // Realtime listener for subscription changes (e.g. sponsor payment on website)
   useEffect(() => {
-    if (!clubId) return;
+    if (useIcpLab || !clubId) return;
     const channel = supabase
       .channel(`club-sub-${clubId}`)
       .on(
@@ -271,7 +300,7 @@ export default function ClubUpgradePage() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [clubId, queryClient]);
+  }, [useIcpLab, clubId, queryClient]);
 
   const handleGetSponsored = () => {
     const sponsorUrl = "https://reference.invalid";
@@ -605,8 +634,9 @@ export default function ClubUpgradePage() {
 
   // Check if Stripe is configured
   const { data: hasStripeConfig } = useQuery({
-    queryKey: ["stripe-config-check", clubId],
+    queryKey: ["stripe-config-check", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return false;
       // Check club config
       const { data: clubConfig } = await supabase
         .from("club_stripe_configs")
@@ -628,6 +658,33 @@ export default function ClubUpgradePage() {
     },
     enabled: !!clubId,
   });
+
+  if (useIcpLab) {
+    return (
+      <div className="py-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Club Pro Plans</h1>
+            <p className="text-sm text-muted-foreground">{club?.name ?? "Synthetic club"}</p>
+          </div>
+        </div>
+        <Card className="border-primary/20 bg-primary/5 max-w-lg">
+          <CardContent className="space-y-2 p-6">
+            <h2 className="font-semibold">Subscriptions are not enabled in ICP lab mode</h2>
+            <p className="text-sm text-muted-foreground">
+              Billing, promo codes, trials, in-app purchases, and subscription changes remain unavailable. No payment or club data has been changed.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Synthetic fixture: {teamCount} {teamCount === 1 ? "team" : "teams"}; no active subscription.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (clubLoading || loadingAdminCheck) {
     return (

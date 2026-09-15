@@ -23,6 +23,8 @@ import { SPORT_EMOJIS, getSportEmoji, isClassModeSport, isTeamOnlySport } from "
 import { shouldUseNativePicker, pickNativePhoto } from "@/lib/nativePhotoPicker";
 import { isCancelledSelectionError } from "@/lib/uploadErrorUtils";
 import { mimeToExtension } from "@/lib/binaryUtils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail } from "@/lab/fixtureDataLayer";
 
 
 const SPORTS = Object.keys(SPORT_EMOJIS);
@@ -32,6 +34,7 @@ export default function EditClubPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -48,8 +51,21 @@ export default function EditClubPage() {
   const showEventsStripToggle = id === EVENTS_STRIP_PILOT_CLUB_ID;
 
   const { data: club, isLoading } = useQuery({
-    queryKey: ["club", id],
+    queryKey: ["club", id, useIcpLab],
     queryFn: async () => {
+      if (useIcpLab) {
+        const localClub = getLocalLabClubDetail(id!);
+        return localClub ? {
+          ...localClub,
+          description: "Synthetic lab club detail",
+          contact_email: null,
+          class_mode_enabled: false,
+          allow_guests_default: false,
+          max_guests_per_member_default: 2,
+          events_sponsor_strip_enabled: false,
+          club_subscriptions: null,
+        } : null;
+      }
       const { data, error } = await supabase
         .from("clubs")
         .select(`
@@ -83,6 +99,13 @@ export default function EditClubPage() {
 
   const handleNativeLogoPick = async () => {
     if (!id) return;
+    if (useIcpLab) {
+      toast({
+        title: "Logo uploads are unavailable in ICP lab mode",
+        description: "No club data has been changed.",
+      });
+      return;
+    }
     try {
       const result = await pickNativePhoto({ quality: 80 });
       setUploading(true);
@@ -111,6 +134,14 @@ export default function EditClubPage() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
+    if (useIcpLab) {
+      toast({
+        title: "Logo uploads are unavailable in ICP lab mode",
+        description: "No club data has been changed.",
+      });
+      e.target.value = "";
+      return;
+    }
 
     setUploading(true);
     try {
@@ -150,6 +181,14 @@ export default function EditClubPage() {
         title: "Missing information",
         description: "Please enter a club name.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    if (useIcpLab) {
+      toast({
+        title: "Club editing is unavailable in ICP lab mode",
+        description: "Your preview changes were not persisted.",
       });
       return;
     }
@@ -216,6 +255,12 @@ export default function EditClubPage() {
         </Button>
         <h1 className="text-xl font-bold">Edit {club?.class_mode_enabled ? "Organisation" : "Club"}</h1>
       </div>
+
+      {useIcpLab && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+          Preview only: club settings and media changes are not persisted in ICP lab mode.
+        </div>
+      )}
 
       {/* Logo Upload Section */}
       <Card>

@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfileById } from "@/lib/profileCache";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useClubTheme } from "@/hooks/useClubTheme";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubList } from "@/lab/fixtureDataLayer";
 
 
 /**
@@ -22,13 +24,22 @@ export default function StartTeamPage() {
 
   const { toast } = useToast();
   const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const providerKey = useIcpLab ? "icp" : "supabase";
   const [working, setWorking] = useState(false);
   const autoRoutedRef = useRef(false);
 
   const { data: clubs = [], isLoading } = useQuery({
-    queryKey: ["my-admin-clubs-for-team", user?.id],
+    queryKey: ["my-admin-clubs-for-team", user?.id, providerKey],
     enabled: !!user,
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabClubList().map((club) => ({
+          id: club.id,
+          name: club.name,
+          kind: "club",
+        }));
+      }
       const { data } = await supabase
         .from("user_roles")
         .select("club_id, clubs:club_id(id, name, kind)")
@@ -43,6 +54,13 @@ export default function StartTeamPage() {
 
   const goPersonal = async () => {
     if (!user || working) return;
+    if (useIcpLab) {
+      toast({
+        title: "Personal team creation is unavailable in ICP lab mode",
+        description: "No club or team data has been created.",
+      });
+      return;
+    }
     setWorking(true);
     try {
       const { data: roles } = await supabase
@@ -93,7 +111,7 @@ export default function StartTeamPage() {
   // Auto-skip the chooser when there's only one logical option, or when the app
   // is filtered to a club the user can create teams in.
   useEffect(() => {
-    if (isLoading || autoRoutedRef.current) return;
+    if (useIcpLab || isLoading || autoRoutedRef.current) return;
     const filtered = activeClubFilter
       ? clubs.find((c: any) => c.id === activeClubFilter)
       : null;
@@ -108,7 +126,7 @@ export default function StartTeamPage() {
       goClub(clubs[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, clubs.length, activeClubFilter]);
+  }, [useIcpLab, isLoading, clubs.length, activeClubFilter]);
 
 
   // While we're loading or auto-routing, render a calm spinner instead of flashing the chooser.
@@ -134,7 +152,9 @@ export default function StartTeamPage() {
       </div>
 
       <p className="text-sm text-muted-foreground max-w-[280px] mb-5 leading-relaxed">
-        Pick where this team belongs. Tap to continue.
+        {useIcpLab
+          ? "Select the synthetic club to preview team creation. No changes will be persisted."
+          : "Pick where this team belongs. Tap to continue."}
       </p>
 
       <div className="space-y-2">

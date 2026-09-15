@@ -9,12 +9,37 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function CreateAssociationPage() {
   const navigate = useNavigate();
+  usePageTitle("New association");
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-xl mx-auto px-4 py-10">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-4 text-center">
+          <Info className="h-10 w-10 mx-auto text-muted-foreground" />
+          <h1 className="text-lg font-semibold">Association creation is unavailable in ICP lab mode</h1>
+          <p className="text-sm text-muted-foreground">
+            Association creation and administrator assignment are disabled. No data has been created.
+          </p>
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <SupabaseCreateAssociationPage />;
+}
+
+function SupabaseCreateAssociationPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  usePageTitle("New association");
   const { hasAnyClubPro, isLoading: proLoading } = useUserHasAnyClubPro();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

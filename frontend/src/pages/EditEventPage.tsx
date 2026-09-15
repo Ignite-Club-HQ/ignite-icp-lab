@@ -52,6 +52,7 @@ import { EventSponsorSelector } from "@/components/EventSponsorSelector";
 import { DEFAULT_MATCH_ARRIVAL_MINUTES } from "@/lib/matchArrivalTime";
 import { validateEventTeamClubScope } from "@/lib/eventScopeValidation";
 import { SeriesEndDateEditor } from "@/components/event/SeriesEndDateEditor";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type EventType = "game" | "training" | "social";
 type RecurrencePattern = "daily" | "weekly" | "biweekly" | "monthly";
@@ -73,6 +74,32 @@ const EVENT_TYPES = [
 ];
 
 export default function EditEventPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-10">
+        <Card>
+          <CardContent className="p-6 space-y-4 text-center">
+            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Event editing is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Event, series, duty, reminder, payment, and notification changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseEditEventPage />;
+}
+
+function SupabaseEditEventPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const editSeries = searchParams.get('series') === 'true';
@@ -407,7 +434,7 @@ export default function EditEventPage() {
   });
 
   // Fetch user's clubs and teams for selection
-  const { data: userClubs } = useQuery({
+  const { data: userClubs } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["user-clubs-for-edit", user?.id],
     queryFn: async () => {
       const { data } = await supabase
@@ -419,7 +446,7 @@ export default function EditEventPage() {
       
       if (!data) return [];
       const clubs = data.filter(r => r.clubs).map(r => r.clubs as { id: string; name: string });
-      return Array.from(new Map(clubs.map(c => [c.id, c])).values());
+      return Array.from(new Map<string, { id: string; name: string }>(clubs.map(c => [c.id, c])).values());
     },
     enabled: !!user,
   });

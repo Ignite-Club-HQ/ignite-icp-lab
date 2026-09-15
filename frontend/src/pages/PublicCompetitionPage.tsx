@@ -6,10 +6,36 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function PublicCompetitionPage() {
-  const { id } = useParams<{ id: string }>();
   usePageTitle("Competition");
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Public competitions are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Public competition details, fixtures, and ladders are not connected to an ICP service yet.
+            </p>
+            <Link to="/" className="underline text-primary inline-flex items-center gap-1">
+              Go to Ignite <ExternalLink className="h-3 w-3" />
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabasePublicCompetitionPage />;
+}
+
+function SupabasePublicCompetitionPage() {
+  const { id } = useParams<{ id: string }>();
 
   const { data: competition, isLoading } = useQuery({
     queryKey: ["public-competition", id],

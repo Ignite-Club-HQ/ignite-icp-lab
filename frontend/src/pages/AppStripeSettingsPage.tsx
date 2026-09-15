@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 interface StripeConfigStatus {
   configured: boolean;
@@ -21,6 +22,32 @@ interface StripeConfigStatus {
 }
 
 export default function AppStripeSettingsPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Shield className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Application payment configuration is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Secret and publishable key management remains outside canister and frontend state. No configuration was accessed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAppStripeSettingsPage />;
+}
+
+function SupabaseAppStripeSettingsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();

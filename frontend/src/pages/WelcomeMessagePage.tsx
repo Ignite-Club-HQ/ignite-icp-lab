@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { safeOpenUrl } from "@/lib/safeOpenUrl";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 // Helper to convert URLs and markdown-style links in text to clickable links
 function renderTextWithLinks(text: string) {
@@ -62,6 +63,28 @@ function renderTextWithLinks(text: string) {
 }
 
 export default function WelcomeMessagePage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-10 text-center space-y-4">
+        <Flame className="h-10 w-10 mx-auto text-primary" />
+        <h1 className="text-lg font-semibold">Welcome messages are unavailable in ICP lab mode</h1>
+        <p className="text-sm text-muted-foreground">
+          Supabase-managed application messaging is not connected to the ICP identity service yet.
+        </p>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+        </Button>
+      </div>
+    );
+  }
+
+  return <SupabaseWelcomeMessagePage />;
+}
+
+function SupabaseWelcomeMessagePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 

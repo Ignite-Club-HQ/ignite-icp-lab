@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function ClaimTeamPage() {
   const [searchParams] = useSearchParams();
@@ -17,10 +18,16 @@ export default function ClaimTeamPage() {
   const [status, setStatus] = useState<"idle" | "claiming" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   usePageTitle("Claim your team");
 
   useEffect(() => {
+    if (useIcpLab) {
+      setStatus("error");
+      setErrorMsg("Team claiming is unavailable in ICP lab mode. No membership or role changes have been made.");
+      return;
+    }
     if (!token) {
       setStatus("error");
       setErrorMsg("Missing invite token.");
@@ -46,7 +53,7 @@ export default function ClaimTeamPage() {
       setStatus("done");
       toast({ title: "Team claimed", description: "You're now the team admin." });
     })();
-  }, [token, authLoading, user, status, navigate, toast]);
+  }, [useIcpLab, token, authLoading, user, status, navigate, toast]);
 
   return (
     <div className="container max-w-md mx-auto px-4 py-10">

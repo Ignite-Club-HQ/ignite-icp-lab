@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Eye, MousePointer, TrendingUp } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type DateRange = "7d" | "30d" | "90d" | "all";
 
@@ -42,6 +43,32 @@ interface ContextBreakdown {
 }
 
 export default function SponsorAnalyticsPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Eye className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Sponsor analytics are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Sponsor views, clicks, and reporting aggregates are not connected to an ICP service yet.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseSponsorAnalyticsPage />;
+}
+
+function SupabaseSponsorAnalyticsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [dateRange, setDateRange] = useState<DateRange>("30d");

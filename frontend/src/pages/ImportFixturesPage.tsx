@@ -19,7 +19,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { FixturesCSVImport } from "@/components/FixturesCSVImport";
 import { ClubAdminConfirmBanner } from "@/components/ClubAdminConfirmBanner";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ImportFixturesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Fixture import is unavailable in ICP lab mode" description="External calendar and document-provider imports remain disabled until an approved worker boundary is implemented." />;
+  }
+  return <SupabaseImportFixturesPage />;
+}
+
+function SupabaseImportFixturesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { activeClubFilter } = useClubTheme();
@@ -162,7 +172,19 @@ export default function ImportFixturesPage() {
         .select("team_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override")
         .in("team_id", teamsData.map(t => t.id));
       
-      const subsByTeamId = new Map(teamSubs?.map(s => [s.team_id, s]) || []);
+      type TeamSubscriptionStatus = {
+        team_id: string;
+        is_pro: boolean | null;
+        is_pro_football: boolean | null;
+        admin_pro_override: boolean | null;
+        admin_pro_football_override: boolean | null;
+      };
+      const subsByTeamId = new Map<string, TeamSubscriptionStatus>(
+        (teamSubs ?? []).map((subscription): [string, TeamSubscriptionStatus] => [
+          subscription.team_id,
+          subscription,
+        ]),
+      );
       
       return teamsData.map(t => {
         const sub = subsByTeamId.get(t.id);

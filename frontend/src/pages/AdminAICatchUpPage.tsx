@@ -27,7 +27,17 @@ interface ProClubRow {
   is_pro_football: boolean;
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminAICatchUpPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="AI catch-up administration is unavailable in ICP lab mode" description="AI processing and provider configuration remain an approved external-worker boundary." />;
+  }
+  return <SupabaseAdminAICatchUpPage />;
+}
+
+function SupabaseAdminAICatchUpPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());

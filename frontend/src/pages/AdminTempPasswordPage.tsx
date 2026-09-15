@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PageLoading } from "@/components/ui/page-loading";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 function generatePassword(): string {
   // High-entropy random password to satisfy HIBP/strength checks
@@ -44,6 +45,32 @@ function generatePassword(): string {
 }
 
 export default function AdminTempPasswordPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <KeyRound className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Temporary passwords are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Supabase password administration does not apply to ICP identities. No credential was generated or changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAdminTempPasswordPage />;
+}
+
+function SupabaseAdminTempPasswordPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

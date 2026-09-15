@@ -40,7 +40,17 @@ interface DeletedGroup {
 
 const RETENTION_DAYS = 30;
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminDeletedChatsPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Deleted-chat administration is unavailable in ICP lab mode" description="Moderation, retention, and deleted-conversation recovery are not connected to the ICP messaging service yet." />;
+  }
+  return <SupabaseAdminDeletedChatsPage />;
+}
+
+function SupabaseAdminDeletedChatsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -99,7 +109,9 @@ export default function AdminDeletedChatsPage() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const nameMap = new Map<string, string>((profilesRes.data ?? []).map((p: any) => [p.id as string, (p.display_name ?? "") as string]));
-      const clubMap = new Map((clubsRes.data ?? []).map((c: any) => [c.id, c.name]));
+      const clubMap = new Map<string, string>(
+        (clubsRes.data ?? []).map((c: any): [string, string] => [c.id, c.name]),
+      );
       return rows.map((r) => ({
         ...r,
         deleter_name: r.deleted_by ? nameMap.get(r.deleted_by) ?? null : null,

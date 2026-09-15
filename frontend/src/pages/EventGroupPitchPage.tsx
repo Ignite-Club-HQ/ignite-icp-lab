@@ -36,7 +36,17 @@ interface GroupPlayer {
   team: "a" | "b" | null;
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function EventGroupPitchPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Event group pitch is unavailable in ICP lab mode" description="Event-group messaging and live pitch coordination are not connected to ICP services yet." />;
+  }
+  return <SupabaseEventGroupPitchPage />;
+}
+
+function SupabaseEventGroupPitchPage() {
   const { id: eventId, groupId } = useParams<{ id: string; groupId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();

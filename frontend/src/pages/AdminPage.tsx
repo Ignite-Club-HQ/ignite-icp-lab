@@ -8,7 +8,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLoading } from "@/components/ui/page-loading";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Platform administration is unavailable in ICP lab mode" description="The current admin dashboard remains Supabase-authoritative until its controls are split into typed domain and placement services." />;
+  }
+  return <SupabaseAdminPage />;
+}
+
+function SupabaseAdminPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 

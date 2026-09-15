@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Shield, Building2, Users } from "lucide-react";
@@ -8,6 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { connectLocalIdentityAccessClient, resetLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 const roleLabels: Record<string, string> = {
   app_admin: "App Admin",
@@ -34,6 +38,101 @@ const roleColors: Record<string, string> = {
 };
 
 export default function MyRolesPage() {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return <IcpMyRolesPage />;
+  }
+
+  return <SupabaseMyRolesPage />;
+}
+
+function IcpMyRolesPage() {
+  const navigate = useNavigate();
+  const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  const requestedPersona = params.get("persona");
+  const persona = requestedPersona && personas.includes(requestedPersona) ? requestedPersona : "member";
+  const siteId = params.get("siteId") || undefined;
+  const clubId = params.get("clubId") || undefined;
+  const teamId = params.get("teamId") || undefined;
+  const childId = params.get("childId") || undefined;
+
+  useEffect(() => () => resetLocalIdentityAccessClient(), [persona]);
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["icp-identity-access", persona, siteId, clubId, teamId, childId],
+    queryFn: async () => {
+      const { client, canisterId } = await connectLocalIdentityAccessClient(persona);
+      const [account, access] = await Promise.all([
+        client.whoami(),
+        client.accessScoped(siteId, clubId, teamId, childId),
+      ]);
+      return { account, access, canisterId: canisterId.toText() };
+    },
+    retry: false,
+  });
+
+  const accessLabels = data ? [
+    ["App administrator", data.access.app_admin],
+    ["Club administrator", data.access.club_admin],
+    ["Team member", data.access.team_member],
+    ["Guardian", data.access.guardian],
+  ] as const : [];
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-10 space-y-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">My ICP Access</h1>
+          <p className="text-sm text-muted-foreground">Signed local identity/access canister query</p>
+        </div>
+      </div>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <Shield className="h-10 w-10 text-primary" />
+            <div>
+              <p className="font-semibold">Synthetic lab persona: {persona}</p>
+              <p className="text-sm text-muted-foreground">Public test identity; never use outside the isolated local lab.</p>
+            </div>
+          </div>
+          {isLoading && <Skeleton className="h-24 w-full" />}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error.message} No Supabase fallback was used.
+            </p>
+          )}
+          {data && (
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-background p-3 text-sm">
+                <p><span className="font-medium">Account:</span> {data.account.id}</p>
+                <p><span className="font-medium">Version:</span> {data.account.version.toString()}</p>
+                <p className="break-all"><span className="font-medium">Canister:</span> {data.canisterId}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {accessLabels.map(([label, enabled]) => (
+                  <Badge key={label} variant={enabled ? "default" : "outline"}>
+                    {label}: {enabled ? "granted" : "not granted"}
+                  </Badge>
+                ))}
+              </div>
+              {(siteId || clubId || teamId || childId) && (
+                <p className="text-xs text-muted-foreground">
+                  Scope: {[siteId, clubId, teamId, childId].filter(Boolean).join(" / ")}
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SupabaseMyRolesPage() {
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
   const navigate = useNavigate();

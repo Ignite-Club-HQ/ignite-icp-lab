@@ -89,7 +89,17 @@ Coach Ben: "Yes Terry — DM me and I'll connect you with the treasurer."`,
   },
 ];
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminIcpLlmTestPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="LLM testing is unavailable in ICP lab mode" description="LLM credentials and inference remain outside ordinary canister and frontend state." />;
+  }
+  return <SupabaseAdminIcpLlmTestPage />;
+}
+
+function SupabaseAdminIcpLlmTestPage() {
   const navigate = useNavigate();
   const [model, setModel] = useState("llama3.1:8b");
   const [system, setSystem] = useState("You are a concise assistant.");

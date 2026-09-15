@@ -28,7 +28,28 @@ interface UserNotificationData {
   pitchBoardEnabled: boolean;
 }
 
+interface NotificationPreferenceRow {
+  user_id: string;
+  email_messages_enabled: boolean | null;
+  email_events_enabled: boolean | null;
+  email_media_enabled: boolean | null;
+  messages_enabled: boolean | null;
+  events_enabled: boolean | null;
+  media_enabled: boolean | null;
+  pitch_board_enabled: boolean | null;
+}
+
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function NotificationPreferencesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Notification preferences are unavailable in ICP lab mode" description="Preference persistence and external push or email delivery are not connected to ICP services yet." />;
+  }
+  return <SupabaseNotificationPreferencesPage />;
+}
+
+function SupabaseNotificationPreferencesPage() {
   const { user } = useAuth();
 
   // Check if user is app_admin
@@ -117,7 +138,12 @@ export default function NotificationPreferencesPage() {
         pushByUser.get(p.user_id)!.push(p.platform || "web");
       });
 
-      const prefsByUser = new Map(prefsRes.data?.map(p => [p.user_id, p]) || []);
+      const prefsByUser = new Map<string, NotificationPreferenceRow>(
+        (prefsRes.data ?? []).map((preference): [string, NotificationPreferenceRow] => [
+          preference.user_id,
+          preference,
+        ]),
+      );
 
       return (profilesRes.data || []).map(profile => {
         const prefs = prefsByUser.get(profile.id);

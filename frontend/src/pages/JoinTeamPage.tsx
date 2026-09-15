@@ -40,6 +40,7 @@ import { PhotoConsentDialog } from "@/components/PhotoConsentDialog";
 import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -100,6 +101,32 @@ const selectableRoles: AppRole[] = ["coach", "player", "parent"];
 const fixedRoles: AppRole[] = ["club_admin", "team_admin", "app_admin"];
 
 export default function JoinTeamPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card>
+          <CardContent className="p-6 space-y-4 text-center">
+            <XCircle className="h-10 w-10 mx-auto text-destructive" />
+            <h1 className="text-lg font-semibold">Team joining is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Invite lookup, membership provisioning, child linking, notifications, and role changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/")}>
+              Go to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseJoinTeamPage />;
+}
+
+function SupabaseJoinTeamPage() {
   const { token } = useParams<{ token: string }>();
   const location = useLocation();
   const [searchParams] = useSearchParams();

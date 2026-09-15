@@ -50,7 +50,17 @@ function detectSport(row: ActiveGameRow): string {
   return a || b || "soccer";
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminActiveGamesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Active-game administration is unavailable in ICP lab mode" description="Platform-wide game monitoring and administrative mutations are not connected to ICP services yet." />;
+  }
+  return <SupabaseAdminActiveGamesPage />;
+}
+
+function SupabaseAdminActiveGamesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");

@@ -57,7 +57,17 @@ const typeColors = {
 
 type StatusFilter = "all" | FeedbackStatus;
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ManageFeedbackPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Feedback administration is unavailable in ICP lab mode" description="Feedback records and administrative changes are not connected to an ICP domain service yet." />;
+  }
+  return <SupabaseManageFeedbackPage />;
+}
+
+function SupabaseManageFeedbackPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

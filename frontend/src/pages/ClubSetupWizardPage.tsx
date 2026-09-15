@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { defaultRsvpAudienceForTeam } from "@/lib/teamAgeDefaults";
 import { ClubThemeEditor } from "@/components/ClubThemeEditor";
@@ -54,6 +55,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { parseRecipients, looksLikeMultiRecipient } from "@/components/invite/recipientParser";
 import { lookupInvitableUserByEmail } from "@/lib/inviteEmailDedupe";
 import TeamJoinLinkCard from "@/components/invite/TeamJoinLinkCard";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 
 // ---------- types ----------
@@ -87,6 +90,39 @@ interface DraftGroup {
   createdId?: string;
   errorMsg?: string;
 }
+
+type ClubRow = Database["public"]["Tables"]["clubs"]["Row"];
+type SetupClub = Pick<
+  ClubRow,
+  | "kind"
+  | "name"
+  | "contact_email"
+  | "logo_url"
+  | "theme_primary_h"
+  | "theme_primary_s"
+  | "theme_primary_l"
+  | "theme_secondary_h"
+  | "theme_secondary_s"
+  | "theme_secondary_l"
+  | "theme_accent_h"
+  | "theme_accent_s"
+  | "theme_accent_l"
+  | "theme_dark_primary_h"
+  | "theme_dark_primary_s"
+  | "theme_dark_primary_l"
+  | "theme_dark_secondary_h"
+  | "theme_dark_secondary_s"
+  | "theme_dark_secondary_l"
+  | "theme_dark_accent_h"
+  | "theme_dark_accent_s"
+  | "theme_dark_accent_l"
+  | "show_logo_in_header"
+  | "show_name_in_header"
+  | "logo_only_mode"
+  | "theme_enabled"
+  | "primary_sponsor_id"
+>;
+type SetupTeam = Pick<Database["public"]["Tables"]["teams"]["Row"], "id" | "name" | "level_age">;
 
 const CLUB_ROLE_LABEL: Record<ClubRole, string> = {
   club_admin: "Club Admin",
@@ -122,16 +158,50 @@ export default function ClubSetupWizardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const providerKey = useIcpLab ? "icp" : "supabase";
   usePageTitle("Set up your club");
 
   const [stepIndex, setStepIndex] = useState(0);
-  const { hasPro, isLoading: proLoading } = useClubProAccess(clubId);
+  const { hasPro, isLoading: proLoading } = useClubProAccess(clubId, { enabled: !useIcpLab });
 
 
 
-  const { data: club } = useQuery({
-    queryKey: ["club", clubId, "setup"],
+  const { data: club } = useQuery<SetupClub | null>({
+    queryKey: ["club", clubId, "setup", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        const fixture = getLocalLabClubDetail(clubId!);
+        return fixture ? {
+          kind: "club",
+          name: fixture.name,
+          contact_email: null,
+          logo_url: fixture.logo_url,
+          theme_primary_h: null,
+          theme_primary_s: null,
+          theme_primary_l: null,
+          theme_secondary_h: null,
+          theme_secondary_s: null,
+          theme_secondary_l: null,
+          theme_accent_h: null,
+          theme_accent_s: null,
+          theme_accent_l: null,
+          theme_dark_primary_h: null,
+          theme_dark_primary_s: null,
+          theme_dark_primary_l: null,
+          theme_dark_secondary_h: null,
+          theme_dark_secondary_s: null,
+          theme_dark_secondary_l: null,
+          theme_dark_accent_h: null,
+          theme_dark_accent_s: null,
+          theme_dark_accent_l: null,
+          show_logo_in_header: true,
+          show_name_in_header: true,
+          logo_only_mode: false,
+          theme_enabled: false,
+          primary_sponsor_id: null,
+        } : null;
+      }
       const { data } = await supabase
         .from("clubs")
         .select("*")
@@ -143,7 +213,7 @@ export default function ClubSetupWizardPage() {
     enabled: !!clubId,
   });
 
-  const isShellClub = (club as any)?.kind === "shell";
+  const isShellClub = club?.kind === "shell";
   const STEPS = useMemo(
     () => ALL_STEPS.filter((s) => (isShellClub ? SHELL_STEP_IDS.has(s.id) : true)),
     [isShellClub],
@@ -154,7 +224,7 @@ export default function ClubSetupWizardPage() {
 
 
   // Draft state across steps — persisted per club to survive refresh/back-nav
-  const storageKey = clubId ? `ignite_wizard_draft_${clubId}` : null;
+  const storageKey = clubId ? `ignite_wizard_draft_${providerKey}_${clubId}` : null;
   const loadedDraft = useMemo(() => {
     if (!storageKey) return null;
     try {
@@ -175,9 +245,14 @@ export default function ClubSetupWizardPage() {
   // Hydrate from DB: if the club already has teams (e.g. user set them up on
   // another device, or cleared local storage), seed them into the wizard so
   // "Resume setup" doesn't show an empty list and skip team invites.
-  const { data: existingTeams } = useQuery({
-    queryKey: ["club-teams", clubId],
+  const { data: existingTeams } = useQuery<SetupTeam[]>({
+    queryKey: ["club-teams", clubId, "setup", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList()
+          .filter((team) => team.club_id === clubId)
+          .map((team) => ({ id: team.id, name: team.name, level_age: null }));
+      }
       const { data } = await supabase
         .from("teams")
         .select("id, name, level_age")
@@ -194,8 +269,8 @@ export default function ClubSetupWizardPage() {
     setTeams((prev) => {
       const alreadySavedIds = new Set(prev.filter(t => t.createdTeamId).map(t => t.createdTeamId));
       const missing = existingTeams
-        .filter((t: any) => !alreadySavedIds.has(t.id))
-        .map((t: any) => ({
+        .filter((t) => !alreadySavedIds.has(t.id))
+        .map((t) => ({
           tempId: crypto.randomUUID(),
           name: t.name ?? "",
           levelAge: t.level_age ?? "",
@@ -209,7 +284,7 @@ export default function ClubSetupWizardPage() {
   }, [existingTeams]);
 
   useEffect(() => {
-    if (!storageKey) return;
+    if (useIcpLab || !storageKey) return;
     try {
       localStorage.setItem(
         storageKey,
@@ -218,7 +293,7 @@ export default function ClubSetupWizardPage() {
     } catch {
       /* quota — ignore */
     }
-  }, [storageKey, teams, committee, groups, teamInvites]);
+  }, [useIcpLab, storageKey, teams, committee, groups, teamInvites]);
 
   const savedTeams = teams.filter((t) => t.createdTeamId);
 
@@ -483,6 +558,34 @@ export default function ClubSetupWizardPage() {
   const isOptionalStep = false;
 
   const progress = ((safeStepIndex + 1) / STEPS.length) * 100;
+
+  if (useIcpLab) {
+    return (
+      <div className="min-h-[100dvh] bg-background px-4 py-6">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <Button variant="ghost" onClick={() => navigate(clubId ? `/clubs/${clubId}` : "/clubs")}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to club
+          </Button>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+            <h1 className="text-lg font-semibold">Club setup is unavailable in ICP lab mode</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {club
+                ? `${club.name} is a synthetic fixture. Team creation, invitations, branding, and setup progress are not persisted.`
+                : "This synthetic club is unavailable. Team creation, invitations, branding, and setup progress are not enabled."}
+            </p>
+          </div>
+          {existingTeams && existingTeams.length > 0 && (
+            <div className="rounded-xl border p-4">
+              <h2 className="font-medium">Synthetic teams</h2>
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {existingTeams.map((team) => <li key={team.id}>{team.name}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
@@ -1979,5 +2082,3 @@ function BrandPresetPicker({
     </div>
   );
 }
-
-

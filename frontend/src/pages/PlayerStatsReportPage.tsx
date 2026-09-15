@@ -17,6 +17,7 @@ import { useClubTheme } from "@/hooks/useClubTheme";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import PlayerStatsReportView from "@/components/reports/PlayerStatsReportView";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 interface Team {
   id: string;
@@ -37,6 +38,32 @@ interface GameEvent {
 }
 
 export default function PlayerStatsReportPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Player statistics are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Team, fixture, player, and reporting data are not connected to an ICP analytics service yet.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabasePlayerStatsReportPage />;
+}
+
+function SupabasePlayerStatsReportPage() {
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
   const navigate = useNavigate();

@@ -25,6 +25,8 @@ import { defaultRsvpAudienceForTeam } from "@/lib/teamAgeDefaults";
 import { invalidateTeamLists } from "@/lib/invalidateTeamLists";
 // TeamAdminInviteDialog now shown on TeamDetailPage via navigation state
 import type { Database } from "@/integrations/supabase/types";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabTeamList } from "@/lab/fixtureDataLayer";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -38,6 +40,8 @@ export default function CreateTeamPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const providerKey = useIcpLab ? "icp" : "supabase";
 
   const [name, setName] = useState("");
   const [levelAge, setLevelAge] = useState("");
@@ -57,8 +61,17 @@ export default function CreateTeamPage() {
   // Invite dialog state no longer needed - we navigate immediately with state
 
   const { data: club } = useQuery({
-    queryKey: ["club", clubId],
+    queryKey: ["club", clubId, "create-team", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        const fixture = getLocalLabClubDetail(clubId!);
+        return fixture ? {
+          name: fixture.name,
+          logo_url: fixture.logo_url,
+          class_mode_enabled: false,
+          contact_email: null,
+        } : null;
+      }
       const { data, error } = await supabase
         .from("clubs")
         .select("name, logo_url, class_mode_enabled, contact_email")
@@ -72,8 +85,9 @@ export default function CreateTeamPage() {
 
   // Check if current user is a club admin or app admin
   const { data: isClubAdmin, isLoading: isCheckingAdmin } = useQuery({
-    queryKey: ["is-club-admin", clubId, user?.id],
+    queryKey: ["is-club-admin", clubId, user?.id, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return true;
       // Check for app_admin role
       const { data: appAdminRole } = await supabase
         .from("user_roles")
@@ -98,8 +112,11 @@ export default function CreateTeamPage() {
 
   // Get team count and club subscription
   const { data: teamCount = 0 } = useQuery({
-    queryKey: ["club-team-count", clubId],
+    queryKey: ["club-team-count", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        return getLocalLabTeamList().filter((team) => team.club_id === clubId).length;
+      }
       const { count, error } = await supabase
         .from("teams")
         .select("*", { count: "exact", head: true })
@@ -111,8 +128,9 @@ export default function CreateTeamPage() {
   });
 
   const { data: clubSubscription } = useQuery({
-    queryKey: ["club-subscription", clubId],
+    queryKey: ["club-subscription", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return null;
       const { data } = await supabase
         .from("club_subscriptions")
         .select("*")
@@ -125,8 +143,9 @@ export default function CreateTeamPage() {
 
   // Fetch team folders for selection
   const { data: folders = [] } = useQuery({
-    queryKey: ["team-folders", clubId],
+    queryKey: ["team-folders", clubId, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return [];
       const { data, error } = await supabase
         .from("team_folders")
         .select("*")
@@ -176,6 +195,14 @@ export default function CreateTeamPage() {
         title: "Missing information",
         description: "Please select a day of the week for this class.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    if (useIcpLab) {
+      toast({
+        title: "Team creation is unavailable in ICP lab mode",
+        description: "No team, role, invitation, or media data has been persisted.",
       });
       return;
     }
@@ -455,6 +482,26 @@ export default function CreateTeamPage() {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (useIcpLab) {
+    return (
+      <div className="min-h-[100dvh] bg-background px-4 py-6">
+        <div className="mx-auto max-w-lg space-y-4">
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+            <h1 className="text-lg font-semibold">Team creation is unavailable in ICP lab mode</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {club
+                ? `${club.name} is a synthetic fixture. Team creation, role assignment, invitations, and logo uploads are not persisted.`
+                : "This synthetic club is unavailable. No team data can be created."}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

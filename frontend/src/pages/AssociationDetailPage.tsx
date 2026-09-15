@@ -18,11 +18,38 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { AssociationEventsPanel } from "@/components/AssociationEventsPanel";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function AssociationDetailPage() {
+  usePageTitle("Association");
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Network className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Association details are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Linked clubs, rollups, events, broadcasts, competitions, and membership changes are disabled.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/associations")}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to associations
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseAssociationDetailPage />;
+}
+
+function SupabaseAssociationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  usePageTitle("Association");
 
   const { data: assoc, isLoading } = useQuery({
     queryKey: ["association", id],

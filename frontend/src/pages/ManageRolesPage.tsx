@@ -25,6 +25,7 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AddClubRoleToMemberDialog from "@/components/AddClubRoleToMemberDialog";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin" | "committee_member" | "league_admin" | "association_admin" | "competition_admin";
 
@@ -57,8 +58,35 @@ const roleColors: Record<AppRole, string> = {
 };
 
 const MEMBERS_PER_PAGE = 10;
+type UserRoleGroup = { profile: any; roles: any[] };
 
 export default function ManageRolesPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Shield className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Club role management is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Membership, role requests, invitations, and role changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseManageRolesPage />;
+}
+
+function SupabaseManageRolesPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -201,7 +229,7 @@ export default function ManageRolesPage() {
   }
 
   // Group roles by user
-  const userRoles = roles?.reduce((acc, role) => {
+  const userRoles: Record<string, UserRoleGroup> = roles?.reduce((acc, role) => {
     const userId = role.profiles?.id;
     if (!userId) return acc;
     if (!acc[userId]) {
@@ -212,10 +240,10 @@ export default function ManageRolesPage() {
     }
     acc[userId].roles.push(role);
     return acc;
-  }, {} as Record<string, { profile: any; roles: any[] }>);
+  }, {} as Record<string, UserRoleGroup>) ?? {};
 
   const q = searchQuery.trim().toLowerCase();
-  const filteredUserEntries = Object.entries(userRoles || {}).filter(([, { profile }]) =>
+  const filteredUserEntries = Object.entries(userRoles).filter(([, { profile }]) =>
     !q || (profile?.display_name || "").toLowerCase().includes(q)
   );
 

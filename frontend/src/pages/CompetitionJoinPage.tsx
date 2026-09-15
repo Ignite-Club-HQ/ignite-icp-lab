@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { safeSessionSet, buildAuthPathWithIntent } from "@/lib/authRedirectStorage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type CompInfo = {
   id: string;
@@ -27,13 +28,38 @@ type TeamOpt = { id: string; name: string; club_id: string; club_name: string | 
 const ENTERED_STATUSES = new Set(["accepted", "invited"]);
 
 export default function CompetitionJoinPage() {
+  usePageTitle("Join competition");
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card>
+          <CardContent className="p-6 space-y-4 text-center">
+            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Competition joining is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Join-token lookup, team entry, division assignment, and membership changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/competitions")}>
+              Back to competitions
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCompetitionJoinPage />;
+}
+
+function SupabaseCompetitionJoinPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  usePageTitle("Join competition");
 
   const [comp, setComp] = useState<CompInfo | null>(null);
   const [divisions, setDivisions] = useState<Division[]>([]);

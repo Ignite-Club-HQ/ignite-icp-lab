@@ -3,8 +3,27 @@ import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import igniteIcon from "@/assets/ignite-icon.png";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function ShortInviteRedirect() {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <img src={igniteIcon} alt="" className="h-14 w-14" />
+        <h1 className="text-lg font-semibold">Short invite links are unavailable in ICP lab mode</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Invite-code resolution is not connected to the ICP identity service. No invite was opened.
+        </p>
+      </div>
+    );
+  }
+
+  return <SupabaseShortInviteRedirect />;
+}
+
+function SupabaseShortInviteRedirect() {
   const { code } = useParams<{ code: string }>();
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);

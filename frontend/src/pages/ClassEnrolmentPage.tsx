@@ -24,10 +24,37 @@ import { MobileSelect } from "@/components/ui/mobile-select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type TeamType = "junior" | "senior" | "mixed";
 
 export default function ClassEnrolmentPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <UserPlus className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Class enrolment is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Terms, class availability, child eligibility, enrolment, and membership changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseClassEnrolmentPage />;
+}
+
+function SupabaseClassEnrolmentPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();

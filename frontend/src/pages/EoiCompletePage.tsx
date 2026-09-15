@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClaimEoi, useConfirmEoi, useUpdateMyEoi, type EoiSubmission } from "@/hooks/useMyEois";
 import { EOI_STATUS_LABELS } from "@/lib/eoiUtils";
 import { toast } from "sonner";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 /**
  * In-app "Complete your EOI" page.
@@ -21,6 +22,30 @@ import { toast } from "sonner";
  * - Otherwise: claim the EOI, show prefilled details, allow edit + confirm
  */
 export default function EoiCompletePage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">EOI completion is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Claim-token lookup, profile updates, and EOI confirmation are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseEoiCompletePage />;
+}
+
+function SupabaseEoiCompletePage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();

@@ -7,7 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLoading } from "@/components/ui/page-loading";
 import OnlineUsersTab from "@/components/admin/OnlineUsersTab";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function OnlineUsersPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Online-user presence is unavailable in ICP lab mode" description="Realtime presence is not connected to an ICP messaging and presence service yet." />;
+  }
+  return <SupabaseOnlineUsersPage />;
+}
+
+function SupabaseOnlineUsersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 

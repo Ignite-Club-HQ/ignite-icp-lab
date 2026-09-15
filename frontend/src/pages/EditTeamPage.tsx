@@ -28,12 +28,16 @@ import { DEFAULT_TEAM_RSVP_AUDIENCE, type RsvpAudience } from "@/lib/rsvpAudienc
 import { shouldUseNativePicker, pickNativePhoto } from "@/lib/nativePhotoPicker";
 import { isCancelledSelectionError } from "@/lib/uploadErrorUtils";
 import { mimeToExtension } from "@/lib/binaryUtils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubDetail, getLocalLabTeamDetail } from "@/lab/fixtureDataLayer";
 
 export default function EditTeamPage() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const providerKey = useIcpLab ? "icp" : "supabase";
 
   const [name, setName] = useState("");
   const [levelAge, setLevelAge] = useState("");
@@ -55,8 +59,36 @@ export default function EditTeamPage() {
   const [defaultRsvpAudience, setDefaultRsvpAudience] = useState<RsvpAudience>(DEFAULT_TEAM_RSVP_AUDIENCE);
 
   const { data: team, isLoading, fetchStatus: teamFetchStatus } = useQuery({
-    queryKey: ["team", id],
+    queryKey: ["team", id, "edit", providerKey],
     queryFn: async () => {
+      if (useIcpLab) {
+        const fixture = getLocalLabTeamDetail(id!);
+        if (!fixture) return null;
+        const club = getLocalLabClubDetail(fixture.club_id);
+        return {
+          ...fixture,
+          level_age: null,
+          description: null,
+          logo_url: null,
+          folder_id: null,
+          team_type: "mixed",
+          class_day: null,
+          class_time: null,
+          class_duration_minutes: null,
+          class_capacity: null,
+          is_archived: false,
+          auto_rsvp_dm_enabled: false,
+          auto_rsvp_dm_cadences: ["t72", "t24", "t3"],
+          auto_rsvp_dm_event_types: ["match", "training", "game"],
+          default_rsvp_audience: DEFAULT_TEAM_RSVP_AUDIENCE,
+          clubs: {
+            id: fixture.club_id,
+            name: club?.name ?? "Synthetic club",
+            sport: club?.sport ?? null,
+            class_mode_enabled: false,
+          },
+        };
+      }
       const { data, error } = await supabase
         .from("teams")
         .select("*, clubs!club_id (id, name, sport, class_mode_enabled)")
@@ -70,8 +102,9 @@ export default function EditTeamPage() {
 
   // Fetch available folders for this club
   const { data: folders = [] } = useQuery({
-    queryKey: ["team-folders", team?.club_id],
+    queryKey: ["team-folders", team?.club_id, providerKey],
     queryFn: async () => {
+      if (useIcpLab) return [];
       const { data, error } = await supabase
         .from("team_folders")
         .select("*")
@@ -113,6 +146,13 @@ export default function EditTeamPage() {
 
   const handleNativeLogoPick = async () => {
     if (!id || !team?.club_id) return;
+    if (useIcpLab) {
+      toast({
+        title: "Logo uploads are unavailable in ICP lab mode",
+        description: "No team data has been changed.",
+      });
+      return;
+    }
     try {
       const result = await pickNativePhoto({ quality: 80 });
       setUploading(true);
@@ -141,6 +181,14 @@ export default function EditTeamPage() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id || !team?.club_id) return;
+    if (useIcpLab) {
+      toast({
+        title: "Logo uploads are unavailable in ICP lab mode",
+        description: "No team data has been changed.",
+      });
+      e.target.value = "";
+      return;
+    }
 
     setUploading(true);
     try {
@@ -180,6 +228,14 @@ export default function EditTeamPage() {
         title: "Missing information",
         description: "Please enter a team name.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    if (useIcpLab) {
+      toast({
+        title: "Team editing is unavailable in ICP lab mode",
+        description: "Your preview changes were not persisted.",
       });
       return;
     }
@@ -248,6 +304,22 @@ export default function EditTeamPage() {
     return (
       <div className="py-6 text-center">
         <p className="text-muted-foreground">Team not found</p>
+      </div>
+    );
+  }
+
+  if (useIcpLab) {
+    return (
+      <div className="py-6 space-y-4">
+        <Button variant="ghost" onClick={() => navigate(-1)}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+          <h1 className="text-lg font-semibold">Team editing is unavailable in ICP lab mode</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {team.name} is a synthetic fixture. Settings, training breaks, and logo changes are not persisted.
+          </p>
+        </div>
       </div>
     );
   }

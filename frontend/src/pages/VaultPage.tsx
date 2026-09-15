@@ -101,7 +101,17 @@ const DRIVE_IMPORT_ALLOWED_CLUB_IDS = new Set<string>([
   "36231b76-5313-478e-b8d5-23ac4f5e8b10", // Riverside FC
 ]);
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function VaultPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Vault storage is unavailable in ICP lab mode" description="Protected file metadata, authorization, and encrypted object storage require an approved provider-neutral design." />;
+  }
+  return <SupabaseVaultPage />;
+}
+
+function SupabaseVaultPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { folderId: urlFolderId } = useParams<{ folderId?: string }>();

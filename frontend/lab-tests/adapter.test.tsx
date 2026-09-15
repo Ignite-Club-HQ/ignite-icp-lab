@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createIcpClubLinksService } from '../src/lab/icpClubLinksService';
-import { validateLocalConfig } from '../src/lab/localActor';
+import { validateLocalConfig, validateLocalLabConfig } from '../src/lab/localActor';
 import type { _SERVICE } from '../src/lab/bindings/declarations/club_links.did';
 
 test('a response arriving after identity disposal cannot populate the new session', async () => {
@@ -25,4 +25,10 @@ test('an older query cannot replace a newer observed club revision', async () =>
 test('missing or non-local actor configuration fails before making a request', () => {
   expect(() => validateLocalConfig({ network: 'ic' as 'local', canisterId: 'aaaaa-aa', rootKey: '00'.repeat(133) })).toThrow();
   expect(() => validateLocalConfig({ network: 'local', canisterId: 'aaaaa-aa', rootKey: '' })).toThrow();
+  expect(() => validateLocalLabConfig({
+    network: 'local',
+    canisterId: 'rrkah-fqaaa-aaaaa-aaaaq-cai',
+    identityAccessCanisterId: 'aaaaa-aa',
+    rootKey: '00'.repeat(133),
+  })).toThrow('identity access');
 });

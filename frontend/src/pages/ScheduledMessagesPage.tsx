@@ -172,9 +172,15 @@ function useThreadLabels(rows: ScheduledMessageRow[]) {
             .select("id, participant_1, participant_2")
             .in("id", dmConvIds);
           const convs = data || [];
-          const userIds = [
-            ...new Set(convs.flatMap((c: any) => [c.participant_1, c.participant_2])),
-          ];
+          const userIds = Array.from(
+            new Set<string>(
+              convs.flatMap((conversation: any) =>
+                [conversation.participant_1, conversation.participant_2].filter(
+                  (id): id is string => typeof id === "string",
+                ),
+              ),
+            ),
+          );
           const { data: profiles } = await selectCachedProfilesByIds(userIds);
           const profMap: Record<string, string> = {};
           (profiles || []).forEach((p: any) => {
@@ -234,7 +240,17 @@ function lookupLabel(
   }
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ScheduledMessagesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Scheduled messages are unavailable in ICP lab mode" description="Message scheduling and external delivery workers are not connected to the ICP messaging service yet." />;
+  }
+  return <SupabaseScheduledMessagesPage />;
+}
+
+function SupabaseScheduledMessagesPage() {
   const navigate = useNavigate();
   const { hasAnyClubPro, isLoading: proLoading } = useUserHasAnyClubPro();
   const { activeClubFilter } = useClubTheme();

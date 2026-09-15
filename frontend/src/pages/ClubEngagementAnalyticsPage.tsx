@@ -74,6 +74,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const ALL_TEAMS = "__all__";
 const RANGE_PRESETS = [
@@ -106,6 +107,34 @@ function pctChange(current: number, previous: number): number | null {
 }
 
 export default function ClubEngagementAnalyticsPage({
+  mode = "club",
+}: { mode?: "club" | "platform" } = {}) {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-4xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Activity className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Engagement analytics are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Membership, messaging, event, media, and adoption aggregates are not connected to an ICP analytics service yet.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseClubEngagementAnalyticsPage mode={mode} />;
+}
+
+function SupabaseClubEngagementAnalyticsPage({
   mode = "club",
 }: { mode?: "club" | "platform" } = {}) {
   const params = useParams<{ clubId: string }>();
@@ -1812,4 +1841,3 @@ function AdPerformanceBlock({ stats }: { stats: AdStats }) {
     </div>
   );
 }
-

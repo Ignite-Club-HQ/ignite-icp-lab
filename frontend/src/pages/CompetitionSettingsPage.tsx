@@ -18,15 +18,40 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { CompetitionAdminsCard } from "@/components/competitions/CompetitionAdminsCard";
 import { CompetitionMemberChatCard } from "@/components/competitions/CompetitionMemberChatCard";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 
 export default function CompetitionSettingsPage() {
+  usePageTitle("Competition settings");
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <h1 className="text-lg font-semibold">Competition settings are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Competition settings, administrators, chat, scoring, and visibility changes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCompetitionSettingsPage />;
+}
+
+function SupabaseCompetitionSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  usePageTitle("Competition settings");
-
   const { data: competition, isLoading, refetch } = useQuery({
     queryKey: ["competition", id],
     enabled: !!id,

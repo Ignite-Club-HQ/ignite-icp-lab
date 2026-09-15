@@ -60,6 +60,7 @@ import {
   CONFLICT_CHECK_ERROR_DESCRIPTION,
   type ConflictCheckResult,
 } from "@/features/events/trainingConflictPolicy";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type EventType = "game" | "training" | "social" | "mini_league";
 type RecurrencePattern = "daily" | "weekly" | "biweekly" | "monthly";
@@ -83,6 +84,32 @@ const EVENT_TYPES = [
 ];
 
 export default function CreateEventPage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-lg mx-auto px-4 py-10">
+        <Card>
+          <CardContent className="p-6 space-y-4 text-center">
+            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Event creation is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Event, recurrence, duty, reminder, payment, and notification writes are disabled. No data has been changed.
+            </p>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCreateEventPage />;
+}
+
+function SupabaseCreateEventPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();

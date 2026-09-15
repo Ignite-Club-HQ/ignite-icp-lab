@@ -15,7 +15,17 @@ interface ChatImage {
   created_at: string;
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function PublishChatPhotosPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Chat photo publishing is unavailable in ICP lab mode" description="Protected media selection, publishing, and storage workflows are not connected to approved ICP services yet." />;
+  }
+  return <SupabasePublishChatPhotosPage />;
+}
+
+function SupabasePublishChatPhotosPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();

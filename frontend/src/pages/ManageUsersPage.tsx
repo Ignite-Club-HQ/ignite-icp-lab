@@ -84,7 +84,17 @@ interface UserProfile {
   roles: any[];
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ManageUsersPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="User administration is unavailable in ICP lab mode" description="Identity, account status, and administrative role changes await typed Internet Identity and authorization services." />;
+  }
+  return <SupabaseManageUsersPage />;
+}
+
+function SupabaseManageUsersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

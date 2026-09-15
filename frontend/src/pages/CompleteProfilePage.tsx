@@ -30,6 +30,7 @@ import {
   getParentInviteErrorMessage,
   provisionInviteChildren,
 } from "@/features/membership/acceptParentInvite";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 
 interface PendingInvite {
@@ -51,6 +52,30 @@ interface PendingInvite {
 }
 
 export default function CompleteProfilePage() {
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-md mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <User className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Profile completion is unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Profile updates, invite acceptance, child linking, push setup, and passkey registration are not connected to the ICP identity service yet.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCompleteProfilePage />;
+}
+
+function SupabaseCompleteProfilePage() {
   const { user, profile, loading: authLoading, profileLoading, profileError, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
   const { setActiveClubTheme } = useClubTheme();

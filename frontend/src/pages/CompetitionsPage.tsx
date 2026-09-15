@@ -12,9 +12,32 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { useMemo } from "react";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function CompetitionsPage() {
   usePageTitle("Competitions");
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-6">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-3 text-center">
+            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Competitions are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Competition lists, invitations, ladders, and administration are not connected to an ICP service yet.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCompetitionsPage />;
+}
+
+function SupabaseCompetitionsPage() {
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
   const scopedClub = useClubProAccess(activeClubFilter);

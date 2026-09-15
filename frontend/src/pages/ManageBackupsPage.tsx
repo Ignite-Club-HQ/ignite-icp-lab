@@ -40,7 +40,17 @@ interface TreeNode {
   expanded?: boolean;
 }
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function ManageBackupsPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Backup administration is unavailable in ICP lab mode" description="Backup creation, download, and restore require an approved encrypted export and recovery design." />;
+  }
+  return <SupabaseManageBackupsPage />;
+}
+
+function SupabaseManageBackupsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

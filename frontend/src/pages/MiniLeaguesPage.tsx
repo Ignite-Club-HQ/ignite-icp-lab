@@ -21,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 interface MiniLeague {
   id: string;
@@ -40,6 +42,18 @@ interface MiniLeague {
 }
 
 export default function MiniLeaguesPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return (
+      <IcpUnavailablePage
+        title="Mini leagues are unavailable in ICP lab mode"
+        description="Mini-league membership, fixtures, games, and administration are not connected to typed ICP services yet."
+      />
+    );
+  }
+  return <SupabaseMiniLeaguesPage />;
+}
+
+function SupabaseMiniLeaguesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

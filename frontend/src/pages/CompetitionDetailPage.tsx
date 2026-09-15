@@ -25,15 +25,42 @@ import { CompetitionShareJoinLink } from "@/components/CompetitionShareJoinLink"
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { Crown } from "lucide-react";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 export default function CompetitionDetailPage() {
+  usePageTitle("Competition");
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
+  if (useIcpLab) {
+    return (
+      <div className="container max-w-3xl mx-auto px-4 py-10">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-6 space-y-4 text-center">
+            <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Competition details are unavailable in ICP lab mode</h1>
+            <p className="text-sm text-muted-foreground">
+              Entries, divisions, fixtures, ladders, invitations, and competition administration are not connected to an ICP service yet.
+            </p>
+            <Button variant="outline" onClick={() => navigate("/competitions")}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to competitions
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <SupabaseCompetitionDetailPage />;
+}
+
+function SupabaseCompetitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const inviteFromUrl = searchParams.get("invite") === "1";
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  usePageTitle("Competition");
   const navigate = useNavigate();
   const goBack = () => {
     if (window.history.length > 1) navigate(-1);
@@ -125,7 +152,7 @@ export default function CompetitionDetailPage() {
   });
 
   // Teams the current user can manage (for accept/decline)
-  const { data: myAdminTeamIds = [] } = useQuery({
+  const { data: myAdminTeamIds = [] } = useQuery<string[]>({
     queryKey: ["my-admin-team-ids", user?.id],
     enabled: !!user,
     queryFn: async () => {
@@ -134,7 +161,9 @@ export default function CompetitionDetailPage() {
         .select("team_id")
         .eq("user_id", user!.id)
         .in("role", ["team_admin", "coach", "club_admin"]);
-      return Array.from(new Set((data ?? []).map((r: any) => r.team_id).filter(Boolean)));
+      return Array.from(
+        new Set((data ?? []).map((r: any) => r.team_id).filter((teamId): teamId is string => typeof teamId === "string")),
+      );
     },
   });
 
@@ -1428,4 +1457,3 @@ function AddDivisionForm({ competitionId, onDone }: { competitionId: string; onD
     </Card>
   );
 }
-

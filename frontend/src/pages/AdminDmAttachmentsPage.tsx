@@ -18,7 +18,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLoading } from "@/components/ui/page-loading";
 import { toast } from "sonner";
 
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+
 export default function AdminDmAttachmentsPage() {
+  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
+    return <IcpUnavailablePage title="Attachment administration is unavailable in ICP lab mode" description="Message attachment metadata and protected media storage are not connected to approved ICP and storage boundaries yet." />;
+  }
+  return <SupabaseAdminDmAttachmentsPage />;
+}
+
+function SupabaseAdminDmAttachmentsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
