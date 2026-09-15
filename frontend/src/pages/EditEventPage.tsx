@@ -53,7 +53,7 @@ import { DEFAULT_MATCH_ARRIVAL_MINUTES } from "@/lib/matchArrivalTime";
 import { validateEventTeamClubScope } from "@/lib/eventScopeValidation";
 import { SeriesEndDateEditor } from "@/components/event/SeriesEndDateEditor";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalEvent, updateLocalEvent } from "@/lab/localEventsService";
+import { getLocalEvent, setLocalEventRecurrence, updateLocalEvent } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
@@ -100,6 +100,8 @@ function IcpEditEventPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState("none");
+  const [recurrenceUntil, setRecurrenceUntil] = useState("");
   const [saving, setSaving] = useState(false);
 
   const { data: event, error, isLoading } = useQuery({
@@ -142,6 +144,13 @@ function IcpEditEventPage() {
         BigInt(start.getTime()),
         BigInt(end.getTime()),
       );
+      if (recurrenceFrequency !== "none") {
+        const until = new Date(recurrenceUntil);
+        if (!Number.isFinite(until.getTime()) || until.getTime() <= start.getTime()) {
+          throw new Error("Choose a recurrence end date after the event start.");
+        }
+        await setLocalEventRecurrence(localIcpPersona, id, recurrenceFrequency, BigInt(until.getTime()));
+      }
       toast({ title: "Event updated in local ICP", description: updated.title });
       navigate(`/events/${id}?backend=icp&persona=${encodeURIComponent(localIcpPersona)}`);
     } catch (updateError) {
@@ -163,7 +172,7 @@ function IcpEditEventPage() {
             <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
             <h1 className="text-lg font-semibold">Edit local ICP event</h1>
             <p className="text-sm text-muted-foreground">
-              This updates the basic event fields in the local events canister. Series, duties, reminders, payments, and notifications remain disabled.
+              This updates event fields and the recurrence rule in the local events canister. Series materialization, duties, reminders, payments, and notifications remain disabled.
             </p>
           </div>
           {isLoading && <Skeleton className="h-32 w-full" />}
@@ -185,6 +194,26 @@ function IcpEditEventPage() {
               <div className="space-y-2">
                 <Label htmlFor="icp-edit-event-description">Description</Label>
                 <Textarea id="icp-edit-event-description" value={description} onChange={(inputEvent) => setDescription(inputEvent.target.value)} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="icp-edit-event-recurrence">Recurrence</Label>
+                  <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>
+                    <SelectTrigger id="icp-edit-event-recurrence"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Does not repeat</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {recurrenceFrequency !== "none" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="icp-edit-event-recurrence-until">Repeat until</Label>
+                    <Input id="icp-edit-event-recurrence-until" type="date" value={recurrenceUntil} onChange={(inputEvent) => setRecurrenceUntil(inputEvent.target.value)} />
+                  </div>
+                )}
               </div>
             </>
           )}
