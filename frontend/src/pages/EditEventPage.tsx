@@ -53,6 +53,8 @@ import { DEFAULT_MATCH_ARRIVAL_MINUTES } from "@/lib/matchArrivalTime";
 import { validateEventTeamClubScope } from "@/lib/eventScopeValidation";
 import { SeriesEndDateEditor } from "@/components/event/SeriesEndDateEditor";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalEvent, updateLocalEvent } from "@/lab/localEventsService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
 type RecurrencePattern = "daily" | "weekly" | "biweekly" | "monthly";
@@ -74,29 +76,131 @@ const EVENT_TYPES = [
 ];
 
 export default function EditEventPage() {
-  const navigate = useNavigate();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-lg mx-auto px-4 py-10">
-        <Card>
-          <CardContent className="p-6 space-y-4 text-center">
-            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Event editing is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Event, series, duty, reminder, payment, and notification changes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpEditEventPage />;
   }
 
   return <SupabaseEditEventPage />;
+}
+
+function toLocalDateTimeInput(ms: bigint): string {
+  const date = new Date(Number(ms));
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 16) : "";
+}
+
+function IcpEditEventPage() {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const requestedPersona = searchParams.get("persona");
+  const localIcpPersona = requestedPersona && personas.includes(requestedPersona) ? requestedPersona : "club_admin";
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: event, error, isLoading } = useQuery({
+    queryKey: ["icp-event-edit", localIcpPersona, id],
+    queryFn: async () => {
+      if (!id) throw new Error("Missing event ID");
+      return getLocalEvent(localIcpPersona, id);
+    },
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!event) return;
+    setTitle(event.title);
+    setDescription(event.description);
+    setStartsAt(toLocalDateTimeInput(event.starts_at_ms));
+  }, [event]);
+
+  const handleIcpUpdate = async () => {
+    if (!id || !event) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      toast({ title: "Missing event title", description: "Enter a title before saving." });
+      return;
+    }
+    const start = new Date(startsAt);
+    if (!Number.isFinite(start.getTime())) {
+      toast({ title: "Invalid start time", description: "Choose a valid event date and time." });
+      return;
+    }
+    const previousDuration = Math.max(60 * 60 * 1000, Number(event.ends_at_ms - event.starts_at_ms));
+    const end = new Date(start.getTime() + previousDuration);
+    setSaving(true);
+    try {
+      const updated = await updateLocalEvent(
+        localIcpPersona,
+        id,
+        trimmedTitle,
+        description.trim() || trimmedTitle,
+        BigInt(start.getTime()),
+        BigInt(end.getTime()),
+      );
+      toast({ title: "Event updated in local ICP", description: updated.title });
+      navigate(`/events/${id}?backend=icp&persona=${encodeURIComponent(localIcpPersona)}`);
+    } catch (updateError) {
+      toast({
+        title: "Could not update ICP event",
+        description: `${updateError instanceof Error ? updateError.message : String(updateError)} No Supabase fallback was used.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="container max-w-lg mx-auto px-4 py-10">
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="text-center space-y-2">
+            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Edit local ICP event</h1>
+            <p className="text-sm text-muted-foreground">
+              This updates the basic event fields in the local events canister. Series, duties, reminders, payments, and notifications remain disabled.
+            </p>
+          </div>
+          {isLoading && <Skeleton className="h-32 w-full" />}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error.message} No Supabase fallback was used.
+            </p>
+          )}
+          {event && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="icp-edit-event-title">Title</Label>
+                <Input id="icp-edit-event-title" value={title} onChange={(inputEvent) => setTitle(inputEvent.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="icp-edit-event-start">Start</Label>
+                <Input id="icp-edit-event-start" type="datetime-local" value={startsAt} onChange={(inputEvent) => setStartsAt(inputEvent.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="icp-edit-event-description">Description</Label>
+                <Textarea id="icp-edit-event-description" value={description} onChange={(inputEvent) => setDescription(inputEvent.target.value)} />
+              </div>
+            </>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => navigate(`/events?backend=icp&persona=${encodeURIComponent(localIcpPersona)}`)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button onClick={handleIcpUpdate} disabled={!event || saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save in ICP
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function SupabaseEditEventPage() {

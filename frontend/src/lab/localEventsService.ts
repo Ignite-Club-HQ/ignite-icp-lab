@@ -22,6 +22,9 @@ export interface LocalScheduleEvent {
   opponent: string | null;
   teams: { name: string } | null;
   clubs: { name: string; sport: string | null };
+  description: string;
+  starts_at_ms: bigint;
+  ends_at_ms: bigint;
 }
 
 function titleToType(title: string): LocalScheduleEvent['type'] {
@@ -51,6 +54,9 @@ function convertEvent(event: IcpEvent): LocalScheduleEvent {
     opponent: null,
     teams: event.team_id.length ? { name: 'ICP team' } : null,
     clubs: { name: 'ICP club', sport: null },
+    description: event.description,
+    starts_at_ms: event.starts_at_ms,
+    ends_at_ms: event.ends_at_ms,
   };
 }
 
@@ -58,7 +64,7 @@ export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /events domain canister is not configured/i.test(error.message);
 }
 
-export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event'>) {
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event'>) {
   return {
     async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
       const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
@@ -73,6 +79,23 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
       endsAtMs: bigint,
     ): Promise<LocalScheduleEvent> {
       const result = await actor.create_event(clubId, teamId ? [teamId] : [], title, description, startsAtMs, endsAtMs);
+      if ('Err' in result) throw new Error(result.Err);
+      return convertEvent(result.Ok);
+    },
+    async getEvent(id: string): Promise<LocalScheduleEvent> {
+      const events = await actor.list_events([], []);
+      const event = events.find((candidate) => candidate.id === id);
+      if (!event) throw new Error('Event not found');
+      return convertEvent(event);
+    },
+    async updateEvent(
+      id: string,
+      title: string,
+      description: string,
+      startsAtMs: bigint,
+      endsAtMs: bigint,
+    ): Promise<LocalScheduleEvent> {
+      const result = await actor.update_event(id, title, description, startsAtMs, endsAtMs);
       if ('Err' in result) throw new Error(result.Err);
       return convertEvent(result.Ok);
     },
@@ -104,4 +127,19 @@ export async function createLocalEvent(
   endsAtMs: bigint,
 ): Promise<LocalScheduleEvent> {
   return createEventsDomainClient(await connectEventsActor(persona)).createEvent(clubId, teamId, title, description, startsAtMs, endsAtMs);
+}
+
+export async function getLocalEvent(persona: string, id: string): Promise<LocalScheduleEvent> {
+  return createEventsDomainClient(await connectEventsActor(persona)).getEvent(id);
+}
+
+export async function updateLocalEvent(
+  persona: string,
+  id: string,
+  title: string,
+  description: string,
+  startsAtMs: bigint,
+  endsAtMs: bigint,
+): Promise<LocalScheduleEvent> {
+  return createEventsDomainClient(await connectEventsActor(persona)).updateEvent(id, title, description, startsAtMs, endsAtMs);
 }

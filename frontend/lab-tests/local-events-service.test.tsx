@@ -61,3 +61,40 @@ test('events domain client surfaces create failures and maps accepted writes', a
   });
   expect(createEvent).toHaveBeenLastCalledWith('club-1', [], 'Match day', 'Synthetic match', 1n, 2n);
 });
+
+test('events domain client gets and updates events without fallback semantics', async () => {
+  const stored = {
+    id: 'event-3',
+    title: 'Existing game',
+    creator: Principal.fromText('2ibo7-dia'),
+    team_id: ['team-1'],
+    description: 'Existing description',
+    starts_at_ms: BigInt(Date.UTC(2026, 0, 4, 10, 0, 0)),
+    ends_at_ms: BigInt(Date.UTC(2026, 0, 4, 11, 0, 0)),
+    revision: 1n,
+    club_id: 'club-1',
+  };
+  const updateEvent = vi.fn(async () => ({
+    Ok: {
+      ...stored,
+      title: 'Updated game',
+      description: 'Updated description',
+      starts_at_ms: 3n,
+      ends_at_ms: 4n,
+      revision: 2n,
+    },
+  }));
+  const client = createEventsDomainClient({
+    list_events: vi.fn(async () => [stored]),
+    create_event: vi.fn(),
+    update_event: updateEvent,
+  } as unknown as _SERVICE);
+
+  await expect(client.getEvent('event-3')).resolves.toMatchObject({ id: 'event-3', title: 'Existing game' });
+  await expect(client.getEvent('missing')).rejects.toThrow('Event not found');
+  await expect(client.updateEvent('event-3', 'Updated game', 'Updated description', 3n, 4n)).resolves.toMatchObject({
+    title: 'Updated game',
+    description: 'Updated description',
+  });
+  expect(updateEvent).toHaveBeenCalledWith('event-3', 'Updated game', 'Updated description', 3n, 4n);
+});
