@@ -119,7 +119,7 @@ import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
-import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
+import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventAttendance, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
@@ -600,7 +600,26 @@ export default function EventDetailPage() {
 
 
   // Populate form with existing RSVP data
-  const myRsvp = rsvps?.find((r) => r.user_id === user?.id && !r.child_id);
+  const localAccountId = user?.id ?? localIcpPersona;
+  const myRsvp = rsvps?.find((r) => r.user_id === (useIcpLab ? localAccountId : user?.id) && !r.child_id);
+  const localAttendanceMutation = useMutation({
+    mutationFn: async (present: boolean) => {
+      if (!id) throw new Error("Missing event ID");
+      return setLocalEventAttendance(localIcpPersona, id, localAccountId, present, "");
+    },
+    onSuccess: async (attendance) => {
+      queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+        if (!Array.isArray(current)) return current;
+        return current.map((row: any) =>
+          row.user_id === localAccountId && !row.child_id
+            ? { ...row, notes: `${attendance.present ? "Present" : "Absent"}${attendance.note ? `: ${attendance.note}` : ""}` }
+            : row,
+        );
+      });
+      toast({ title: attendance.present ? "Attendance marked present" : "Attendance marked absent" });
+    },
+    onError: (mutationError: Error) => toast({ title: "Could not save attendance", description: mutationError.message, variant: "destructive" }),
+  });
   
   useEffect(() => {
     if (myRsvp) {
@@ -3717,6 +3736,17 @@ export default function EventDetailPage() {
               currentRsvpStatus={(myRsvp?.status as any) ?? null}
               isTraining={event?.type === "training"}
             />
+
+            {useIcpLab && myRsvp && (
+              <Button
+                variant="outline"
+                onClick={() => localAttendanceMutation.mutate(!(String((myRsvp as any).notes ?? "").startsWith("Present")))}
+                disabled={localAttendanceMutation.isPending}
+              >
+                {localAttendanceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {String((myRsvp as any).notes ?? "").startsWith("Present") ? "Mark absent" : "Mark present"}
+              </Button>
+            )}
 
             {myRsvp && (
               <button
