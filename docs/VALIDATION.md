@@ -499,3 +499,24 @@ result will be recorded only after those checks run.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Club-domain collection quota validation slice - 2026-09-15
+
+Bounded the local `club_domain` collections at the established local control-
+plane scales: 10,000 clubs and 100,000 teams or role grants. Valid writes now
+return a deterministic quota error before growing a saturated collection.
+Duplicate detection remains before quota evaluation, preserving the existing
+duplicate result for a replayed record even when the collection is full. The
+focused saturation regression verifies each limit rejects the next valid write
+without modifying its collection.
+
+`cargo test --locked` passed 8 unit tests and `cargo build --locked --release`
+passed. The local domain has no public enumeration API, per-actor allocation
+accounting, stable-memory backing, or source-complete club/team lifecycle, so
+these caps are bounded POC storage behavior rather than capacity or production
+resource evidence. The full lab suite and loopback smoke result will be
+recorded only after those checks run.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.

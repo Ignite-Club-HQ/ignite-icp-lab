@@ -1,6 +1,9 @@
 use candid::Principal;
 
 const MAX_FIELD_BYTES: usize = 128;
+const MAX_CLUBS: usize = 10_000;
+const MAX_TEAMS: usize = 100_000;
+const MAX_ROLE_GRANTS: usize = 100_000;
 
 fn valid_field(value: &str) -> bool {
     !value.trim().is_empty() && value.len() <= MAX_FIELD_BYTES
@@ -64,6 +67,9 @@ impl ClubDomain {
         if self.clubs.iter().any(|club| club.id == club_id) {
             return Err("Club already exists".into());
         }
+        if self.clubs.len() >= MAX_CLUBS {
+            return Err("Club quota reached".into());
+        }
         let club = Club {
             id: club_id.to_string(),
             name: name.to_string(),
@@ -94,6 +100,9 @@ impl ClubDomain {
         }
         if self.teams.iter().any(|team| team.id == team_id) {
             return Err("Team already exists".into());
+        }
+        if self.teams.len() >= MAX_TEAMS {
+            return Err("Team quota reached".into());
         }
         let team = Team {
             id: team_id.to_string(),
@@ -143,6 +152,9 @@ impl ClubDomain {
                 && grant.team.as_deref() == team_id
         }) {
             return Err("Duplicate role".into());
+        }
+        if self.roles.len() >= MAX_ROLE_GRANTS {
+            return Err("Role quota reached".into());
         }
         self.roles.push(RoleGrant {
             account,
@@ -396,5 +408,75 @@ mod tests {
                 .unwrap_err(),
             "Invalid role grant"
         );
+    }
+
+    #[test]
+    fn collection_quotas_reject_additional_valid_writes() {
+        let governor = Principal::from_slice(&[1u8; 29]);
+        let member = Principal::from_slice(&[6u8; 29]);
+
+        let mut clubs = ClubDomain::new(governor);
+        clubs.clubs = vec![
+            Club {
+                id: "club-existing".to_string(),
+                name: "Existing Club".to_string(),
+                owner: governor,
+            };
+            MAX_CLUBS
+        ];
+        assert_eq!(
+            clubs
+                .create_club(governor, "club-new", "Northside FC")
+                .unwrap_err(),
+            "Club quota reached"
+        );
+        assert_eq!(clubs.clubs.len(), MAX_CLUBS);
+
+        let mut teams = ClubDomain::new(governor);
+        teams
+            .create_club(governor, "club-a", "Northside FC")
+            .unwrap();
+        teams.teams = vec![
+            Team {
+                id: "team-existing".to_string(),
+                club: "club-a".to_string(),
+                name: "Existing Team".to_string(),
+            };
+            MAX_TEAMS
+        ];
+        assert_eq!(
+            teams
+                .create_team(governor, "team-new", "club-a", "Under 14")
+                .unwrap_err(),
+            "Team quota reached"
+        );
+        assert_eq!(teams.teams.len(), MAX_TEAMS);
+
+        let mut roles = ClubDomain::new(governor);
+        roles
+            .create_club(governor, "club-a", "Northside FC")
+            .unwrap();
+        roles.roles = vec![
+            RoleGrant {
+                account: governor,
+                role: "member".to_string(),
+                club: "club-a".to_string(),
+                team: None,
+            };
+            MAX_ROLE_GRANTS
+        ];
+        assert_eq!(
+            roles
+                .grant_role(governor, governor, "member", "club-a", None)
+                .unwrap_err(),
+            "Duplicate role"
+        );
+        assert_eq!(
+            roles
+                .grant_role(governor, member, "member", "club-a", None)
+                .unwrap_err(),
+            "Role quota reached"
+        );
+        assert_eq!(roles.roles.len(), MAX_ROLE_GRANTS);
     }
 }
