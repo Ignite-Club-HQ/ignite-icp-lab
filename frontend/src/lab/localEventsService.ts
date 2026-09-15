@@ -43,7 +43,7 @@ export interface LocalEventRsvp {
   user_id: string;
   child_id: null;
   status: string;
-  notes: null;
+  notes: string | null;
   source: 'icp';
   profiles: { display_name: string; avatar_url: null };
   children: null;
@@ -154,19 +154,30 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
     async listEventRsvps(eventId: string): Promise<LocalEventRsvp[]> {
       const result = await actor.export_state();
       if ('Err' in result) throw new Error(result.Err);
+      const attendanceByAccount = new Map(
+        result.Ok.attendance
+          .filter((attendance) => attendance.event_id === eventId)
+          .map((attendance) => [attendance.account_id, attendance]),
+      );
       return result.Ok.rsvps
         .filter((rsvp) => rsvp.event_id === eventId)
-        .map((rsvp) => ({
-          id: `local-rsvp-${eventId}-${rsvp.account_id}`,
-          event_id: eventId,
-          user_id: rsvp.account_id,
-          child_id: null,
-          status: rsvp.state,
-          notes: null,
-          source: 'icp' as const,
-          profiles: { display_name: rsvp.account_id, avatar_url: null },
-          children: null,
-        }));
+        .map((rsvp) => {
+          const attendance = attendanceByAccount.get(rsvp.account_id);
+          const attendanceNote = attendance
+            ? `${attendance.present ? 'Present' : 'Absent'}${attendance.note ? `: ${attendance.note}` : ''}`
+            : null;
+          return {
+            id: `local-rsvp-${eventId}-${rsvp.account_id}`,
+            event_id: eventId,
+            user_id: rsvp.account_id,
+            child_id: null,
+            status: rsvp.state,
+            notes: attendanceNote,
+            source: 'icp' as const,
+            profiles: { display_name: rsvp.account_id, avatar_url: null },
+            children: null,
+          };
+        });
     },
   };
 }

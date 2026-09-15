@@ -11,7 +11,7 @@ test('events domain client maps exported local RSVPs into page rows', async () =
         governor: Principal.fromText('aaaaa-aa'),
         events: [],
         rsvps: [{ event_id: 'event-1', account_id: 'account-1', state: 'going', updated_at_ms: 2n }],
-        attendance: [],
+        attendance: [{ event_id: 'event-1', account_id: 'account-1', present: true, note: 'Checked in' }],
         duties: [],
         recurrences: [],
         roster: [],
@@ -22,7 +22,7 @@ test('events domain client maps exported local RSVPs into page rows', async () =
   } as unknown as _SERVICE);
 
   await expect(client.listEventRsvps('event-1')).resolves.toMatchObject([
-    { event_id: 'event-1', user_id: 'account-1', status: 'going', source: 'icp' },
+    { event_id: 'event-1', user_id: 'account-1', status: 'going', notes: 'Present: Checked in', source: 'icp' },
   ]);
 });
 
