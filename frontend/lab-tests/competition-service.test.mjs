@@ -125,3 +125,83 @@ test('provider selection is explicit and never falls back to Supabase', () => {
   assert.throws(() => selectCompetitionService('icp'), /No fallback/);
   assert.throws(() => selectCompetitionService('supabase', { fixture }), /No fallback/);
 });
+
+test('snapshot export/import preserves populated state, retries and future IDs', async () => {
+  const source = seed();
+  const created = await source.create(admin, {
+    name: 'Durable Cup',
+    organizerClubId: DEMO_ORGANIZER_CLUB_ID,
+    status: 'active',
+    visibility: 'private',
+  }, 'durable-create');
+  const updated = await source.update(admin, created.id, { name: 'Durable Cup Updated' }, created.revision, 'durable-update');
+  const snapshot = await source.exportSnapshot();
+  assert.equal(snapshot.schemaVersion, 1);
+  assert.equal(snapshot.competitions.length, 5);
+  assert.equal(snapshot.requests.length, 2);
+
+  const restored = createFixtureCompetitionService();
+  await restored.importSnapshot(snapshot);
+  assert.deepEqual(await restored.reconcileSnapshot(snapshot), {
+    equal: true,
+    missingIds: [],
+    unexpectedIds: [],
+    changedIds: [],
+    requestLedgerEqual: true,
+    sequenceEqual: true,
+  });
+  assert.deepEqual(await restored.get(admin, updated.id), updated);
+  assert.deepEqual(
+    await restored.update(admin, created.id, { name: 'Durable Cup Updated' }, created.revision, 'durable-update'),
+    updated,
+  );
+  const next = await restored.create(admin, {
+    name: 'After Restore',
+    organizerClubId: DEMO_ORGANIZER_CLUB_ID,
+  }, 'after-restore');
+  assert.notEqual(next.id, created.id);
+});
+
+test('snapshot reconciliation reports drift and invalid import is atomic', async () => {
+  const service = seed();
+  const snapshot = await service.exportSnapshot();
+  const drifted = structuredClone(snapshot);
+  drifted.competitions[0].name = 'Tampered';
+  drifted.competitions.push({
+    ...drifted.competitions[0],
+    id: 'unexpected',
+    name: 'Unexpected',
+  });
+  const report = await service.reconcileSnapshot(drifted);
+  assert.equal(report.equal, false);
+  assert.deepEqual(report.changedIds, [snapshot.competitions[0].id]);
+  assert.deepEqual(report.unexpectedIds, []);
+  assert.deepEqual(report.missingIds, ['unexpected']);
+
+  await assert.rejects(service.importSnapshot({
+    ...snapshot,
+    competitions: [snapshot.competitions[0], snapshot.competitions[0]],
+  }), /duplicate competition IDs/);
+  assert.deepEqual(await service.reconcileSnapshot(snapshot), {
+    equal: true,
+    missingIds: [],
+    unexpectedIds: [],
+    changedIds: [],
+    requestLedgerEqual: true,
+    sequenceEqual: true,
+  });
+});
+
+test('snapshot bounds and schema validation fail closed', async () => {
+  const service = seed();
+  const snapshot = await service.exportSnapshot();
+  await assert.rejects(service.importSnapshot({ ...snapshot, schemaVersion: 2 }), /Unsupported/);
+  await assert.rejects(service.importSnapshot({
+    ...snapshot,
+    requests: Array.from({ length: 2001 }, (_, index) => ({
+      key: `request-${index}`,
+      fingerprint: 'fingerprint',
+      result: snapshot.competitions[0],
+    })),
+  }), /request limit/);
+});

@@ -80,6 +80,15 @@ production actor creation, principal verification, authorization parity,
 upgrade persistence, and recovery remain gated. The binding is deliberately
 not in the runtime allowlist.
 
+The synthetic adapter now also has a bounded durability seam:
+`exportSnapshot`, `importSnapshot`, and `reconcileSnapshot`. Import validates
+schema, row/request limits, duplicate IDs, timestamps, revisions, and request
+ledger entries before atomically replacing state. Snapshot recovery tests prove
+that populated records, idempotent retry results, and future ID sequencing
+survive restore, while drift and malformed snapshots fail closed. This is
+upgrade/recovery evidence for the local adapter only; it is not stable-memory
+or backup/restore evidence from a deployed canister.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

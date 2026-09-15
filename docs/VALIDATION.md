@@ -19,6 +19,10 @@
   wire/domain mapping, server-owned role resolution, forged-role rejection,
   identity mismatch/unknown-principal rejection, explicit result variants,
   and retry-safe updates.
+- The competition durability tests are included in `npm test`: populated
+  snapshot export/import, request-ledger and future-ID preservation, drift
+  reconciliation, atomic rejection of malformed snapshots, and snapshot
+  bounds/schema checks.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
@@ -32,6 +36,9 @@
   declarations or a deployed actor. It does not prove principal verification,
   canister authorization, upgrade persistence, recovery, or production
   readiness.
+- Snapshot evidence is synthetic adapter recovery only. No deployed canister
+  stable-memory upgrade, backup/restore, interrupted recovery, or managed
+  network persistence was tested or claimed.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

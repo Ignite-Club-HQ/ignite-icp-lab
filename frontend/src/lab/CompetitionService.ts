@@ -55,6 +55,28 @@ export interface CompetitionListOptions {
   limit?: number;
 }
 
+export interface CompetitionSnapshotRequest {
+  key: string;
+  fingerprint: string;
+  result: CompetitionRecord;
+}
+
+export interface CompetitionSnapshot {
+  schemaVersion: 1;
+  nextSequence: number;
+  competitions: CompetitionRecord[];
+  requests: CompetitionSnapshotRequest[];
+}
+
+export interface CompetitionReconciliation {
+  equal: boolean;
+  missingIds: string[];
+  unexpectedIds: string[];
+  changedIds: string[];
+  requestLedgerEqual: boolean;
+  sequenceEqual: boolean;
+}
+
 /**
  * Provider-neutral seam for the competition list/detail/basic lifecycle.
  *
@@ -74,4 +96,14 @@ export interface CompetitionService {
     expectedRevision: number,
     requestId: string,
   ): Promise<CompetitionRecord>;
+}
+
+/**
+ * Stable-memory/export seam for a future canister implementation. Import must
+ * validate the complete bounded snapshot before replacing live state.
+ */
+export interface DurableCompetitionService extends CompetitionService {
+  exportSnapshot(): Promise<CompetitionSnapshot>;
+  importSnapshot(snapshot: CompetitionSnapshot): Promise<void>;
+  reconcileSnapshot(snapshot: CompetitionSnapshot): Promise<CompetitionReconciliation>;
 }
