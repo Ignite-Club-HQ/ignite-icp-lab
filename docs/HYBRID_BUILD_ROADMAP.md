@@ -66,6 +66,9 @@ The current worktree adds or completes ICP-mode guards across the remaining
   weekly, or monthly recurrence rule when an end date is supplied; generated
   child-event materialization and reminder/timer delivery remain outside this
   slice.
+- event detail now reads local canister RSVP state into the existing response
+  buckets; child/guardian roster hydration and admin attendance summaries remain
+  unavailable until their provider-neutral contract data exists.
 - the competitions list, detail, create, and join pages now use typed signed local
   `competition_domain` actor paths to read exported local state including team
   entries, seasons, matches, and join-token metadata; create the supported

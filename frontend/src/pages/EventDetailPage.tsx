@@ -119,7 +119,7 @@ import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
-import { getLocalEvent, isLocalEventsCanisterUnavailable, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
+import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social";
@@ -452,7 +452,10 @@ export default function EventDetailPage() {
   } = useQuery({
     queryKey: ["event-rsvps", id],
     queryFn: async () => {
-      if (useIcpLab) return [];
+      if (useIcpLab) {
+        if (!id) throw new Error("Missing event ID");
+        return listLocalEventRsvps(localIcpPersona, id);
+      }
 
       // Fetch rsvps first
       const { data: rsvpData, error: rsvpError } = await supabase

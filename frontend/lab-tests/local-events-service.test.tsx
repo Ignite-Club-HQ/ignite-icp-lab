@@ -3,6 +3,29 @@ import { Principal } from '@icp-sdk/core/principal';
 import { createEventsDomainClient } from '../src/lab/localEventsService';
 import type { _SERVICE } from '../src/lab/bindings/events_domain/declarations/events_domain.did';
 
+test('events domain client maps exported local RSVPs into page rows', async () => {
+  const client = createEventsDomainClient({
+    export_state: vi.fn(async () => ({
+      Ok: {
+        schema: 1,
+        governor: Principal.fromText('aaaaa-aa'),
+        events: [],
+        rsvps: [{ event_id: 'event-1', account_id: 'account-1', state: 'going', updated_at_ms: 2n }],
+        attendance: [],
+        duties: [],
+        recurrences: [],
+        roster: [],
+        lineups: [],
+        roles: [],
+      },
+    })),
+  } as unknown as _SERVICE);
+
+  await expect(client.listEventRsvps('event-1')).resolves.toMatchObject([
+    { event_id: 'event-1', user_id: 'account-1', status: 'going', source: 'icp' },
+  ]);
+});
+
 test('events domain client maps scoped canister events into schedule rows', async () => {
   const listEvents = vi.fn(async () => [{
     id: 'event-1',

@@ -37,6 +37,18 @@ export interface LocalScheduleEvent {
   ends_at_ms: bigint;
 }
 
+export interface LocalEventRsvp {
+  id: string;
+  event_id: string;
+  user_id: string;
+  child_id: null;
+  status: string;
+  notes: null;
+  source: 'icp';
+  profiles: { display_name: string; avatar_url: null };
+  children: null;
+}
+
 function titleToType(title: string): LocalScheduleEvent['type'] {
   const normalized = title.toLowerCase();
   if (normalized.includes('training')) return 'training';
@@ -84,7 +96,7 @@ export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /events domain canister is not configured/i.test(error.message);
 }
 
-export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event' | 'set_rsvp' | 'set_attendance' | 'set_duty' | 'set_recurrence'>) {
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event' | 'update_event' | 'set_rsvp' | 'set_attendance' | 'set_duty' | 'set_recurrence' | 'export_state'>) {
   return {
     async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
       const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
@@ -138,6 +150,23 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
       const result = await actor.set_recurrence(eventId, frequency, untilMs);
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok;
+    },
+    async listEventRsvps(eventId: string): Promise<LocalEventRsvp[]> {
+      const result = await actor.export_state();
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok.rsvps
+        .filter((rsvp) => rsvp.event_id === eventId)
+        .map((rsvp) => ({
+          id: `local-rsvp-${eventId}-${rsvp.account_id}`,
+          event_id: eventId,
+          user_id: rsvp.account_id,
+          child_id: null,
+          status: rsvp.state,
+          notes: null,
+          source: 'icp' as const,
+          profiles: { display_name: rsvp.account_id, avatar_url: null },
+          children: null,
+        }));
     },
   };
 }
@@ -209,4 +238,8 @@ export async function setLocalEventRecurrence(
   untilMs: bigint,
 ): Promise<Recurrence> {
   return createEventsDomainClient(await connectEventsActor(persona)).setRecurrence(eventId, frequency, untilMs);
+}
+
+export async function listLocalEventRsvps(persona: string, eventId: string): Promise<LocalEventRsvp[]> {
+  return createEventsDomainClient(await connectEventsActor(persona)).listEventRsvps(eventId);
 }
