@@ -96,7 +96,8 @@ describe("CreateCompetitionPage — personal organiser (atomic RPC)", () => {
     window.history.replaceState({}, "", "/?backend=icp");
     await renderPage();
 
-    expect(await screen.findByText(/competition creation is unavailable in ICP lab mode/i)).toBeTruthy();
+    expect(await screen.findByText(/new local ICP competition/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /create local ICP competition/i })).toBeTruthy();
     expect(rpcMock).not.toHaveBeenCalled();
     expect(fromInsertMock).not.toHaveBeenCalled();
   });

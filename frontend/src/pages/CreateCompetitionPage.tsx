@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Loader2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { createLocalCompetition } from "@/lab/localCompetitionService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 const SPORTS = Object.keys(SPORT_EMOJIS);
 const PERSONAL_ORGANISER = "__personal__";
@@ -31,26 +33,117 @@ const VISIBILITY_LABELS: Record<string, string> = {
 export default function CreateCompetitionPage() {
   usePageTitle("New competition");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-2xl mx-auto px-4 py-10">
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-4 text-center">
-          <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Competition creation is unavailable in ICP lab mode</h1>
-          <p className="text-sm text-muted-foreground">
-            Competition, organiser, invitation, and visibility changes are disabled. No data has been created.
-          </p>
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-          </Button>
-        </div>
-      </div>
-    );
+    return <IcpCreateCompetitionPage preselectedOrganizer={searchParams.get("organizer")} />;
   }
 
   return <SupabaseCreateCompetitionPage />;
+}
+
+function IcpCreateCompetitionPage({ preselectedOrganizer }: { preselectedOrganizer: string | null }) {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const [name, setName] = useState("");
+  const [season, setSeason] = useState("");
+  const [clubId, setClubId] = useState(preselectedOrganizer || "local-club");
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const trimmedName = name.trim();
+      const trimmedSeason = season.trim();
+      const trimmedClubId = clubId.trim();
+      if (!trimmedName) throw new Error("Competition name is required.");
+      if (!trimmedSeason) throw new Error("Season is required.");
+      if (!trimmedClubId) throw new Error("Local club ID is required.");
+      return createLocalCompetition(localIcpPersona, trimmedClubId, trimmedName, trimmedSeason);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["local-icp-competitions", localIcpPersona] });
+      toast({ title: "Local ICP competition created" });
+      navigate("/competitions");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not create local ICP competition",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 pt-4 pb-32">
+      <div className="flex items-center gap-2 mb-3">
+        <Button variant="ghost" size="icon" className="-ml-2 shrink-0" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <Trophy className="h-5 w-5 text-primary shrink-0" />
+        <h1 className="text-xl font-semibold leading-none">New local ICP competition</h1>
+      </div>
+      <p className="text-[13px] text-muted-foreground mb-5 pl-10">
+        Creates the supported local canister competition record only. Invitations, visibility, descriptions, and external sync stay disabled.
+      </p>
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          createMutation.mutate();
+        }}
+        className="space-y-5"
+      >
+        <div className="space-y-1.5">
+          <label htmlFor="icp-name" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground pl-1">
+            Competition name
+          </label>
+          <Input
+            id="icp-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Twilight Twenty 2026"
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="icp-season" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground pl-1">
+            Season
+          </label>
+          <Input
+            id="icp-season"
+            value={season}
+            onChange={(event) => setSeason(event.target.value)}
+            placeholder="2026"
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="icp-club-id" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground pl-1">
+            Local club ID
+          </label>
+          <Input
+            id="icp-club-id"
+            value={clubId}
+            onChange={(event) => setClubId(event.target.value)}
+            placeholder="local-club"
+            required
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit" disabled={createMutation.isPending}>
+            {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create local ICP competition
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/competitions")}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 function SupabaseCreateCompetitionPage() {
