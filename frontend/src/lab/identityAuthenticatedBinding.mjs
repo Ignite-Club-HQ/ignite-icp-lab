@@ -2,6 +2,11 @@
 // Candid actor boundary while using the synthetic identity/access service.
 // It is not a deployed identity canister and is outside the lab runtime.
 
+import {
+  createLocalActorTransport,
+  LOCAL_ACTOR_CONFIGS,
+} from './localActorTransport.mjs';
+
 const clone = value => structuredClone(value);
 
 function failure(error) {
@@ -64,7 +69,10 @@ function accessToWire(access) {
  * provider-neutral service for all authority decisions; no role or account
  * argument is accepted from the caller.
  */
-export function createSyntheticAuthenticatedIdentityFactory({ service }) {
+export function createSyntheticAuthenticatedIdentityFactory({
+  service,
+  transportFactory = createLocalActorTransport,
+}) {
   if (!service ||
       typeof service.resolveAccount !== 'function' ||
       typeof service.resolveAuthorization !== 'function') {
@@ -79,48 +87,41 @@ export function createSyntheticAuthenticatedIdentityFactory({ service }) {
         throw new Error('Identity is not registered for this synthetic canister');
       }
       const principalText = account.principalText;
+      const transport = transportFactory({
+        config: LOCAL_ACTOR_CONFIGS.identity,
+        dispatch: async ({ method, args }) => {
+          try {
+            switch (method) {
+              case 'resolve_account':
+                return success(accountToWire(await service.resolveAccount(principalText)));
+              case 'resolve_authorization':
+                return success(authorizationToWire(
+                  await service.resolveAuthorization(principalText),
+                ));
+              case 'get_profile':
+                return success(profileToWire(
+                  await service.getProfile(principalText, args.account_id),
+                ));
+              case 'get_club_access':
+                return success(accessToWire(
+                  await service.getClubAccess(principalText, args.club_id),
+                ));
+              case 'can_access_child':
+                return success(await service.canAccessChild(principalText, args.child_id));
+              default:
+                throw new Error(`Unknown identity actor method: ${method}`);
+            }
+          } catch (error) {
+            return failure(error);
+          }
+        },
+      });
       return {
-        async resolve_account() {
-          try {
-            return success(accountToWire(await service.resolveAccount(principalText)));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async resolve_authorization() {
-          try {
-            return success(authorizationToWire(
-              await service.resolveAuthorization(principalText),
-            ));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async get_profile(request) {
-          try {
-            return success(profileToWire(
-              await service.getProfile(principalText, request.account_id),
-            ));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async get_club_access(request) {
-          try {
-            return success(accessToWire(
-              await service.getClubAccess(principalText, request.club_id),
-            ));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async can_access_child(request) {
-          try {
-            return success(await service.canAccessChild(principalText, request.child_id));
-          } catch (error) {
-            return failure(error);
-          }
-        },
+        resolve_account: () => transport.call('resolve_account', null),
+        resolve_authorization: () => transport.call('resolve_authorization', null),
+        get_profile: request => transport.call('get_profile', request),
+        get_club_access: request => transport.call('get_club_access', request),
+        can_access_child: request => transport.call('can_access_child', request),
       };
     },
   };

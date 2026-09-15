@@ -62,6 +62,19 @@
   generated declarations or a deployed canister. It does not prove real
   principal verification, stable-memory upgrades, account linking, or
   production authentication.
+- `node --test lab-tests/local-actor-transport.test.mjs
+  lab-tests/identity-authenticated-binding.test.mjs
+  lab-tests/competition-authenticated-binding.test.mjs`: passed, 11 tests
+  covering the shared fixed local actor configuration, cloned dispatch
+  boundaries, invalid method/config rejection, and identity/competition
+  binding integration through the common transport seam.
+- Focused TypeScript checking passed for `LocalActorTransport.ts`,
+  `IdentityBindings.ts`, `CompetitionBindings.ts`,
+  `IdentityAccessService.ts`, and `CompetitionService.ts`.
+- The local actor transport is an in-memory dispatch boundary only. It does
+  not encode Candid, issue HTTP requests, verify principals, connect to a
+  canister, or provide stable-memory upgrade evidence. Its synthetic
+  `/icp/api/v2` metadata is configuration evidence, not a live endpoint.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

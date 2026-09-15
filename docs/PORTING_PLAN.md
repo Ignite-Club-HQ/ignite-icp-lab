@@ -117,6 +117,17 @@ harness only and remains outside the runtime allowlist. The next gate is
 replacing this harness with generated declarations and a disposable local
 identity canister before any identity-backed route is enabled.
 
+Both authenticated harnesses now use the shared local actor transport seam in
+`frontend/src/lab/LocalActorTransport.ts` and
+`frontend/src/lab/localActorTransport.mjs`. The transport has fixed synthetic
+identity and competition canister configurations, the loopback API path, strict
+method validation, cloned request boundaries, and an implicit-caller dispatch
+callback. This removes duplicated actor-call plumbing without enabling
+network access, environment-selected endpoints, generated bindings, or a live
+canister. Transport tests prove that both domains use the same `/icp/api/v2`
+boundary and distinct synthetic canister IDs. The transport and both bindings
+remain outside `frontend/lab-runtime-files.json`.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

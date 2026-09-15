@@ -2,6 +2,11 @@
 // shapes, but uses synthetic identity records and the in-memory adapter.
 // It is not a deployed canister actor and is not in the active runtime.
 
+import {
+  createLocalActorTransport,
+  LOCAL_ACTOR_CONFIGS,
+} from './localActorTransport.mjs';
+
 const clone = value => structuredClone(value);
 
 function errorMessage(error) {
@@ -87,7 +92,11 @@ function requireIdentity(identity) {
  * ID; roles and memberships are resolved there, not trusted from frontend
  * input.
  */
-export function createSyntheticAuthenticatedCompetitionFactory({ service, identityAccess }) {
+export function createSyntheticAuthenticatedCompetitionFactory({
+  service,
+  identityAccess,
+  transportFactory = createLocalActorTransport,
+}) {
   if (!service || !identityAccess ||
       typeof identityAccess.resolveAccount !== 'function' ||
       typeof identityAccess.resolveAuthorization !== 'function') {
@@ -106,45 +115,46 @@ export function createSyntheticAuthenticatedCompetitionFactory({ service, identi
           serverActor.principalText !== identity.principalText) {
         throw new Error('Identity authorization mismatch');
       }
+      const transport = transportFactory({
+        config: LOCAL_ACTOR_CONFIGS.competition,
+        dispatch: async ({ method, args }) => {
+          try {
+            switch (method) {
+              case 'list_competitions':
+                return success(toPage(await service.list(serverActor, {
+                  clubId: fromOption(args.club_id) ?? undefined,
+                  cursor: fromOption(args.cursor) ?? undefined,
+                  limit: args.limit,
+                })));
+              case 'get_competition':
+                return success(toWire(await service.get(serverActor, args.competition_id)));
+              case 'create_competition':
+                return success(toWire(await service.create(
+                  serverActor,
+                  fromCreate(args),
+                  args.request_id,
+                )));
+              case 'update_competition':
+                return success(toWire(await service.update(
+                  serverActor,
+                  args.competition_id,
+                  fromPatch(args.patch),
+                  args.expected_revision,
+                  args.request_id,
+                )));
+              default:
+                throw new Error(`Unknown competition actor method: ${method}`);
+            }
+          } catch (error) {
+            return failure(error);
+          }
+        },
+      });
       return {
-        async list_competitions(request) {
-          try {
-            return success(toPage(await service.list(serverActor, {
-              clubId: fromOption(request.club_id) ?? undefined,
-              cursor: fromOption(request.cursor) ?? undefined,
-              limit: request.limit,
-            })));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async get_competition(request) {
-          try {
-            return success(toWire(await service.get(serverActor, request.competition_id)));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async create_competition(request) {
-          try {
-            return success(toWire(await service.create(serverActor, fromCreate(request), request.request_id)));
-          } catch (error) {
-            return failure(error);
-          }
-        },
-        async update_competition(request) {
-          try {
-            return success(toWire(await service.update(
-              serverActor,
-              request.competition_id,
-              fromPatch(request.patch),
-              request.expected_revision,
-              request.request_id,
-            )));
-          } catch (error) {
-            return failure(error);
-          }
-        },
+        list_competitions: request => transport.call('list_competitions', request),
+        get_competition: request => transport.call('get_competition', request),
+        create_competition: request => transport.call('create_competition', request),
+        update_competition: request => transport.call('update_competition', request),
       };
     },
   };
