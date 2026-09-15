@@ -178,10 +178,11 @@ club/team detail, event detail, messaging entry points, profile/settings,
 notifications, news, leaderboard, rewards, club/team lifecycle, event-write,
 competition, season, mini-league, enrolment/EOI, role, association, reporting,
 administrative, messaging, media, and external-boundary surfaces. The roles
-page has a signed local `identity_access` actor read path, and the schedule
-page has a signed local `events_domain` actor read path with fixture fallback
-only when that local canister is not configured. All 99 application pages with
-direct Supabase imports now have an explicit ICP-lab guard. Many write or
+page has a signed local `identity_access` actor read path, and event list,
+create, and edit now use signed local `events_domain` actor paths for basic
+event reads/writes. The event list keeps a fixture fallback only when that
+local canister is not configured. All 99 application pages with direct
+Supabase imports now have an explicit ICP-lab guard. Many write or
 external-integration routes intentionally fail closed until typed ICP services
 or approved external boundaries exist.
 

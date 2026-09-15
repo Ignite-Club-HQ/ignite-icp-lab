@@ -57,13 +57,15 @@ The current worktree adds or completes ICP-mode guards across the remaining
 - identity/recovery and administrative handoff routes;
 - administration, messaging, media, notification, import, backup, billing,
   advertising, AI, and other external-integration boundaries.
-- the schedule list now attempts a typed signed local `events_domain` actor read
-  before using explicit local fixtures when that canister is not configured.
+- event list, create, and edit now use typed signed local `events_domain`
+  actor paths for basic event reads/writes; the list keeps an explicit local
+  fixture fallback only when that canister is not configured.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
 
-1. typed local ICP service reads where a signed canister boundary exists;
+1. typed local ICP service reads or basic writes where a signed canister
+   boundary exists;
 2. synthetic/read-only data where a safe fixture contract already exists; or
 3. an explicit unavailable state that prevents the Supabase implementation
    from mounting.
