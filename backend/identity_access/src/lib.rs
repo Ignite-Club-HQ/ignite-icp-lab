@@ -229,6 +229,34 @@ fn excluded(
             && ((team.is_some() && team_matches) || (club_matches && item.team.is_none()))
     })
 }
+fn has_direct_team_role(
+    state: &State,
+    account_id: &str,
+    site_id: Option<&str>,
+    team_id: &str,
+) -> bool {
+    state.roles.iter().any(|grant| {
+        let site_matches = match (grant.site_id.as_deref(), site_id) {
+            (None, _) => true,
+            (Some(grant_site), Some(requested_site)) => grant_site == requested_site,
+            (Some(_), None) => false,
+        };
+        grant.account_id == account_id
+            && grant.team.as_deref() == Some(team_id)
+            && site_matches
+    })
+}
+fn team_member_access(
+    state: &State,
+    account_id: &str,
+    site_id: Option<&str>,
+    club_id: Option<&str>,
+    team_id: &str,
+    guardian: bool,
+) -> bool {
+    !excluded(state, account_id, site_id, club_id, Some(team_id))
+        && (has_direct_team_role(state, account_id, site_id, team_id) || guardian)
+}
 
 #[ic_cdk::init]
 fn init(init: Init) {
@@ -302,11 +330,7 @@ fn access_scoped(
             && !excluded(&state, &account_id, site_ref, club_ref, team_ref)
     });
     let team_member = team_ref.is_some_and(|id| {
-        !excluded(&state, &account_id, site_ref, club_ref, team_ref)
-            && (account_has_role(&state, &account_id, "app_admin", None, None, None)
-                || account_has_role(&state, &account_id, "team_admin", site_ref, None, Some(id))
-                || account_has_role(&state, &account_id, "coach", site_ref, None, Some(id))
-                || guardian)
+        team_member_access(&state, &account_id, site_ref, club_ref, id, guardian)
     });
     let club_admin = club_ref.is_some_and(|id| {
         !excluded(&state, &account_id, site_ref, club_ref, None)
@@ -932,6 +956,71 @@ mod tests {
             Some("site-a"),
             Some("club-1"),
             None
+        ));
+    }
+
+    #[test]
+    fn direct_team_roles_are_exact_membership_without_admin_bypass() {
+        let governor = principal(1);
+        let state = State {
+            schema: SCHEMA,
+            governor,
+            accounts: vec![],
+            roles: vec![
+                RoleGrant {
+                    account_id: "player".into(),
+                    role: "player".into(),
+                    site_id: Some("site-a".into()),
+                    club: Some("club-a".into()),
+                    team: Some("team-a".into()),
+                },
+                RoleGrant {
+                    account_id: "admin".into(),
+                    role: "app_admin".into(),
+                    site_id: None,
+                    club: None,
+                    team: None,
+                },
+            ],
+            families: vec![],
+            exclusions: vec![],
+            challenges: vec![],
+            external_bindings: vec![],
+            privacy_consents: vec![],
+            next_challenge: 0,
+        };
+
+        assert!(team_member_access(
+            &state,
+            "player",
+            Some("site-a"),
+            Some("club-a"),
+            "team-a",
+            false,
+        ));
+        assert!(!team_member_access(
+            &state,
+            "player",
+            Some("site-a"),
+            Some("club-a"),
+            "team-b",
+            false,
+        ));
+        assert!(!team_member_access(
+            &state,
+            "player",
+            Some("site-b"),
+            Some("club-a"),
+            "team-a",
+            false,
+        ));
+        assert!(!team_member_access(
+            &state,
+            "admin",
+            Some("site-a"),
+            Some("club-a"),
+            "team-a",
+            false,
         ));
     }
 

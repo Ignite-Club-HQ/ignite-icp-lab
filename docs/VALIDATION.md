@@ -520,3 +520,24 @@ recorded only after those checks run.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Identity exact-team membership validation slice - 2026-09-15
+
+Mapped `identity_access` team membership to the inert `is_team_member` helper:
+an exact team-scoped direct role establishes membership regardless of its role
+label. The scoped query no longer treats a global `app_admin` role as team
+membership; it remains separately exposed as global administrative authority.
+The focused regression proves a `player` role is recognized only for its exact
+team and site, while a global app administrator is not misreported as a team
+member. Existing exclusion and limited guardian handling remain unchanged.
+
+`cargo test --locked` passed 7 unit tests and `cargo build --locked --release`
+passed. This is a bounded source-helper correction, not evidence of complete
+team/club relationship validation, parent/guardian assignment parity,
+exclusion-trigger parity, source role lifecycle, or production RLS parity.
+The full lab suite and loopback smoke result will be recorded only after those
+checks run.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.
