@@ -22,7 +22,7 @@ export function createIdentityAccessClient(actor: _SERVICE) {
     acceptLink: (id: bigint) => call(() => actor.accept_link(id)),
     revoke: (principal: Parameters<_SERVICE['revoke']>[0], expectedVersion: bigint) => call(() => actor.revoke(principal, expectedVersion)),
     grantRole: (accountId: string, role: string, club?: string, team?: string, siteId?: string) =>
-      call(() => actor.grant_role_scoped(accountId, role, club ? [club] : [], team ? [team] : [], siteId ? [siteId] : [])),
+      call(() => actor.grant_role_scoped(accountId, role, siteId ? [siteId] : [], club ? [club] : [], team ? [team] : [])),
     setFamily: (accountId: string, childId: string) => call(() => actor.set_family(accountId, childId)),
     setExclusion: (accountId: string, club: string, team?: string, siteId?: string) =>
       call(() => actor.set_exclusion_scoped(accountId, siteId ? [siteId] : [], club, team ? [team] : [])),

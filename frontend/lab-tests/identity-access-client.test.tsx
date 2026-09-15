@@ -28,7 +28,7 @@ test('identity access client converts successful decisions and preserves caniste
   await expect(client.accessScoped('site-a', 'club-a', 'team-a', 'child-a')).resolves.toMatchObject({ club_admin: true });
   expect(accessScoped).toHaveBeenCalledWith(['site-a'], ['club-a'], ['team-a'], ['child-a']);
   await expect(client.grantRole('account-2', 'coach', 'club-a', 'team-a', 'site-a')).resolves.toBeNull();
-  expect(grantRoleScoped).toHaveBeenCalledWith('account-2', 'coach', ['club-a'], ['team-a'], ['site-a']);
+  expect(grantRoleScoped).toHaveBeenCalledWith('account-2', 'coach', ['site-a'], ['club-a'], ['team-a']);
   await expect(client.beginLink(Principal.fromText('2ibo7-dia'))).rejects.toThrow('synthetic denial');
 });
 

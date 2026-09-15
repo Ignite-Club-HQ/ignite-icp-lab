@@ -529,7 +529,8 @@ label. The scoped query no longer treats a global `app_admin` role as team
 membership; it remains separately exposed as global administrative authority.
 The focused regression proves a `player` role is recognized only for its exact
 team and site, while a global app administrator is not misreported as a team
-member. Existing exclusion and limited guardian handling remain unchanged.
+member. The typed client now also forwards its public `site`, `club`, and `team` parameters to `grant_role_scoped` in the generated Candid order.
+Existing exclusion and limited guardian handling remain unchanged.
 
 `cargo test --locked` passed 7 unit tests and `cargo build --locked --release`
 passed. This is a bounded source-helper correction, not evidence of complete
