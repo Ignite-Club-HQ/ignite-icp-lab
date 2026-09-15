@@ -1,5 +1,31 @@
 # Validation of the lab source transfer
 
+## 2026-09-15 bounded hybrid route guard pass
+
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/backendRouter.test.tsx`: passed, 1 file and 7 tests.
+- `npm test`: passed, 4 Node isolation/service tests and 8 Vitest tests.
+- `npm run check:isolation`: passed.
+- `npm run build`: passed with the repository's existing Tailwind, Browserslist,
+  and third-party `use client` warnings.
+- `npm run test:server`: passed against the disposable loopback Vite server;
+  CSP, blocked unported App access, and absent local ICP behavior remained
+  fail-closed.
+- The new route tests cover the default ICP decision, explicit/unknown query
+  values, reactive router selection, an ICP-mode competition unavailable state
+  with zero Supabase calls, and the preserved explicit Supabase comparison
+  path.
+- Competition and mini-league pages remain outside the runtime allowlist. No
+  local competition provider or production integration was added.
+- The repository has no `typecheck:lab` script. A direct
+  `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
+  full-source type errors, including pre-existing errors in the unported
+  mini-league and competition source; no new error was reported in the added
+  backend-mode or unavailable-notice modules.
+
+This is frontend routing/isolation evidence only. It is not evidence of
+competition canister connectivity, authorization parity, production RLS parity,
+or production readiness.
+
 Validated in a Bubblewrap sandbox with a separate network namespace, cleared environment, no production source/home credentials mounted, writable lab files and read-only installed dependencies. The host production repository was read only to prepare the sanitized copy and compare source hashes.
 
 - Isolation checker passed: active source allowlist, blocked integration imports, disabled clients, restrictive CSP, fixed loopback ICP target and no runtime environment configuration.

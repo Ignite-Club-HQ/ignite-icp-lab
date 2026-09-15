@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Users, Calendar, ChevronRight, Loader2, Trophy, ArrowLeft, Crown, Lock, Search, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { resolveLocalAuthMode } from "@/lib/backendMode";
 
 interface MiniLeague {
   id: string;
@@ -39,7 +40,7 @@ interface MiniLeague {
   };
 }
 
-export default function MiniLeaguesPage() {
+function MiniLeaguesPageSupabase() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -431,5 +432,25 @@ export default function MiniLeaguesPage() {
         </DrawerContent>
       </Drawer>
     </div>
+  );
+}
+
+export default function MiniLeaguesPage() {
+  const { search } = useLocation();
+
+  if (resolveLocalAuthMode(search) === "supabase") {
+    return <MiniLeaguesPageSupabase />;
+  }
+
+  return (
+    <main className="container max-w-2xl px-4 py-12">
+      <div className="rounded-lg border bg-card p-6 text-center space-y-3">
+        <h1 className="text-2xl font-bold tracking-tight">Mini Leagues</h1>
+        <p className="font-medium">Unavailable in ICP mode</p>
+        <p className="text-sm text-muted-foreground">
+          Mini Leagues are read-only and unavailable until a local ICP provider is implemented.
+        </p>
+      </div>
+    </main>
   );
 }

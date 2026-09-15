@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useBackendMode } from "@/hooks/useBackendMode";
+import { CompetitionBackendUnavailableNotice } from "@/components/competitions/CompetitionBackendUnavailableNotice";
 
-export default function PublicCompetitionPage() {
+function PublicCompetitionPageSupabase() {
   const { id } = useParams<{ id: string }>();
   usePageTitle("Competition");
 
@@ -199,5 +201,22 @@ export default function PublicCompetitionPage() {
         Powered by <Link to="/" className="underline">Ignite</Link>
       </footer>
     </div>
+  );
+}
+
+
+// Hybrid backend selection: an explicit ?backend=supabase query parameter
+// preserves the existing Supabase-backed public view unchanged. Any other
+// value (including no parameter) renders an explicit unavailable state and
+// never mounts PublicCompetitionPageSupabase, so none of its Supabase-backed
+// queries run in ICP mode. See src/lib/backendMode.ts.
+export default function PublicCompetitionPage() {
+  const mode = useBackendMode();
+  if (mode === "supabase") return <PublicCompetitionPageSupabase />;
+  return (
+    <CompetitionBackendUnavailableNotice
+      title="Competition"
+      feature="This public competition view"
+    />
   );
 }

@@ -38,6 +38,31 @@ All tracked frontend source is copied with provenance. URLs, email addresses, re
 
 The original dependency scripts are reference only. The active package has no deployment, native, install-hook or Supabase commands. Native and Supabase SDKs are removed as direct dependencies; legacy lockfile entries and type imports may remain as source evidence. Do not run the unported source test suite indiscriminately.
 
+## Hybrid route guard checkpoint
+
+The competition lifecycle is the next bounded frontend seam after the local
+event self-attendance work recorded in the hybrid execution history. The
+following source pages now resolve the backend mode before mounting their
+existing Supabase implementation:
+
+- competitions list and creation;
+- public competition view;
+- mini-league list and detail.
+
+The default is `icp`, which renders an explicit unavailable/read-only state
+and makes no Supabase request. The old implementation is reachable only when
+the navigation explicitly includes `?backend=supabase`; this is a comparison
+path, not an automatic fallback or a claim that Supabase is enabled in the
+lab. No competition or mini-league page has been added to
+`frontend/lab-runtime-files.json`, and no local competition provider has been
+invented to satisfy the guard. The focused route tests prove both the
+fail-closed default and preservation of the explicit comparison path.
+
+The next replacement gate is a provider-neutral competition service backed by
+synthetic local state and generated/authenticated local bindings. Until that
+contract and its authorization/isolation evidence exist, competition and
+mini-league pages remain outside the active runtime.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

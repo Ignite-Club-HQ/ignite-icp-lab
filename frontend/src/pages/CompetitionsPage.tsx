@@ -12,8 +12,10 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { useMemo } from "react";
+import { useBackendMode } from "@/hooks/useBackendMode";
+import { CompetitionBackendUnavailableNotice } from "@/components/competitions/CompetitionBackendUnavailableNotice";
 
-export default function CompetitionsPage() {
+function CompetitionsPageSupabase() {
   usePageTitle("Competitions");
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
@@ -204,5 +206,22 @@ export default function CompetitionsPage() {
       </section>
       
     </div>
+  );
+}
+
+
+// Hybrid backend selection: an explicit ?backend=supabase query parameter
+// preserves the existing Supabase-backed page unchanged. Any other value
+// (including no parameter) renders an explicit unavailable state and never
+// mounts CompetitionsPageSupabase, so none of its Supabase-backed queries
+// run in ICP mode. See src/lib/backendMode.ts.
+export default function CompetitionsPage() {
+  const mode = useBackendMode();
+  if (mode === "supabase") return <CompetitionsPageSupabase />;
+  return (
+    <CompetitionBackendUnavailableNotice
+      title="Competitions"
+      feature="The competitions list"
+    />
   );
 }

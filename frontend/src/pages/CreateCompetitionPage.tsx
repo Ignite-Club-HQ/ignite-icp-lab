@@ -17,6 +17,8 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
+import { useBackendMode } from "@/hooks/useBackendMode";
+import { CompetitionBackendUnavailableNotice } from "@/components/competitions/CompetitionBackendUnavailableNotice";
 
 const SPORTS = Object.keys(SPORT_EMOJIS);
 const PERSONAL_ORGANISER = "__personal__";
@@ -27,7 +29,7 @@ const VISIBILITY_LABELS: Record<string, string> = {
   public: "Public",
 };
 
-export default function CreateCompetitionPage() {
+function CreateCompetitionPageSupabase() {
   usePageTitle("New competition");
   const { user } = useAuth();
   const { toast } = useToast();
@@ -318,5 +320,22 @@ function CreateCompetitionSubmitButton({
       {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
       Create competition
     </Button>
+  );
+}
+
+
+// Hybrid backend selection: an explicit ?backend=supabase query parameter
+// preserves the existing Supabase-backed create flow unchanged. Any other
+// value (including no parameter) renders an explicit unavailable state and
+// never mounts CreateCompetitionPageSupabase, so none of its Supabase-backed
+// queries or mutations run in ICP mode. See src/lib/backendMode.ts.
+export default function CreateCompetitionPage() {
+  const mode = useBackendMode();
+  if (mode === "supabase") return <CreateCompetitionPageSupabase />;
+  return (
+    <CompetitionBackendUnavailableNotice
+      title="New competition"
+      feature="Creating a competition"
+    />
   );
 }

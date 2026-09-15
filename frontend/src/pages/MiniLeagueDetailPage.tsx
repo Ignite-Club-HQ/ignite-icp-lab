@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format, isToday, parseISO, startOfDay, nextSaturday } from "date-fns";
 import {
@@ -20,6 +20,7 @@ const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMin
 import { ManageMiniLeagueAdminsSheet } from "@/components/mini-league/ManageMiniLeagueAdminsSheet";
 import PendingInvitesList from "@/components/PendingInvitesList";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { resolveLocalAuthMode } from "@/lib/backendMode";
 
 interface MiniLeagueEvent {
   id: string;
@@ -34,7 +35,7 @@ interface MiniLeagueEvent {
   _allocatedPlayers?: number;
 }
 
-export default function MiniLeagueDetailPage() {
+function MiniLeagueDetailPageSupabase() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -899,5 +900,25 @@ export default function MiniLeagueDetailPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function MiniLeagueDetailPage() {
+  const { search } = useLocation();
+
+  if (resolveLocalAuthMode(search) === "supabase") {
+    return <MiniLeagueDetailPageSupabase />;
+  }
+
+  return (
+    <main className="container max-w-4xl px-4 py-12">
+      <div className="rounded-lg border bg-card p-6 text-center space-y-3">
+        <h1 className="text-2xl font-bold tracking-tight">Mini League</h1>
+        <p className="font-medium">Unavailable in ICP mode</p>
+        <p className="text-sm text-muted-foreground">
+          Mini League details are read-only and unavailable until a local ICP provider is implemented.
+        </p>
+      </div>
+    </main>
   );
 }

@@ -60,12 +60,16 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 // ---- Helpers ------------------------------------------------------------
 
+// CreateCompetitionPage now resolves a hybrid backend mode (see
+// src/lib/backendMode.ts). ?backend=supabase is required here to keep
+// exercising the existing Supabase-backed flow these tests pin; without it
+// the page would render the ICP unavailable notice instead.
 async function renderPage() {
   const { default: Page } = await import("./CreateCompetitionPage");
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/competitions/new?backend=supabase"]}>
         <Page />
       </MemoryRouter>
     </QueryClientProvider>
