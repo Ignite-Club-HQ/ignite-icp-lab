@@ -20,6 +20,16 @@ export const LOCAL_ACTOR_CONFIGS = Object.freeze({
     canisterId: 'lab-competition',
     basePath: BASE_PATH,
   }),
+  club: Object.freeze({
+    domain: 'club',
+    canisterId: 'lab-club',
+    basePath: BASE_PATH,
+  }),
+  team: Object.freeze({
+    domain: 'team',
+    canisterId: 'lab-team',
+    basePath: BASE_PATH,
+  }),
 });
 
 const clone = value => structuredClone(value);

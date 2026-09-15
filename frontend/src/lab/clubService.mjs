@@ -1,12 +1,15 @@
 // Synthetic, in-memory adapter. This is not production authorization or an ICP canister.
 //
-// Reproduces the two verified `public.clubs` SELECT policies (see
-// docs/PORTING_PLAN.md for citations):
+// Reproduces the union of three verified `public.clubs` SELECT policies (see
+// docs/PORTING_PLAN.md for citations); Postgres RLS unions every matching
+// permissive policy, so a caller is visible if ANY branch matches:
 //   - "Club members can view their clubs": is_club_member(uid, id) OR app_admin
 //   - "Authenticated users can view clubs for discovery": auth.uid() IS NOT NULL
 //     AND listed_on_marketplace = true
+//   - "Creators can view their clubs": created_by = auth.uid()
 // Anonymous callers (actor === null) are denied entirely, matching the
-// source's `auth.uid() IS NOT NULL` requirement on both policies.
+// source's `auth.uid() IS NOT NULL`/`TO authenticated` requirement on all
+// three policies.
 
 const MAX_PAGE_SIZE = 50;
 const MAX_NAME_LENGTH = 160;
@@ -29,6 +32,7 @@ function canRead(actor, row) {
   if (!actor) return false;
   if (isAppAdmin(actor)) return true;
   if (isMember(actor, row.id)) return true;
+  if (row.createdBy === actor.accountId) return true;
   return row.listedOnMarketplace === true;
 }
 
@@ -54,12 +58,16 @@ function validateSeed(input, index) {
   if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > MAX_NAME_LENGTH) {
     fail('Club name must be 1–160 characters');
   }
+  if (typeof input.createdBy !== 'string' || !input.createdBy.trim()) {
+    fail('Club creator account ID required');
+  }
   const id = input.id ?? `club-${index + 1}`;
   const timestamp = input.createdAt ?? new Date(index * 1000).toISOString();
   return {
     id,
     name: input.name.trim(),
     listedOnMarketplace: input.listedOnMarketplace === true,
+    createdBy: input.createdBy,
     createdAt: timestamp,
     updatedAt: input.updatedAt ?? timestamp,
   };

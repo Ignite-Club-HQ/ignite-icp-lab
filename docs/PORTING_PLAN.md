@@ -236,6 +236,81 @@ the active lab runtime. Club/team create/update/delete, capacity/
 subscription gating, and any generated Candid binding for these domains are
 deferred to a future pass.
 
+## Club/team actor-shaped bindings and creator-visibility correction
+
+This pass deepened the prior club/team RLS research with two further,
+directly-confirmed findings, then corrected a real gap they exposed and
+added Candid-shaped actor bindings for both domains.
+
+Deepened research (citations under `reference/backend/supabase/migrations/`,
+never executed):
+
+- **`has_role`'s own definition is confirmed absent from the sanitized
+  migration set, not merely hard to find.** The earliest included migration
+  (`20260108055928_d22ec24b-877f-4c9d-9e6b-159ad494505e.sql.md`) already
+  calls `has_role(...)`/`user_roles`/`'club_admin'::app_role` without any
+  prior `CREATE TABLE public.user_roles`, `CREATE TYPE public.app_role`, or
+  `CREATE FUNCTION public.has_role` migration anywhere in the 1060-file set.
+  The base schema predates the earliest sanitized migration and was not
+  carried into this reference set. This is a hard limit of the available
+  source, not an unresolved search; `has_role`'s exact behavior remains
+  inferred from call sites only.
+- **The clubs SELECT policy set has a third branch beyond the two found
+  previously.** `20260418030508_f8121b9a-1844-4ef5-ac5e-0d381208d08b.sql.md`
+  (dated after the two-policy rewrite in `20260317033255...`, and never
+  dropped in any later migration) adds:
+  `CREATE POLICY "Creators can view their clubs" ON public.clubs FOR SELECT
+  TO authenticated USING (created_by = auth.uid())`. Its own comment
+  explains why: the INSERT policy only requires `auth.uid() IS NOT NULL`,
+  but PostgREST's `.select()` after insert needs a matching SELECT policy,
+  and a brand-new club is neither a membership match nor marketplace-listed
+  yet. Postgres RLS unions every matching permissive policy, so the
+  effective clubs SELECT rule is the union of all three policies, not just
+  the first two. **This was a real gap in the read-only slice added in the
+  prior pass** (commit `4839a8c`), now fixed.
+- Also confirmed by direct grep: `clubs.deleted_at` (soft-delete, added
+  `20260403195836...sql.md`) is never referenced by any clubs SELECT policy
+  in this migration set — soft-delete filtering for clubs appears to be an
+  application-layer concern, not an RLS concern, in the reference source.
+  This adapter does not attempt to model soft-delete for the same reason.
+
+Correction: `frontend/src/lab/ClubService.ts`/`clubService.mjs` now include
+a `createdBy` field on `ClubRecord`, populated from a required fixture-seed
+field, with a third visibility branch (`row.createdBy === actor.accountId`)
+alongside membership and marketplace discovery. Anonymous callers remain
+denied on all three branches.
+
+New actor-shaped binding evidence, mirroring the identity/competition
+pattern (`frontend/src/lab/LocalActorTransport.ts`/
+`localActorTransport.mjs`):
+
+- `LOCAL_ACTOR_CONFIGS` gains two more fixed synthetic domains, `club`
+  (`lab-club`) and `team` (`lab-team`), alongside `identity` and
+  `competition`. Each keeps a distinct canister ID sharing the same
+  `/icp/api/v2` loopback base path.
+- `frontend/src/lab/ClubBindings.ts` and `frontend/src/lab/TeamBindings.ts`
+  declare Candid-shaped wire records/pages, `list_clubs`/`get_club` and
+  `list_teams`/`get_team` actor methods, and identity/service-factory
+  interfaces, following `CompetitionBindings.ts`'s shape.
+- `frontend/src/lab/clubAuthenticatedBinding.mjs` and
+  `frontend/src/lab/teamAuthenticatedBinding.mjs` implement synthetic
+  authenticated actor factories that resolve the caller's account and
+  server-owned authorization projection through `IdentityAccessService`
+  before dispatching through the shared transport; the caller-supplied
+  actor argument on the provider-neutral service methods is checked only
+  for identity binding (`assertBoundActor`), never trusted for
+  authorization, exactly as the competition binding already does. An
+  unauthenticated (anonymous) identity cannot connect at all, so it never
+  reaches the dispatch path for either domain.
+- Both bindings remain outside `frontend/lab-runtime-files.json` and do not
+  enable any route; they are local harness evidence only, not generated
+  declarations or a deployed canister.
+
+Still deferred, unchanged from the prior pass: club/team create/update/
+delete, capacity/subscription gating, the team-admin/club-admin `has_role`
+UPDATE bypass, the full base `CREATE TABLE` column lists, and any real
+`dfx`/`moc`-generated binding or live canister for either domain.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.

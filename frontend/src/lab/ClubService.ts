@@ -7,19 +7,31 @@
  * management, which carry additional unverified business rules (billing,
  * PlayHQ sync, theming) outside this pass's scope.
  *
- * Verified source policies (see docs/PORTING_PLAN.md for full citations):
+ * Verified source policies are all additive/permissive (Postgres RLS unions
+ * every matching policy), so the effective SELECT set is the union of three
+ * independently-added policies (see docs/PORTING_PLAN.md for full
+ * citations):
  *   CREATE POLICY "Club members can view their clubs" ON public.clubs
  *     FOR SELECT USING (is_club_member(auth.uid(), id) OR has_role(auth.uid(), 'app_admin', NULL, NULL));
  *   CREATE POLICY "Authenticated users can view clubs for discovery" ON public.clubs
  *     FOR SELECT USING (auth.uid() IS NOT NULL AND listed_on_marketplace = true);
+ *   CREATE POLICY "Creators can view their clubs" ON public.clubs
+ *     FOR SELECT TO authenticated USING (created_by = auth.uid());
  *
- * Note this is narrower than the club-links/competition domains: the clubs
- * table SELECT policy has no separate club-admin branch independent of
- * `is_club_member`. A club admin's own visibility comes from the direct-role
- * branch of `is_club_member`, which the source's auto-clear trigger keeps
- * from ever coinciding with an exclusion row in practice. This adapter does
- * not model that trigger; it only reproduces the two SELECT policies as
- * written.
+ * The third policy (added after the first two, never dropped) lets a club's
+ * creator read it back immediately after INSERT, before they hold any
+ * membership role and even if it is not marketplace-listed. This adapter
+ * models `createdBy` explicitly rather than folding it into membership.
+ *
+ * Note this remains narrower than the club-links/competition domains: the
+ * clubs table SELECT policy set has no separate club-admin branch
+ * independent of `is_club_member`. A club admin's own visibility comes from
+ * the direct-role branch of `is_club_member`, which the source's auto-clear
+ * trigger keeps from ever coinciding with an exclusion row in practice. This
+ * adapter does not model that trigger; it only reproduces the SELECT
+ * policies as written. Soft-delete (`clubs.deleted_at`, added later) is also
+ * not filtered by any of these SELECT policies in source, so it is
+ * deliberately not modeled here either.
  */
 export interface ClubDirectoryActor {
   /** Stable application account ID; never used as a principal or role. */
@@ -36,6 +48,8 @@ export interface ClubRecord {
   name: string;
   /** Mirrors `clubs.listed_on_marketplace`; gates the discovery SELECT policy. */
   listedOnMarketplace: boolean;
+  /** Mirrors `clubs.created_by`; gates the creator-can-view-own-club SELECT policy. */
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -116,6 +116,30 @@
   `frontend/lab-runtime-files.json`.
 - Focused TypeScript checking (`npx tsc --noEmit --strict`) passed for
   `ClubService.ts` and `TeamService.ts`.
+- `node --test lab-tests/club-service.test.mjs`: passed, 13 tests (up from
+  9), including two new tests for the creator-visibility correction: a
+  caller can read an unlisted, non-member club they just created, and a
+  different caller cannot read another creator's unlisted club. Pagination
+  and ordering tests updated for the fourth fixture row.
+- `node --test lab-tests/club-authenticated-binding.test.mjs
+  lab-tests/team-authenticated-binding.test.mjs`: passed, 11 tests. Club
+  binding coverage: server-resolved membership through the authenticated
+  actor, forged `appAdmin`/`memberClubIds` fields on the caller object
+  having no effect (the server-owned projection is used, not the argument),
+  app-admin visibility of every club, cross-account caller rejection before
+  reaching the actor, use of a distinct `lab-club` canister config on the
+  shared transport, and anonymous/unknown-identity connect rejection. Team
+  binding coverage: any authenticated bound actor reading a team from a
+  club they have no role in, forged caller fields having no effect (teams
+  do not gate on membership at all), cross-account caller rejection, a
+  distinct `lab-team` canister config, and anonymous/unknown-identity
+  connect rejection.
+- Focused TypeScript checking (`npx tsc --noEmit --strict`) passed for the
+  updated `ClubService.ts` and the new `ClubBindings.ts`/`TeamBindings.ts`.
+- Full suite after this pass: `npm test` reports 70 Node tests (up from 57)
+  plus the existing 8 Vitest tests, all passing. `npm run check:isolation`,
+  `npm run build`, and `npm run test:server` (against a disposable loopback
+  Vite dev server, started/stopped by PID) all passed.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported
