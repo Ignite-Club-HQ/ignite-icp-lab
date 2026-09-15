@@ -479,3 +479,23 @@ be recorded only after those checks run.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Club-domain bounded input and role-target validation slice - 2026-09-15
+
+Applied the existing local identity-access 128-byte nonblank identifier
+convention to each persisted `club_domain` club, team, and role field. The
+write paths now reject blank or oversized fields before storing them, and
+`grant_role` rejects the anonymous principal as a role recipient. Authorization
+is deliberately evaluated first so unauthorized callers do not receive field-
+or club-existence details. Focused regressions cover oversized club/team
+fields plus anonymous, blank-role, and oversized role/team-scope grants.
+
+`cargo test --locked` passed 7 unit tests and `cargo build --locked --release`
+passed. This bounded local validation does not add collection quotas, direct
+parent/guardian membership, exclusions, source-complete role lifecycle, or
+stable-memory/live-canister parity. The full lab suite and loopback smoke
+result will be recorded only after those checks run.
+
+The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
+lab typecheck, isolation check, production build, and fresh loopback Vite
+server smoke test.

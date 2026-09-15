@@ -1,5 +1,11 @@
 use candid::Principal;
 
+const MAX_FIELD_BYTES: usize = 128;
+
+fn valid_field(value: &str) -> bool {
+    !value.trim().is_empty() && value.len() <= MAX_FIELD_BYTES
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Club {
     pub id: String,
@@ -52,7 +58,7 @@ impl ClubDomain {
         if self.governor != actor {
             return Err("Club governor required".into());
         }
-        if club_id.trim().is_empty() || name.trim().is_empty() {
+        if !valid_field(club_id) || !valid_field(name) {
             return Err("Invalid club fields".into());
         }
         if self.clubs.iter().any(|club| club.id == club_id) {
@@ -83,7 +89,7 @@ impl ClubDomain {
         if !self.clubs.iter().any(|club| club.id == club_id) {
             return Err("Unknown club".into());
         }
-        if team_id.trim().is_empty() || name.trim().is_empty() {
+        if !valid_field(team_id) || !valid_field(name) {
             return Err("Invalid team fields".into());
         }
         if self.teams.iter().any(|team| team.id == team_id) {
@@ -111,6 +117,13 @@ impl ClubDomain {
         }
         if !self.can_manage_club(actor, club_id) {
             return Err("Club admin required".into());
+        }
+        if account == Principal::anonymous()
+            || !valid_field(role)
+            || !valid_field(club_id)
+            || team_id.is_some_and(|id| !valid_field(id))
+        {
+            return Err("Invalid role grant".into());
         }
         if !self.clubs.iter().any(|club| club.id == club_id) {
             return Err("Unknown club".into());
@@ -295,5 +308,93 @@ mod tests {
         assert!(domain.can_view_club(member, "club-a"));
         assert!(!domain.can_view_club(member, "club-b"));
         assert!(!domain.can_view_team(member, "team-a"));
+    }
+
+    #[test]
+    fn club_and_team_creation_require_bounded_fields() {
+        let governor = Principal::from_slice(&[1u8; 29]);
+        let mut domain = ClubDomain::new(governor);
+
+        assert_eq!(
+            domain
+                .create_club(governor, "club-a", &"n".repeat(MAX_FIELD_BYTES + 1))
+                .unwrap_err(),
+            "Invalid club fields"
+        );
+        domain
+            .create_club(governor, "club-a", "Northside FC")
+            .unwrap();
+        assert_eq!(
+            domain
+                .create_team(
+                    governor,
+                    &"t".repeat(MAX_FIELD_BYTES + 1),
+                    "club-a",
+                    "Under 14",
+                )
+                .unwrap_err(),
+            "Invalid team fields"
+        );
+        assert_eq!(
+            domain
+                .create_team(
+                    governor,
+                    "team-a",
+                    "club-a",
+                    &"n".repeat(MAX_FIELD_BYTES + 1),
+                )
+                .unwrap_err(),
+            "Invalid team fields"
+        );
+    }
+
+    #[test]
+    fn role_grants_reject_anonymous_and_unbounded_fields() {
+        let governor = Principal::from_slice(&[1u8; 29]);
+        let member = Principal::from_slice(&[6u8; 29]);
+        let mut domain = ClubDomain::new(governor);
+        domain
+            .create_club(governor, "club-a", "Northside FC")
+            .unwrap();
+        domain
+            .create_team(governor, "team-a", "club-a", "Under 14")
+            .unwrap();
+
+        assert_eq!(
+            domain
+                .grant_role(governor, Principal::anonymous(), "member", "club-a", None)
+                .unwrap_err(),
+            "Invalid role grant"
+        );
+        assert_eq!(
+            domain
+                .grant_role(governor, member, "", "club-a", None)
+                .unwrap_err(),
+            "Invalid role grant"
+        );
+        assert_eq!(
+            domain
+                .grant_role(
+                    governor,
+                    member,
+                    &"r".repeat(MAX_FIELD_BYTES + 1),
+                    "club-a",
+                    None,
+                )
+                .unwrap_err(),
+            "Invalid role grant"
+        );
+        assert_eq!(
+            domain
+                .grant_role(
+                    governor,
+                    member,
+                    "player",
+                    "club-a",
+                    Some(&"t".repeat(MAX_FIELD_BYTES + 1)),
+                )
+                .unwrap_err(),
+            "Invalid role grant"
+        );
     }
 }
