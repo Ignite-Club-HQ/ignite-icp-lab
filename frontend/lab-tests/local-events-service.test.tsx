@@ -30,3 +30,34 @@ test('events domain client maps scoped canister events into schedule rows', asyn
   ]);
   expect(listEvents).toHaveBeenCalledWith(['club-1'], ['team-1']);
 });
+
+test('events domain client surfaces create failures and maps accepted writes', async () => {
+  const createEvent = vi
+    .fn()
+    .mockResolvedValueOnce({ Err: 'Club or team admin required' })
+    .mockResolvedValueOnce({
+      Ok: {
+        id: 'event-2',
+        title: 'Match day',
+        creator: Principal.fromText('2ibo7-dia'),
+        team_id: [],
+        description: 'Synthetic match',
+        starts_at_ms: BigInt(Date.UTC(2026, 0, 3, 12, 0, 0)),
+        ends_at_ms: BigInt(Date.UTC(2026, 0, 3, 13, 0, 0)),
+        revision: 1n,
+        club_id: 'club-1',
+      },
+    });
+  const client = createEventsDomainClient({
+    list_events: vi.fn(),
+    create_event: createEvent,
+  } as unknown as _SERVICE);
+
+  await expect(client.createEvent('club-1', null, 'No role', 'No role', 1n, 2n)).rejects.toThrow('Club or team admin required');
+  await expect(client.createEvent('club-1', null, 'Match day', 'Synthetic match', 1n, 2n)).resolves.toMatchObject({
+    id: 'event-2',
+    type: 'game',
+    team_id: null,
+  });
+  expect(createEvent).toHaveBeenLastCalledWith('club-1', [], 'Match day', 'Synthetic match', 1n, 2n);
+});

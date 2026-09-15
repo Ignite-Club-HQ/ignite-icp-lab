@@ -38,7 +38,7 @@
   { "path": "src/pages/CreateAssociationPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "association_domain" },
   { "path": "src/pages/CreateClubPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "club_domain" },
   { "path": "src/pages/CreateCompetitionPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
-  { "path": "src/pages/CreateEventPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "events_domain" },
+  { "path": "src/pages/CreateEventPage.tsx", "status": "hybrid", "icpBehavior": "icp_service_write", "nextDependency": "events_domain_recurrence_duties_notifications" },
   { "path": "src/pages/CreateTeamPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "club_domain" },
   { "path": "src/pages/DirectMessagePage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "messaging_domain" },
   { "path": "src/pages/EditClubPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "club_domain" },

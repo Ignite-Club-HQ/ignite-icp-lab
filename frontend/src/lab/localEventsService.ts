@@ -58,23 +58,50 @@ export function isLocalEventsCanisterUnavailable(error: unknown): boolean {
   return error instanceof Error && /events domain canister is not configured/i.test(error.message);
 }
 
-export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events'>) {
+export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | 'create_event'>) {
   return {
     async listEvents(clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
       const events = await actor.list_events(clubId ? [clubId] : [], teamId ? [teamId] : []);
       return events.map(convertEvent);
     },
+    async createEvent(
+      clubId: string,
+      teamId: string | null,
+      title: string,
+      description: string,
+      startsAtMs: bigint,
+      endsAtMs: bigint,
+    ): Promise<LocalScheduleEvent> {
+      const result = await actor.create_event(clubId, teamId ? [teamId] : [], title, description, startsAtMs, endsAtMs);
+      if ('Err' in result) throw new Error(result.Err);
+      return convertEvent(result.Ok);
+    },
   };
 }
 
-export async function listLocalEvents(persona: string, clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
+async function connectEventsActor(persona: string): Promise<_SERVICE> {
   const config = await fetchLocalLabConfig();
   const eventsCanisterId = config.canisterIds?.events_domain ?? config.canisterIds?.events_domain_motoko;
   if (!eventsCanisterId) throw new Error('Local events domain canister is not configured.');
   const agent = await createLocalAgent(config, persona, location.origin);
-  const actor = Actor.createActor<_SERVICE>(idlFactory, {
+  return Actor.createActor<_SERVICE>(idlFactory, {
     agent,
     canisterId: Principal.fromText(eventsCanisterId),
   });
-  return createEventsDomainClient(actor).listEvents(clubId, teamId);
+}
+
+export async function listLocalEvents(persona: string, clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
+  return createEventsDomainClient(await connectEventsActor(persona)).listEvents(clubId, teamId);
+}
+
+export async function createLocalEvent(
+  persona: string,
+  clubId: string,
+  teamId: string | null,
+  title: string,
+  description: string,
+  startsAtMs: bigint,
+  endsAtMs: bigint,
+): Promise<LocalScheduleEvent> {
+  return createEventsDomainClient(await connectEventsActor(persona)).createEvent(clubId, teamId, title, description, startsAtMs, endsAtMs);
 }

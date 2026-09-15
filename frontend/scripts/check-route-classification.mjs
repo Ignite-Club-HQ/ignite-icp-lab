@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const pagesDir = path.join(root, 'src/pages');
 const validStatuses = new Set(['hybrid', 'supabase_only', 'external_boundary', 'not_enabled']);
-const validBehaviors = new Set(['fixture_read_only', 'icp_service_read', 'unavailable']);
+const validBehaviors = new Set(['fixture_read_only', 'icp_service_read', 'icp_service_write', 'unavailable']);
 
 function pageFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

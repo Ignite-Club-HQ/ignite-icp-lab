@@ -61,6 +61,8 @@ import {
   type ConflictCheckResult,
 } from "@/features/events/trainingConflictPolicy";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { createLocalEvent } from "@/lab/localEventsService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social" | "mini_league";
 type RecurrencePattern = "daily" | "weekly" | "biweekly" | "monthly";
@@ -84,29 +86,113 @@ const EVENT_TYPES = [
 ];
 
 export default function CreateEventPage() {
-  const navigate = useNavigate();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-lg mx-auto px-4 py-10">
-        <Card>
-          <CardContent className="p-6 space-y-4 text-center">
-            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Event creation is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Event, recurrence, duty, reminder, payment, and notification writes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpCreateEventPage />;
   }
 
   return <SupabaseCreateEventPage />;
+}
+
+function IcpCreateEventPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const requestedPersona = searchParams.get("persona");
+  const localIcpPersona = requestedPersona && personas.includes(requestedPersona) ? requestedPersona : "club_admin";
+  const [title, setTitle] = useState(searchParams.get("prefill_title") ?? "");
+  const [description, setDescription] = useState("");
+  const [clubId, setClubId] = useState(searchParams.get("club_id") ?? "club-icp-001");
+  const [teamId, setTeamId] = useState(searchParams.get("team_id") ?? "team-icp-001");
+  const [startsAt, setStartsAt] = useState(() => {
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    now.setHours(now.getHours() + 1);
+    return now.toISOString().slice(0, 16);
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleIcpSubmit = async () => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle || !clubId.trim()) {
+      toast({ title: "Missing event details", description: "Enter a title and club ID." });
+      return;
+    }
+    const start = new Date(startsAt);
+    if (!Number.isFinite(start.getTime())) {
+      toast({ title: "Invalid start time", description: "Choose a valid event date and time." });
+      return;
+    }
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setSaving(true);
+    try {
+      const event = await createLocalEvent(
+        localIcpPersona,
+        clubId.trim(),
+        teamId.trim() || null,
+        trimmedTitle,
+        description.trim() || trimmedTitle,
+        BigInt(start.getTime()),
+        BigInt(end.getTime()),
+      );
+      toast({ title: "Event created in local ICP", description: event.title });
+      navigate(`/events/${event.id}?backend=icp&persona=${encodeURIComponent(localIcpPersona)}`);
+    } catch (error) {
+      toast({
+        title: "Could not create ICP event",
+        description: `${error instanceof Error ? error.message : String(error)} No Supabase fallback was used.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="container max-w-lg mx-auto px-4 py-10">
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="text-center space-y-2">
+            <Calendar className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Create local ICP event</h1>
+            <p className="text-sm text-muted-foreground">
+              This writes a basic event to the local events canister. Recurrence, duties, reminders, payments, and notifications remain disabled.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="icp-event-title">Title</Label>
+            <Input id="icp-event-title" value={title} onChange={(event) => setTitle(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="icp-event-club">Club ID</Label>
+            <Input id="icp-event-club" value={clubId} onChange={(event) => setClubId(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="icp-event-team">Team ID (optional)</Label>
+            <Input id="icp-event-team" value={teamId} onChange={(event) => setTeamId(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="icp-event-start">Start</Label>
+            <Input id="icp-event-start" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="icp-event-description">Description</Label>
+            <Textarea id="icp-event-description" value={description} onChange={(event) => setDescription(event.target.value)} />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => navigate("/events?backend=icp")}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button onClick={handleIcpSubmit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create in ICP
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function SupabaseCreateEventPage() {
