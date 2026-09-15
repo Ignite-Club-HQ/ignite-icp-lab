@@ -10,12 +10,19 @@
 - `npm run test:server`: passed against the disposable loopback Vite server;
   CSP, blocked unported App access, and absent local ICP behavior remained
   fail-closed.
+- `node --test lab-tests/competition-service.test.mjs`: passed, 5 synthetic
+  contract/adapter tests covering direct reads, anonymous/member/admin/
+  outsider visibility, bounded cursor pagination, scoped create, revisioned
+  update, retry idempotency, and explicit no-fallback provider selection.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
   path.
 - Competition and mini-league pages remain outside the runtime allowlist. No
   local competition provider or production integration was added.
+- The competition adapter is synthetic in-memory evidence only; no generated
+  Candid binding, authenticated actor, canister deployment, production RLS
+  parity, or live data path was introduced.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

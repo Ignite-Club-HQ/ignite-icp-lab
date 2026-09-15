@@ -58,10 +58,16 @@ lab. No competition or mini-league page has been added to
 invented to satisfy the guard. The focused route tests prove both the
 fail-closed default and preservation of the explicit comparison path.
 
-The next replacement gate is a provider-neutral competition service backed by
-synthetic local state and generated/authenticated local bindings. Until that
-contract and its authorization/isolation evidence exist, competition and
-mini-league pages remain outside the active runtime.
+The provider-neutral competition contract and synthetic adapter now exist in
+`frontend/src/lab/CompetitionService.ts` and
+`frontend/src/lab/competitionService.mjs`. The adapter proves only the
+bounded list/detail/basic lifecycle seam: public/member/admin visibility,
+direct-ID authorization, deterministic cursor pagination, input limits,
+revision fencing, and request-id retry idempotency. It is synthetic evidence,
+not an ICP canister or production authorization implementation. The files
+remain outside `frontend/lab-runtime-files.json`; competition and mini-league
+pages therefore remain outside the active runtime until generated
+authenticated bindings and source-complete authorization evidence are added.
 
 ## Verification limits
 
