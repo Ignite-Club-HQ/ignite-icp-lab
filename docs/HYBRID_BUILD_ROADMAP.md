@@ -62,9 +62,10 @@ The current worktree adds or completes ICP-mode guards across the remaining
   decisions and assigned-duty claims to the local canister. The list/detail
   paths keep an explicit local fixture fallback only when that canister is not
   configured.
-- the competitions list and create pages now use typed signed local
-  `competition_domain` actor paths to read exported local state and create the
-  supported basic competition record when that canister is configured.
+- the competitions list, detail, and create pages now use typed signed local
+  `competition_domain` actor paths to read exported local state, show a
+  read-only local competition detail, and create the supported basic
+  competition record when that canister is configured.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
@@ -114,7 +115,7 @@ Implement and wire typed adapters in this order:
 2. club/team reads and writes, including creation and placement assignment;
 3. event reads/writes, remaining duty lifecycle, attendance, recurrence, and
    timers;
-4. remaining competition detail/join/settings pages, organiser visibility and
+4. remaining competition join/settings pages, organiser visibility and
    invitation flows, seasons, entries, divisions, fixtures, results, and join
    capabilities;
 5. messaging, notifications, and media metadata;

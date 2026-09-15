@@ -151,8 +151,8 @@ Completed or proven in the lab:
   writes; attendance, recurrence, timers, and complete duty lifecycle remain
   pending
 - competition frontend connectivity has started with typed local
-  `competition_domain` list and basic create adapters on the competitions
-  pages; detail, join, settings, seasons, fixtures, results, organiser
+  `competition_domain` list, read-only detail, and basic create adapters on the
+  competitions pages; join, settings, seasons, fixtures, results, organiser
   visibility, and invitation flows remain pending
 
 Not production-ready:

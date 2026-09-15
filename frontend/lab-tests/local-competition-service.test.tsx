@@ -46,6 +46,39 @@ describe('local competition service', () => {
     expect(exportState).toHaveBeenCalledOnce();
   });
 
+  test('gets one competition from exported canister state', async () => {
+    const client = createCompetitionDomainClient({
+      export_state: vi.fn(async () => ({
+        Ok: {
+          schema: 1,
+          governor: principal,
+          competitions: [
+            {
+              id: 'competition-1',
+              name: 'Winter League',
+              season: '2026',
+              status: 'active',
+              club_id: 'club-1',
+              revision: 2n,
+            },
+          ],
+          seasons: [],
+          entries: [],
+          matches: [],
+          tokens: [],
+          roles: [],
+        },
+      })),
+      create_competition: vi.fn(),
+    } as unknown as _SERVICE);
+
+    await expect(client.getCompetition('competition-1')).resolves.toMatchObject({
+      id: 'competition-1',
+      name: 'Winter League',
+    });
+    await expect(client.getCompetition('missing')).rejects.toThrow('Competition not found');
+  });
+
   test('creates competitions through the local canister actor', async () => {
     const createCompetition = vi.fn(async () => ({
       Ok: {

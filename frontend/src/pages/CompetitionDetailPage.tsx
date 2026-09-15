@@ -26,21 +26,48 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { Crown } from "lucide-react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalCompetition, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
+import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionDetailPage() {
   usePageTitle("Competition");
-  const navigate = useNavigate();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    return <IcpCompetitionDetailPage />;
+  }
+
+  return <SupabaseCompetitionDetailPage />;
+}
+
+function IcpCompetitionDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const { data: competition, isLoading, error } = useQuery({
+    queryKey: ["local-icp-competition", id, localIcpPersona],
+    enabled: !!id,
+    queryFn: () => getLocalCompetition(localIcpPersona, id!),
+  });
+  const unavailable = isLocalCompetitionCanisterUnavailable(error);
+
+  if (isLoading) {
+    return <div className="p-6 flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+
+  if (error) {
     return (
       <div className="container max-w-3xl mx-auto px-4 py-10">
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-6 space-y-4 text-center">
             <Trophy className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Competition details are unavailable in ICP lab mode</h1>
+            <h1 className="text-lg font-semibold">
+              {unavailable ? "Competition details need a local ICP canister" : "Competition details couldn't be loaded"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Entries, divisions, fixtures, ladders, invitations, and competition administration are not connected to an ICP service yet.
+              {unavailable
+                ? "Deploy the local competition_domain canister to enable this page in ICP mode."
+                : error.message}
             </p>
             <Button variant="outline" onClick={() => navigate("/competitions")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to competitions
@@ -51,7 +78,55 @@ export default function CompetitionDetailPage() {
     );
   }
 
-  return <SupabaseCompetitionDetailPage />;
+  if (!competition) {
+    return <div className="p-6 text-center text-sm text-muted-foreground">Competition not found.</div>;
+  }
+
+  return (
+    <div className="container max-w-4xl mx-auto px-4 py-4 space-y-5">
+      <Button variant="ghost" size="sm" onClick={() => navigate("/competitions")} className="-ml-2">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Competitions
+      </Button>
+      <header className="space-y-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold leading-tight truncate flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-primary shrink-0" />
+              {competition.name}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {[competition.season, competition.clubs?.name].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <Badge variant={competition.status === "active" ? "default" : "secondary"} className="capitalize">
+            {competition.status}
+          </Badge>
+        </div>
+      </header>
+      <Card>
+        <CardContent className="p-4 space-y-2 text-sm">
+          <p className="font-medium">Local ICP competition record</p>
+          <p className="text-muted-foreground">
+            Entries, divisions, fixtures, ladders, invitations, and administration remain disabled until those canister workflows are wired.
+          </p>
+          <dl className="grid gap-2 sm:grid-cols-2 pt-2">
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Competition ID</dt>
+              <dd className="font-mono text-xs break-all">{competition.id}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Organizer club ID</dt>
+              <dd className="font-mono text-xs break-all">{competition.organizer_club_id}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Revision</dt>
+              <dd>{competition.revision.toString()}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function SupabaseCompetitionDetailPage() {

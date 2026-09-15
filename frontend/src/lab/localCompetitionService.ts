@@ -47,6 +47,14 @@ export function createCompetitionDomainClient(actor: Pick<_SERVICE, 'export_stat
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok.competitions.map(convertCompetition);
     },
+    async getCompetition(id: string): Promise<LocalCompetitionSummary> {
+      const result = await actor.export_state();
+      if ('Err' in result) throw new Error(result.Err);
+      const competitions = result.Ok.competitions.map(convertCompetition);
+      const competition = competitions.find((candidate) => candidate.id === id);
+      if (!competition) throw new Error('Competition not found');
+      return competition;
+    },
     async createCompetition(clubId: string, name: string, season: string): Promise<LocalCompetitionSummary> {
       const result = await actor.create_competition(clubId, name, season);
       if ('Err' in result) throw new Error(result.Err);
@@ -68,6 +76,10 @@ async function connectCompetitionActor(persona: string): Promise<_SERVICE> {
 
 export async function listLocalCompetitions(persona: string): Promise<LocalCompetitionSummary[]> {
   return createCompetitionDomainClient(await connectCompetitionActor(persona)).listCompetitions();
+}
+
+export async function getLocalCompetition(persona: string, id: string): Promise<LocalCompetitionSummary> {
+  return createCompetitionDomainClient(await connectCompetitionActor(persona)).getCompetition(id);
 }
 
 export async function createLocalCompetition(
