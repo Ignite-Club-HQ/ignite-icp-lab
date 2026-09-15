@@ -405,3 +405,21 @@ identity, conversation, sender, sequence, and idempotency key. Moderation
 roles deliberately do not confer edit authority. `mops check --fix`, `mops
 build`, and product-probe syntax checks pass. The local-only product probe now
 checks author success, immutable-field preservation, outsider and team-admin
+denial, and non-team-conversation rejection. The live four-canister probe was
+not run because its disposable synthetic ID configuration was unavailable.
+
+## Motoko team-message read authorization slice - 2026-09-15
+
+Mapped the inert source `team_messages` SELECT policy to the local Motoko
+canister. `list_messages` and `list_messages_page` now permit local
+conversation participants, club-scoped `club_admin`, and global `app_admin`
+only when the conversation is team-scoped. The local product probe covers
+club-admin and app-admin positive reads plus cross-club and non-team denial.
+Unread state, receipts, sends, and edits remain participant- or
+author-scoped; this slice does not infer source team membership from roles or
+expand administrator authority for those separate behaviors.
+
+`mops check --fix`, `mops build`, and the local product-probe syntax check
+passed. The dedicated lab suite also passed: 9 Node tests, 31 Vitest files /
+181 tests, lab typecheck, isolation check, production build, and the fresh
+loopback Vite server smoke test. The live four-canister probe was not run

@@ -80,6 +80,23 @@ persistent actor {
     };
     false
   };
+  func canReadTeamMessages(caller : Principal, conversation_id : Text) : Bool {
+    if (caller.equal(Principal.anonymous())) return false;
+    for (conversation in conversations.values()) {
+      if (conversation.id == conversation_id) {
+        if (conversation.participants.any(func(participant) = participant.equal(caller))) return true;
+        switch (conversation.team_id) {
+          case null { return false };
+          case (_) {
+            return hasRole(caller, "club_admin", ?conversation.club_id, null)
+              or hasRole(caller, "app_admin", null, null);
+          };
+        };
+      };
+    };
+    false
+  };
+
 
   func conversationLatestSequence(conversation_id : Text) : Nat64 {
     for (item in conversations.values()) {
@@ -219,7 +236,7 @@ persistent actor {
   };
 
   public query ({ caller }) func list_messages(conversation_id : Text, after : ?Nat64) : async [Types.Message] {
-    if (not canAccessConversation(caller, conversation_id)) return [];
+    if (not canReadTeamMessages(caller, conversation_id)) return [];
     var filtered : [Types.Message] = [];
     for (m in messages.values()) {
       if (m.conversation_id == conversation_id) {
@@ -234,7 +251,7 @@ persistent actor {
   };
 
   public query ({ caller }) func list_messages_page(conversation_id : Text, after : ?Nat64, limit : Nat16) : async { #Ok : Types.MessagePage; #Err : Text } {
-    if (not canAccessConversation(caller, conversation_id)) return #Err("Conversation access forbidden");
+    if (not canReadTeamMessages(caller, conversation_id)) return #Err("Conversation access forbidden");
     if (limit == 0 or limit > 100) return #Err("Invalid page size");
     let latest = conversationLatestSequence(conversation_id);
     switch (after) {
