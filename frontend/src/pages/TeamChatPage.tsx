@@ -48,6 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { listLocalTeamMessages, sendLocalTeamMessage } from "@/lab/localMessagingService";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -622,9 +623,9 @@ export default function TeamChatPage() {
       markChatFetch();
       if (useIcpLab && teamId && user?.id) {
         return {
-          messages: fixtureData.getLocalLabTeamMessages(teamId, user.id) as unknown as Message[],
+          messages: await listLocalTeamMessages("team_member", teamId) as unknown as Message[],
           hasOlderMessages: false,
-          fromCache: true,
+          fromCache: false,
         };
       }
 
@@ -675,7 +676,9 @@ export default function TeamChatPage() {
       const replyToIds = messagesToDisplay
         .filter((m) => m.reply_to_id)
         .map((m) => m.reply_to_id as string);
-      const authorIds = [...new Set(messagesToDisplay.map((m) => m.author_id))];
+      const authorIds: string[] = [...new Set(messagesToDisplay.map((m) => m.author_id))].filter(
+        (authorId): authorId is string => typeof authorId === "string",
+      );
 
       // Preserve cached reactions when the reactions query fails transiently.
       const cachedQueryData = queryClient.getQueryData(["team-messages", teamId]) as
@@ -1629,7 +1632,19 @@ export default function TeamChatPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async ({ text, image_url, reply_to_id }: { text: string; image_url: string | null; reply_to_id: string | null }) => {
       // Lab mode: optimistic cache-only delivery, no backend write and no persistence.
-      if (useIcpLab) return deliveredSend();
+      if (useIcpLab) {
+        const localMessage = await sendLocalTeamMessage(
+          "team_member",
+          teamId!,
+          text,
+          `team-${teamId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        );
+        queryClient.setQueryData(["team-messages", teamId], (current: any) => ({
+          ...(current ?? { hasOlderMessages: false, fromCache: false }),
+          messages: [...(current?.messages ?? []), localMessage],
+        }));
+        return deliveredSend();
+      }
 
       // If offline, queue the message instead
       if (!navigator.onLine) {

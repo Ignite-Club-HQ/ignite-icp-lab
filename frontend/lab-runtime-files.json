@@ -52,6 +52,8 @@
   "src/lab/bindings/events_domain/declarations/events_domain.did.js",
   "src/lab/localCompetitionService.ts",
   "src/lab/bindings/competition_domain/declarations/competition_domain.did.js",
+  "src/lab/localMessagingService.ts",
+  "src/lab/bindings/messaging_domain/declarations/messaging_domain.did.js",
   "src/lab/syntheticIdentities.mjs",
   "src/lab/bindings/declarations/club_links.did.js",
   "src/lab/networkGuard.mjs",
