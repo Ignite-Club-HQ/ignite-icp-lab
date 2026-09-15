@@ -14,6 +14,11 @@
   contract/adapter tests covering direct reads, anonymous/member/admin/
   outsider visibility, bounded cursor pagination, scoped create, revisioned
   update, retry idempotency, and explicit no-fallback provider selection.
+- `node --test lab-tests/competition-authenticated-binding.test.mjs`: passed,
+  4 synthetic authenticated-binding tests covering Candid-shaped
+  wire/domain mapping, server-owned role resolution, forged-role rejection,
+  identity mismatch/unknown-principal rejection, explicit result variants,
+  and retry-safe updates.
 - The new route tests cover the default ICP decision, explicit/unknown query
   values, reactive router selection, an ICP-mode competition unavailable state
   with zero Supabase calls, and the preserved explicit Supabase comparison
@@ -23,6 +28,10 @@
 - The competition adapter is synthetic in-memory evidence only; no generated
   Candid binding, authenticated actor, canister deployment, production RLS
   parity, or live data path was introduced.
+- The authenticated binding is a local Candid-shaped harness, not generated
+  declarations or a deployed actor. It does not prove principal verification,
+  canister authorization, upgrade persistence, recovery, or production
+  readiness.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

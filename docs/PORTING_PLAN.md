@@ -69,6 +69,17 @@ remain outside `frontend/lab-runtime-files.json`; competition and mini-league
 pages therefore remain outside the active runtime until generated
 authenticated bindings and source-complete authorization evidence are added.
 
+The next binding slice is now represented by
+`frontend/src/lab/CompetitionBindings.ts` and
+`frontend/src/lab/competitionAuthenticatedBinding.mjs`. The binding uses
+Candid-shaped records and option values, scopes each actor to a synthetic
+principal/account pair, resolves roles from a server-owned identity registry,
+and adapts wire records back to the provider-neutral domain types. This is a
+local authenticated harness, not generated code or a deployed canister:
+production actor creation, principal verification, authorization parity,
+upgrade persistence, and recovery remain gated. The binding is deliberately
+not in the runtime allowlist.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.
