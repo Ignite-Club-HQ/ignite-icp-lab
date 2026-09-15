@@ -98,6 +98,24 @@
   `authorizationFor` now derives `appAdmin` directly from the caller's roles.
   `node --test lab-tests/identity-access-service.test.mjs` (7 tests) and the
   full suite continue to pass after the fix.
+- `node --test lab-tests/club-service.test.mjs lab-tests/team-service.test.mjs`:
+  passed, 20 tests. `ClubService` coverage: anonymous denial for both
+  membership and marketplace-discovery reads, member-only visibility of an
+  unlisted club, authenticated non-member discovery of a marketplace-listed
+  club, denial of an unlisted club to a non-member, app-admin visibility of
+  every club, deterministic/bounded/cursor-paginated listing that never
+  leaks unlisted non-discoverable clubs, invalid-cursor rejection, limit
+  bounds, not-found/unauthorized parity, and fail-closed provider selection.
+  `TeamService` coverage: anonymous denial, any authenticated caller reading
+  any team regardless of club, club-scoped list filtering, deterministic
+  bounded cursor pagination, invalid-cursor rejection, limit bounds,
+  not-found/unauthorized parity, and fail-closed provider selection. Both
+  reproduce cited current-state RLS text (see docs/PORTING_PLAN.md); neither
+  implements create/update/delete, capacity/subscription gating, or a
+  generated Candid binding, and neither is in
+  `frontend/lab-runtime-files.json`.
+- Focused TypeScript checking (`npx tsc --noEmit --strict`) passed for
+  `ClubService.ts` and `TeamService.ts`.
 - The repository has no `typecheck:lab` script. A direct
   `npx tsc --noEmit --project tsconfig.app.json` remains blocked by existing
   full-source type errors, including pre-existing errors in the unported

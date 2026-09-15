@@ -160,6 +160,82 @@ now derived directly from the caller's roles, independent of any club
 association, consistent with app-admin authority being cross-club. This is
 still synthetic fixture evidence, not production role parity.
 
+## Club/team RLS research and read-only directory slice
+
+Before extending beyond the competition/identity/club-links domains, this
+pass performed dedicated research into the inert reference migrations under
+`reference/backend/supabase/migrations/` for `public.clubs` and
+`public.teams`. Findings, with file citations (all `reference/backend/...`,
+never executed):
+
+- Clubs are readable under two independent SELECT policies (verified
+  verbatim in
+  `20260317033255_57703fdd-ab6d-48a2-8e8a-42e1f0013706.sql.md`):
+  `is_club_member(auth.uid(), id) OR has_role(auth.uid(), 'app_admin', NULL, NULL)`,
+  and a separate discovery policy,
+  `auth.uid() IS NOT NULL AND listed_on_marketplace = true`. Unlike the
+  club-links and competition domains, **there is no separate club-admin
+  branch independent of `is_club_member`** on this table; a club admin's own
+  read access comes from the direct-role branch inside `is_club_member`
+  (their `user_roles` row), which the source's auto-clear trigger keeps from
+  ever coinciding with an exclusion row in ordinary use. This adapter does
+  not model that trigger; it reproduces only the two SELECT policies as
+  written, so it is intentionally narrower than the "admin authority is
+  independent of exclusion" pattern used elsewhere.
+- Teams have a single, much broader SELECT policy (verified verbatim in
+  `20260130012429_6c3b583a-3fbe-4b9a-94eb-2df2d7bedac7.sql.md`):
+  `FOR SELECT TO authenticated USING (true)`. Any authenticated user may read
+  any team regardless of club membership (the product lets users browse and
+  request to join teams); only anonymous callers are denied.
+- `is_club_member` and `is_team_member` (verbatim, from
+  `20260721114111_aa56e96d-22f4-415a-bedd-486e04eb5849.sql.md`) source
+  membership from a direct `user_roles` row, team-role inheritance to the
+  parent club, and parent/guardian relationships via
+  `child_team_assignments`/`child_guardians`, then subtract exclusion.
+  Critically, **the exclusion scope differs by table**: `is_club_member`
+  only checks `club_member_exclusions` for that club; `is_team_member`
+  checks both `team_member_exclusions` for that team **and**
+  `club_member_exclusions` for the team's club (a club-level exclusion also
+  blocks team-level access, but not vice versa). `IdentityAccessService`'s
+  existing `memberClubIds`/`accessFor` derivation (direct role, team role,
+  parent, guardian, minus club-scoped exclusion) already matches
+  `is_club_member` exactly, which is why it is reused as-is below. Team-level
+  exclusion is not modeled anywhere in this pass because the teams read
+  policy does not consult membership or exclusion at all.
+- The teams UPDATE policy (verified in
+  `20260807084337_c8dfc67e-8daf-4bca-8030-598a72c0faff.sql.md`) is gated by
+  `has_role(team_admin) OR has_role(club_admin) OR has_role(app_admin)`,
+  entirely independent of `is_team_member`/exclusion — the same "admin
+  authority independent of exclusion" pattern already implemented for
+  club-links and competitions. Write-side club/team RLS (create/update,
+  including this team-admin/club-admin branch, capacity/subscription gating
+  implied elsewhere in the product) is deliberately **not** implemented in
+  this pass; it needs its own research pass before any mutation contract is
+  written.
+- Open/unverified items, documented rather than guessed: the full base
+  `CREATE TABLE public.clubs`/`public.teams` column lists could not be
+  recovered (only later `ALTER TABLE` additions were confirmed by direct
+  grep, e.g. `listed_on_marketplace`, `team_lifecycle_status`); the
+  `has_role` function's own body was not found by direct grep (its behavior
+  is inferred from call sites, not read from its definition); and no live
+  canister exists to test any of this against.
+
+Given these findings, this pass adds a **read-only** slice only:
+`frontend/src/lab/ClubService.ts`/`clubService.mjs` and
+`frontend/src/lab/TeamService.ts`/`teamService.mjs`. `ClubService` reuses the
+existing `memberClubIds`/`appAdmin` actor shape from the identity domain
+(no new authorization model invented) and reproduces exactly the two SELECT
+policies above, including denying anonymous callers on both the membership
+and discovery paths. `TeamService` reproduces the single "any authenticated
+caller" SELECT policy, also denying anonymous callers. Both provide bounded,
+cursor-paginated `list`/`get` and a fail-closed `select*Service` with no
+Supabase fallback, following the same pattern as
+`selectCompetitionService`. Neither service is wired into
+`frontend/lab-runtime-files.json`; both remain fixture-only evidence outside
+the active lab runtime. Club/team create/update/delete, capacity/
+subscription gating, and any generated Candid binding for these domains are
+deferred to a future pass.
+
 ## Verification limits
 
 Only the allowlisted lab screen is expected to build and run. Other pages must be migrated and tested before enablement. This setup does not claim full-app TypeScript compatibility after sanitization, complete production schema parity, a canister deployment, an audited remote Codespace or zero network risk. Record build, lab tests, source-integrity checks and remote transfer verification in VALIDATION.md.
