@@ -276,7 +276,7 @@ export default function TeamChatPage() {
   // Mark team message notifications as read when opening this thread.
   // Uses optimistic + fire-and-forget to clear the bell badge immediately.
   useEffect(() => {
-    if (!user || !teamId) return;
+    if (useIcpLab || !user || !teamId) return;
     markChatScopeNotificationsRead({
       userId: user.id,
       scope: { kind: "team", teamId },
@@ -284,14 +284,14 @@ export default function TeamChatPage() {
       decrementUnreadCount,
       refreshUnreadCount,
     });
-  }, [user, teamId, refreshUnreadCount, decrementUnreadCount, queryClient]);
+  }, [useIcpLab, user, teamId, refreshUnreadCount, decrementUnreadCount, queryClient]);
 
   // Record that the user opened this team chat (drives the AI catch-up trigger).
   useEffect(() => { if (teamId) markChatOpened("team", teamId); }, [teamId]);
   const summarizeTriggerRef = useRef<(() => void) | null>(null);
   const { featureDisabled: aiCatchUpDisabled } = useAICatchUpAvailability("team", teamId);
   const { data: teamUnreadCount = 0 } = useUnreadMessageCounts<number>(user?.id ?? null, {
-    enabled: !!teamId,
+    enabled: !useIcpLab && !!teamId,
     select: (d) => (teamId ? d.teams[teamId] ?? 0 : 0),
   });
 

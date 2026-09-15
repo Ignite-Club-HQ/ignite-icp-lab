@@ -43,7 +43,7 @@ The system remains coexistence-first:
   boundary. The route-by-route source of truth is
   [lab-route-classification.json](../frontend/lab-route-classification.json).
 
-### Current uncommitted frontend tranche
+### Completed frontend connectivity tranche
 
 The current worktree adds or completes ICP-mode guards across the remaining
 77 direct-Supabase application pages, including:
@@ -71,6 +71,10 @@ The current worktree adds or completes ICP-mode guards across the remaining
   match recording, and match-result controls; unsupported divisions,
   invitations, and membership administration remain explicit unavailable
   boundaries.
+- Team chat now reads and sends team messages through the authenticated local
+  `messaging_domain` actor when ICP mode is selected. Message delivery uses
+  canister idempotency keys; unsupported profile, reaction, reply, and
+  moderation features remain on their existing explicit boundaries.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
@@ -81,15 +85,16 @@ explicitly selected. ICP behavior currently falls into two categories:
 3. an explicit unavailable state that prevents the Supabase implementation
    from mounting.
 
-This tranche does **not** mean those write workflows are connected to live ICP
-domain actors. It establishes safe routing and no-fallback behavior first.
+The connected slices are local-lab actor paths, not production deployments.
+They remain subject to the parity, authorization, pagination, recovery, and
+production-readiness gates below.
 
 ## What is still outstanding
 
 | Workstream | Current state | Remaining outcome |
 | --- | --- | --- |
-| Frontend route classification | All 99 direct-Supabase pages have an explicit ICP-mode guard | Commit a route-by-route inventory classifying each as `hybrid`, `supabase_only`, `external_boundary`, or `not_enabled` |
-| Frontend ICP connectivity | Club Links has the initial typed service/actor boundary; many pages use fixtures or unavailable states | Add typed identity, club/team, events, competition, messaging, media, notification, timer, and placement adapters and replace temporary page states |
+| Frontend route classification | All 99 direct-Supabase pages have an explicit route inventory | Keep the inventory synchronized as pages move from fixtures to typed local services |
+| Frontend ICP connectivity | Identity/access, events, competitions, and Team Chat have typed local actor slices; other pages retain fixtures or explicit boundaries | Extend typed adapters for remaining supported identity, club/team, competition, messaging, media, notification, timer, and placement workflows |
 | Placement-aware dispatch | Registry/router POCs and client foundations exist | Resolve site, target, version, backend, and shard before every domain operation; dispose identity-bound actors/caches on changes |
 | Authorization parity | Inventories, matrix, evidence register, and broad synthetic tests exist | Promote all product/worker rows from `poc_needs_parity` using source-complete positive and negative evidence |
 | Product-domain completeness | Representative live slices exist | Add missing pagination, idempotency, scale behavior, moderation/retention, complete workflows, and populated-state recovery |
@@ -123,7 +128,9 @@ Implement and wire typed adapters in this order:
 4. remaining competition settings pages, organiser visibility and invitation
    flows, team-entry mutations, division UI, season/match mutations, fixtures,
    results, and complete join capabilities;
-5. messaging, notifications, and media metadata;
+5. messaging, notifications, and media metadata (Team Chat basic reads/writes
+   are connected; unread/read receipts, deletion, reactions, replies, and
+   moderation still require contract and page support);
 6. placement administration and multi-site connection management.
 
 Each adapter must use generated Candid bindings, authenticated actors,
