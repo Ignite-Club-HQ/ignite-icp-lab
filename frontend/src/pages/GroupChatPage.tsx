@@ -1868,7 +1868,9 @@ export default function GroupChatPage() {
     mutationFn: async ({ text, image_url, reply_to_id }: { text: string; image_url: string | null; reply_to_id: string | null }) => {
       if (!user || !groupId) return;
 
-      if (useIcpLab) return deliveredSend();
+      if (useIcpLab) {
+        throw new Error("Group messaging is not available in the local ICP contract.");
+      }
       
       // If offline, queue the message
       if (!navigator.onLine) {
@@ -2019,18 +2021,7 @@ export default function GroupChatPage() {
     mutationFn: async () => {
       if (!editingMessage) return;
       if (useIcpLab) {
-        const editedText = message.trim();
-        const editedAt = new Date().toISOString();
-        queryClient.setQueryData(["group-messages", groupId], (old: any) => old ? {
-          ...old,
-          messages: (old.messages || []).map((row: GroupMessage) =>
-            row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
-          ),
-        } : old);
-        setLocalMessages((current) => current?.map((row) =>
-          row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
-        ));
-        return;
+        throw new Error("Editing group messages is not available in the local ICP contract.");
       }
       const { error } = await supabase
         .from("group_messages")
@@ -2054,12 +2045,7 @@ export default function GroupChatPage() {
   const deleteMessageMutation = useMutation({
     mutationFn: async (messageId: string) => {
       if (useIcpLab) {
-        queryClient.setQueryData(["group-messages", groupId], (old: any) => old ? {
-          ...old,
-          messages: (old.messages || []).filter((row: GroupMessage) => row.id !== messageId),
-        } : old);
-        setLocalMessages((current) => current?.filter((row) => row.id !== messageId));
-        return;
+        throw new Error("Deleting group messages is not available in the local ICP contract.");
       }
       const { error } = await supabase
         .from("group_messages")
@@ -2112,30 +2098,7 @@ export default function GroupChatPage() {
 
       const normalizedReactionType = normalizeGroupReactionType(reactionType);
       if (useIcpLab) {
-        const intent = lastReactionIntentRef.current[messageId];
-        const currentData = queryClient.getQueryData<{ reactions?: MessageReaction[] }>([
-          "group-messages",
-          groupId,
-        ]);
-        const currentReaction = currentData?.reactions?.find(
-          (reaction) => reaction.group_message_id === messageId && reaction.user_id === user.id,
-        );
-
-        if (intent?.action === "remove") {
-          return { action: "removed" as const, reactionId: currentReaction?.id ?? null, messageId };
-        }
-
-        const localReaction = {
-          id: currentReaction?.id?.startsWith("temp-reaction-")
-            ? `local-reaction-${Date.now()}`
-            : (currentReaction?.id ?? `local-reaction-${Date.now()}`),
-          user_id: user.id,
-          reaction_type: normalizedReactionType,
-          group_message_id: messageId,
-        };
-        return intent?.action === "update"
-          ? { action: "updated" as const, reaction: localReaction, oldReactionId: currentReaction?.id, messageId }
-          : { action: "added" as const, reaction: localReaction, messageId };
+        throw new Error("Group message reactions are not available in the local ICP contract.");
       }
 
       // Ensure the auth token is fresh — a stale/expired JWT causes RLS to
