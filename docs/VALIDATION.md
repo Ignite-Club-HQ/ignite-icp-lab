@@ -901,3 +901,58 @@ into `LabApp.tsx` or any consumer.
 check:prod-secrets`, and `npm run build` all passed. The bundle's chat
 pages/components, Realtime subscriptions, and every other chat/message
 hook/lib file remain disconnected and untouched.
+
+## Imported notification query-key and optimistic cache policy - 2026-09-16
+
+Ported `src/features/notifications/queryKeys.ts` and
+`src/features/notifications/cachePolicy.ts` from the bundle's
+`integration/all-refactoring-icp-export` branch, unchanged, to
+`frontend/src/lab/notificationQueryKeys.ts` and
+`frontend/src/lab/notificationCachePolicy.ts`: a canonical
+`notificationKeys` cache-key factory plus `snapshotAndUpdateQueries` /
+`restoreQuerySnapshots` / `beginNotificationListUpdate` /
+`invalidateNotificationSurfaces` optimistic-update helpers.
+
+This centralizes logic the sanitized source currently duplicates as raw
+string-literal query keys: `useAuth.tsx` repeats the same four/five-key
+`invalidateQueries` block three separate times (post-sign-in, token
+refresh, sign-out), `NotificationsPage.tsx` repeats an overlapping set
+again for its own mark-read/clear flows, and `useNativePush.ts` /
+`useGroupChatUnreadCache.ts` each hardcode the `unread-message-counts` /
+`chat-group-unread-cache` key literals independently. A typo or an
+added/removed invalidation target in any one of these call sites would
+silently diverge from the others; a shared factory plus the
+snapshot/restore pair (which several of these call sites reimplement ad
+hoc for optimistic mark-as-read) removes that duplication and gives every
+caller the same rollback-safe contract.
+
+Like the previously ported `eventQueryKeys.ts` / `eventCacheRefresh.ts`
+and `chatMessageOrdering.ts` / `chatThreadCacheHydration.ts`, this module
+is genuinely provider-neutral and pre-routing: it only reads/writes an
+in-memory React Query cache and never touches Supabase or ICP, so no
+`resolveClubBackend` hybridization applies and none was added. Both
+`gameNotificationRepository.ts`, `membershipNotificationRepository.ts`,
+and `notificationRepository.ts` (the bundle's actual Supabase-backed
+notification read/write repositories) remain out of scope for this pass:
+they resolve navigation targets or club scope from specific Supabase
+table shapes (`pending_invites`, `mini_leagues`, `active_games`,
+`notifications` with an `.or()` cross-club-type filter) that would
+require importing production table-shape assumptions to adapt safely,
+and the club identity needed to route a hybrid placement decision is only
+known *after* the query executes for several of them — not a bounded
+slice without a larger design pass.
+
+Adapted the bundle's own `queryKeys.test.ts` and `cachePolicy.test.ts`
+(both already provider-neutral, vitest + `@tanstack/react-query` only)
+into `frontend/lab-tests/imported-notification-cache-policy-baseline.test.tsx`
+(12 tests): key-identity normalization, per-user/per-club cache
+isolation, exact-invalidation targeting, optimistic snapshot/update/
+restore round-tripping (including delete-and-restore ordering and a
+no-cached-match no-op), and invalidation call order for both the base
+and `includeMessageUnread` surfaces. `tsconfig.lab.json` was extended to
+typecheck the two new files; no runtime allowlist expansion was made or
+needed since neither file is wired into `LabApp.tsx` or any consumer.
+
+`npm test` passed 9 Node tests and 56 Vitest files / 312 tests (12 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed.
