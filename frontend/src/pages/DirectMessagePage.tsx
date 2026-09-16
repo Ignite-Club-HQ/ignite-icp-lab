@@ -16,6 +16,7 @@ import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomIns
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -241,30 +242,13 @@ const mergeDirectMessages = (
 };
 
 export default function DirectMessagePage() {
-  const useIcp = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
-  if (useIcp) {
-    return (
-      <div className="mx-auto flex min-h-[50vh] max-w-lg items-center justify-center p-6 text-center">
-        <div className="space-y-2">
-          <h1 className="text-lg font-semibold">Direct messaging is unavailable</h1>
-          <p className="text-sm text-muted-foreground">
-            This conversation requires an authenticated direct-messaging provider. No synthetic conversation or
-            Supabase fallback is used in ICP mode.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return <SupabaseDirectMessagePage />;
-}
-
-function SupabaseDirectMessagePage() {
   // [chat-perf-diag] track mount/unmount lifetime
   React.useEffect(() => {
     const k = noteChatMount("DirectMessage", null);
     return () => noteChatUnmount("DirectMessage", k, null);
   }, []);
   const { conversationId } = useParams<{ conversationId: string }>();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, profile, initialized, refreshUnreadCount, decrementUnreadCount } = useAuth();
@@ -399,6 +383,8 @@ function SupabaseDirectMessagePage() {
   const { data: conversation, isLoading: conversationLoading } = useQuery({
     queryKey: ["dm-conversation", conversationId],
     queryFn: async () => {
+      if (useIcpLab && conversationId && user?.id) return fixtureData.getLocalLabDirectConversation(conversationId, user.id);
+
       const { data, error } = await supabase
         .from("direct_conversations")
         .select("*")
@@ -525,6 +511,10 @@ function SupabaseDirectMessagePage() {
     queryKey: dmQueryKey,
     queryFn: async () => {
       markChatFetch();
+      if (useIcpLab && conversationId && user?.id) {
+        return { messages: fixtureData.getLocalLabDirectMessages(conversationId, user.id), hasOlderMessages: false, reactions: [], fromCache: true };
+      }
+
       const { data: rawMessages, error } = await supabase
         .from("direct_messages")
         .select("id, text, image_url, created_at, edited_at, author_id, conversation_id, reply_to_id, deleted_at, forwarded_from_user_id, forwarded_at, forwarded_source_label")
