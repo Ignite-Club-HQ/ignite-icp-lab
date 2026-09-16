@@ -106,6 +106,7 @@ import {
   fetchMediaFeed,
   toggleMediaReaction,
   createIcpMediaFeedProvider,
+  createFixtureMediaFeedProvider,
   type MediaFeedProvider,
   type MediaFeedAsset,
   type MediaFeedComment,
@@ -122,8 +123,8 @@ export default function MediaPage() {
 
 /**
  * Local ICP render path for Media. The typed media metadata canister is the
- * only provider; protected object storage and moderation remain explicit
- * unavailable capabilities until their production contracts are connected.
+ * production provider; the explicit fixture provider is available for local
+ * synthetic-data demonstrations when that provider is not configured.
  * Upload/report/block remain unavailable — those require real storage and
  * moderation backends that don't exist for ICP yet.
  */
@@ -133,12 +134,13 @@ function IcpMediaFeedPage() {
   const clubId = activeClubFilter ?? "club-icp-001";
   const actorId = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
 
-  const [provider, setProvider] = useState<MediaFeedProvider | null>(null);
+  const fixtureProvider = useMemo(() => createFixtureMediaFeedProvider(clubId, actorId), [clubId, actorId]);
+  const [provider, setProvider] = useState<MediaFeedProvider>(fixtureProvider);
   const [providerError, setProviderError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    setProvider(null);
+    setProvider(fixtureProvider);
     setProviderError(null);
     void connectLocalMediaMetadataClient(actorId)
       .then(({ client }) => {
@@ -152,7 +154,7 @@ function IcpMediaFeedPage() {
     return () => {
       active = false;
     };
-  }, [actorId]);
+  }, [actorId, fixtureProvider]);
 
   const [assets, setAssets] = useState<MediaFeedAsset[]>([]);
   const [reactionsByAsset, setReactionsByAsset] = useState<Record<string, MediaFeedReaction[]>>({});
@@ -163,10 +165,6 @@ function IcpMediaFeedPage() {
 
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
-    if (!provider) {
-      setIsLoading(false);
-      return;
-    }
     try {
       const feed = await fetchMediaFeed(provider, clubId);
       setAssets(feed);
@@ -190,7 +188,6 @@ function IcpMediaFeedPage() {
 
   const handleReact = useCallback(
     async (assetId: string) => {
-      if (!provider) return;
       const current = reactionsByAsset[assetId] ?? [];
       await toggleMediaReaction(provider, assetId, "like", actorId, current, Date.now());
       const updated = await provider.listReactions(assetId);
@@ -201,7 +198,6 @@ function IcpMediaFeedPage() {
 
   const handleAddComment = useCallback(
     async (assetId: string) => {
-      if (!provider) return;
       const body = commentDraft.trim();
       if (!body) return;
       await provider.addComment(assetId, body, Date.now());
@@ -220,7 +216,7 @@ function IcpMediaFeedPage() {
 
       <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
         {providerError
-          ? `The media metadata service is unavailable (${providerError}); media is unavailable until the configured provider is restored.`
+          ? `The media metadata service is unavailable (${providerError}); showing explicit synthetic data for this local environment.`
           : "Media uses the authenticated metadata service. Uploading, reporting, and blocking remain unavailable until protected object storage and moderation contracts are connected."}
       </div>
 
