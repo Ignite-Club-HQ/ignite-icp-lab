@@ -91,6 +91,11 @@ The current worktree adds or completes ICP-mode guards across the remaining
   unread/read-receipt methods for the team badge and read state. Message
   delivery uses canister idempotency keys; unsupported profile, reaction,
   reply, and moderation features remain on their existing explicit boundaries.
+- Media now prefers the authenticated local `media_metadata` actor for asset,
+  reaction, and comment reads/writes when configured; it reports the actor
+  error and uses the explicit synthetic fixture provider only when the local
+  canister is unavailable. Protected object storage, upload, moderation,
+  retention, and child-media privacy remain outside this frontend slice.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:

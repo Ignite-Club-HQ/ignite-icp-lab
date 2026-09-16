@@ -150,6 +150,10 @@ export default function ClubDetailPage() {
   const handleBroadcastTeamSchedule = async (e: React.MouseEvent, teamId: string, teamName: string) => {
     e.preventDefault();
     e.stopPropagation();
+    if (useIcpLab) {
+      toast({ title: "Schedule broadcasts are unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     if (!id || broadcastingTeamId) return;
     setBroadcastingTeamId(teamId);
     const res: { ok: true } | { ok: false; error: string } = await sendScheduleBroadcast(id, teamId);
@@ -318,7 +322,7 @@ export default function ClubDetailPage() {
       const allRoles = [...(clubRoles || []), ...(teamRoles || [])];
       return allRoles;
     },
-    enabled: !!id && membersExpanded,
+    enabled: !!id && membersExpanded && !useIcpLab,
     refetchOnMount: true,
   });
 
@@ -355,7 +359,7 @@ export default function ClubDetailPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
   });
 
   // Fetch user's team memberships to show "My Team" badge
@@ -374,7 +378,7 @@ export default function ClubDetailPage() {
 
       return [...new Set((data || []).map(r => r.team_id).filter(Boolean))];
     },
-    enabled: !!user && !!teams && teams.length > 0,
+    enabled: !!user && !!teams && teams.length > 0 && !useIcpLab,
   });
 
 
@@ -390,7 +394,7 @@ export default function ClubDetailPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
   });
 
   // Fetch mini leagues for this club
@@ -405,7 +409,7 @@ export default function ClubDetailPage() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
   });
 
   // Toggle folder expansion
@@ -419,6 +423,7 @@ export default function ClubDetailPage() {
   // Mutation for moving teams between folders
   const moveTeamToFolderMutation = useMutation({
     mutationFn: async ({ teamId, folderId }: { teamId: string; folderId: string | null }) => {
+      if (useIcpLab) throw new Error("Moving teams between folders is unavailable in ICP lab mode.");
       const { error } = await supabase
         .from("teams")
         .update({ folder_id: folderId })
@@ -437,6 +442,7 @@ export default function ClubDetailPage() {
   // Folder management mutations
   const createFolderMutation = useMutation({
     mutationFn: async (params: { name: string; description: string; color: string }) => {
+      if (useIcpLab) throw new Error("Creating team folders is unavailable in ICP lab mode.");
       const { error } = await supabase.from("team_folders").insert({
         club_id: id!,
         name: params.name,
@@ -459,6 +465,7 @@ export default function ClubDetailPage() {
 
   const updateFolderMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) throw new Error("Updating team folders is unavailable in ICP lab mode.");
       if (!editingFolder) return;
       const { error } = await supabase
         .from("team_folders")
@@ -485,6 +492,7 @@ export default function ClubDetailPage() {
 
   const deleteFolderMutation = useMutation({
     mutationFn: async (folderId: string) => {
+      if (useIcpLab) throw new Error("Deleting team folders is unavailable in ICP lab mode.");
       const { error } = await supabase
         .from("team_folders")
         .delete()
@@ -618,7 +626,7 @@ export default function ClubDetailPage() {
 
       return clubLevelRole?.role ?? null;
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!user && !useIcpLab,
   });
 
   const { data: isAppAdmin } = useQuery({
@@ -632,7 +640,7 @@ export default function ClubDetailPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   const { data: canImportFixtures } = useQuery({
@@ -648,7 +656,7 @@ export default function ClubDetailPage() {
       if (error) throw error;
       return (roles?.length ?? 0) > 0;
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!user && !useIcpLab,
   });
 
   const isAdmin = userRole === "club_admin" || isAppAdmin;
@@ -693,7 +701,7 @@ export default function ClubDetailPage() {
       
       return invitesWithProfiles;
     },
-    enabled: !!id && isAdmin === true,
+    enabled: !!id && isAdmin === true && !useIcpLab,
     staleTime: 0,
   });
   
@@ -714,7 +722,7 @@ export default function ClubDetailPage() {
         .in("team_id", teamIds);
       return data || [];
     },
-    enabled: !!teams && teams.length > 0,
+    enabled: !!teams && teams.length > 0 && !useIcpLab,
   });
 
   // Fetch team sponsor allocations with sponsor details
@@ -729,7 +737,7 @@ export default function ClubDetailPage() {
         .in("team_id", teamIds);
       return data || [];
     },
-    enabled: !!teams && teams.length > 0,
+    enabled: !!teams && teams.length > 0 && !useIcpLab,
   });
 
   // Helper to get first sponsor for a team
@@ -749,13 +757,14 @@ export default function ClubDetailPage() {
         .maybeSingle();
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
   });
 
   // Check for existing pending request
   const { data: existingRequest } = useQuery({
     queryKey: ["club-request", id, user?.id],
     queryFn: async () => {
+      if (useIcpLab) return null;
       const { data } = await supabase
         .from("role_requests")
         .select("*")
@@ -765,11 +774,12 @@ export default function ClubDetailPage() {
         .maybeSingle();
       return data;
     },
-    enabled: !!id && !!user && !isMember,
+    enabled: !!id && !!user && !isMember && !useIcpLab,
   });
 
   const requestRoleMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) throw new Error("Club role requests are unavailable in ICP lab mode.");
       const { error } = await supabase.from("role_requests").insert({
         user_id: user!.id,
         club_id: id!,
@@ -802,6 +812,10 @@ export default function ClubDetailPage() {
   };
 
   const handleDelete = async () => {
+    if (useIcpLab) {
+      toast({ title: "Club deletion is unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     if (isDeleting) return;
     setIsDeleting(true);
     try {
@@ -1046,6 +1060,10 @@ export default function ClubDetailPage() {
 
 
   const handlePermanentDeleteClub = async () => {
+    if (useIcpLab) {
+      toast({ title: "Permanent club deletion is unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     setIsDeleting(true);
     try {
       const { data, error } = await supabase.functions.invoke("permanent-delete-entity", {
@@ -1067,6 +1085,7 @@ export default function ClubDetailPage() {
   // Mutation for app admins to toggle club Pro status
   const toggleClubProMutation = useMutation({
     mutationFn: async ({ isPro, isProFootball }: { isPro: boolean; isProFootball: boolean }) => {
+      if (useIcpLab) throw new Error("Club subscription changes are unavailable in ICP lab mode.");
       // Check if subscription record exists
       if (clubSubscription) {
         // Update existing subscription
@@ -2185,7 +2204,7 @@ export default function ClubDetailPage() {
                 </div>
               )}
               {/* Display-surface toggles — only functional on Pro */}
-              <fieldset disabled={!hasProAccess} className={cn("space-y-4", !hasProAccess && "opacity-60")}>
+              <fieldset disabled={!hasProAccess || useIcpLab} className={cn("space-y-4", (!hasProAccess || useIcpLab) && "opacity-60")}>
                 {/* Media sponsors toggle — defaults to OFF */}
                 <div className="flex items-start justify-between gap-3 rounded-md border p-3">
                   <div className="space-y-0.5">
@@ -2287,12 +2306,20 @@ export default function ClubDetailPage() {
                   />
                 </div>
               </fieldset>
-              <SponsorsManager 
-                clubId={id!} 
-                currentPrimarySponsorId={club?.primary_sponsor_id || null}
-                onPrimaryChange={() => queryClient.invalidateQueries({ queryKey: ["club", id] })}
-              />
-              <ClubTeamSponsorAllocator clubId={id!} />
+              {useIcpLab ? (
+                <p className="text-sm text-muted-foreground">
+                  Sponsor management is unavailable in ICP lab mode.
+                </p>
+              ) : (
+                <>
+                  <SponsorsManager
+                    clubId={id!}
+                    currentPrimarySponsorId={club?.primary_sponsor_id || null}
+                    onPrimaryChange={() => queryClient.invalidateQueries({ queryKey: ["club", id] })}
+                  />
+                  <ClubTeamSponsorAllocator clubId={id!} />
+                </>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
