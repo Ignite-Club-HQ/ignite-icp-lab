@@ -550,6 +550,16 @@ provider selection. It also proves an ICP provider failure is surfaced without
 calling or falling back to Supabase. The legacy Supabase SDK fixture,
 database schema, preference tables, and migration harness remain disconnected.
 
+## Imported messaging security baseline adaptation - 2026-09-16
+
+Adapted the provider-neutral club/thread isolation semantics from the bundle's
+messaging security baseline into the hybrid message router. The lab regression
+uses independent synthetic stores for two clubs, runs it through explicit
+Supabase and ICP placements, verifies provider selection and cross-club
+isolation, and proves an ICP provider failure does not invoke or fall back to
+Supabase. The legacy multi-table Supabase RLS fixture and chat schema remain
+disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
