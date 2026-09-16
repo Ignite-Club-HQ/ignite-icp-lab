@@ -500,6 +500,17 @@ The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
 
+## Imported Club Links baseline adaptation - 2026-09-16
+
+Inspected the inert `docs/ignite-all-refactoring-icp-export.bundle` and
+adapted only the useful `tests/local-supabase/club-links-rls.test.ts` baseline
+into the lab. The new provider-neutral test covers active-only member reads,
+inactive administrator reads, direct inactive reads, and cross-club isolation
+through both explicit local Supabase placement and the local ICP provider
+placement. It also proves a failed ICP provider does not invoke or silently
+fall back to Supabase. The old Supabase SDK fixture, migrations, credentials,
+remote targets, and unported application modules remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
