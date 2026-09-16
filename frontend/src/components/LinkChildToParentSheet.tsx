@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { refreshRemovedTeamChild, refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 import {
   Sheet,
   SheetContent,
@@ -70,8 +71,8 @@ export default function LinkChildToParentSheet({
         title: "Child linked",
         description: `${childName} has been linked to a parent successfully.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["team-children", teamId] });
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      refreshRemovedTeamChild(queryClient, teamId);
+      refreshTeamRoleChange(queryClient, teamId);
       queryClient.invalidateQueries({ queryKey: ["pending-invites", teamId] });
       onOpenChange(false);
       setSelectedParentId(null);

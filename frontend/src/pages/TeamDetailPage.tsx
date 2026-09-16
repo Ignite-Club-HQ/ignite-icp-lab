@@ -106,6 +106,13 @@ import { friendlyQueryError, friendlyQueryErrorMessage } from "@/lib/friendlyQue
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
+import {
+  refreshAfterLeavingTeam,
+  refreshRemovedTeamChild,
+  refreshRemovedTeamMember,
+  refreshTeamRoleChange,
+} from "@/lab/teamMembershipCacheCompletion";
 
 
 type TeamRole = "player" | "parent" | "coach" | "team_admin";
@@ -365,7 +372,7 @@ export default function TeamDetailPage() {
 
   // Fetch children assigned to the team
   const { data: teamChildren = [], isLoading: isChildrenLoading, isFetching: isChildrenFetching, refetch: refetchChildren } = useQuery({
-    queryKey: ["team-children", id],
+    queryKey: membershipKeys.teamChildren(id),
     queryFn: async () => {
       const { data: rpcChildren, error: rpcError } = await supabase.rpc("get_team_children_for_pitch_board", {
         p_team_id: id!,
@@ -446,7 +453,7 @@ export default function TeamDetailPage() {
 
   // Fetch roles data with profiles - with caching for faster loads
   const { data: rawMembers = [], isLoading: isMembersLoading, isFetching: isMembersFetching, isError: isMembersError, error: membersError, refetch: refetchMembers } = useQuery({
-    queryKey: ["team-roles", id],
+    queryKey: membershipKeys.teamRoles(id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")
@@ -1101,14 +1108,7 @@ export default function TeamDetailPage() {
                                   .in("event_id", futureEvents.map(e => e.id));
                               }
                               toast({ title: `You left ${team?.name || "the team"}` });
-                              queryClient.invalidateQueries({ queryKey: ["team-roles", id] });
-                              queryClient.invalidateQueries({ queryKey: ["user-roles"] });
-                              queryClient.invalidateQueries({ queryKey: ["user-memberships-for-events"] });
-                              queryClient.invalidateQueries({ queryKey: ["user-memberships-and-events"] });
-                              queryClient.invalidateQueries({ queryKey: ["user-clubs-for-filter"] });
-                              queryClient.invalidateQueries({ queryKey: ["user-teams-for-filter"] });
-                              queryClient.invalidateQueries({ queryKey: ["events"] });
-                              queryClient.invalidateQueries({ queryKey: ["user-rsvps-home"] });
+                              refreshAfterLeavingTeam(queryClient, id!);
                               navigate(`/clubs/${team?.club_id}`);
                             }
                           }}
@@ -2934,9 +2934,7 @@ export default function TeamDetailPage() {
                     message: `You have been removed from ${team?.name || "the team"}`,
                     related_id: id,
                   });
-                  queryClient.invalidateQueries({ queryKey: ["team-roles", id] });
-                  queryClient.invalidateQueries({ queryKey: ["chat-members", "team", id] });
-                  queryClient.invalidateQueries({ queryKey: ["authorized-scopes"] });
+                  refreshRemovedTeamMember(queryClient, id);
                   toast({ title: "Member removed" });
                 }
                 setRemoveMember(null);
@@ -2963,7 +2961,7 @@ export default function TeamDetailPage() {
           teamName={team.name}
           clubId={team.club_id}
           onRolesUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: ["team-roles", id] });
+            refreshTeamRoleChange(queryClient, id!);
             setSelectedMember(null);
           }}
           onAddRole={() => setAddRoleMember({
@@ -2990,7 +2988,7 @@ export default function TeamDetailPage() {
               toast({ title: "Failed to remove role", variant: "destructive" });
             } else {
               toast({ title: "Role removed" });
-              queryClient.invalidateQueries({ queryKey: ["team-roles", id] });
+              refreshTeamRoleChange(queryClient, id!);
               setSelectedMember(null);
             }
           }}
@@ -3048,7 +3046,7 @@ export default function TeamDetailPage() {
                 if (error) {
                   toast({ title: "Failed to remove player", variant: "destructive" });
                 } else {
-                  queryClient.invalidateQueries({ queryKey: ["team-children", id] });
+                  refreshRemovedTeamChild(queryClient, id);
                   toast({ title: "Player removed" });
                 }
                 setRemoveChild(null);
