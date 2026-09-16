@@ -1834,18 +1834,7 @@ export default function TeamChatPage() {
     mutationFn: async () => {
       if (!editingMessage) return;
       if (useIcpLab) {
-        const editedText = message.trim();
-        const editedAt = new Date().toISOString();
-        queryClient.setQueryData(["team-messages", teamId], (old: any) => old ? {
-          ...old,
-          messages: (old.messages || []).map((row: Message) =>
-            row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
-          ),
-        } : old);
-        setLocalMessages((current) => current?.map((row) =>
-          row.id === editingMessage.id ? { ...row, text: editedText, edited_at: editedAt } : row,
-        ));
-        return;
+        throw new Error("Editing team messages is not available in the local ICP contract.");
       }
       const { error } = await supabase.from("team_messages").update({ text: message.trim() }).eq("id", editingMessage.id);
       if (error) throw error;
