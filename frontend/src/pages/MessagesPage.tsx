@@ -278,7 +278,7 @@ export default function MessagesPage() {
 
   const { data: clubAdminConversations = [] } = useQuery({
     queryKey: clubAdminInboxQueryKey(user?.id, effectiveClubFilter),
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
     refetchOnMount: "always",
@@ -350,7 +350,7 @@ export default function MessagesPage() {
   // MessagesPage, BottomNav and MyTeamsPremiumCarousel (previously each
   // fetched independently — the #1 slow query in pg_stat_statements).
   const { data: unreadCounts } = useUnreadMessageCounts(user?.id, {
-    enabled: initialized,
+    enabled: initialized && !useIcpLab,
     placeholderData: (prev) => prev,
   });
 
@@ -359,12 +359,13 @@ export default function MessagesPage() {
   // hook hasn't populated yet — so behaviour is identical to the old RPC path
   // in the worst case, and instant in the common case.
   const { data: groupUnreadCache } = useGroupChatUnreadCache(
-    initialized ? user?.id : null,
+    initialized && !useIcpLab ? user?.id : null,
   );
 
   // Delete group mutation (soft-delete so an app admin can restore later)
   const deleteGroupMutation = useMutation({
     mutationFn: async (groupId: string) => {
+      if (useIcpLab) throw new Error("Group chat deletion is unavailable in ICP lab mode.");
       const { error } = await supabase
         .from("chat_groups")
         .update({
@@ -401,7 +402,7 @@ export default function MessagesPage() {
       if (error) throw error;
       return !!data;
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     retry: 3,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
@@ -430,7 +431,7 @@ export default function MessagesPage() {
 
       return data as Club[];
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     retry: 3,
     staleTime: 5 * 60 * 1000,
     initialData: cachedData?.adminClubs as Club[] | undefined,
@@ -592,7 +593,7 @@ export default function MessagesPage() {
         profiles: { display_name: authorName }
       };
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: true,
     placeholderData: (prev) => prev,
@@ -752,7 +753,7 @@ export default function MessagesPage() {
         .in("role", ["team_admin", "coach", "committee_member"]);
       return data?.map((r) => r.team_id).filter(Boolean) || [];
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
@@ -769,7 +770,7 @@ export default function MessagesPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
@@ -784,7 +785,7 @@ export default function MessagesPage() {
         .eq("user_id", user!.id);
       return data || [];
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -835,7 +836,7 @@ export default function MessagesPage() {
       
       return new Set(assignments?.map(a => a.mini_league_id) || []);
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -900,7 +901,7 @@ export default function MessagesPage() {
       
       return false;
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
@@ -936,7 +937,7 @@ export default function MessagesPage() {
       
       return statusMap;
     },
-    enabled: memberClubIds.length > 0,
+    enabled: memberClubIds.length > 0 && !useIcpLab,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
     retry: 2,
@@ -1047,7 +1048,7 @@ export default function MessagesPage() {
 
       return { groups, latestMessages };
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     // Matches the sibling inbox queries. The 25s REST GET timeout in
     // `supabaseAuthRetry.ts` otherwise surfaces transient RLS-heavy timeouts
     // as hard errors after a single attempt.
@@ -1139,7 +1140,7 @@ export default function MessagesPage() {
       
       return muted;
     },
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 60000,
     placeholderData: (prev) => prev,
   });
@@ -1308,7 +1309,7 @@ export default function MessagesPage() {
     // render time. Previously this waited on hasAnyProAccess (3 serial
     // queries) before even starting, adding 2-5s to cold loads. RLS still
     // enforces who can read each conversation.
-    enabled: !!user && initialized,
+    enabled: !!user && initialized && !useIcpLab,
     staleTime: 30_000,
     initialDataUpdatedAt: 0,
     refetchInterval: jitteredInboxInterval,
@@ -1340,7 +1341,7 @@ export default function MessagesPage() {
       (data || []).forEach((h: any) => map.set(h.conversation_id, h.hidden_at));
       return map;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Fetch hidden custom group chats (with hidden_at)
@@ -1355,7 +1356,7 @@ export default function MessagesPage() {
       (data || []).forEach((h: any) => map.set(h.group_id, h.hidden_at));
       return map;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Mutation: hide a DM conversation
@@ -1409,7 +1410,7 @@ export default function MessagesPage() {
       if (error) return null;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   // Cache fresh data when it arrives
@@ -2560,7 +2561,7 @@ export default function MessagesPage() {
       personalGroupIds.join(","),
       dmOtherUserIds.join(","),
     ],
-    enabled: !!user && !!effectiveClubFilter && (personalGroupIds.length > 0 || dmOtherUserIds.length > 0),
+    enabled: !!user && !!effectiveClubFilter && (personalGroupIds.length > 0 || dmOtherUserIds.length > 0) && !useIcpLab,
     staleTime: 60_000,
     queryFn: async () => {
       // 1. Personal group memberships.

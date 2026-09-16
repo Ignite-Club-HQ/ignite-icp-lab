@@ -13,8 +13,9 @@ The system remains coexistence-first:
 - existing Supabase workloads stay authoritative and unchanged;
 - only new or explicitly isolated workloads may be enabled on ICP;
 - `?backend=supabase` preserves the existing frontend path;
-- ICP mode must use a typed local actor/service, a synthetic fixture, or an
-  explicit unavailable/read-only state;
+- ICP mode must use a typed authenticated actor/service or an explicit
+  unavailable/read-only state; synthetic fixtures may support contract tests,
+  but are not an application data provider;
 - ICP mode never silently falls back to Supabase;
 - no production credentials, data, deployment target, or integration is used
   by this lab.
@@ -91,11 +92,12 @@ The current worktree adds or completes ICP-mode guards across the remaining
   unread/read-receipt methods for the team badge and read state. Message
   delivery uses canister idempotency keys; unsupported profile, reaction,
   reply, and moderation features remain on their existing explicit boundaries.
-- Media now prefers the authenticated local `media_metadata` actor for asset,
-  reaction, and comment reads/writes when configured; it reports the actor
-  error and uses the explicit synthetic fixture provider only when the local
-  canister is unavailable. Protected object storage, upload, moderation,
-  retention, and child-media privacy remain outside this frontend slice.
+- Media now uses the authenticated local `media_metadata` actor for asset,
+  reaction, and comment reads/writes; if that actor is unavailable, the page
+  fails closed rather than displaying synthetic content. Protected object
+  storage, upload, moderation, retention, and child-media privacy remain
+  outside this frontend slice and must be connected before those capabilities
+  are enabled.
 
 These routes preserve their existing Supabase implementations when Supabase is
 explicitly selected. ICP behavior currently falls into two categories:
