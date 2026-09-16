@@ -1095,3 +1095,48 @@ remain disconnected.
 `npm test` passed 9 Node tests and 60 Vitest files / 354 tests (17 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run check:prod-secrets`, and
 `npm run build` all passed.
+
+## Imported hybrid Home entitlement repository across club placements — 2026-09-16
+
+Ported `src/features/home/homeEntitlementRepository.ts` from the export bundle into
+`frontend/src/lab/hybridHomeEntitlementRepository.ts`, replacing its raw Postgrest-shaped
+`client: any` reads with explicit placement-routed ICP/Supabase providers. This was chosen
+after confirming the current checkpoint had already adapted Home RSVP and Home rewards but
+had no Home entitlement lab repository.
+
+The adapted boundary requires Home team entitlement inputs to be grouped by the owning
+club (`HomeEntitlementScope`) before routing, because backend placement is authoritative
+per club rather than per team id. The repository resolves each club through
+`resolveClubBackend`, caches one provider per backend identity, and never falls back to
+Supabase when an ICP placement/provider is unavailable. It preserves the source-derived
+entitlement rules for club subscription flags, team subscription flags, and the legacy
+`teams.is_pro` trial fallback through the provider-neutral `resolveHomeProAccess` helper.
+
+Home entitlement reads are fail-closed but inspectable: a provider or placement failure for
+one club returns a typed per-club `{ status: 'unavailable', error }` outcome and contributes
+`false` to the aggregate Pro access result, while independent clubs can still return
+`{ status: 'ok', hasPro }` or reward-club rows. Reward-club lookup similarly scopes an active
+club to only that club, de-duplicates all-membership club ids, preserves input order, and
+reports unavailable clubs without cross-backend fallback.
+
+Added 15 tests in `frontend/lab-tests/imported-home-entitlement-repository-baseline.test.tsx`
+covering: entitlement flag resolution, legacy team trial fallback, fail-closed missing
+payloads, club/team scope normalization, pure provider contracts, explicit Supabase and ICP
+routing with provider reuse, multi-backend aggregation, unavailable ICP provider behavior
+with zero Supabase fallback calls, placement country-policy denial, active-club scoping, and
+reward-club aggregation across placements.
+
+`tsconfig.lab.json` was extended to typecheck `hybridHomeEntitlementRepository.ts`; no
+runtime allowlist expansion was made. The bundle's raw Postgrest client, Home page caller,
+local Supabase RLS tests, and production Supabase integration code remain disconnected.
+
+Focused validation:
+
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/imported-home-entitlement-repository-baseline.test.tsx`
+  passed 1 file / 15 tests.
+- `npm run typecheck:lab` passed.
+- `npm run check:isolation` passed.
+- `npm run check:prod-secrets` passed.
+- `npm test` passed 9 Node tests and 61 Vitest files / 369 tests.
+- `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
+  third-party `"use client"` directive warnings.
