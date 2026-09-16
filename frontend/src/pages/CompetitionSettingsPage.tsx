@@ -37,11 +37,13 @@ export default function CompetitionSettingsPage() {
 function IcpCompetitionSettingsPage() {
   const { id = "competition-icp-001" } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const persona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const { data: settings, error, isLoading } = useQuery({
-    queryKey: ["icp-competition-settings", id],
+    queryKey: ["icp-competition-settings", id, persona],
     queryFn: async () => {
       try {
-        const competition = await getLocalCompetition("icp-member", id);
+        const competition = await getLocalCompetition(persona, id);
         return {
           name: competition.name,
           format: competition.season || "local",
