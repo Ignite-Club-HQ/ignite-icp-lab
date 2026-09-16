@@ -36,6 +36,23 @@ export type EventRsvpProviders = {
   supabase: (environment: string) => Promise<EventRsvpProvider>;
 };
 
+/**
+ * Inspectable outcome of one optional display-enrichment lookup. `'skipped'`
+ * means no row required that lookup; `'unavailable'` carries the causing
+ * error so a caller can surface a degraded-enrichment notice explicitly
+ * instead of the failure being caught and discarded.
+ */
+export type EnrichmentOutcome =
+  | { status: 'skipped' }
+  | { status: 'ok' }
+  | { status: 'unavailable'; error: unknown };
+
+export type EventRsvpFetchResult = {
+  rows: EventRsvpRow[];
+  profilesEnrichment: EnrichmentOutcome;
+  childrenEnrichment: EnrichmentOutcome;
+};
+
 function backendKey(backend: HybridBackend): string {
   return 'Icp' in backend
     ? `icp:${backend.Icp.canister.toText()}`
@@ -44,54 +61,63 @@ function backendKey(backend: HybridBackend): string {
 
 /**
  * Read the authoritative RSVP rows for one event, then enrich display-only
- * profile and child information. The RSVP read fails closed; enrichment is
- * explicitly best effort so valid attendance never disappears because an
- * avatar/name or child lookup is temporarily unavailable.
+ * profile and child information. The RSVP read fails closed and propagates
+ * any error directly. Enrichment is intentionally best effort — a failed
+ * profile or child lookup must never make a valid attendance row disappear —
+ * but that degradation is never silently swallowed: each lookup's outcome is
+ * returned as an inspectable `EnrichmentOutcome` so a caller can surface a
+ * "some names/children could not be loaded" notice explicitly.
  *
  * Adapted from the bundle's `eventRsvpRepository`, which took a raw
  * Supabase-shaped `client: any` and relied on Postgrest's `{ data, error }`
  * responses never throwing to make enrichment implicitly best effort. The
  * provider boundary here uses throwing async methods (matching every other
- * hybrid provider in this lab), so enrichment failures are now caught
- * explicitly rather than depending on a non-throwing client convention.
+ * hybrid provider in this lab), so an enrichment failure must be caught
+ * explicitly — and is reported back rather than caught and discarded.
  */
 export async function fetchEventRsvps(
   provider: EventRsvpProvider,
   eventId: string,
   loadProfiles: EventRsvpProfileLoader,
-): Promise<EventRsvpRow[]> {
+): Promise<EventRsvpFetchResult> {
   const rows = await provider.listRsvps(eventId);
 
   const userIds = rows.filter(row => row.user_id).map(row => row.user_id as string);
   const childIds = rows.filter(row => row.child_id).map(row => row.child_id as string);
 
   let profilesMap: Record<string, Omit<EventRsvpProfile, 'id'>> = {};
+  let profilesEnrichment: EnrichmentOutcome = { status: 'skipped' };
   if (userIds.length > 0) {
     try {
       const profiles = await loadProfiles(userIds);
       profilesMap = Object.fromEntries(
         profiles.map(profile => [profile.id, { display_name: profile.display_name, avatar_url: profile.avatar_url }]),
       );
-    } catch {
-      // best effort — valid attendance rows must not disappear because of this
+      profilesEnrichment = { status: 'ok' };
+    } catch (error) {
+      profilesEnrichment = { status: 'unavailable', error };
     }
   }
 
   let childrenMap: Record<string, EventRsvpChild> = {};
+  let childrenEnrichment: EnrichmentOutcome = { status: 'skipped' };
   if (childIds.length > 0) {
     try {
       const children = await provider.listChildren(childIds);
       childrenMap = Object.fromEntries(children.map(child => [child.id, child]));
-    } catch {
-      // best effort — valid attendance rows must not disappear because of this
+      childrenEnrichment = { status: 'ok' };
+    } catch (error) {
+      childrenEnrichment = { status: 'unavailable', error };
     }
   }
 
-  return rows.map(row => ({
+  const enrichedRows = rows.map(row => ({
     ...row,
     profiles: row.user_id ? profilesMap[row.user_id] ?? null : null,
     children: row.child_id ? childrenMap[row.child_id] ?? null : null,
   }));
+
+  return { rows: enrichedRows, profilesEnrichment, childrenEnrichment };
 }
 
 /**
@@ -124,7 +150,7 @@ export function createHybridEventRsvpRepository(
       clubId: string,
       eventId: string,
       loadProfiles: EventRsvpProfileLoader,
-    ): Promise<EventRsvpRow[]> {
+    ): Promise<EventRsvpFetchResult> {
       const provider = await providerFor(clubId);
       return fetchEventRsvps(provider, eventId, loadProfiles);
     },

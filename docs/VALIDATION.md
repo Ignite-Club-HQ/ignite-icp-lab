@@ -835,3 +835,35 @@ disconnected; no runtime allowlist expansion was required, and
 `npm test` passed 9 Node tests and 54 Vitest files / 279 tests (7 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run
 check:prod-secrets`, and `npm run build` all passed.
+
+## Follow-up: surfaced RSVP enrichment failures instead of catch-and-ignore - 2026-09-16
+
+The initial `hybridEventRsvpRepository` pass above caught profile/child
+enrichment errors with an empty `catch {}`, which discarded the failure
+entirely rather than surfacing it — conflicting with this repository's
+no-silent-failure expectation, even though the underlying "keep authoritative
+rows visible" behavior was correct. `fetchEventRsvps` now returns
+`{ rows, profilesEnrichment, childrenEnrichment }`, where each enrichment
+field is an inspectable `EnrichmentOutcome` (`'skipped' | 'ok' | { status:
+'unavailable'; error }`) instead of a bare row array. A caller can now detect
+and surface a "some names/children could not be loaded" notice explicitly;
+the two lookups are tracked independently so a child-lookup failure is never
+misattributed as a profile failure or vice versa. The authoritative RSVP
+read is unchanged: it still fails closed and propagates directly, and is
+never treated as a fallback path. No hybrid/provider routing or no-fallback
+boundary changed — placement resolution, provider-client reuse, and the
+explicit-mode/no-Supabase-fallback-in-ICP-mode contracts are identical to the
+prior pass.
+
+Added three regression cases (skipped enrichment with no rows needing it,
+independently-reported profile-only and child-only failures, and both
+lookups failing independently) alongside the existing coverage, and updated
+the existing assertions to read the new typed result shape.
+
+`npm test` passed 9 Node tests and 54 Vitest files / 281 tests (2 net new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed. No other lab file
+references the changed return shape; the unrelated `refetchRsvps` symbols in
+the unported `EventDetailPage.tsx` / `EventGroupsManager.tsx` React Query
+callers are a different, unrelated identifier and remain outside the runtime
+allowlist.

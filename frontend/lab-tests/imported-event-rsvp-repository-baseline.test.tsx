@@ -51,10 +51,12 @@ for (const mode of ['supabase', 'icp'] as const) {
       },
     });
 
-    const rows = await repository.fetchRsvps(CLUB_A, EVENT_A, loadProfiles);
+    const result = await repository.fetchRsvps(CLUB_A, EVENT_A, loadProfiles);
 
     expect(loadProfiles).toHaveBeenCalledWith(['adult-1', 'guardian-1']);
-    expect(rows).toEqual([
+    expect(result.profilesEnrichment).toEqual({ status: 'ok' });
+    expect(result.childrenEnrichment).toEqual({ status: 'ok' });
+    expect(result.rows).toEqual([
       expect.objectContaining({
         id: 'r1', user_id: 'adult-1', child_id: null,
         profiles: { display_name: 'Adult One', avatar_url: 'adult.png' }, children: null,
@@ -85,27 +87,59 @@ test('propagates the core RSVP read failure and performs no enrichment', async (
   expect(loadProfiles).not.toHaveBeenCalled();
 });
 
-test('keeps valid attendance rows when profile enrichment is unavailable', async () => {
-  const loadProfiles = vi.fn().mockRejectedValue(new Error('profiles unavailable'));
-  const rows = await fetchEventRsvps(
+test('reports skipped enrichment when no row needs it', async () => {
+  const result = await fetchEventRsvps(makeProvider([]), EVENT_A, vi.fn());
+  expect(result).toEqual({
+    rows: [],
+    profilesEnrichment: { status: 'skipped' },
+    childrenEnrichment: { status: 'skipped' },
+  });
+});
+
+test('keeps valid attendance rows and reports profile enrichment as unavailable, not silently dropped', async () => {
+  const profilesError = new Error('profiles unavailable');
+  const loadProfiles = vi.fn().mockRejectedValue(profilesError);
+  const result = await fetchEventRsvps(
     makeProvider([{ id: 'r1', event_id: EVENT_A, user_id: 'adult-1', child_id: null, status: 'going' }]),
     EVENT_A,
     loadProfiles,
   );
-  expect(rows).toEqual([
+  expect(result.rows).toEqual([
     expect.objectContaining({ id: 'r1', profiles: null, children: null }),
   ]);
+  expect(result.profilesEnrichment).toEqual({ status: 'unavailable', error: profilesError });
+  expect(result.childrenEnrichment).toEqual({ status: 'skipped' });
 });
 
-test('keeps valid attendance rows when child enrichment is unavailable', async () => {
+test('keeps valid attendance rows and reports child enrichment as unavailable, not silently dropped', async () => {
+  const childrenError = new Error('children unavailable');
   const loadProfiles = vi.fn().mockResolvedValue([]);
-  const rows = await fetchEventRsvps({
+  const result = await fetchEventRsvps({
     listRsvps: async () => [{ id: 'r1', event_id: EVENT_A, user_id: null, child_id: 'child-1', status: 'going' }],
-    listChildren: async () => { throw new Error('children unavailable'); },
+    listChildren: async () => { throw childrenError; },
   }, EVENT_A, loadProfiles);
-  expect(rows).toEqual([
+  expect(result.rows).toEqual([
     expect.objectContaining({ id: 'r1', profiles: null, children: null }),
   ]);
+  expect(result.childrenEnrichment).toEqual({ status: 'unavailable', error: childrenError });
+  // Independent lookups: a failed child fetch must not be reported as a
+  // profile failure (and vice versa), so callers can attribute the notice.
+  expect(result.profilesEnrichment).toEqual({ status: 'skipped' });
+});
+
+test('reports both enrichment lookups as independently unavailable without dropping rows', async () => {
+  const profilesError = new Error('profiles unavailable');
+  const childrenError = new Error('children unavailable');
+  const loadProfiles = vi.fn().mockRejectedValue(profilesError);
+  const result = await fetchEventRsvps({
+    listRsvps: async () => [{ id: 'r1', event_id: EVENT_A, user_id: 'adult-1', child_id: 'child-1', status: 'going' }],
+    listChildren: async () => { throw childrenError; },
+  }, EVENT_A, loadProfiles);
+  expect(result.rows).toEqual([
+    expect.objectContaining({ id: 'r1', profiles: null, children: null }),
+  ]);
+  expect(result.profilesEnrichment).toEqual({ status: 'unavailable', error: profilesError });
+  expect(result.childrenEnrichment).toEqual({ status: 'unavailable', error: childrenError });
 });
 
 test('does not fall back to Supabase when the selected ICP provider fails', async () => {
