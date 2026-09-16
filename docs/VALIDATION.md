@@ -511,6 +511,16 @@ placement. It also proves a failed ICP provider does not invoke or silently
 fall back to Supabase. The old Supabase SDK fixture, migrations, credentials,
 remote targets, and unported application modules remain disconnected.
 
+## Imported route-scope baseline adaptation - 2026-09-16
+
+Adapted the inert bundle's provider-neutral `src/test/routeClubScope.test.ts`
+into the dedicated lab suite. The test preserves direct, lookup, DM, and
+unscoped route cases and extends coverage for current embedded Club Links,
+media, competition membership, query/fragment normalization, and creation
+routes. Route scope is resolved before backend selection, so this slice
+deliberately does not duplicate Supabase/ICP provider-mode assertions; those
+remain covered by the preceding Club Links hybrid baseline.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
