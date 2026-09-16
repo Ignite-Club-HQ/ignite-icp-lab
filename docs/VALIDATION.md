@@ -521,6 +521,16 @@ routes. Route scope is resolved before backend selection, so this slice
 deliberately does not duplicate Supabase/ICP provider-mode assertions; those
 remain covered by the preceding Club Links hybrid baseline.
 
+## Imported coverage-loss auth baseline adaptation - 2026-09-16
+
+Adapted the provider-neutral auth-classification portion of the bundle's
+`src/test/clubThemeCoverageLoss.guard.test.ts`. The lab test preserves the
+transient network/offline versus permanent session-error distinction without
+importing the old Supabase client mock, theme components, migrations, or
+application modules. The empty-list guard itself remains disconnected because
+its current source implementation directly depends on the legacy Supabase
+client and is not part of the lab runtime allowlist.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
