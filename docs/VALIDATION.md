@@ -779,3 +779,31 @@ checks run.
 The dedicated lab suite passed: 9 Node tests, 31 Vitest files / 181 tests,
 lab typecheck, isolation check, production build, and fresh loopback Vite
 server smoke test.
+
+## Imported event cache-refresh helper - 2026-09-16
+
+Adapted the bundle's refactored `eventQueryKeys` cache-key factory into
+`eventQueryKeys.ts` and ported the `eventCacheRefresh` orchestrator that
+consumes it. The source baseline duplicated hand-written literal React
+Query key arrays across the create/edit/detail event pages; a typo in one
+array silently broke that surface's cache invalidation. The bundle's refactor
+replaced every literal key with one canonical factory so every caller
+invalidates the same cache identities. The orchestrator's two local
+snapshot-clearing dependencies (`scheduleCache.ts`'s events-list cache and
+`nextUpEventsCache.ts`'s home-carousel cache) were ported unchanged alongside
+it so the adaptation is complete and directly testable, not partially wired.
+
+This slice has no provider or Supabase/ICP edge — it only coordinates React
+Query invalidation and localStorage snapshot clearing, so explicit
+Supabase/ICP routing assertions do not apply; focused tests instead cover the
+canonical key identities, exact React Query invalidation calls (including
+omitting the per-user key for an anonymous caller), and that clearing one
+user's persisted schedule/next-up snapshots leaves another user's entries
+untouched. The bundle's legacy event page callers, schema, RPCs, and
+migration harness remain disconnected; no runtime allowlist expansion was
+required, and `tsconfig.lab.json` was extended to typecheck the four new
+files.
+
+`npm test` passed 9 Node tests and 53 Vitest files / 272 tests (5 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed.
