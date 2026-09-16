@@ -1180,3 +1180,50 @@ Focused validation:
 - `npm test` passed 9 Node tests and 62 Vitest files / 379 tests.
 - `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
   third-party `"use client"` directive warnings.
+
+## Imported hybrid targeted attendance roster across club placements — 2026-09-16
+
+Ported `src/features/events/targetedAttendanceRepository.ts` from the export bundle into
+`frontend/src/lab/hybridTargetedAttendanceRepository.ts`. The bundle's source called a
+`get_targeted_event_attendance_roster` SECURITY DEFINER RPC with a raw Supabase-shaped
+`client: any` and only an event id — used by `EventDetailPage` because event managers
+(club admin / committee / target-team admin) cannot read other members' `children` rows
+directly under RLS. This slice was chosen after confirming the current checkpoint had
+already adapted hybrid event RSVP, event supporting reads, Home RSVP/rewards/entitlements
+and membership cache helpers, while the targeted attendance roster remained unported, was
+event/attendance-scoped, and stayed small and bounded enough to keep disconnected from
+runtime UI.
+
+The adapted boundary requires callers to supply the event's owning `clubId`, because
+hybrid placement is authoritative by club rather than by event id. The repository resolves
+that club through `resolveClubBackend`, caches one provider per backend identity, and never
+falls back to Supabase when an ICP placement or provider is unavailable. The roster read
+remains authoritative and fails closed — a denied or failed lookup propagates rather than
+returning an empty roster. The three pure composition helpers (`selectScopedChildRoster`,
+`mergeTargetedChildren`, `selectTargetedReminderMembers`) were ported unchanged in behavior,
+with the bundle's `any`-typed parameters replaced by explicit row types.
+
+Added 13 tests in
+`frontend/lab-tests/imported-targeted-attendance-repository-baseline.test.tsx` covering:
+event-scoped roster reads, authoritative read failure propagation, child-row filtering,
+de-duplicating merge of RLS-visible and scoped children with visible-name precedence,
+targeted reminder audience composition (team-targeted adults plus linked parents/guardians,
+exclusion of unrelated teams and unlinked officials, no duplicate adults), explicit
+Supabase and ICP routing with provider reuse, cross-club backend isolation, ICP provider
+failure with zero Supabase fallback calls, and unavailable placement handling with no
+fallback.
+
+`tsconfig.lab.json` was extended to typecheck `hybridTargetedAttendanceRepository.ts`; no
+runtime allowlist expansion was made. The bundle's raw RPC client and `EventDetailPage`
+caller remain disconnected.
+
+Focused validation:
+
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/imported-targeted-attendance-repository-baseline.test.tsx`
+  passed 1 file / 13 tests.
+- `npm run typecheck:lab` passed.
+- `npm run check:isolation` passed.
+- `npm run check:prod-secrets` passed.
+- `npm test` passed 9 Node tests and 63 Vitest files / 392 tests.
+- `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
+  third-party `"use client"` directive warnings.
