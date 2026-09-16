@@ -123,9 +123,12 @@ import * as fixtureData from "@/lab/fixtureDataLayer";
 import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventAttendance, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 import {
+  fetchTargetedAttendanceRoster,
   mergeTargetedChildren,
   selectScopedChildRoster,
   selectTargetedReminderMembers,
+  type ScopedAttendanceRosterRow,
+  type TargetedAttendanceProvider,
 } from "@/lab/hybridTargetedAttendanceRepository";
 import {
   fetchEventDuties,
@@ -1329,17 +1332,16 @@ export default function EventDetailPage() {
     enabled: !!id && !!targetTeamIdsForFetch && !!(isAdmin || isAppAdmin) && !useIcpLab,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_targeted_event_attendance_roster", {
-        p_event_id: id!,
-      });
-      if (error) throw error;
-      return (data ?? []) as Array<{
-        kind: string;
-        person_id: string;
-        display_name: string | null;
-        parent_id: string | null;
-        team_ids: string[] | null;
-      }>;
+      const provider: TargetedAttendanceProvider = {
+        async listTargetedAttendanceRoster(eventId) {
+          const { data, error } = await supabase.rpc("get_targeted_event_attendance_roster", {
+            p_event_id: eventId,
+          });
+          if (error) throw error;
+          return (data ?? []) as ScopedAttendanceRosterRow[];
+        },
+      };
+      return fetchTargetedAttendanceRoster(provider, id!);
     },
   });
   const scopedChildRoster = useMemo(
