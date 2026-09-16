@@ -132,6 +132,10 @@ import {
   fetchEventGuests,
   type EventSupportingReadsProvider,
 } from "@/lab/hybridEventSupportingReadsRepository";
+import {
+  fetchEventRsvps,
+  type EventRsvpProvider,
+} from "@/lab/hybridEventRsvpRepository";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -468,43 +472,45 @@ export default function EventDetailPage() {
         return listLocalEventRsvps(localIcpPersona, id);
       }
 
-      // Fetch rsvps first
-      const { data: rsvpData, error: rsvpError } = await supabase
-        .from("rsvps")
-        .select(`*, mini_league_players (id, name, child_id)`)
-        .eq("event_id", id!);
-      if (rsvpError) throw rsvpError;
-      
-      // Now fetch related profiles and children separately to avoid FK detection issues
-      const userIds = rsvpData.filter(r => r.user_id).map(r => r.user_id);
-      const childIds = rsvpData.filter(r => r.child_id).map(r => r.child_id);
-      
-      let profilesMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
-      let childrenMap: Record<string, { id: string; name: string }> = {};
-      
-      if (userIds.length > 0) {
-        const { data: profiles } = await selectCachedProfilesByIds(userIds);
-        if (profiles) {
-          profilesMap = Object.fromEntries(profiles.map(p => [p.id, { display_name: p.display_name, avatar_url: p.avatar_url }]));
-        }
+      const provider: EventRsvpProvider = {
+        async listRsvps(eventId) {
+          const { data, error } = await supabase
+            .from("rsvps")
+            .select(`*, mini_league_players (id, name, child_id)`)
+            .eq("event_id", eventId);
+          if (error) throw error;
+          return data ?? [];
+        },
+        async listChildren(childIds) {
+          const { data, error } = await supabase
+            .from("children")
+            .select("id, name")
+            .in("id", childIds);
+          if (error) throw error;
+          return data ?? [];
+        },
+      };
+
+      const result = await fetchEventRsvps(
+        provider,
+        id!,
+        async (userIds) => {
+          const { data } = await selectCachedProfilesByIds(userIds);
+          return data ?? [];
+        },
+      );
+
+      // Enrichment (profile/child display names) is best-effort by design —
+      // a failed lookup must never make a valid attendance row disappear —
+      // but it is surfaced here rather than silently swallowed.
+      if (result.profilesEnrichment.status === "unavailable") {
+        console.warn("[EventDetailPage] RSVP profile enrichment unavailable", result.profilesEnrichment.error);
       }
-      
-      if (childIds.length > 0) {
-        const { data: children } = await supabase
-          .from("children")
-          .select("id, name")
-          .in("id", childIds);
-        if (children) {
-          childrenMap = Object.fromEntries(children.map(c => [c.id, { id: c.id, name: c.name }]));
-        }
+      if (result.childrenEnrichment.status === "unavailable") {
+        console.warn("[EventDetailPage] RSVP children enrichment unavailable", result.childrenEnrichment.error);
       }
-      
-      // Combine the data
-      return rsvpData.map(rsvp => ({
-        ...rsvp,
-        profiles: rsvp.user_id ? profilesMap[rsvp.user_id] || null : null,
-        children: rsvp.child_id ? childrenMap[rsvp.child_id] || null : null,
-      }));
+
+      return result.rows;
     },
     enabled: !!id,
   });
