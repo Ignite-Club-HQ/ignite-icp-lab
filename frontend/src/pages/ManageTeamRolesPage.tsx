@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabTeamRoleRoster } from "@/lab/fixtureDataLayer";
+import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
 import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 
@@ -65,7 +66,27 @@ export default function ManageTeamRolesPage() {
 function IcpLabManageTeamRolesPage() {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
-  const roster = getLocalLabTeamRoleRoster(teamId ?? "team-icp-001");
+  const [fallbackRoster] = useState(() => getLocalLabTeamRoleRoster(teamId ?? "team-icp-001"));
+  const { data: state, error, isLoading } = useQuery({
+    queryKey: ["icp-team-role-roster", teamId],
+    queryFn: async () => {
+      try {
+        const connection = await connectLocalIdentityAccessClient("icp-member");
+        return { source: "icp" as const, state: await connection.client.exportState() };
+      } catch (error) {
+        if (!(error instanceof Error) || !/not configured/i.test(error.message)) throw error;
+        return { source: "fixture" as const, state: null };
+      }
+    },
+  });
+  const roster = state?.state
+    ? state.state.roles
+      .filter((role) => role.team[0] === (teamId ?? "team-icp-001"))
+      .map((role) => ({
+        profile: { id: role.account_id, display_name: role.account_id },
+        roles: [{ id: `${role.account_id}-${role.role}`, role: role.role }],
+      }))
+    : fallbackRoster;
 
   return (
     <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
@@ -76,8 +97,12 @@ function IcpLabManageTeamRolesPage() {
         <h1 className="text-lg font-bold">Team Roles</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        Showing synthetic ICP lab team role data. Inviting members and changing roles are disabled.
+        {state?.source === "icp"
+          ? "Loaded from the local identity_access canister. Inviting members and changing roles are disabled."
+          : "The local identity_access canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
       </p>
+      {isLoading && <Skeleton className="h-10 w-full" />}
+      {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load team role data."}</p>}
       <div className="space-y-2">
         {roster.map((entry) => (
           <Card key={entry.profile.id}>
