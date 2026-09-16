@@ -36,6 +36,8 @@ import {
   hasSeenClubSwitcherHint,
   markClubSwitcherHintSeen,
 } from "@/components/layout/ClubSwitcherHint";
+import { invalidateNotificationSurfaces } from "@/lab/notificationCachePolicy";
+import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 // Preload Ignite icon so it's instantly available when switching from club theme
 const preloadedIgniteIcon = new Image();
@@ -589,31 +591,28 @@ export function AppHeader() {
       // Optimistically clear the badge and flip rows to read (keeping them visible)
       clearUnreadCount();
       queryClient.setQueriesData<any[]>(
-        { queryKey: ["recent-notifications", user?.id, activeClubFilter] },
+        { queryKey: notificationKeys.recentFor(user?.id, activeClubFilter) },
         (old) => (old || []).map((n) => ({ ...n, is_read: true })),
       );
       queryClient.setQueriesData<number>(
-        { queryKey: ["club-unread-count", user?.id, activeClubFilter] },
+        { queryKey: notificationKeys.clubUnreadFor(user?.id, activeClubFilter) },
         () => 0,
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recent-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-unread-count"] });
+      invalidateNotificationSurfaces(queryClient);
       setTimeout(() => refreshUnreadCount(), 300);
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["recent-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["club-unread-count"] });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.recent });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.clubUnread });
       refreshUnreadCount();
     },
   });
 
 
   const { data: recentNotifications = [], refetch: refetchRecentNotifications } = useQuery({
-    queryKey: ["recent-notifications", user?.id, activeClubFilter],
+    queryKey: notificationKeys.recentFor(user?.id, activeClubFilter),
     queryFn: async () => {
       if (!user?.id) return [];
       let q = supabase
@@ -661,7 +660,7 @@ export function AppHeader() {
 
   // Per-club unread count (only when a club filter is active)
   const { data: clubUnreadCount = 0 } = useQuery({
-    queryKey: ["club-unread-count", user?.id, activeClubFilter],
+    queryKey: notificationKeys.clubUnreadFor(user?.id, activeClubFilter),
     queryFn: async () => {
       if (!user?.id || !activeClubFilter) return 0;
       // Pull unread rows (capped) so we can drop DMs from senders who don't
@@ -697,10 +696,7 @@ export function AppHeader() {
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recent-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-unread-count"] });
+      invalidateNotificationSurfaces(queryClient);
     },
   });
 
