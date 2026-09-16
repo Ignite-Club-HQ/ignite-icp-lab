@@ -24,6 +24,8 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
+import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 
 type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin";
 
@@ -96,7 +98,7 @@ function SupabaseManageTeamRolesPage() {
   });
 
   const { data: roles, isLoading: loadingRoles } = useQuery({
-    queryKey: ["team-roles", teamId],
+    queryKey: membershipKeys.teamRoles(teamId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")
@@ -145,7 +147,7 @@ function SupabaseManageTeamRolesPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      if (teamId) refreshTeamRoleChange(queryClient, teamId);
       toast({ title: "Role removed" });
     },
   });
@@ -171,7 +173,7 @@ function SupabaseManageTeamRolesPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      if (teamId) refreshTeamRoleChange(queryClient, teamId);
       toast({ title: "Points reset to 0" });
     },
   });
@@ -184,7 +186,7 @@ function SupabaseManageTeamRolesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-role-requests", teamId] });
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      if (teamId) refreshTeamRoleChange(queryClient, teamId);
       toast({ title: "Request processed" });
     },
     onError: (error: Error) => {
