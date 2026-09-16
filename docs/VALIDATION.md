@@ -569,6 +569,16 @@ namespace. Backend-mode assertions are intentionally not applicable because
 this helper runs before provider routing; the bundle's Supabase-backed club
 resolution, native handler, and provider bootstrap guards remain disconnected.
 
+## Imported media storage baseline adaptation - 2026-09-16
+
+Adapted the club isolation and media lifecycle behavior from the bundle's
+Supabase RPC and Storage journeys into the existing hybrid media router. The
+lab regression uses independent synthetic stores for two clubs, runs through
+explicit Supabase and ICP placements, verifies selected-provider calls,
+removal isolation, and proves an ICP provider failure is surfaced without a
+Supabase fallback. The bundle's Supabase Storage SDK, RPC, schema, and fixture
+harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
