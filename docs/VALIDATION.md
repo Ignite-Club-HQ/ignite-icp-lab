@@ -589,6 +589,16 @@ provider failure does not invoke or fall back to Supabase. The original Edge
 Function, Supabase RPC, active-game schema, and local Supabase harness remain
 disconnected.
 
+## Imported competition lifecycle baseline adaptation - 2026-09-16
+
+Adapted the organizer/invitation/acceptance lifecycle from the bundle's
+competition journey into a synthetic provider-routed contract test using the
+existing authoritative placement resolver. The lab regression covers explicit
+Supabase and ICP modes, organizer authorization, cross-club visibility,
+duplicate invitation rejection, invited-team acceptance, activation authority,
+and ICP failure without Supabase fallback. The bundle's Supabase fixture,
+RPCs, migrations, and old application modules remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
