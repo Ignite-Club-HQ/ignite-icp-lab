@@ -79,6 +79,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { resolveHomeProAccess } from "@/lab/hybridHomeEntitlementRepository";
+import { mergeHomeUserChildren } from "@/lab/hybridHomeRewardsRepository";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
@@ -988,15 +990,8 @@ export default function HomePage() {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const hasClubPro = (clubSubsResult.data || []).some((s: any) => s.is_pro || s.is_pro_football || s.admin_pro_override || s.admin_pro_football_override);
-      if (hasClubPro) return true;
-
-      const hasTeamPro = (teamSubsResult.data || []).some((s: any) => s.is_pro || s.is_pro_football || s.admin_pro_override || s.admin_pro_football_override);
-      if (hasTeamPro) return true;
-
-      // Fallback: check teams.is_pro (set by website trial signup)
-      const hasTeamLegacyPro = (teamsResult.data || []).some((t: any) => t.is_pro);
-      return hasTeamLegacyPro;
+      // Fallback covers teams.is_pro (set by website trial signup).
+      return resolveHomeProAccess(clubSubsResult.data, teamSubsResult.data, teamsResult.data);
     },
     enabled: !!user && !!userMemberships,
     staleTime: 5 * 60 * 1000,
@@ -1101,14 +1096,7 @@ export default function HomePage() {
         guardianLinksPromise,
       ]);
 
-      const merged = new Map<string, any>();
-      (owned || []).forEach((child: any) => merged.set(child.id, child));
-      (guardianLinks || []).forEach((row: any) => {
-        const child = row.children;
-        if (child) merged.set(child.id, child);
-      });
-
-      return Array.from(merged.values()).sort((a: any, b: any) => a.name.localeCompare(b.name));
+      return mergeHomeUserChildren(owned as any, guardianLinks as any);
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,

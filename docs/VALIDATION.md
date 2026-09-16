@@ -1227,3 +1227,39 @@ Focused validation:
 - `npm test` passed 9 Node tests and 63 Vitest files / 392 tests.
 - `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
   third-party `"use client"` directive warnings.
+
+## Wired hybrid Home entitlement/rewards helpers into HomePage — 2026-09-16
+
+`HomePage.tsx` is unported page source (not in `frontend/lab-runtime-files.json`) that had
+previously acquired `hybridHomeRewardsRepository.ts` and `hybridHomeEntitlementRepository.ts`
+as imported, disconnected helpers with no page caller. Rather than leave that helper-only
+work disconnected, `HomePage.tsx` was edited in place to consume the two pure composition
+helpers it already duplicated inline, following the same "replace duplicated decision logic,
+keep the existing data-fetch boundary" pattern used for `VaultPage.tsx` and
+`EventDetailPage.tsx`.
+
+- The Pro-access query's inline `hasClubPro` / `hasTeamPro` / legacy `teams.is_pro` boolean-or
+  chain was replaced with `resolveHomeProAccess(clubSubsResult.data, teamSubsResult.data,
+  teamsResult.data)` from `hybridHomeEntitlementRepository.ts`. Behavior is unchanged: any club
+  subscription, team subscription, or legacy team trial flag still grants Pro access.
+- The `userChildren` query's inline owned/guardian-linked child de-duplication and
+  alphabetical sort was replaced with `mergeHomeUserChildren(owned, guardianLinks)` from
+  `hybridHomeRewardsRepository.ts`. Behavior is unchanged: guardian-linked children still win
+  on id collision and the result is still sorted by name.
+- The page's raw Supabase read calls, query keys, and all other Home behavior are untouched;
+  no provider/backend routing was introduced and no runtime allowlist expansion was made,
+  since HomePage remains outside `lab-runtime-files.json` pending its own isolation gate.
+
+Focused validation:
+
+- `npx tsc -p tsconfig.app.json --noEmit` was compared before/after the edit: the same two
+  pre-existing `HomePage.tsx` errors (untyped `useQuery` generic at the legacy-events query,
+  and an `Event[]` narrowing mismatch) remain at shifted line numbers only; no new errors were
+  introduced by this change.
+- `npm run typecheck:lab` passed (HomePage.tsx is not part of the lab `files` list and was not
+  newly added, matching the existing `VaultPage.tsx`/`EventDetailPage.tsx` precedent).
+- `npm run check:isolation` and `npm run check:prod-secrets` passed.
+- `npm test` passed 9 Node tests and 63 Vitest files / 392 tests (unchanged — this slice reused
+  already-tested pure helpers rather than adding new ones).
+- `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
+  third-party `"use client"` directive warnings.
