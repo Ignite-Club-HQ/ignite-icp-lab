@@ -252,7 +252,7 @@ export default function TeamDetailPage() {
       if (error) throw error;
       return (data?.length ?? 0) > 0;
     },
-    enabled: !!id && !!user && isClassMode,
+    enabled: !!id && !!user && isClassMode && !useIcpLab,
   });
 
   const { data: teamSubscription } = useQuery({
@@ -327,7 +327,7 @@ export default function TeamDetailPage() {
       if (error) throw friendlyQueryError(error, "your club admin permissions");
       return !!data;
     },
-    enabled: !!user && !!team?.club_id,
+    enabled: !!user && !!team?.club_id && !useIcpLab,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
@@ -445,7 +445,7 @@ export default function TeamDetailPage() {
         };
       });
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
     staleTime: 0,
     gcTime: 5 * 60 * 1000,
     refetchOnMount: 'always',
@@ -478,7 +478,7 @@ export default function TeamDetailPage() {
       
       return data || [];
     },
-    enabled: !!id,
+    enabled: !!id && !useIcpLab,
     staleTime: 0, // Always fetch fresh data
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     refetchOnMount: 'always', // Always refetch when component mounts
@@ -558,7 +558,7 @@ export default function TeamDetailPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!linkedEventId,
+    enabled: !!linkedEventId && !useIcpLab,
     staleTime: 30_000,
   });
 
@@ -605,7 +605,7 @@ export default function TeamDetailPage() {
         .eq("team_id", id!);
       return (data ?? []) as Array<{ role: string; via_captain: boolean | null }>;
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!user && !useIcpLab,
   });
 
   const userRoles = userRoleRows.map(r => r.role);
@@ -631,7 +631,7 @@ export default function TeamDetailPage() {
         .maybeSingle();
       return !!data;
     },
-    enabled: !!user,
+    enabled: !!user && !useIcpLab,
   });
 
   const isCoachOrAdmin = userRole === "team_admin" || userRole === "coach" || isAppAdmin;
@@ -675,7 +675,7 @@ export default function TeamDetailPage() {
       if (error) throw error;
       return (data || []).some((d: any) => normalizeDutyName(d.name) === "subs manager") ? nearbyEventId : null;
     },
-    enabled: !!id && !!user && !isCoachOrAdmin && !isClubAdmin,
+    enabled: !!id && !!user && !isCoachOrAdmin && !isClubAdmin && !useIcpLab,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -701,7 +701,7 @@ export default function TeamDetailPage() {
         .eq("assigned_to", user.id)
       return (data || []).some((d: any) => normalizeDutyName(d.name) === "subs manager");
     },
-    enabled: !!linkedEventId && !!user,
+    enabled: !!linkedEventId && !!user && !useIcpLab,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -725,7 +725,7 @@ export default function TeamDetailPage() {
         .maybeSingle();
       return data;
     },
-    enabled: !!id && (isMember || isClubAdmin),
+    enabled: !!id && (isMember || isClubAdmin) && !useIcpLab,
     refetchInterval: 30000,
     staleTime: 15000,
   });
@@ -773,7 +773,7 @@ export default function TeamDetailPage() {
       }
       return invitesWithProfiles;
     },
-    enabled: !!id && isMember,
+    enabled: !!id && isMember && !useIcpLab,
   });
   const { data: existingRequest } = useQuery({
     queryKey: ["team-request", id, user?.id],
@@ -787,11 +787,12 @@ export default function TeamDetailPage() {
         .maybeSingle();
       return data;
     },
-    enabled: !!id && !!user && !isMember,
+    enabled: !!id && !!user && !isMember && !useIcpLab,
   });
 
   const requestRoleMutation = useMutation({
     mutationFn: async () => {
+      if (useIcpLab) throw new Error("Team role requests are unavailable in ICP lab mode.");
       const metadata: Record<string, any> = {};
       if (selectedRole === "parent") {
         const trimmedNew = newChildName.trim();
@@ -832,6 +833,10 @@ export default function TeamDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
+    if (useIcpLab) {
+      toast({ title: "Team deletion is unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     if (isDeleting) return; // prevent duplicate submission
     setIsDeleting(true);
     try {
@@ -938,6 +943,10 @@ export default function TeamDetailPage() {
 
 
   const handleRestoreTeam = async () => {
+    if (useIcpLab) {
+      toast({ title: "Team restore is unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("teams").update({
       deleted_at: null,
       deleted_by: null,
@@ -957,6 +966,10 @@ export default function TeamDetailPage() {
   };
 
   const handlePermanentDeleteTeam = async () => {
+    if (useIcpLab) {
+      toast({ title: "Permanent team deletion is unavailable in ICP lab mode", variant: "destructive" });
+      return;
+    }
     setIsDeleting(true);
     try {
       const { data, error } = await supabase.functions.invoke("permanent-delete-entity", {
@@ -2919,6 +2932,11 @@ export default function TeamDetailPage() {
             <AlertDialogAction
               onClick={async () => {
                 if (!removeMember || !id) return;
+                if (useIcpLab) {
+                  toast({ title: "Member removal is unavailable in ICP lab mode", variant: "destructive" });
+                  setRemoveMember(null);
+                  return;
+                }
                 // Use scoped RPC so team role, child assignments to this team,
                 // and team-chat group memberships are revoked atomically.
                 // child_guardians and access to unrelated teams are preserved.
