@@ -1061,3 +1061,37 @@ untouched and disconnected.
 `npm test` passed 9 Node tests and 58 Vitest files / 331 tests (10 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run
 check:prod-secrets`, and `npm run build` all passed.
+
+## Imported hybrid Home rewards repository across club placements — 2026-09-16
+
+Ported `src/features/home/homeRewardsRepository.ts` from the export bundle into
+`frontend/src/lab/hybridHomeRewardsRepository.ts`, replacing its raw Postgrest-shaped
+`client: any` parameter with an explicit `resolveClubBackend`-routed hybrid provider,
+matching the architecture established in `hybridEventRsvpRepository.ts` and
+`hybridHomeRsvpRepository.ts`.
+
+Home displays rewards across clubs where the user is a member. Each club can reside
+on a distinct backend (ICP canister or Supabase), so `fetchRewardsAcrossClubs` resolves
+and queries each club's backend independently, caching one provider per backend identity.
+The pure helpers `selectNextHomeRewardInfo` (computing the next reward threshold among Pro
+clubs, with app-admin bypass, filtering out inactive and player-of-the-match rewards) and
+`mergeHomeUserChildren` (combining owned and guardian-linked children with de-duplication
+and alphabetical name sorting) were preserved and isolated from raw database queries.
+
+One club's unavailable backend never disrupts the rest of the Home rewards view and never
+triggers a Supabase fallback in ICP mode. Each club outcome is typed as an inspectable
+`HomeRewardsGroupOutcome` (`{ status: 'ok', rewards }` or `{ status: 'unavailable', error }`).
+
+Added 17 tests in `frontend/lab-tests/imported-home-rewards-repository-baseline.test.tsx` covering:
+pure provider contracts, threshold selection rules, child list de-duplication/sorting, explicit
+Supabase/ICP mode routing and client reuse, multi-club isolation without cross-club leakage,
+failing ICP provider isolation with zero Supabase fallback calls, and placement country policy
+denial handling.
+
+`tsconfig.lab.json` was extended to typecheck `hybridHomeRewardsRepository.ts`; no runtime
+allowlist expansion was made or needed. The bundle's raw Postgrest client and UI caller
+remain disconnected.
+
+`npm test` passed 9 Node tests and 60 Vitest files / 354 tests (17 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run check:prod-secrets`, and
+`npm run build` all passed.
