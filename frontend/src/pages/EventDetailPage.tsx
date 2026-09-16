@@ -121,6 +121,11 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventAttendance, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
+import {
+  mergeTargetedChildren,
+  selectScopedChildRoster,
+  selectTargetedReminderMembers,
+} from "@/lab/hybridTargetedAttendanceRepository";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -1321,7 +1326,7 @@ export default function EventDetailPage() {
     },
   });
   const scopedChildRoster = useMemo(
-    () => (scopedRosterQuery.data ?? []).filter((r) => r.kind === "child"),
+    () => selectScopedChildRoster(scopedRosterQuery.data),
     [scopedRosterQuery.data],
   );
   const scopedChildNames = useMemo(() => {
@@ -1375,17 +1380,7 @@ export default function EventDetailPage() {
   const allChildrenOnTeam = useMemo(() => {
     const base = allChildrenOnTeamRaw || [];
     if (!targetTeamIdsForFetch || scopedChildRoster.length === 0) return base;
-    const byId = new Map<string, any>();
-    for (const c of base) byId.set(c.id, c);
-    for (const r of scopedChildRoster) {
-      const existing = byId.get(r.person_id);
-      if (existing) {
-        if (!existing.name && r.display_name) existing.name = r.display_name;
-      } else {
-        byId.set(r.person_id, { id: r.person_id, name: r.display_name, parent_id: r.parent_id });
-      }
-    }
-    return [...byId.values()];
+    return mergeTargetedChildren(base, scopedChildRoster);
   }, [allChildrenOnTeamRaw, scopedChildRoster, targetTeamIdsForFetch]);
 
 
@@ -1457,19 +1452,12 @@ export default function EventDetailPage() {
     // response, so they must be reachable by reminders too.
     const roleless = linkedAdultProfiles || [];
     if (event?.team_id || !targetTeamIdsForFetch) return [...(members ?? []), ...roleless];
-    const targetSet = new Set(targetTeamIdsForFetch);
-    const linkedAdultIds = new Set<string>();
-    (allChildrenOnTeam || []).forEach((c: any) => {
-      if (c.parent_id) linkedAdultIds.add(c.parent_id);
-    });
-    (childGuardiansOnTeam || []).forEach((cg: any) => {
-      if (cg.guardian_id) linkedAdultIds.add(cg.guardian_id);
-    });
-    return [...(members ?? []), ...roleless].filter((m: any) => {
-      const pairs: { role: string; team_id: string | null }[] = m.role_team_pairs ?? [];
-      if (pairs.some((p) => p.team_id && targetSet.has(p.team_id))) return true;
-      return linkedAdultIds.has(m.id);
-    });
+    return selectTargetedReminderMembers(
+      [...(members ?? []), ...roleless],
+      targetTeamIdsForFetch,
+      allChildrenOnTeam,
+      childGuardiansOnTeam,
+    );
   }, [members, event?.team_id, targetTeamIdsForFetch, allChildrenOnTeam, childGuardiansOnTeam, linkedAdultProfiles]);
 
 
