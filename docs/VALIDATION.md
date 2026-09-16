@@ -540,6 +540,16 @@ rejection, and unknown-mode handling. This contract is evaluated before
 backend selection, so explicit Supabase/ICP routing assertions are not
 applicable; no provider or runtime allowlist surface was changed.
 
+## Imported notification lifecycle baseline adaptation - 2026-09-16
+
+Adapted the useful provider-neutral behavior from the bundle's
+`tests/local-supabase/notification-lifecycle-journey.test.ts` into the hybrid
+notification queue boundary. The lab test covers idempotent enqueue, per-club
+placement isolation, claim/acknowledge lifecycle, and explicit Supabase and ICP
+provider selection. It also proves an ICP provider failure is surfaced without
+calling or falling back to Supabase. The legacy Supabase SDK fixture,
+database schema, preference tables, and migration harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
