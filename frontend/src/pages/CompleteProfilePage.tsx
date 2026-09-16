@@ -33,6 +33,7 @@ import {
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
 import { getLocalLabProfile } from "@/lab/fixtureDataLayer";
+import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 
 
 interface PendingInvite {
@@ -59,33 +60,105 @@ export default function CompleteProfilePage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const profile = getLocalLabProfile(user?.id ?? "icp-member");
-    return (
-      <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>{profile.display_name.slice(0, 1)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-lg font-semibold">{profile.display_name}</h1>
-            <p className="text-xs text-muted-foreground">{profile.email}</p>
-          </div>
-        </div>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <User className="h-10 w-10 mx-auto text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Showing a synthetic ICP lab profile. Editing, invite acceptance, child linking, push setup, and passkey
-              registration remain unavailable until identity_access profile mutation is wired here.
-            </p>
-            <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpLabCompleteProfilePage userId={user?.id ?? "icp-member"} onDone={() => navigate("/")} />;
   }
 
   return <SupabaseCompleteProfilePage />;
+}
+
+function IcpLabCompleteProfilePage({ userId, onDone }: { userId: string; onDone: () => void }) {
+  const profile = getLocalLabProfile(userId);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const persona = userId.startsWith("icp-") ? userId.slice(4) : "member";
+
+  useEffect(() => {
+    let active = true;
+    connectLocalIdentityAccessClient(persona)
+      .then(({ client }) => client.getPrivacyConsent(userId, "privacy"))
+      .then((granted) => {
+        if (active) setPrivacyAccepted(granted);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          toast({
+            title: "Unable to load privacy consent",
+            description: error instanceof Error ? error.message : "The local identity service failed.",
+            variant: "destructive",
+          });
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [persona, toast, userId]);
+
+  const saveConsent = async () => {
+    if (!privacyAccepted) {
+      toast({
+        title: "Consent required",
+        description: "Accept the privacy policy to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { client } = await connectLocalIdentityAccessClient(persona);
+      await client.setPrivacyConsent(userId, "privacy", true);
+      onDone();
+    } catch (error) {
+      toast({
+        title: "Unable to save privacy consent",
+        description: error instanceof Error ? error.message : "The local identity service failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Avatar>
+          <AvatarFallback>{profile.display_name.slice(0, 1)}</AvatarFallback>
+        </Avatar>
+        <div>
+          <h1 className="text-lg font-semibold">{profile.display_name}</h1>
+          <p className="text-xs text-muted-foreground">{profile.email}</p>
+        </div>
+      </div>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle>Finish local ICP setup</CardTitle>
+          <CardDescription>
+            Profile editing, child linking, push setup, and passkey registration remain unavailable until their
+            identity and external-worker contracts are implemented.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <label className="flex items-start gap-3 text-sm">
+            <Checkbox
+              checked={privacyAccepted}
+              onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+              disabled={loading || saving}
+            />
+            <span>I accept the privacy policy for this synthetic ICP lab account.</span>
+          </label>
+          <Button onClick={saveConsent} disabled={loading || saving || !privacyAccepted} className="w-full">
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Continue
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function SupabaseCompleteProfilePage() {
