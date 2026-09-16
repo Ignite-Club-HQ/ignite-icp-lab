@@ -6,6 +6,19 @@ import type { _SERVICE } from '../src/lab/bindings/identity_access/declarations/
 const account = { id: 'account-1', principals: [Principal.fromText('aaaaa-aa')], version: 0n };
 const accessScoped = vi.fn(async () => ({ Ok: { account_id: account.id, app_admin: false, club_admin: true, guardian: false, team_member: true } }));
 const grantRoleScoped = vi.fn(async () => ({ Ok: null }));
+const exportState = vi.fn(async () => ({
+  Ok: {
+    schema: 1,
+    governor: Principal.fromText('aaaaa-aa'),
+    accounts: [account],
+    roles: [{ account_id: account.id, role: 'club_admin', club: ['club-a'], team: [], site_id: [] }],
+    exclusions: [],
+    family_links: [],
+    privacy_consents: [],
+    external_bindings: [],
+    link_challenges: [],
+  },
+}));
 const actor = {
   whoami: async () => ({ Ok: account }),
   register_account: async () => ({ Ok: account }),
@@ -19,6 +32,7 @@ const actor = {
   begin_link: async () => ({ Err: 'synthetic denial' }),
   accept_link: async () => ({ Err: 'synthetic denial' }),
   revoke: async () => ({ Err: 'synthetic denial' }),
+  export_state: exportState,
 } as unknown as _SERVICE;
 
 test('identity access client converts successful decisions and preserves canister errors', async () => {
@@ -29,6 +43,8 @@ test('identity access client converts successful decisions and preserves caniste
   expect(accessScoped).toHaveBeenCalledWith(['site-a'], ['club-a'], ['team-a'], ['child-a']);
   await expect(client.grantRole('account-2', 'coach', 'club-a', 'team-a', 'site-a')).resolves.toBeNull();
   expect(grantRoleScoped).toHaveBeenCalledWith('account-2', 'coach', ['site-a'], ['club-a'], ['team-a']);
+  await expect(client.exportState()).resolves.toMatchObject({ roles: [{ account_id: account.id, role: 'club_admin' }] });
+  expect(exportState).toHaveBeenCalledOnce();
   await expect(client.beginLink(Principal.fromText('2ibo7-dia'))).rejects.toThrow('synthetic denial');
 });
 

@@ -148,6 +148,10 @@ Completed or proven in the lab:
   `supabase_only`. Hybrid coverage includes both typed local services and
   fixture/read-only branches; classification does not by itself prove that
   every page has a live ICP actor
+- the ICP role-administration view now reads the typed
+  `identity_access.export_state` contract when the local canister is
+  configured, with a narrowly scoped synthetic fallback only for an absent
+  local canister; role mutations remain disabled pending authorization parity
 - event frontend connectivity includes local `events_domain` list/detail/create/edit
   paths plus canister-backed event-detail self-RSVP and assigned-duty claim
   writes; attendance, recurrence, timers, and complete duty lifecycle remain

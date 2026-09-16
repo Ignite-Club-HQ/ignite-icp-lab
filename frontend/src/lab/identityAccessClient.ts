@@ -1,4 +1,4 @@
-import type { _SERVICE } from './bindings/identity_access/declarations/identity_access.did.js';
+import type { _SERVICE, State } from './bindings/identity_access/declarations/identity_access.did.js';
 
 export type IdentityAccessClient = ReturnType<typeof createIdentityAccessClient>;
 
@@ -14,6 +14,7 @@ export function createIdentityAccessClient(actor: _SERVICE) {
   };
   return {
     whoami: () => call(() => actor.whoami()),
+    exportState: () => call<State>(() => actor.export_state()),
     registerAccount: () => call(() => actor.register_account()),
     access: (club?: string, team?: string, child?: string) => call(() => actor.access(club ? [club] : [], team ? [team] : [], child ? [child] : [])),
     accessScoped: (siteId?: string, club?: string, team?: string, child?: string) => call(() => actor.access_scoped(siteId ? [siteId] : [], club ? [club] : [], team ? [team] : [], child ? [child] : [])),
