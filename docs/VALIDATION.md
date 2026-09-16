@@ -1011,3 +1011,53 @@ caller remain disconnected.
 `npm test` passed 9 Node tests and 57 Vitest files / 321 tests (9 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run
 check:prod-secrets`, and `npm run build` all passed.
+
+## Imported membership query-key factory and team-membership cache completion - 2026-09-16
+
+Ported `src/features/membership/membershipQueryKeys.ts` and
+`src/features/membership/teamMembershipCacheCompletion.ts` from the bundle's
+`integration/all-refactoring-icp-export` branch to
+`frontend/src/lab/membershipQueryKeys.ts` and
+`frontend/src/lab/teamMembershipCacheCompletion.ts`: a canonical
+`membershipKeys` cache-key factory (invite tokens, pending invites, team
+roles/children, chat members, authorized scopes) plus the invalidation
+helpers that reconcile every affected cache surface after a team-role
+change, a full member removal, a child-assignment removal, a chat-managed
+membership change, or the current user leaving a team. The bundle's
+`queryClient: any` parameter was typed as `QueryClient` from
+`@tanstack/react-query`, matching the convention already used by
+`eventCacheRefresh.ts` and `notificationCachePolicy.ts`.
+
+Confirmed genuine duplication in the sanitized source before choosing this
+slice: grep found the underlying key literals (`team-roles`,
+`team-children`, `user-invite-roles`, `pending-invites-for-user`,
+`authorized-scopes`, `chat-members`) repeated as raw strings across roughly
+20 files (`useAuthorizedScopes.ts`, `TeamDetailPage.tsx`,
+`ManageTeamRolesPage.tsx`, `AddTeamMemberSheet.tsx`,
+`PromoteToTeamAdminDialog.tsx`, etc.), each independently deciding which
+surfaces to invalidate after a membership mutation — exactly the kind of
+duplicated invalidation-completeness risk this centralizes.
+
+Like every other cache-key/cache-policy helper ported this session, both
+files are pure/provider-neutral: they only compute cache keys and
+invalidate an in-memory React Query cache, never touching Supabase or ICP,
+so no `resolveClubBackend` hybridization applies and none was added.
+
+Adapted the bundle's own `membershipQueryKeys.test.ts` and
+`teamMembershipCacheCompletion.test.ts` into
+`frontend/lab-tests/imported-team-membership-cache-completion-baseline.test.tsx`
+(10 tests), replacing the bundle's untyped mock `{ invalidateQueries: vi.fn() }`
+client with a real `QueryClient` plus `vi.spyOn`, to keep the ported code
+strictly typed against `QueryClient` rather than `any`. Coverage: every key
+factory case, and every invalidation-order assertion for role change, full
+member removal, child removal, chat-managed role change, atomic chat member
+removal, and leaving a team.
+
+`tsconfig.lab.json` was extended to typecheck the two new files; no runtime
+allowlist expansion was made or needed since neither file is wired into
+`LabApp.tsx` or any consumer. The bundle's ~20 duplicated call sites remain
+untouched and disconnected.
+
+`npm test` passed 9 Node tests and 58 Vitest files / 331 tests (10 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed.
