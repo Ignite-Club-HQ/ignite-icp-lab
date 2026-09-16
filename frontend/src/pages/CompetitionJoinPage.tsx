@@ -13,7 +13,6 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { safeSessionSet, buildAuthPathWithIntent } from "@/lib/authRedirectStorage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { claimLocalCompetitionJoinToken } from "@/lab/localCompetitionService";
-import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type CompInfo = {
   id: string;
@@ -44,8 +43,9 @@ export default function CompetitionJoinPage() {
 function IcpCompetitionJoinPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const [token, setToken] = useState(searchParams.get("token") || "");
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
