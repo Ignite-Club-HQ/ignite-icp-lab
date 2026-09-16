@@ -13,6 +13,8 @@
     "check:prod-secrets": "node scripts/check-production-secrets.mjs",
     "deploy:staging": "node scripts/deploy-staging.mjs",
     "check:topology": "node scripts/check-topology.mjs",
+    "check:candid-drift": "node scripts/check-candid-drift.mjs",
+    "check:step1": "npm run check:topology && npm run check:candid-drift",
     "check:parity": "node scripts/check-parity-matrix.mjs",
     "check:parity-evidence": "node scripts/check-parity-evidence.mjs",
     "test:server": "node scripts/server-smoke.mjs",

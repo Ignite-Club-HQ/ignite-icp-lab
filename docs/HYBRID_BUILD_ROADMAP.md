@@ -25,6 +25,12 @@ The system remains coexistence-first:
 
 ### Completed and evidenced
 
+- Step 1 topology/contract gate now has a mechanical `check:step1` command:
+  it validates all 13 role entries and verifies generated frontend Candid
+  `_SERVICE` method sets against each active contract, including the migration
+  coordinator. Generated contract bindings live under
+  `frontend/src/lab/generated-contracts` and are not a substitute for the
+  authenticated runtime adapters.
 - The disposable local topology declares all 13 logical canister roles.
 - Placement, shard routing, migration fencing, multi-site policy, and residency
   constraints have executable synthetic evidence.
