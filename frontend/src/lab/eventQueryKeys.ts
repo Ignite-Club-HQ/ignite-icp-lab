@@ -17,13 +17,20 @@ export const eventKeys = {
       ? (['user-memberships-and-events', userId] as const)
       : (['user-memberships-and-events'] as const),
 
-  detail: (eventId: string) => ['event', eventId] as const,
-  rsvps: (eventId: string) => ['event-rsvps', eventId] as const,
-  goingRsvps: (eventId: string) => ['event-rsvps-going', eventId] as const,
-  groups: (eventId: string) => ['event-groups', eventId] as const,
-  duties: (eventId: string) => ['event-duties', eventId] as const,
-  payments: (eventId: string) => ['event-payments', eventId] as const,
-  recentReminders: (eventId: string) => ['event-recent-reminders', eventId] as const,
+  detail: (eventId?: string | null) =>
+    eventId ? (['event', eventId] as const) : (['event'] as const),
+  rsvps: (eventId?: string | null) =>
+    eventId ? (['event-rsvps', eventId] as const) : (['event-rsvps'] as const),
+  goingRsvps: (eventId?: string | null) =>
+    eventId ? (['event-rsvps-going', eventId] as const) : (['event-rsvps-going'] as const),
+  groups: (eventId?: string | null) =>
+    eventId ? (['event-groups', eventId] as const) : (['event-groups'] as const),
+  duties: (eventId?: string | null) =>
+    eventId ? (['event-duties', eventId] as const) : (['event-duties'] as const),
+  payments: (eventId?: string | null) =>
+    eventId ? (['event-payments', eventId] as const) : (['event-payments'] as const),
+  recentReminders: (eventId?: string | null) =>
+    eventId ? (['event-recent-reminders', eventId] as const) : (['event-recent-reminders'] as const),
 
   pitchLinked: (eventId: string) => ['pitch-linked-event', eventId] as const,
   pitchGoingRsvps: (eventId?: string | null) =>

@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { refreshEventCaches } from "@/lib/eventCacheRefresh";
 import { supabase } from "@/integrations/supabase/client";
+import { eventKeys } from "@/lab/eventQueryKeys";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -359,7 +360,7 @@ export default function EventDetailPage() {
   // so the "Reminded {time ago}" state persists across sessions/devices and we can block re-reminding.
   const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
   const { data: recentReminderMap } = useQuery({
-    queryKey: ["event-recent-reminders", id],
+    queryKey: eventKeys.recentReminders(id),
     enabled: !!id && !useIcpLab,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
@@ -444,7 +445,7 @@ export default function EventDetailPage() {
         eventId: id,
         abortedInFlight: aborted,
       });
-      queryClient.refetchQueries({ queryKey: ["event", id] });
+      queryClient.refetchQueries({ queryKey: eventKeys.detail(id) });
     };
     const timer = setInterval(kick, 6000);
     return () => clearInterval(timer);
@@ -460,7 +461,7 @@ export default function EventDetailPage() {
     isFetching: rsvpsFetching,
     refetch: refetchRsvps,
   } = useQuery({
-    queryKey: ["event-rsvps", id],
+    queryKey: eventKeys.rsvps(id),
     queryFn: async () => {
       if (useIcpLab) {
         if (!id) throw new Error("Missing event ID");
@@ -614,7 +615,7 @@ export default function EventDetailPage() {
       return setLocalEventAttendance(localIcpPersona, id, localAccountId, present, "");
     },
     onSuccess: async (attendance) => {
-      queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+      queryClient.setQueryData(eventKeys.rsvps(id), (current: unknown) => {
         if (!Array.isArray(current)) return current;
         return current.map((row: any) =>
           row.user_id === localAccountId && !row.child_id
@@ -634,7 +635,7 @@ export default function EventDetailPage() {
   }, [myRsvp?.id]);
 
   const { data: duties, isLoading: isDutiesLoading } = useQuery({
-    queryKey: ["event-duties", id],
+    queryKey: eventKeys.duties(id),
     queryFn: async () => {
       if (useIcpLab) return [];
 
@@ -1143,9 +1144,9 @@ export default function EventDetailPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
     },
     onError: (err: any) => {
       toast({ title: "Failed to update RSVP", description: err.message, variant: "destructive" });
@@ -1477,7 +1478,7 @@ export default function EventDetailPage() {
 
   // Fetch event payments (admin only)
   const { data: payments } = useQuery({
-    queryKey: ["event-payments", id],
+    queryKey: eventKeys.payments(id),
     queryFn: async () => {
       if (useIcpLab) return [];
 
@@ -1656,7 +1657,7 @@ export default function EventDetailPage() {
               return;
             }
 
-            queryClient.invalidateQueries({ queryKey: ["event-payments", id] });
+            queryClient.invalidateQueries({ queryKey: eventKeys.payments(id) });
             toast({ title: "Payment successful!" });
           } else {
             toast({ title: "Payment failed", variant: "destructive" });
@@ -1705,7 +1706,7 @@ export default function EventDetailPage() {
       // Remove the query param from URL
       window.history.replaceState({}, '', `/events/${id}`);
       // Refetch payments
-      queryClient.invalidateQueries({ queryKey: ["event-payments", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.payments(id) });
     } else if (paymentStatus === 'cancelled') {
       toast({
         title: "Payment Cancelled",
@@ -1737,7 +1738,7 @@ export default function EventDetailPage() {
           },
           children: null,
         };
-        queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+        queryClient.setQueryData(eventKeys.rsvps(id), (current: unknown) => {
           const rows = Array.isArray(current) ? current : [];
           const existingIndex = rows.findIndex((row: any) => row.user_id === localAccountId && !row.child_id);
           if (existingIndex < 0) return [...rows, localRsvp];
@@ -1798,9 +1799,9 @@ export default function EventDetailPage() {
     onSuccess: (_data, status) => {
       if (useIcpLab) return;
 
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
       // Refresh points history & rank after fire-and-forget early-RSVP bonus award.
       setTimeout(() => {
@@ -1847,7 +1848,7 @@ export default function EventDetailPage() {
           profiles: null,
           children: { id: childId, name: childName || "ICP Junior" },
         };
-        queryClient.setQueryData(["event-rsvps", id], (current: unknown) => {
+        queryClient.setQueryData(eventKeys.rsvps(id), (current: unknown) => {
           const rows = Array.isArray(current) ? current : [];
           const existingIndex = rows.findIndex((row: any) => row.child_id === childId);
           if (existingIndex < 0) return [...rows, localRsvp];
@@ -1905,9 +1906,9 @@ export default function EventDetailPage() {
     onSuccess: () => {
       if (useIcpLab) return;
 
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
       // Refresh points history & rank after fire-and-forget child early-RSVP bonus award.
       setTimeout(() => {
@@ -1937,8 +1938,8 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
     },
     onError: (err: any) => {
       toast({
@@ -1987,9 +1988,9 @@ export default function EventDetailPage() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
     },
     onError: (error) => {
@@ -2012,9 +2013,9 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
       
     },
@@ -2039,8 +2040,8 @@ export default function EventDetailPage() {
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
     },
     onError: (error) => {
@@ -2079,8 +2080,8 @@ export default function EventDetailPage() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
     },
     onError: (error) => {
@@ -2096,7 +2097,7 @@ export default function EventDetailPage() {
   const togglePaymentMutation = useMutation({
     mutationFn: async ({ userId, isPaid }: { userId: string; isPaid: boolean }) => {
       if (useIcpLab) {
-        queryClient.setQueryData(["event-payments", id], (current: unknown) => {
+        queryClient.setQueryData(eventKeys.payments(id), (current: unknown) => {
           const rows = Array.isArray(current) ? current : [];
           if (isPaid) return rows.filter((row: any) => row.user_id !== userId);
           if (rows.some((row: any) => row.user_id === userId)) return rows;
@@ -2133,7 +2134,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-payments", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.payments(id) });
       toast({ title: variables.isPaid ? "Payment removed" : "Marked as paid" });
     },
     onError: (error) => {
@@ -2179,7 +2180,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       setNewDutyName("");
       setSelectedPresetDuty("");
       setAddDutyOpen(false);
@@ -2203,7 +2204,7 @@ export default function EventDetailPage() {
         if (!duty?.name) throw new Error("Duty not found");
         const localAccountId = user?.id ?? localIcpPersona;
         await setLocalEventDuty(localIcpPersona, id, localAccountId, duty.name);
-        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+        queryClient.setQueryData(eventKeys.duties(id), (current: unknown) =>
           (Array.isArray(current) ? current : []).map((duty: any) =>
             duty.id === dutyId
               ? { ...duty, assigned_to: localAccountId, profiles: { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } }
@@ -2225,7 +2226,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       toast({ title: "Duty claimed!" });
     },
     onError: (error) => {
@@ -2327,7 +2328,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       if (result?.outcome === "completed") {
         toast({ title: "Duty completed!" });
       }
@@ -2337,7 +2338,7 @@ export default function EventDetailPage() {
       if (error instanceof DutyNotificationPartialError) {
         // The duty IS completed — never roll back or reopen it, and never
         // report a total failure.
-        queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+        queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
         toast({
           title: "Duty completed — notification failed",
           description: `The duty was marked complete, but administrators couldn't be notified. ${error.underlying}`,
@@ -2373,7 +2374,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       toast({ title: "Marked as not complete" });
     },
     onError: (error) => {
@@ -2400,7 +2401,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       toast({ title: "Duty removed" });
     },
   });
@@ -2415,7 +2416,7 @@ export default function EventDetailPage() {
         if (!duty?.name) throw new Error("Duty not found");
         if (!userId) throw new Error("Unassigning duties is not connected to the local events canister yet.");
         await setLocalEventDuty(localIcpPersona, id, userId, duty.name);
-        queryClient.setQueryData(["event-duties", id], (current: unknown) =>
+        queryClient.setQueryData(eventKeys.duties(id), (current: unknown) =>
           (Array.isArray(current) ? current : []).map((row: any) =>
             row.id === selectedDutyId
               ? { ...row, assigned_to: userId, profiles: userId === user?.id ? { display_name: profile?.display_name || "Local ICP Member", avatar_url: profile?.avatar_url || null } : null }
@@ -2458,7 +2459,7 @@ export default function EventDetailPage() {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event-duties", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.duties(id) });
       setAssignDialogOpen(false);
       setSelectedDutyId(null);
       setSelectedUserId("");
@@ -2659,7 +2660,7 @@ export default function EventDetailPage() {
     onSuccess: () => {
       console.log("[CancelEvent] Success - event cancelled");
       setCancelDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["event", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) });
       refreshEventCaches(queryClient, user?.id);
       toast({ title: "Event cancelled", description: "A message has been posted to the chat" });
     },
@@ -2669,11 +2670,11 @@ export default function EventDetailPage() {
         // Part of the series IS cancelled — never roll back client-side, and
         // never report either complete success or complete failure.
         setCancelDialogOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["event", id] });
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-        queryClient.invalidateQueries({ queryKey: ["event-rsvps", id] });
-        queryClient.invalidateQueries({ queryKey: ["event-rsvps-going", id] });
-        queryClient.invalidateQueries({ queryKey: ["event-groups", id] });
+        queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
+        queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
+        queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
         const cancelled = error.childrenCommitted
           ? "The repeat occurrences were cancelled"
           : "The main recurring event was cancelled";
@@ -2846,7 +2847,7 @@ export default function EventDetailPage() {
         return next;
       });
       // Refresh the 24h cooldown set so the "Reminded" state survives a page reload
-      queryClient.invalidateQueries({ queryKey: ["event-recent-reminders", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.recentReminders(id) });
       const description = isChild
         ? `${count} parent${count !== 1 ? "s" : ""} of ${displayName} ${count !== 1 ? "have" : "has"} been reminded to RSVP`
         : `${displayName} has been reminded to RSVP`;
@@ -2994,7 +2995,7 @@ export default function EventDetailPage() {
           {transientFailure && (
             <Button
               variant="default"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["event", id] })}
+              onClick={() => queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) })}
             >
               Try again
             </Button>
