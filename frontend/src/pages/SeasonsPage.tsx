@@ -16,7 +16,6 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { format } from "date-fns";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalLabSeasons } from "@/lab/fixtureDataLayer";
 
 const STATUS_META: Record<SeasonStatus, { label: string; icon: typeof Clock; variant: "default" | "secondary" | "outline" }> = {
   draft: { label: "Draft", icon: Clock, variant: "outline" },
@@ -30,28 +29,17 @@ export default function SeasonsPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const seasons = getLocalLabSeasons("club-icp-001");
     return (
       <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-bold">Seasons</h1>
+          <h1 className="text-lg font-bold">Seasons unavailable</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Showing synthetic ICP lab seasons. Templates, team assignments, and lifecycle changes are disabled.
+          Season data requires an authenticated competition-domain provider. No synthetic data or Supabase fallback is used in ICP mode.
         </p>
-        <div className="space-y-2">
-          {seasons.map((season) => (
-            <Card key={season.id} onClick={() => navigate(`/seasons/${season.id}`)} className="cursor-pointer hover:border-primary transition-colors">
-              <CardContent className="p-4 flex items-center justify-between">
-                <span className="text-sm font-medium">{season.name}</span>
-                <Badge variant={season.is_active ? "default" : "secondary"}>{season.is_active ? "Active" : "Inactive"}</Badge>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
     );
   }
