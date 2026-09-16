@@ -19,6 +19,7 @@ import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { CompetitionAdminsCard } from "@/components/competitions/CompetitionAdminsCard";
 import { CompetitionMemberChatCard } from "@/components/competitions/CompetitionMemberChatCard";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabCompetitionSettings } from "@/lab/fixtureDataLayer";
 import { getLocalCompetition, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
 
 export default function CompetitionSettingsPage() {
@@ -52,7 +53,14 @@ function IcpCompetitionSettingsPage() {
         };
       } catch (error) {
         if (!isLocalCompetitionCanisterUnavailable(error)) throw error;
-        throw new Error("The competition-domain provider is unavailable.");
+        const fixture = getLocalLabCompetitionSettings(id);
+        return {
+          name: fixture.name,
+          format: fixture.format,
+          status: fixture.registration_open ? "registration_open" : "registration_closed",
+          visibility: "local",
+          source: "fixture" as const,
+        };
       }
     },
   });
@@ -66,7 +74,9 @@ function IcpCompetitionSettingsPage() {
         <h1 className="text-lg font-bold">Competition Settings</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        "Loaded from the authenticated competition_domain canister. Editing, administrators, and chat remain disabled until their contracts are connected."
+        {settings?.source === "icp"
+          ? "Loaded from the local competition_domain canister. Editing, administrators, and chat remain disabled until their contracts are connected."
+          : "The local competition_domain canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
       </p>
       {isLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
       {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load competition settings."}</p>}
