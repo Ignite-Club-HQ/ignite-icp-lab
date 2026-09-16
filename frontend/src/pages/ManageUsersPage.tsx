@@ -86,6 +86,7 @@ interface UserProfile {
 
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabUserDirectory } from "@/lab/fixtureDataLayer";
+import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 
 export default function ManageUsersPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -94,10 +95,31 @@ export default function ManageUsersPage() {
   return <SupabaseManageUsersPage />;
 }
 
-/** Read-only synthetic user directory; account status and role mutations remain unavailable until identity_access is wired here. */
+/** Read-only identity_access directory; account status and role mutations remain unavailable pending parity. */
 function IcpLabManageUsersPage() {
   const navigate = useNavigate();
-  const users = getLocalLabUserDirectory();
+  const [fallbackUsers] = useState(() => getLocalLabUserDirectory());
+  const { data: directory, error, isLoading } = useQuery({
+    queryKey: ["icp-user-directory"],
+    queryFn: async () => {
+      try {
+        const connection = await connectLocalIdentityAccessClient("icp-member");
+        const state = await connection.client.exportState();
+        return {
+          source: "icp" as const,
+          users: state.accounts.map((account) => ({
+            id: account.id,
+            display_name: account.id,
+            email: account.principals[0]?.toText() ?? "synthetic-principal",
+          })),
+        };
+      } catch (error) {
+        if (!(error instanceof Error) || !/not configured/i.test(error.message)) throw error;
+        return { source: "fixture" as const, users: fallbackUsers };
+      }
+    },
+  });
+  const users = directory?.users ?? fallbackUsers;
 
   return (
     <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
@@ -108,8 +130,12 @@ function IcpLabManageUsersPage() {
         <h1 className="text-lg font-bold">Users</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        Showing synthetic ICP lab user data. Account status changes, bans, and role edits are disabled.
+        {directory?.source === "icp"
+          ? "Loaded from the local identity_access canister. Account status changes, bans, and role edits are disabled."
+          : "The local identity_access canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
       </p>
+      {isLoading && <Skeleton className="h-10 w-full" />}
+      {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load users."}</p>}
       <div className="space-y-2">
         {users.map((profile) => (
           <Card key={profile.id}>
