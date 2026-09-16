@@ -579,6 +579,16 @@ removal isolation, and proves an ICP provider failure is surfaced without a
 Supabase fallback. The bundle's Supabase Storage SDK, RPC, schema, and fixture
 harness remain disconnected.
 
+## Imported pitch timer concurrency baseline adaptation - 2026-09-16
+
+Adapted the durable scheduling, per-club isolation, idempotency, retry timing,
+and failure semantics from the bundle's pitch-timer concurrency journey into
+the hybrid timer dispatcher. The lab regression runs through explicit
+Supabase and ICP placements with separate synthetic queues and proves an ICP
+provider failure does not invoke or fall back to Supabase. The original Edge
+Function, Supabase RPC, active-game schema, and local Supabase harness remain
+disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
