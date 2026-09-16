@@ -531,6 +531,15 @@ application modules. The empty-list guard itself remains disconnected because
 its current source implementation directly depends on the legacy Supabase
 client and is not part of the lab runtime allowlist.
 
+## Imported invite signup hand-off baseline adaptation - 2026-09-16
+
+Adapted the bundle's provider-neutral `src/lib/inviteSignupHandoff.test.ts`
+into the dedicated lab suite. The test protects URL-carried signup mode,
+invite and redirect intent, legacy redirect compatibility, off-origin
+rejection, and unknown-mode handling. This contract is evaluated before
+backend selection, so explicit Supabase/ICP routing assertions are not
+applicable; no provider or runtime allowlist surface was changed.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
