@@ -85,6 +85,7 @@ import {
   fetchHomeUserRsvpsForClub,
   type HomeRsvpProvider,
 } from "@/lab/hybridHomeRsvpRepository";
+import { eventKeys } from "@/lab/eventQueryKeys";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
@@ -453,7 +454,7 @@ export default function HomePage() {
 
   // CONSOLIDATED: Fetch user memberships AND events in a single query to eliminate waterfall
   const { data: membershipAndEvents, isLoading, isFetching, isFetched } = useQuery({
-    queryKey: ["user-memberships-and-events", user?.id],
+    queryKey: eventKeys.home(user?.id),
     queryFn: async () => {
       if (useIcpLab && user?.id) {
         return fixtureData.getLocalLabHomeSnapshot(user.id);
@@ -822,7 +823,7 @@ export default function HomePage() {
       setNowTick(now);
       if (now - lastHomeRefreshRef.current < 30_000) return;
       lastHomeRefreshRef.current = now;
-      queryClient.invalidateQueries({ queryKey: ["user-memberships-and-events", user?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.home(user?.id) });
     };
 
     const onVisibility = () => {

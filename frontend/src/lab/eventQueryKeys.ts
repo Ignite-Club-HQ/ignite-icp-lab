@@ -12,7 +12,10 @@ export const eventKeys = {
   lists: () => ['events'] as const,
   upcoming: () => ['upcoming-events'] as const,
   teamNext: () => ['team-next-event'] as const,
-  home: (userId: string) => ['user-memberships-and-events', userId] as const,
+  home: (userId?: string | null) =>
+    userId
+      ? (['user-memberships-and-events', userId] as const)
+      : (['user-memberships-and-events'] as const),
 
   detail: (eventId: string) => ['event', eventId] as const,
   rsvps: (eventId: string) => ['event-rsvps', eventId] as const,

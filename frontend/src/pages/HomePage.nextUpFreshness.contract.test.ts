@@ -6,13 +6,13 @@ const source = readFileSync(resolve(__dirname, "CreateEventPage.tsx"), "utf8");
 
 describe("Next Up freshness contract", () => {
   it("invalidates the exact user-scoped Next Up query key", () => {
-    expect(source).toContain('queryKey: ["user-memberships-and-events", user!.id]');
+    expect(source).toContain("queryKey: eventKeys.home(user!.id)");
     expect(source).toContain("await queryClient.invalidateQueries(");
   });
 
   it("invalidates after creation validation and before navigation", () => {
     const validateIdx = source.indexOf('throw new Error("Event could not be created.")');
-    const invalidateIdx = source.indexOf('"user-memberships-and-events", user!.id');
+    const invalidateIdx = source.indexOf("eventKeys.home(user!.id)");
     const navigateIdx = source.indexOf("navigate(`/events/${newEventId}`)");
 
     expect(validateIdx).toBeGreaterThan(-1);

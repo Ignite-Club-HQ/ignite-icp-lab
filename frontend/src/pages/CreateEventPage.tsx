@@ -62,6 +62,7 @@ import {
 } from "@/features/events/trainingConflictPolicy";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { createLocalEvent, setLocalEventRecurrence } from "@/lab/localEventsService";
+import { eventKeys } from "@/lab/eventQueryKeys";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 
 type EventType = "game" | "training" | "social" | "mini_league";
@@ -1018,7 +1019,7 @@ function SupabaseCreateEventPage() {
 
       try {
         await queryClient.invalidateQueries({
-          queryKey: ["user-memberships-and-events", user!.id],
+          queryKey: eventKeys.home(user!.id),
         });
         // Also refresh every other event-derived surface (Schedule list, team
         // next-event) and drop the persisted localStorage snapshots so a cold
