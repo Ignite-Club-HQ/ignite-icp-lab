@@ -867,3 +867,37 @@ references the changed return shape; the unrelated `refetchRsvps` symbols in
 the unported `EventDetailPage.tsx` / `EventGroupsManager.tsx` React Query
 callers are a different, unrelated identifier and remain outside the runtime
 allowlist.
+
+## Imported chat message ordering + thread cache hydration - 2026-09-16
+
+Ported `src/features/messaging/thread/chatMessageOrdering.ts` and
+`src/features/messaging/thread/chatThreadCacheHydration.ts` from the bundle's
+`integration/all-refactoring-icp-export` branch to
+`frontend/src/lab/chatMessageOrdering.ts` and
+`frontend/src/lab/chatThreadCacheHydration.ts` unchanged: pure functions for
+chronological message ordering/merging
+(`orderChatMessagesChronologically`, `mergeOlderChatMessagesChronologically`,
+`prependStrictlyOlderChatMessages`) and cold-start cache-hydration decisions
+(`mergeCachedChatMessagesChronologically`,
+`selectHistoryChatPlaceholderSource`). This is the refactor that centralizes
+logic the sanitized source currently duplicates verbatim across
+`ClubChatPage.tsx`, `GroupChatPage.tsx`, and `TeamChatPage.tsx` (the same
+`created_at`/`id.localeCompare` sort comparator appears 5-6 times per page).
+
+This module is genuinely provider-neutral and pre-routing: it never touches
+Supabase or ICP, only orders/merges message rows a caller has already
+fetched, so no `resolveClubBackend` hybridization was needed or added, and no
+Supabase/ICP-mode split applies. Tests exercise the pure contract directly
+(ordering, id tie-breaking, invalid-timestamp fallback, non-mutation of
+inputs, cache/query merge precedence, and all five placeholder-source
+branches) in
+`frontend/lab-tests/imported-chat-thread-cache-hydration-baseline.test.tsx`
+(19 tests). `tsconfig.lab.json` was extended to typecheck both new files; no
+runtime allowlist expansion was made or needed since neither file is wired
+into `LabApp.tsx` or any consumer.
+
+`npm test` passed 9 Node tests and 55 Vitest files / 300 tests (19 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed. The bundle's chat
+pages/components, Realtime subscriptions, and every other chat/message
+hook/lib file remain disconnected and untouched.
