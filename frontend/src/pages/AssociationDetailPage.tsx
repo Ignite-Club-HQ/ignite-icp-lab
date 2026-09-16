@@ -19,7 +19,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { AssociationEventsPanel } from "@/components/AssociationEventsPanel";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalLabAssociationDetail } from "@/lab/fixtureDataLayer";
 
 export default function AssociationDetailPage() {
   usePageTitle("Association");
@@ -28,21 +27,19 @@ export default function AssociationDetailPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const association = getLocalLabAssociationDetail(associationId ?? "association-icp-001");
     return (
       <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate("/associations")} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-bold">{association?.name ?? "Association"}</h1>
+          <h1 className="text-lg font-bold">Association unavailable</h1>
         </div>
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-6 space-y-4 text-center">
             <Network className="h-10 w-10 mx-auto text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Showing a synthetic ICP lab association. Linked clubs, rollups, events, broadcasts, competitions, and
-              membership changes remain unavailable until an association_domain service is built and wired here.
+              Association data requires an authenticated association-domain provider. No synthetic data or Supabase fallback is used in ICP mode.
             </p>
           </CardContent>
         </Card>

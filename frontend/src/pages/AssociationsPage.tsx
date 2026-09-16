@@ -9,38 +9,21 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalLabAssociations } from "@/lab/fixtureDataLayer";
 
 export default function AssociationsPage() {
   usePageTitle("Associations");
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const associations = getLocalLabAssociations();
     return (
       <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
         <header className="flex items-start gap-3">
           <div className="rounded-xl bg-primary/10 p-3 shrink-0"><Network className="h-5 w-5 text-primary" /></div>
           <div>
-            <h1 className="text-2xl font-bold">Associations</h1>
-            <p className="text-xs text-muted-foreground">Showing synthetic ICP lab associations. Creating new ones is disabled.</p>
+            <h1 className="text-2xl font-bold">Associations unavailable</h1>
+            <p className="text-xs text-muted-foreground">Association data requires an authenticated association-domain provider. No synthetic data or Supabase fallback is used in ICP mode.</p>
           </div>
         </header>
-        <div className="space-y-2">
-          {associations.map((a) => (
-            <Link key={a.id} to={`/associations/${a.id}`} className="block">
-              <Card className="hover:border-primary transition-colors">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{a.name}</div>
-                    <div className="text-xs text-muted-foreground">Association</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
       </div>
     );
   }
