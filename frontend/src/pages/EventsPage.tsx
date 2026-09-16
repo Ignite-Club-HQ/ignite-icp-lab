@@ -35,6 +35,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { eventKeys } from "@/lab/eventQueryKeys";
 import { isLocalEventsCanisterUnavailable, listLocalEvents } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 import { WifiOff } from "lucide-react";
@@ -755,7 +756,7 @@ export default function EventsPage() {
         abortedInFlight: aborted,
       });
       queryClient.refetchQueries({ queryKey: ["user-memberships-for-events"] });
-      queryClient.refetchQueries({ queryKey: ["events"] });
+      queryClient.refetchQueries({ queryKey: eventKeys.lists() });
     };
     const timer = setInterval(kick, 6000);
     return () => clearInterval(timer);
@@ -876,7 +877,7 @@ export default function EventsPage() {
               try {
                 await Promise.all([
                   queryClient.invalidateQueries({ queryKey: ["user-memberships-for-events"] }),
-                  queryClient.invalidateQueries({ queryKey: ["events"] }),
+                  queryClient.invalidateQueries({ queryKey: eventKeys.lists() }),
                 ]);
               } finally {
                 setTimeout(() => setIsRefreshing(false), 600);

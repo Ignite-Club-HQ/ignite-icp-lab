@@ -488,7 +488,7 @@ function SupabaseEditEventPage() {
 
   // Fetch existing duties for this event
   const { data: existingDuties } = useQuery({
-    queryKey: ["event-duties", id],
+    queryKey: eventKeys.duties(id),
     queryFn: async () => {
       const { data } = await supabase
         .from("duties")

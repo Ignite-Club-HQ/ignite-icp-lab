@@ -897,7 +897,7 @@ export default function EventDetailPage() {
   // Players with status "maybe", "not_going", or no response are excluded.
   // Adults (coaches/admins) are always included so they can run the board.
   const { data: teamMembers, isLoading: isTeamMembersForPitchLoading } = useQuery({
-    queryKey: ["team-members-for-pitch", event?.team_id, event?.id],
+    queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id),
     queryFn: async () => {
       const [rolesResult, childrenResult, goingRsvpsResult] = await Promise.all([
         supabase
@@ -1802,7 +1802,7 @@ export default function EventDetailPage() {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
       // Refresh points history & rank after fire-and-forget early-RSVP bonus award.
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["points-history"] });
@@ -1909,7 +1909,7 @@ export default function EventDetailPage() {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
       // Refresh points history & rank after fire-and-forget child early-RSVP bonus award.
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["points-history"] });
@@ -1991,7 +1991,7 @@ export default function EventDetailPage() {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
     },
     onError: (error) => {
       toast({ 
@@ -2016,7 +2016,7 @@ export default function EventDetailPage() {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
       
     },
     onError: (error) => {
@@ -2042,7 +2042,7 @@ export default function EventDetailPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
     },
     onError: (error) => {
       toast({ 
@@ -2082,7 +2082,7 @@ export default function EventDetailPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
       queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch", event?.team_id, event?.id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers(event?.team_id, event?.id) });
     },
     onError: (error) => {
       toast({ 
