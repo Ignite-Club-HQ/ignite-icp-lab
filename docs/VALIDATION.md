@@ -686,6 +686,20 @@ deletion reporting, zero-row failure, and provider selection. The original
 Supabase client, schema, migrations, and page callers remain disconnected;
 no runtime allowlist expansion was required.
 
+## Imported hybrid club-scope lookup service - 2026-09-16
+
+Adapted the bundle's refactored `clubScopeLookup` helper into
+`hybridClubScopeLookup.ts`. It preserves direct club ownership resolution and
+the nullable `club_id` team-to-club fallback used by route guards and
+notification-driven switching, while replacing the direct Supabase client with
+an explicit provider selected by the supplied club placement. Synthetic
+coverage exercises Supabase and ICP modes, provider reuse, direct and team
+fallback lookup, table-specific fallback exclusion, malformed-row handling,
+and ICP failure without Supabase fallback. Provider errors remain visible;
+the service does not guess a club on malformed data. No runtime allowlist
+expansion was required, and the original Supabase helper/callers remain
+disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
