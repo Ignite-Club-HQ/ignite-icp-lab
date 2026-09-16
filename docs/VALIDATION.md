@@ -700,6 +700,17 @@ the service does not guess a club on malformed data. No runtime allowlist
 expansion was required, and the original Supabase helper/callers remain
 disconnected.
 
+## Imported event audience helper - 2026-09-16
+
+Adapted the bundle's provider-neutral `eventAudience` helper into the active
+lab event domain. It centralizes single-team precedence, targeted-team
+selection, genuinely club-wide events, mini-league detection, and stable
+target-team cache keys. The helper performs no provider or Supabase calls and
+runs before backend selection, so explicit Supabase/ICP routing assertions do
+not apply; its tests document that provider-neutral boundary. No runtime
+allowlist expansion was required, and the bundle's legacy event callers,
+schema, RPCs, and migration harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
