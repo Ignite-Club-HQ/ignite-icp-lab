@@ -156,8 +156,10 @@ Completed or proven in the lab:
   `competition_domain` list, detail-state, basic create, and join-token claim
   adapters on the competitions pages; exported team entries, seasons, matches,
   and join-token metadata are now visible; season creation, match recording,
-  and match-result writes are connected, while settings, organiser visibility,
-  and invitation flows remain pending
+  and match-result writes are connected. Competition settings now read through
+  the typed local service when configured, with an explicit synthetic fallback
+  only when the local canister is unavailable; organiser visibility,
+  administrator, and invitation flows remain pending
 
 Not production-ready:
 

@@ -20,6 +20,7 @@ import { CompetitionAdminsCard } from "@/components/competitions/CompetitionAdmi
 import { CompetitionMemberChatCard } from "@/components/competitions/CompetitionMemberChatCard";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabCompetitionSettings } from "@/lab/fixtureDataLayer";
+import { getLocalCompetition, isLocalCompetitionCanisterUnavailable } from "@/lab/localCompetitionService";
 
 export default function CompetitionSettingsPage() {
   usePageTitle("Competition settings");
@@ -27,29 +28,68 @@ export default function CompetitionSettingsPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const settings = getLocalLabCompetitionSettings("competition-icp-001");
-    return (
-      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold">Competition Settings</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Showing synthetic ICP lab competition settings. Editing, administrators, and chat are disabled.
-        </p>
+    return <IcpCompetitionSettingsPage />;
+  }
+
+  return <SupabaseCompetitionSettingsPage />;
+}
+
+function IcpCompetitionSettingsPage() {
+  const { id = "competition-icp-001" } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { data: settings, error, isLoading } = useQuery({
+    queryKey: ["icp-competition-settings", id],
+    queryFn: async () => {
+      try {
+        const competition = await getLocalCompetition("icp-member", id);
+        return {
+          name: competition.name,
+          format: competition.season || "local",
+          status: competition.status,
+          visibility: competition.visibility,
+          source: "icp" as const,
+        };
+      } catch (error) {
+        if (!isLocalCompetitionCanisterUnavailable(error)) throw error;
+        const fixture = getLocalLabCompetitionSettings(id);
+        return {
+          name: fixture.name,
+          format: fixture.format,
+          status: fixture.registration_open ? "registration_open" : "registration_closed",
+          visibility: "local",
+          source: "fixture" as const,
+        };
+      }
+    },
+  });
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Competition Settings</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {settings?.source === "icp"
+          ? "Loaded from the local competition_domain canister. Editing, administrators, and chat remain disabled until their contracts are connected."
+          : "The local competition_domain canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
+      </p>
+      {isLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+      {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load competition settings."}</p>}
+      {settings && (
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-sm font-medium">{settings.name}</p>
             <p className="text-xs text-muted-foreground">Format: {settings.format}</p>
+            <p className="text-xs text-muted-foreground">Status: {settings.status}</p>
+            <p className="text-xs text-muted-foreground">Visibility: {settings.visibility}</p>
           </CardContent>
         </Card>
-      </div>
-    );
-  }
-
-  return <SupabaseCompetitionSettingsPage />;
+      )}
+    </div>
+  );
 }
 
 function SupabaseCompetitionSettingsPage() {
