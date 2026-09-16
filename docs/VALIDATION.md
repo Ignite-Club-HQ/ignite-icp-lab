@@ -609,6 +609,15 @@ selection, and ICP failure without Supabase fallback. The bundle's Supabase
 event/RLS fixture, RPCs, migrations, and old application modules remain
 disconnected.
 
+## Imported club-wide RSVP baseline adaptation - 2026-09-16
+
+Adapted the bundle's club-wide game RSVP grouping behavior into a synthetic
+provider-routed contract test. The lab regression covers explicit Supabase and
+ICP modes, admin/committee authorization, grouping validation, target-team
+club boundaries, cross-club visibility, provider selection, and ICP failure
+without Supabase fallback. The original Supabase event schema, RLS fixture,
+RPCs, and migration harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
