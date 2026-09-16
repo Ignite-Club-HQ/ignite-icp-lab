@@ -716,11 +716,13 @@ schema, RPCs, and migration harness remain disconnected.
 Adapted the pure scheduling primitives from the bundle's refactored
 `competitionScheduler`: deterministic circle-method round-robin pairings,
 home/away alternation, bye handling, date-key formatting, frequency
-advancement, and allowed-weekday navigation. This slice has no provider edge
-and runs before backend selection, so Supabase/ICP routing assertions are not
-applicable. Focused tests preserve the helper's deterministic domain
-semantics. The full calendar/pitch-packing pass and legacy competition page
-callers remain disconnected; no runtime allowlist expansion was required.
+advancement, allowed-weekday navigation, shared-pitch calendar packing,
+occupied-slot avoidance, per-round overrides, overflow/unscheduled reporting,
+time parsing, and finals seed placement. This slice has no provider edge and
+runs before backend selection, so Supabase/ICP routing assertions are not
+applicable. Focused tests preserve deterministic calendar behavior without
+mutating caller-owned occupied slots. Legacy competition page callers remain
+disconnected; no runtime allowlist expansion was required.
 
 ## Imported hybrid club/team metadata cache - 2026-09-16
 
