@@ -126,6 +126,11 @@ import {
   selectScopedChildRoster,
   selectTargetedReminderMembers,
 } from "@/lab/hybridTargetedAttendanceRepository";
+import {
+  fetchEventDuties,
+  fetchEventGuests,
+  type EventSupportingReadsProvider,
+} from "@/lab/hybridEventSupportingReadsRepository";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -536,29 +541,25 @@ export default function EventDetailPage() {
     queryFn: async () => {
       if (useIcpLab) return [];
 
-      const { data, error } = await supabase
-        .from("event_guests")
-        .select("*")
-        .eq("event_id", id!);
-      if (error) throw error;
-      
-      // Fetch adder profiles
-      const adderIds = Array.from(
-        new Set<string>(
-          (data ?? []).flatMap((guest) =>
-            typeof guest.added_by === "string" ? [guest.added_by] : [],
-          ),
-        ),
-      );
-      let adderMap: Record<string, string> = {};
-      if (adderIds.length > 0) {
-        const { data: profiles } = await selectCachedProfilesByIds(adderIds);
-        if (profiles) {
-          adderMap = Object.fromEntries(profiles.map(p => [p.id, p.display_name || "A member"]));
-        }
-      }
-      
-      return data.map(g => ({ ...g, added_by_name: adderMap[g.added_by] || "A member" }));
+      const provider: EventSupportingReadsProvider = {
+        async listEventGuests(eventId) {
+          const { data, error } = await supabase
+            .from("event_guests")
+            .select("*")
+            .eq("event_id", eventId);
+          if (error) throw error;
+          return data ?? [];
+        },
+        async listEventDuties() {
+          return [];
+        },
+      };
+
+      const result = await fetchEventGuests(provider, id!, async (adderIds) => {
+        const { data } = await selectCachedProfilesByIds(adderIds);
+        return data ?? [];
+      });
+      return result.rows;
     },
     enabled: !!id,
   });
@@ -637,12 +638,21 @@ export default function EventDetailPage() {
     queryFn: async () => {
       if (useIcpLab) return [];
 
-      const { data, error } = await supabase
-        .from("duties")
-        .select(`*, profiles:assigned_to (display_name, avatar_url)`)
-        .eq("event_id", id!);
-      if (error) throw error;
-      return data;
+      const provider: EventSupportingReadsProvider = {
+        async listEventGuests() {
+          return [];
+        },
+        async listEventDuties(eventId) {
+          const { data, error } = await supabase
+            .from("duties")
+            .select(`*, profiles:assigned_to (display_name, avatar_url)`)
+            .eq("event_id", eventId);
+          if (error) throw error;
+          return data ?? [];
+        },
+      };
+
+      return fetchEventDuties(provider, id!);
     },
     enabled: !!id,
     staleTime: 0,
