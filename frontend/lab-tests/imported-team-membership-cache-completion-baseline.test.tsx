@@ -27,6 +27,7 @@ test('membershipKeys preserves user and destination invite identities', () => {
   ]);
   expect(membershipKeys.joinProfile('user-1')).toEqual(['user-profile-for-join', 'user-1']);
   expect(membershipKeys.teamChildrenForLinking('team-1')).toEqual(['team-children-for-linking', 'team-1']);
+  expect(membershipKeys.userRolesFor('user-1')).toEqual(['user-roles', 'user-1']);
 });
 
 test('membershipKeys retains intentional prefixes for post-accept refresh', () => {
@@ -41,6 +42,7 @@ test('membershipKeys preserves exact team administration identities', () => {
   expect(membershipKeys.teamChildren()).toEqual(['team-children']);
   expect(membershipKeys.teamChatMembers('team-1')).toEqual(['chat-members', 'team', 'team-1']);
   expect(membershipKeys.authorizedScopes()).toEqual(['authorized-scopes']);
+  expect(membershipKeys.authorizedScopesFor('user-1')).toEqual(['authorized-scopes', 'user-1']);
 });
 
 function spiedClient() {

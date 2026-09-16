@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 // Mocks -----------------------------------------------------------------------
 const rolesResult = { data: [] as unknown, error: null as unknown };
@@ -103,7 +104,7 @@ describe("useAuthorizedScopes", () => {
     groupsResult.data = [];
     dmsResult.data = [];
     await act(async () => {
-      await client.invalidateQueries({ queryKey: ["authorized-scopes", "u1"] });
+      await client.invalidateQueries({ queryKey: membershipKeys.authorizedScopesFor("u1") });
     });
     await waitFor(() => expect(result.current.teamIds.size).toBe(0));
 

@@ -44,6 +44,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 interface PendingInviteCardProps {
   invite: {
@@ -140,7 +141,7 @@ export default function PendingInviteCard({ invite, teamId, clubId, isAdmin = tr
 
   // Get the pending invite token and metadata for resending
   const { data: pendingInviteData } = useQuery({
-    queryKey: ["pending-invite-token", invite.id],
+    queryKey: membershipKeys.pendingInviteToken(invite.id),
     queryFn: async () => {
       const { data } = await supabase
         .from("pending_invites")

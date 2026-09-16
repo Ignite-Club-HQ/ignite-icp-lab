@@ -12,6 +12,7 @@ import {
   acceptParentTeamInvite,
   isNotChildParentInviteError,
 } from "@/features/membership/acceptParentInvite";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 /** Best-effort "child added" email for a second parent. Never blocks acceptance. */
 async function notifySecondParent(
@@ -64,7 +65,7 @@ export function PendingInviteWelcomeDialog() {
   const { setActiveClubTheme } = useClubTheme();
 
   const { data: pendingInvites = [] } = useQuery({
-    queryKey: ["pending-invites-for-user", user?.id],
+    queryKey: membershipKeys.pendingInvitesForUser(user?.id),
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
@@ -620,8 +621,8 @@ export function PendingInviteWelcomeDialog() {
       }
 
       // Refresh roles/membership queries after processing
-      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
-      queryClient.invalidateQueries({ queryKey: ["pending-invites-for-user"] });
+      queryClient.invalidateQueries({ queryKey: membershipKeys.userRoles() });
+      queryClient.invalidateQueries({ queryKey: membershipKeys.pendingInvites() });
 
       // Apply the inviting club's theme. Seeds when the user has no existing
       // preference; when they're an existing member of a DIFFERENT club we

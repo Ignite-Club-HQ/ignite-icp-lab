@@ -41,6 +41,7 @@ import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -162,7 +163,7 @@ function SupabaseJoinTeamPage() {
 
   // Fetch pending invite details using RPC function (for name-restricted invites)
   const { data: pendingInviteData, isLoading: pendingInviteLoading, error: pendingInviteError, isError: pendingInviteIsError } = useQuery({
-    queryKey: ["pending-invite-token", token],
+    queryKey: membershipKeys.pendingInviteToken(token),
     queryFn: async () => {
       console.log("[JoinTeam] Fetching pending invite for token:", token);
       try {
@@ -215,7 +216,7 @@ function SupabaseJoinTeamPage() {
 
   // Fetch team invite details using secure RPC function (for regular invites)
   const { data: teamInvite, isLoading: teamInviteLoading, error: teamInviteError } = useQuery({
-    queryKey: ["team-invite", token],
+    queryKey: membershipKeys.teamInvite(token),
     queryFn: async () => {
       const { data, error } = await supabase
         .rpc("get_team_invite_by_token", { _token: token! });
@@ -318,7 +319,7 @@ function SupabaseJoinTeamPage() {
 
   // Fetch user's existing roles for the invite destination
   const { data: existingRoles = EMPTY_ROLES } = useQuery({
-    queryKey: ["user-invite-roles", invite?.team_id, inviteClubId, user?.id],
+    queryKey: membershipKeys.inviteRoles(invite?.team_id, inviteClubId, user?.id),
     queryFn: async () => {
       let query = supabase
         .from("user_roles")
@@ -367,7 +368,7 @@ function SupabaseJoinTeamPage() {
   // Fetch user's profile for name validation and profile completion check
   // Use staleTime: 0 to ensure fresh data when returning from profile completion
   const { data: userProfile, isLoading: profileLoading } = useQuery({
-    queryKey: ["user-profile-for-join", user?.id],
+    queryKey: membershipKeys.joinProfile(user?.id),
     queryFn: async () => {
       const { data } = await selectCachedProfileById(user!.id);
       return data;
@@ -414,9 +415,9 @@ function SupabaseJoinTeamPage() {
         });
 
         if (childIds.length > 0) {
-          queryClient.invalidateQueries({ queryKey: ["team-children-for-linking", pendingInviteData.team_id] });
+          queryClient.invalidateQueries({ queryKey: membershipKeys.teamChildrenForLinking(pendingInviteData.team_id) });
           queryClient.invalidateQueries({ queryKey: ["children"] });
-          queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+          queryClient.invalidateQueries({ queryKey: membershipKeys.userRoles() });
           queryClient.invalidateQueries({ queryKey: ["rsvps"] });
           queryClient.invalidateQueries({ queryKey: ["team-members", pendingInviteData.team_id] });
           // No toast: child provisioning is an invisible part of accepting the
@@ -440,7 +441,7 @@ function SupabaseJoinTeamPage() {
   // Only surface children who don't yet have a primary parent or any guardians,
   // so a new parent can claim them without colliding with existing families.
   const { data: existingTeamChildren = [] } = useQuery({
-    queryKey: ["team-children-for-linking", invite?.team_id],
+    queryKey: membershipKeys.teamChildrenForLinking(invite?.team_id),
     queryFn: async () => {
       const { data } = await supabase
         .from("child_team_assignments")
@@ -733,7 +734,7 @@ function SupabaseJoinTeamPage() {
         });
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["children"] }),
-          queryClient.invalidateQueries({ queryKey: ["user-roles"] }),
+          queryClient.invalidateQueries({ queryKey: membershipKeys.userRoles() }),
           queryClient.invalidateQueries({ queryKey: ["rsvps"] }),
         ]);
         console.log("[JoinTeam] Parent invite children provisioned:", childIds.length);
@@ -1757,7 +1758,7 @@ function SupabaseJoinTeamPage() {
       setLinkExistingChildId(null);
       // Refresh the "existing children on team" list so the just-linked child
       // disappears from the choices.
-      queryClient.invalidateQueries({ queryKey: ["team-children-for-linking", invite?.team_id] });
+      queryClient.invalidateQueries({ queryKey: membershipKeys.teamChildrenForLinking(invite?.team_id) });
     } catch (err) {
       console.error("[JoinTeam] Error adding child:", err);
       toast({ title: "Failed to add child", variant: "destructive" });

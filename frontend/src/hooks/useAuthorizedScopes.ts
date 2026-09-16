@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { revokeScope } from "@/lib/realtimeChannelRegistry";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 export type AuthorizedScopesStatus = "loading" | "ready" | "failed";
 
@@ -88,7 +89,7 @@ export function useAuthorizedScopes(): AuthorizedScopes {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["authorized-scopes", userId],
+    queryKey: membershipKeys.authorizedScopesFor(userId),
     queryFn: () => fetchMemberships(userId as string),
     enabled: !!userId,
     staleTime: 60_000,
@@ -156,5 +157,5 @@ export function useAuthorizedScopes(): AuthorizedScopes {
  */
 export function invalidateAuthorizedScopes(queryClient: ReturnType<typeof useQueryClient>, userId: string | null): void {
   if (!userId) return;
-  queryClient.invalidateQueries({ queryKey: ["authorized-scopes", userId] });
+  queryClient.invalidateQueries({ queryKey: membershipKeys.authorizedScopesFor(userId) });
 }

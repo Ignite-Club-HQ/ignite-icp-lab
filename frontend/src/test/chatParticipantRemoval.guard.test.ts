@@ -21,9 +21,7 @@ describe("ChatParticipantsList team-member removal", () => {
   });
 
   it("refreshes team roster, chat members and authorized scopes on success", () => {
-    expect(removalFn).toContain('queryKey: ["team-roles", effectiveTeamId]');
-    expect(removalFn).toContain('queryKey: ["chat-members", chatType, chatId]');
-    expect(removalFn).toContain('queryKey: ["authorized-scopes"]');
+    expect(removalFn).toContain("refreshChatRemovedTeamMember(queryClient, effectiveTeamId, chatType, chatId)");
   });
 
   it("bails out on RPC failure without closing the sheet or invalidating", () => {

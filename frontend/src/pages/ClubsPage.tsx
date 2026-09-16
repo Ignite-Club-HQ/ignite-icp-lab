@@ -26,6 +26,7 @@ import { useSponsorAnalytics } from "@/hooks/useSponsorAnalytics";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { ConfirmPurgeDialog } from "@/components/club/ConfirmPurgeDialog";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 interface Club {
   id: string;
@@ -102,7 +103,7 @@ export default function ClubsPage() {
     toast({ title: "Club restored", description: "Teams and chats have been restored too." });
     queryClient.invalidateQueries({ queryKey: ["removed-clubs", user?.id] });
     queryClient.invalidateQueries({ queryKey: ["clubs"] });
-    queryClient.invalidateQueries({ queryKey: ["user-roles", user?.id] });
+    queryClient.invalidateQueries({ queryKey: membershipKeys.userRolesFor(user?.id) });
   };
 
   const handleHardDelete = async () => {
@@ -170,7 +171,7 @@ export default function ClubsPage() {
   });
 
   const { data: userRoles } = useQuery({
-    queryKey: ["user-roles", user?.id],
+    queryKey: membershipKeys.userRolesFor(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_roles")

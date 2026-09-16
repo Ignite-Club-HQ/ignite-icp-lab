@@ -96,7 +96,7 @@ describe("parent invite provisioning security", () => {
       joinTeamPage.indexOf("Couldn't finish setting up")
     );
     expect(branch).toContain('queryKey: ["children"]');
-    expect(branch).toContain('queryKey: ["user-roles"]');
+    expect(branch).toContain("queryKey: membershipKeys.userRoles()");
     expect(branch).toContain('queryKey: ["rsvps"]');
   });
 });

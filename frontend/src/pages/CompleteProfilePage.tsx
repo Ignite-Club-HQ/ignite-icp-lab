@@ -31,6 +31,7 @@ import {
   provisionInviteChildren,
 } from "@/features/membership/acceptParentInvite";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 
 interface PendingInvite {
@@ -440,7 +441,7 @@ function SupabaseCompleteProfilePage() {
 
               await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["children"] }),
-                queryClient.invalidateQueries({ queryKey: ["user-roles"] }),
+                queryClient.invalidateQueries({ queryKey: membershipKeys.userRoles() }),
                 queryClient.invalidateQueries({ queryKey: ["rsvps"] }),
               ]);
             } catch (provisionError) {

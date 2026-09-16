@@ -38,6 +38,7 @@ type PromoType = "subscription" | "storage";
 
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 export default function ManagePromoCodesPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -64,7 +65,7 @@ function SupabaseManagePromoCodesPage() {
 
   // Fetch user roles
   const { data: userRoles } = useQuery({
-    queryKey: ["user-roles", user?.id],
+    queryKey: membershipKeys.userRolesFor(user?.id),
     queryFn: async () => {
       const cached = getCachedRoles();
       if (cached) return cached;
