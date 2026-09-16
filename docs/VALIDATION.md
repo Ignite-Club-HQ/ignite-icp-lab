@@ -659,6 +659,20 @@ or Supabase calls; selected-provider authorization remains authoritative.
 No runtime allowlist expansion was required, and the bundle's event pages,
 schema, RPCs, migrations, and Supabase harness remain disconnected.
 
+## Imported hybrid invite email deduplication service - 2026-09-16
+
+Adapted the bundle's refactored invite-email deduplication helper into
+`hybridInviteDedupe.ts`. Its local email validation, normalization, strict
+untrusted-response parsing, and privacy-preserving no-match behavior are
+preserved, while the direct Supabase RPC edge is replaced with a cached client
+selected by the authoritative club placement. The synthetic contract covers
+explicit Supabase and ICP routing, provider-client reuse, scope forwarding,
+malformed provider data, malformed-email short-circuiting, and ICP failure
+without Supabase fallback. Provider failures are surfaced rather than silently
+converted into a no-match result, so an unavailable ICP backend remains
+fail-closed. No runtime allowlist expansion was required; the original RPC,
+schema, migration, and Supabase mock remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
