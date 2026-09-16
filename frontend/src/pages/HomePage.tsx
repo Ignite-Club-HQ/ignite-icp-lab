@@ -81,6 +81,10 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { resolveHomeProAccess } from "@/lab/hybridHomeEntitlementRepository";
 import { mergeHomeUserChildren } from "@/lab/hybridHomeRewardsRepository";
+import {
+  fetchHomeUserRsvpsForClub,
+  type HomeRsvpProvider,
+} from "@/lab/hybridHomeRsvpRepository";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
@@ -850,14 +854,36 @@ export default function HomePage() {
     queryKey: ["user-rsvps-home", user?.id, eventIds],
     queryFn: async () => {
       if (eventIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("rsvps")
-        .select("event_id, status")
-        .eq("user_id", user!.id)
-        .is("child_id", null)
-        .in("event_id", eventIds);
-      if (error) throw error;
-      return data;
+      if (useIcpLab) return [];
+
+      const eventIdsByClub = new Map<string, string[]>();
+      for (const event of events ?? []) {
+        const clubId = (event as { club_id?: string | null }).club_id;
+        if (!clubId) continue;
+        const ids = eventIdsByClub.get(clubId) ?? [];
+        ids.push(event.id);
+        eventIdsByClub.set(clubId, ids);
+      }
+
+      const provider: HomeRsvpProvider = {
+        async listUserRsvps(userId, visibleEventIds) {
+          const { data, error } = await supabase
+            .from("rsvps")
+            .select("event_id, status")
+            .eq("user_id", userId)
+            .is("child_id", null)
+            .in("event_id", [...visibleEventIds]);
+          if (error) throw error;
+          return data ?? [];
+        },
+      };
+
+      const results = await Promise.all(
+        [...eventIdsByClub.values()].map((visibleEventIds) =>
+          fetchHomeUserRsvpsForClub(provider, user!.id, visibleEventIds),
+        ),
+      );
+      return results.flat();
     },
     enabled: !!user && eventIds.length > 0,
     staleTime: 2 * 60 * 1000,
