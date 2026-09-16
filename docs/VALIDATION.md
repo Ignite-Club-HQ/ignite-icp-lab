@@ -599,6 +599,16 @@ duplicate invitation rejection, invited-team acceptance, activation authority,
 and ICP failure without Supabase fallback. The bundle's Supabase fixture,
 RPCs, migrations, and old application modules remain disconnected.
 
+## Imported event lifecycle baseline adaptation - 2026-09-16
+
+Adapted the creation, attendance, editing, cancellation, and cross-club
+visibility behavior from the bundle's event lifecycle journey into a
+synthetic provider-routed contract test. The lab regression covers explicit
+Supabase and ICP modes, member/admin authorization, RSVP isolation, provider
+selection, and ICP failure without Supabase fallback. The bundle's Supabase
+event/RLS fixture, RPCs, migrations, and old application modules remain
+disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
