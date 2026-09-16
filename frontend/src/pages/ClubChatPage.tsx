@@ -1308,6 +1308,9 @@ export default function ClubChatPage() {
 
   const sendMutation = useMutation({
     mutationFn: async ({ text, image_url, reply_to_id }: { text: string; image_url: string | null; reply_to_id: string | null }) => {
+      if (useIcpLab) {
+        throw new Error("Club messaging is not available in the local ICP contract.");
+      }
       // If offline, queue the message
       if (!navigator.onLine) {
         queueMessage({
@@ -1456,6 +1459,9 @@ export default function ClubChatPage() {
   const updateMessageMutation = useMutation({
     mutationFn: async () => {
       if (!editingMessage) return;
+      if (useIcpLab) {
+        throw new Error("Editing club messages is not available in the local ICP contract.");
+      }
       const { error } = await supabase.from("club_messages").update({ text: message.trim() }).eq("id", editingMessage.id);
       if (error) throw error;
     },
@@ -1847,7 +1853,7 @@ export default function ClubChatPage() {
                       hasReply={!!msg.reply_to_id}
                       isEdited={!!(msg as any).edited_at}
                       onReply={handleReply}
-                      onEdit={handleEdit}
+                      onEdit={useIcpLab ? undefined : handleEdit}
                       searchQuery={searchQuery || highlightQuery}
                       readFrontierReaders={readFrontier[msg.id] || []}
                       readCount={readCounts[msg.id] || 0}
