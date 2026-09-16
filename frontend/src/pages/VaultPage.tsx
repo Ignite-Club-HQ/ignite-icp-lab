@@ -103,6 +103,14 @@ const DRIVE_IMPORT_ALLOWED_CLUB_IDS = new Set<string>([
 
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import {
+  canAccessVault as resolveVaultAccess,
+  getVaultAdminUpgradeInfo,
+  getVaultTeamIds,
+  hasVaultRoleAccess as resolveVaultRoleAccess,
+  isVaultClubAdminOrCommittee,
+  isVaultCoachOrTeamAdmin,
+} from "@/lab/vaultAccess";
 
 export default function VaultPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -302,11 +310,7 @@ function SupabaseVaultPage() {
 
   // Check if user has vault access (admins and coaches only)
   const hasVaultRoleAccess = useMemo(() => {
-    if (isAppAdmin) return true;
-    if (!userRoles) return false;
-    return userRoles.some(r => 
-      ['club_admin', 'team_admin', 'coach', 'league_admin', 'committee_member'].includes(r.role)
-    );
+    return resolveVaultRoleAccess(isAppAdmin ?? false, userRoles);
   }, [isAppAdmin, userRoles]);
 
   const { data: userClubs, isLoading: isLoadingClubs } = useQuery({
@@ -441,12 +445,7 @@ function SupabaseVaultPage() {
 
   // Check if user is a club admin or committee member for the current club (can see all teams)
   const isClubAdminOrCommittee = useMemo(() => {
-    if (isAppAdmin) return true;
-    if (currentView.type !== "club" && currentView.type !== "team" && currentView.type !== "mini-league") return false;
-    const clubId = currentView.clubId;
-    return userRoles?.some(r => 
-      (r.role === "club_admin" || r.role === "committee_member") && r.club_id === clubId
-    ) || false;
+    return isVaultClubAdminOrCommittee(isAppAdmin ?? false, currentView, userRoles);
   }, [isAppAdmin, currentView, userRoles]);
 
   // Alias for backward compatibility
@@ -454,28 +453,17 @@ function SupabaseVaultPage() {
 
   // Check if user is a coach or team admin in the current club (can see club-level chat folders)
   const isCoachOrTeamAdmin = useMemo(() => {
-    if (isClubAdmin) return true;
-    if (currentView.type !== "club" && currentView.type !== "team" && currentView.type !== "mini-league") return false;
-    const clubId = currentView.clubId;
-    return userRoles?.some(r => 
-      (r.role === "coach" || r.role === "team_admin") && r.club_id === clubId
-    ) || false;
+    return isVaultCoachOrTeamAdmin(isClubAdmin, currentView, userRoles);
   }, [isClubAdmin, currentView, userRoles]);
 
   // Get first admin club/team for upgrade link
   const adminUpgradeInfo = useMemo(() => {
-    if (!userRoles) return { clubId: undefined, teamId: undefined };
-    const clubAdminRole = userRoles.find(r => r.role === "club_admin" && r.club_id);
-    if (clubAdminRole?.club_id) return { clubId: clubAdminRole.club_id as string, teamId: undefined };
-    const teamAdminRole = userRoles.find(r => r.role === "team_admin" && r.team_id);
-    if (teamAdminRole?.team_id) return { clubId: undefined, teamId: teamAdminRole.team_id as string };
-    return { clubId: undefined, teamId: undefined };
+    return getVaultAdminUpgradeInfo(userRoles);
   }, [userRoles]);
 
   // Get teams user has access to
   const userTeamIds = useMemo(() => {
-    if (!userRoles) return [];
-    return userRoles.filter(r => r.team_id).map(r => r.team_id as string);
+    return getVaultTeamIds(userRoles);
   }, [userRoles]);
 
   // Check if the current club has Pro
@@ -1115,7 +1103,13 @@ function SupabaseVaultPage() {
   const isLoadingAccess = isLoadingAppAdmin || isLoadingProClub || isLoadingRoles || isLoadingClubHasPro || isLoadingTeamHasPro;
   // Vault access requires: 1) Pro subscription in current context AND 2) Admin/coach role
   const vaultAccessContextHasPro = currentView.type === "root" ? hasProClub : currentContextHasPro;
-  const canAccessVault = (isAppAdmin || vaultAccessContextHasPro) && hasVaultRoleAccess;
+  const canAccessVault = resolveVaultAccess({
+    isAppAdmin: isAppAdmin ?? false,
+    hasRoleAccess: hasVaultRoleAccess,
+    hasAnyPro: hasProClub,
+    currentContextHasPro,
+    isRoot: currentView.type === "root",
+  });
 
   // Handle storage purchase success redirect
   useEffect(() => {
