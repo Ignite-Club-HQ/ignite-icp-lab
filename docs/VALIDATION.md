@@ -618,6 +618,15 @@ club boundaries, cross-club visibility, provider selection, and ICP failure
 without Supabase fallback. The original Supabase event schema, RLS fixture,
 RPCs, and migration harness remain disconnected.
 
+## Imported entitlement transition baseline adaptation - 2026-09-16
+
+Adapted the exact-club Free/Pro transition behavior from the bundle's
+entitlement journey into a synthetic provider-routed contract test. The lab
+regression covers explicit Supabase and ICP modes, activation, expiry,
+administrator override, exact-club isolation, membership removal, provider
+selection, and ICP failure without Supabase fallback. The original Supabase
+subscription RPCs, schema, fixture, and migration harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
