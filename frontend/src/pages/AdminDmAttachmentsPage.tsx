@@ -19,7 +19,6 @@ import { PageLoading } from "@/components/ui/page-loading";
 import { toast } from "sonner";
 
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { getLocalLabDmAttachments } from "@/lab/fixtureDataLayer";
 
 export default function AdminDmAttachmentsPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
@@ -29,10 +28,9 @@ export default function AdminDmAttachmentsPage() {
   return <SupabaseAdminDmAttachmentsPage />;
 }
 
-/** Read-only synthetic DM-attachment list; flagging and removal remain unavailable until media_metadata admin tooling is wired here. */
+/** Attachment administration remains unavailable until media metadata admin tooling is wired. */
 function IcpLabAdminDmAttachmentsPage() {
   const navigate = useNavigate();
-  const attachments = getLocalLabDmAttachments();
 
   return (
     <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
@@ -40,21 +38,11 @@ function IcpLabAdminDmAttachmentsPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-bold">DM Attachments</h1>
+        <h1 className="text-lg font-bold">DM Attachments unavailable</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        Showing synthetic ICP lab attachment metadata. Flagging and removal are disabled.
+        Attachment administration requires an authenticated media metadata provider. No synthetic data or Supabase fallback is used.
       </p>
-      <div className="space-y-2">
-        {attachments.map((attachment) => (
-          <Card key={attachment.id}>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium">{attachment.caption}</p>
-              <p className="text-xs text-muted-foreground">Uploaded by {attachment.uploaded_by}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }
