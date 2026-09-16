@@ -82,7 +82,7 @@
   { "path": "src/pages/ResetPasswordPage.tsx", "status": "supabase_only", "icpBehavior": "unavailable", "nextDependency": "internet_identity_recovery" },
   { "path": "src/pages/ScheduledMessagesPage.tsx", "status": "external_boundary", "icpBehavior": "unavailable", "nextDependency": "messaging_worker" },
   { "path": "src/pages/SeasonComparePage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "competition_domain" },
-  { "path": "src/pages/SeasonDetailPage.tsx", "status": "hybrid", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
+  { "path": "src/pages/SeasonDetailPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "competition_domain" },
   { "path": "src/pages/SeasonsPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "competition_domain" },
   { "path": "src/pages/SendUpdateReminderPage.tsx", "status": "external_boundary", "icpBehavior": "unavailable", "nextDependency": "messaging_worker" },
   { "path": "src/pages/SettingsPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "identity_access" },
