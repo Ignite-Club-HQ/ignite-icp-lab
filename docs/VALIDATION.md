@@ -807,3 +807,31 @@ files.
 `npm test` passed 9 Node tests and 53 Vitest files / 272 tests (5 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run
 check:prod-secrets`, and `npm run build` all passed.
+
+## Imported hybrid event RSVP repository - 2026-09-16
+
+Adapted the bundle's refactored `eventRsvpRepository` into
+`hybridEventRsvpRepository.ts`. The source baseline took a raw
+Supabase-shaped `client: any` and read the authoritative RSVP rows for an
+event, then enriched them with display-only adult profile and child
+information; enrichment relied on Postgrest's non-throwing `{ data, error }`
+convention to stay best effort. The lab replaces the direct client with an
+`EventRsvpProvider` boundary selected by the club's authoritative placement,
+matching every other hybrid service in this domain. Because the provider
+boundary uses throwing async methods, enrichment failures are now caught
+explicitly rather than depending on a non-throwing client convention — the
+authoritative RSVP read still fails closed and propagates, while profile and
+child lookups remain best effort so valid attendance rows are never dropped.
+An ICP provider failure surfaces directly with no Supabase fallback, and an
+unavailable/disabled backend placement is reported by reason with no
+fallback either. Synthetic coverage exercises both explicit Supabase and ICP
+modes, provider-client reuse, the RSVP fail-closed contract, best-effort
+profile/child enrichment failure, ICP-provider failure without fallback, and
+disabled-backend placement failure. The bundle's raw Postgrest client,
+underlying tables/RPCs, and legacy event-detail page caller remain
+disconnected; no runtime allowlist expansion was required, and
+`tsconfig.lab.json` was extended to typecheck the new file.
+
+`npm test` passed 9 Node tests and 54 Vitest files / 279 tests (7 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed.
