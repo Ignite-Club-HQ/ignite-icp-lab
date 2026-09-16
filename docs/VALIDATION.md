@@ -560,6 +560,15 @@ isolation, and proves an ICP provider failure does not invoke or fall back to
 Supabase. The legacy multi-table Supabase RLS fixture and chat schema remain
 disconnected.
 
+## Imported notification club-switch pin baseline adaptation - 2026-09-16
+
+Adapted the provider-neutral session-storage portion of the bundle's
+`notificationClubSwitchPin.guard.test.ts`. The lab regression covers pin
+round-tripping, stale-pin expiry, explicit clearing, and the `ignite_` cache
+namespace. Backend-mode assertions are intentionally not applicable because
+this helper runs before provider routing; the bundle's Supabase-backed club
+resolution, native handler, and provider bootstrap guards remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
