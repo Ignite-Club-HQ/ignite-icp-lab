@@ -2256,7 +2256,7 @@ export default function TeamChatPage() {
                       hasReply={!!msg.reply_to_id}
                       isEdited={!!(msg as any).edited_at}
                       onReply={handleReply}
-                      onEdit={handleEdit}
+                      onEdit={useIcpLab ? undefined : handleEdit}
                       onAuthorClick={
                         !msg.is_club_announcement && isAdmin && msg.author_id !== user?.id
                           ? () => handleMemberProfileTap(
