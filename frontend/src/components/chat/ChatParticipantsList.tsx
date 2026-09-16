@@ -25,6 +25,10 @@ import { ParticipantProfileSheet, type ParticipantRoleEntry } from "@/components
 import { cn } from "@/lib/utils";
 import { useOnlineSet } from "@/hooks/useUserPresence";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import {
+  refreshChatManagedTeamMembership,
+  refreshChatRemovedTeamMember,
+} from "@/lab/teamMembershipCacheCompletion";
 
 // Highest-privilege first. App admin sinks to the end (internal-only).
 const ROLE_PRIORITY: string[] = [
@@ -615,9 +619,10 @@ export function ChatParticipantsList({
     } else {
       toast.success("Role removed");
       if (effectiveTeamId) {
-        queryClient.invalidateQueries({ queryKey: ["team-roles", effectiveTeamId] });
+        refreshChatManagedTeamMembership(queryClient, effectiveTeamId, chatType, chatId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["chat-members", chatType, chatId] });
       }
-      queryClient.invalidateQueries({ queryKey: ["chat-members", chatType, chatId] });
       setSelectedMember(null);
     }
   };
@@ -638,9 +643,7 @@ export function ChatParticipantsList({
     }
 
     const refreshMembership = () => {
-      queryClient.invalidateQueries({ queryKey: ["team-roles", effectiveTeamId] });
-      queryClient.invalidateQueries({ queryKey: ["chat-members", chatType, chatId] });
-      queryClient.invalidateQueries({ queryKey: ["authorized-scopes"] });
+      refreshChatRemovedTeamMember(queryClient, effectiveTeamId, chatType, chatId);
     };
 
     const { error: notifyError } = await supabase.from("notifications").insert({

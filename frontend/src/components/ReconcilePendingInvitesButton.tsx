@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { membershipKeys } from "@/lab/membershipQueryKeys";
+import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 
 interface Props {
   pendingCount: number;
@@ -62,7 +64,11 @@ export default function ReconcilePendingInvitesButton({ pendingCount, teamId, cl
 
       queryClient.invalidateQueries({ queryKey: ["pending-invites"] });
       queryClient.invalidateQueries({ queryKey: ["pending-invites", teamId, clubId] });
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      if (teamId) {
+        refreshTeamRoleChange(queryClient, teamId);
+      } else {
+        queryClient.invalidateQueries({ queryKey: membershipKeys.teamRoles() });
+      }
 
       if (reconciled === 0) {
         toast({

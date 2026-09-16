@@ -54,6 +54,10 @@ import {
   markLocalTeamRead,
   sendLocalTeamMessage,
 } from "@/lab/localMessagingService";
+import {
+  refreshChatManagedTeamMembership,
+  refreshChatRemovedTeamMember,
+} from "@/lab/teamMembershipCacheCompletion";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -582,7 +586,7 @@ export default function TeamChatPage() {
 
     toast.success("Role removed");
     queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
-    queryClient.invalidateQueries({ queryKey: ["chat-members", "team", teamId] });
+    refreshChatManagedTeamMembership(queryClient, teamId, "team", teamId);
     setSelectedMember(null);
   }, [teamId, queryClient]);
 
@@ -601,11 +605,9 @@ export default function TeamChatPage() {
       toast.error("Failed to remove member");
       return;
     }
-
     toast.success("Member removed from team");
     queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
-    queryClient.invalidateQueries({ queryKey: ["chat-members", "team", teamId] });
-    queryClient.invalidateQueries({ queryKey: ["authorized-scopes"] });
+    refreshChatRemovedTeamMember(queryClient, teamId, "team", teamId);
     setSelectedMember(null);
   }, [teamId, selectedMember, queryClient]);
 
@@ -2469,7 +2471,7 @@ export default function TeamChatPage() {
             if (!open) {
               setAddRoleMember(null);
               queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
-              queryClient.invalidateQueries({ queryKey: ["chat-members", "team", teamId] });
+              refreshChatManagedTeamMembership(queryClient, teamId, "team", teamId);
             }
           }}
         />

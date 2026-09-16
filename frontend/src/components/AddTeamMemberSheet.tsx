@@ -45,6 +45,7 @@ import {
   SECOND_PARENT_EMAIL_REQUIRED,
   type SecondParentResult,
 } from "@/features/membership/secondParentInvite";
+import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 
 interface BulkChild {
   id: string;
@@ -1058,7 +1059,7 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
       };
     },
     onSuccess: async (result) => {
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      refreshTeamRoleChange(queryClient, teamId);
       queryClient.invalidateQueries({ queryKey: ["pending-invites", teamId, null] });
 
       if (result?.notificationFailed) {
@@ -1482,7 +1483,7 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
 
       // Short-circuit when we attached the role directly to an existing user
       if (existingUserAdded) {
-        queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+        refreshTeamRoleChange(queryClient, teamId);
         queryClient.invalidateQueries({ queryKey: ["pending-invites", teamId, null] });
         if (existingUserAdded.notificationFailed) {
           toast({
@@ -2057,7 +2058,7 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
     onSuccess: ({ results, secondParentFailures, secondParentInvited, secondParentAdded }) => {
       setBulkResults(results);
       queryClient.invalidateQueries({ queryKey: ["pending-invites", teamId, null] });
-      queryClient.invalidateQueries({ queryKey: ["team-roles", teamId] });
+      refreshTeamRoleChange(queryClient, teamId);
       
       const sentCount = results.filter(r => r.sent).length;
       const totalCount = results.length;
