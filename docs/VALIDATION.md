@@ -627,6 +627,16 @@ administrator override, exact-club isolation, membership removal, provider
 selection, and ICP failure without Supabase fallback. The original Supabase
 subscription RPCs, schema, fixture, and migration harness remain disconnected.
 
+## Imported parent invite atomic baseline adaptation - 2026-09-16
+
+Adapted the atomic parent-invite acceptance contract from the bundle's
+Supabase RPC journey into a synthetic provider-routed test. The lab regression
+covers explicit Supabase and ICP modes, multi-child provisioning, recipient
+authorization, idempotent repeated acceptance, team membership creation,
+cross-club isolation, provider selection, and ICP failure without Supabase
+fallback. The original invite RPCs, triggers, schema, and fixture harness
+remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
