@@ -23,7 +23,10 @@ export const eventKeys = {
   recentReminders: (eventId: string) => ['event-recent-reminders', eventId] as const,
 
   pitchLinked: (eventId: string) => ['pitch-linked-event', eventId] as const,
-  pitchGoingRsvps: (eventId: string) => ['pitch-board-going-rsvps', eventId] as const,
+  pitchGoingRsvps: (eventId?: string | null) =>
+    eventId
+      ? (['pitch-board-going-rsvps', eventId] as const)
+      : (['pitch-board-going-rsvps'] as const),
   pitchTeamMembers: (teamId?: string | null, eventId?: string | null) =>
     teamId && eventId
       ? (['team-members-for-pitch', teamId, eventId] as const)

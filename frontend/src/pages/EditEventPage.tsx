@@ -52,6 +52,7 @@ import { EventSponsorSelector } from "@/components/EventSponsorSelector";
 import { DEFAULT_MATCH_ARRIVAL_MINUTES } from "@/lib/matchArrivalTime";
 import { validateEventTeamClubScope } from "@/lib/eventScopeValidation";
 import { SeriesEndDateEditor } from "@/components/event/SeriesEndDateEditor";
+import { eventKeys } from "@/lab/eventQueryKeys";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalEvent, setLocalEventRecurrence, updateLocalEvent } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
@@ -972,10 +973,10 @@ function SupabaseEditEventPage() {
 
       // Refresh event-derived caches so the pitch board picks up the new
       // start_time / opponent / title without waiting for staleTime.
-      queryClient.invalidateQueries({ queryKey: ["pitch-linked-event", id] });
-      queryClient.invalidateQueries({ queryKey: ["team-members-for-pitch"] });
-      queryClient.invalidateQueries({ queryKey: ["pitch-board-going-rsvps", id] });
-      queryClient.invalidateQueries({ queryKey: ["event", id] });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchLinked(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchTeamMembers() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.pitchGoingRsvps(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) });
       refreshEventCaches(queryClient, user?.id);
 
       navigate(`/events/${id}`);

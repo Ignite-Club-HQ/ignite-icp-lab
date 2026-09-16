@@ -65,6 +65,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { eventKeys } from "@/lab/eventQueryKeys";
 const PitchBoard = lazyWithRetry(() => import("@/components/pitch/PitchBoard"));
 // NetballBoard / BasketballBoard archived — football-only build (see archive/sports/)
 const TeamGameHistoryTab = lazyWithRetry(() => import("@/components/history/TeamGameHistoryTab"));
@@ -546,7 +547,7 @@ export default function TeamDetailPage() {
   // RSVP for that event is "going". Adults (staff) are always retained so they
   // can run the board. Without an event link we keep the full roster.
   const { data: goingRsvpsForLinkedEvent } = useQuery({
-    queryKey: ["pitch-board-going-rsvps", linkedEventId],
+    queryKey: eventKeys.pitchGoingRsvps(linkedEventId),
     queryFn: async () => {
       if (!linkedEventId) return null;
       const { data, error } = await supabase
