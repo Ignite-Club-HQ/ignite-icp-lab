@@ -36,6 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabAttendanceStats } from "@/lab/fixtureDataLayer";
+import { exportLocalEventsState, isLocalEventsCanisterUnavailable } from "@/lab/localEventsService";
 
 type EventType = "game" | "training" | "all";
 
@@ -64,15 +65,65 @@ export default function AttendanceStatsPage({ teamIdOverride, embedded }: Attend
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    const stats = getLocalLabAttendanceStats(teamIdOverride ?? "team-icp-001");
-    return (
+    return <IcpLabAttendanceStatsPage teamId={teamIdOverride ?? "team-icp-001"} embedded={embedded} navigate={navigate} />;
+  }
+
+  return <SupabaseAttendanceStatsPage teamIdOverride={teamIdOverride} embedded={embedded} />;
+}
+
+function IcpLabAttendanceStatsPage({
+  teamId,
+  embedded,
+  navigate,
+}: {
+  teamId: string;
+  embedded?: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["icp-attendance-stats", teamId],
+    queryFn: async () => {
+      try {
+        const state = await exportLocalEventsState("icp-member");
+        const eventIds = new Set(state.events.filter((event) => event.team_id[0] === teamId).map((event) => event.id));
+        const attendance = state.attendance.filter((item) => eventIds.has(item.event_id));
+        const byAccount = new Map<string, { attended: number; missed: number }>();
+        for (const item of attendance) {
+          const current = byAccount.get(item.account_id) ?? { attended: 0, missed: 0 };
+          if (item.present) current.attended += 1;
+          else current.missed += 1;
+          byAccount.set(item.account_id, current);
+        }
+        return {
+          source: "icp" as const,
+          rows: [...byAccount.entries()].map(([userId, counts]) => ({
+            user_id: userId,
+            display_name: userId,
+            ...counts,
+            rate: counts.attended + counts.missed ? counts.attended / (counts.attended + counts.missed) : 0,
+          })),
+        };
+      } catch (error) {
+        if (!isLocalEventsCanisterUnavailable(error)) throw error;
+        const stats = getLocalLabAttendanceStats(teamId);
+        return { source: "fixture" as const, rows: stats.rows };
+      }
+    },
+  });
+
+  const rows = data?.rows ?? [];
+  return (
       <div className={embedded ? "py-4" : "container max-w-3xl mx-auto px-4 py-6"}>
         {!embedded && <h1 className="text-lg font-bold mb-4">Attendance</h1>}
         <p className="text-sm text-muted-foreground mb-3">
-          Showing synthetic ICP lab attendance data. Exports and reporting aggregates beyond this preview are disabled.
+          {data?.source === "icp"
+            ? "Loaded from the local events_domain canister. Exports and administrative mutations remain disabled."
+            : "The local events_domain canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
         </p>
+        {isLoading && <Card><CardContent className="p-4">Loading attendance…</CardContent></Card>}
+        {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load attendance."}</p>}
         <div className="space-y-2">
-          {stats.rows.map((row) => (
+          {rows.map((row) => (
             <Card key={row.user_id}>
               <CardContent className="p-4 flex items-center justify-between">
                 <span className="text-sm font-medium">{row.display_name}</span>
@@ -87,10 +138,7 @@ export default function AttendanceStatsPage({ teamIdOverride, embedded }: Attend
           </Button>
         )}
       </div>
-    );
-  }
-
-  return <SupabaseAttendanceStatsPage teamIdOverride={teamIdOverride} embedded={embedded} />;
+  );
 }
 
 function SupabaseAttendanceStatsPage({ teamIdOverride, embedded }: AttendanceStatsPageProps = {}) {

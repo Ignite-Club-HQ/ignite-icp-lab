@@ -29,6 +29,29 @@ test('events domain client maps exported local RSVPs into page rows', async () =
   ]);
 });
 
+test('events domain client exposes exported state for attendance projections', async () => {
+  const exportState = vi.fn(async () => ({
+    Ok: {
+      schema: 1,
+      governor: Principal.fromText('aaaaa-aa'),
+      events: [],
+      rsvps: [],
+      attendance: [{ event_id: 'event-1', account_id: 'account-1', present: true, note: 'Checked in' }],
+      duties: [],
+      recurrences: [],
+      roster: [],
+      lineups: [],
+      roles: [],
+    },
+  }));
+  const client = createEventsDomainClient({ export_state: exportState } as unknown as _SERVICE);
+
+  await expect(client.exportState()).resolves.toMatchObject({
+    attendance: [{ event_id: 'event-1', account_id: 'account-1', present: true }],
+  });
+  expect(exportState).toHaveBeenCalledOnce();
+});
+
 test('events domain client maps scoped canister events into schedule rows', async () => {
   const listEvents = vi.fn(async () => [{
     id: 'event-1',

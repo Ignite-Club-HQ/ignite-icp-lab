@@ -1,7 +1,7 @@
 import { Actor } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
-import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
+import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, State, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
 import { createLocalAgent, fetchLocalLabConfig } from './localActor';
 
 export interface LocalScheduleEvent {
@@ -145,7 +145,7 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
     ): Promise<LocalScheduleEvent> {
       if (options) {
         const scope = validateEventTeamClubScope(teamId, options.teamScope, clubId);
-        if (!scope.ok) throw new Error(`Event team scope rejected: ${scope.reason}`);
+        if (scope.ok === false) throw new Error(`Event team scope rejected: ${scope.reason}`);
       }
       const result = await actor.create_event(clubId, teamId ? [teamId] : [], title, description, startsAtMs, endsAtMs);
       if ('Err' in result) throw new Error(result.Err);
@@ -215,6 +215,11 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
             children: null,
           };
         });
+    },
+    async exportState(): Promise<State> {
+      const result = await actor.export_state();
+      if ('Err' in result) throw new Error(result.Err);
+      return result.Ok;
     },
   };
 }
@@ -299,4 +304,8 @@ export async function setLocalEventRecurrence(
 
 export async function listLocalEventRsvps(persona: string, eventId: string): Promise<LocalEventRsvp[]> {
   return createEventsDomainClient(await connectEventsActor(persona)).listEventRsvps(eventId);
+}
+
+export async function exportLocalEventsState(persona: string): Promise<State> {
+  return createEventsDomainClient(await connectEventsActor(persona)).exportState();
 }
