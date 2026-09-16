@@ -48,6 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
 import {
   getLocalTeamUnreadCount,
   listLocalTeamMessages,
@@ -1098,9 +1099,7 @@ export default function TeamChatPage() {
           });
       const mergedMessages = (reconcileMessages(
         reconcileScope,
-        [...previousOnly, ...mergedIncomingMessages].sort((a, b) =>
-          (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-        ),
+        orderChatMessagesChronologically([...previousOnly, ...mergedIncomingMessages]),
       ) ?? []) as Message[];
 
       cacheMessages("team", teamId, mergedMessages.map((m) => ({

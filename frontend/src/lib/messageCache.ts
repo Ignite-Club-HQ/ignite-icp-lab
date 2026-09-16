@@ -12,6 +12,8 @@
 // during requestIdleCallback so they never block the user's interaction or
 // navigation frame. Same on-disk shape.
 
+import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
+
 export interface CachedMessage {
   id: string;
   text: string;
@@ -120,12 +122,7 @@ function scheduleFlush(key: string): void {
 export function getCachedMessages(type: ChatType, targetId: string): CachedMessage[] {
   const entry = ensureLoaded(getCacheKey(type, targetId));
   if (!entry) return [];
-  return [...entry.messages].sort((a, b) => {
-    const at = new Date(a.created_at).getTime();
-    const bt = new Date(b.created_at).getTime();
-    if (at !== bt) return at - bt;
-    return a.id.localeCompare(b.id);
-  });
+  return orderChatMessagesChronologically(entry.messages);
 }
 
 // Save messages to cache.
@@ -149,12 +146,7 @@ export function cacheMessages(type: ChatType, targetId: string, messages: Cached
     // Supabase pages and others pass ascending merged render state; persisting
     // mixed order makes a cache-only first paint look like a broken history
     // boundary until the network query repairs it.
-    const sortedAsc = [...messages].sort((a, b) => {
-      const at = new Date(a.created_at).getTime();
-      const bt = new Date(b.created_at).getTime();
-      if (at !== bt) return at - bt;
-      return a.id.localeCompare(b.id);
-    });
+    const sortedAsc = orderChatMessagesChronologically(messages);
     const normalised = sortedAsc.slice(-MAX_CACHED_MESSAGES);
     const entry: CacheEntry = {
       messages: normalised,
