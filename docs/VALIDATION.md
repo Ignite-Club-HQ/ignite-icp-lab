@@ -637,6 +637,16 @@ cross-club isolation, provider selection, and ICP failure without Supabase
 fallback. The original invite RPCs, triggers, schema, and fixture harness
 remain disconnected.
 
+## Imported concurrent guardian invite baseline adaptation - 2026-09-16
+
+Adapted the concurrent guardian-invite acceptance behavior from the bundle's
+Supabase transaction journey into a synthetic provider-routed test. The lab
+regression covers explicit Supabase and ICP modes, exactly-one concurrent
+acceptance winner, unauthorized recipient rejection, invalid-child rollback,
+guardian relationship uniqueness, cross-club isolation, provider selection,
+and ICP failure without Supabase fallback. The original invite RPCs, schema,
+Realtime harness, and fixture remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
