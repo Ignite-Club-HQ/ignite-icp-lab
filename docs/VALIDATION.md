@@ -956,3 +956,58 @@ needed since neither file is wired into `LabApp.tsx` or any consumer.
 `npm test` passed 9 Node tests and 56 Vitest files / 312 tests (12 new).
 `npm run typecheck:lab`, `npm run check:isolation`, `npm run
 check:prod-secrets`, and `npm run build` all passed.
+
+## Adapted hybrid Home RSVP repository - 2026-09-16
+
+Ported `src/features/home/homeRsvpRepository.ts` (`fetchHomeUserRsvps`) from
+the bundle's `integration/all-refactoring-icp-export` branch into
+`frontend/src/lab/hybridHomeRsvpRepository.ts`, replacing its raw
+Postgrest-shaped `client: any` parameter with an explicit
+`resolveClubBackend`-routed hybrid provider, matching the pattern already
+established for `hybridEventRsvpRepository.ts`.
+
+Home aggregates events across every club the signed-in user belongs to, and
+each club can be placed on a different backend, so this repository differs
+from the single-event RSVP repository in one structural way: the caller must
+group event ids by the club that owns them
+(`HomeRsvpEventGroup { clubId, eventIds }`), and
+`createHybridHomeRsvpRepository().fetchRsvpsAcrossClubs()` resolves and
+queries each club's backend independently (caching one provider per backend
+identity, same as every other hybrid service in this lab). A club with no
+currently-visible events is skipped without resolving a backend or
+constructing a provider at all, matching the bundle's original
+"does not query" behaviour.
+
+Unlike the single-event RSVP read (which is the authoritative record for
+that event and must fail closed and propagate directly), Home's RSVP status
+is a best-effort summary spanning every club membership: one temporarily
+unavailable club must not make the rest of Home's dashboard unusable. That
+degradation is still never silently swallowed and never becomes a same-club
+Supabase fallback — each club's outcome is returned as an inspectable
+`HomeRsvpGroupOutcome` (`{status:'ok', rows}` or
+`{status:'unavailable', error}`), so a caller can show a "some clubs' RSVP
+status could not be loaded" notice explicitly while still rendering the
+clubs that did load. This mirrors the enrichment-outcome fix applied
+earlier to the event RSVP repository, applied here at the per-club
+aggregation boundary instead of the per-lookup boundary.
+
+`frontend/lab-tests/imported-home-rsvp-repository-baseline.test.tsx` (9
+tests) covers: the pure per-club function's empty-input short-circuit,
+correct provider arguments, and failure propagation (provider-neutral,
+matching the bundle's own `homeRsvpRepository.test.ts`); explicit Supabase
+and explicit ICP mode aggregation with provider-client reuse; merging rows
+from two clubs placed on different backends without cross-club leakage;
+skipped-query clubs reported as ok with no provider resolution; one club's
+ICP provider failing while another club's rows are still returned, with an
+assertion that Supabase is never invoked for the failing club (no fallback);
+and one club's placement being unavailable (country-policy denial) while an
+independent club on the same backend type still succeeds.
+
+`tsconfig.lab.json` was extended to typecheck the new file; no runtime
+allowlist expansion was made or needed since the file is not wired into
+`LabApp.tsx`. The bundle's raw Postgrest client and its `HomePage.tsx`
+caller remain disconnected.
+
+`npm test` passed 9 Node tests and 57 Vitest files / 321 tests (9 new).
+`npm run typecheck:lab`, `npm run check:isolation`, `npm run
+check:prod-secrets`, and `npm run build` all passed.
