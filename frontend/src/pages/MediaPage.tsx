@@ -105,11 +105,14 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import {
   fetchMediaFeed,
   toggleMediaReaction,
+  createIcpMediaFeedProvider,
   createFixtureMediaFeedProvider,
+  type MediaFeedProvider,
   type MediaFeedAsset,
   type MediaFeedComment,
   type MediaFeedReaction,
 } from "@/lab/hybridMediaFeedRepository";
+import { connectLocalMediaMetadataClient } from "@/lab/localMediaMetadata";
 
 export default function MediaPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -119,13 +122,9 @@ export default function MediaPage() {
 }
 
 /**
- * ICP-lab render path for Media. Backed by an in-memory fixture provider
- * (see `createFixtureMediaFeedProvider`) because inert reference pages have
- * no live actor/session plumbing outside `LabApp.tsx` — the real
- * `createIcpMediaFeedProvider` (media_metadata_motoko canister) is wired and
- * unit-tested, ready for when this page is promoted into the running lab
- * bundle. Reactions/comments here are session-only and reset on reload,
- * matching the rest of `fixtureDataLayer.ts`'s "not persisted" convention.
+ * ICP-lab render path for Media. It prefers the typed media metadata canister
+ * when configured and keeps the fixture provider as an explicit local fallback
+ * for environments without that canister.
  * Upload/report/block remain unavailable — those require real storage and
  * moderation backends that don't exist for ICP yet.
  */
@@ -133,9 +132,29 @@ function IcpMediaFeedPage() {
   const { user } = useAuth();
   const { activeClubFilter } = useClubTheme();
   const clubId = activeClubFilter ?? "club-icp-001";
-  const actorId = user?.id ?? "icp-member";
+  const actorId = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
 
-  const provider = useMemo(() => createFixtureMediaFeedProvider(clubId, actorId), [clubId, actorId]);
+  const fixtureProvider = useMemo(() => createFixtureMediaFeedProvider(clubId, actorId), [clubId, actorId]);
+  const [provider, setProvider] = useState<MediaFeedProvider>(fixtureProvider);
+  const [providerError, setProviderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setProvider(fixtureProvider);
+    setProviderError(null);
+    void connectLocalMediaMetadataClient(actorId)
+      .then(({ client }) => {
+        if (active) setProvider(createIcpMediaFeedProvider(client));
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setProviderError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [actorId, fixtureProvider]);
 
   const [assets, setAssets] = useState<MediaFeedAsset[]>([]);
   const [reactionsByAsset, setReactionsByAsset] = useState<Record<string, MediaFeedReaction[]>>({});
@@ -146,13 +165,21 @@ function IcpMediaFeedPage() {
 
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
-    const feed = await fetchMediaFeed(provider, clubId);
-    setAssets(feed);
-    const reactionEntries = await Promise.all(feed.map(async asset => [asset.id, await provider.listReactions(asset.id)] as const));
-    setReactionsByAsset(Object.fromEntries(reactionEntries));
-    const commentEntries = await Promise.all(feed.map(async asset => [asset.id, await provider.listComments(asset.id)] as const));
-    setCommentsByAsset(Object.fromEntries(commentEntries));
-    setIsLoading(false);
+    try {
+      const feed = await fetchMediaFeed(provider, clubId);
+      setAssets(feed);
+      const reactionEntries = await Promise.all(feed.map(async asset => [asset.id, await provider.listReactions(asset.id)] as const));
+      setReactionsByAsset(Object.fromEntries(reactionEntries));
+      const commentEntries = await Promise.all(feed.map(async asset => [asset.id, await provider.listComments(asset.id)] as const));
+      setCommentsByAsset(Object.fromEntries(commentEntries));
+    } catch (error: unknown) {
+      setProviderError(error instanceof Error ? error.message : String(error));
+      setAssets([]);
+      setReactionsByAsset({});
+      setCommentsByAsset({});
+    } finally {
+      setIsLoading(false);
+    }
   }, [provider, clubId]);
 
   useEffect(() => {
@@ -188,8 +215,9 @@ function IcpMediaFeedPage() {
       </div>
 
       <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-        Media is running in ICP lab mode with synthetic, session-only content. Uploading, reporting, and blocking
-        remain unavailable until protected object storage is connected to an approved ICP boundary.
+        {providerError
+          ? `The local media metadata canister is unavailable (${providerError}); showing session-only fixture content.`
+          : "Media is running in ICP lab mode. Uploading, reporting, and blocking remain unavailable until protected object storage is connected to an approved ICP boundary."}
       </div>
 
       {isLoading ? (
