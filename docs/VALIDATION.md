@@ -1140,3 +1140,43 @@ Focused validation:
 - `npm test` passed 9 Node tests and 61 Vitest files / 369 tests.
 - `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
   third-party `"use client"` directive warnings.
+
+## Imported hybrid event supporting reads across club placements — 2026-09-16
+
+Ported `src/features/events/eventSupportingReadsRepository.ts` from the export bundle
+into `frontend/src/lab/hybridEventSupportingReadsRepository.ts`, replacing the bundle's
+raw Postgrest-shaped `client: any` event guest and duty reads with explicit
+club-placement routing. This slice was chosen after confirming the current checkpoint had
+already adapted Home RSVP/rewards/entitlements and membership cache helpers, while event
+supporting reads remained unported and small enough to keep disconnected from runtime UI.
+
+The adapted boundary requires callers to supply the event's owning `clubId`, because hybrid
+placement is authoritative by club rather than by event id. The repository resolves that
+club through `resolveClubBackend`, caches one provider per backend identity, and never
+falls back to Supabase when an ICP placement or provider is unavailable. Guest and duty
+reads remain authoritative and fail closed. Guest adder profile enrichment keeps the
+source's neutral `"A member"` display fallback but now returns an inspectable
+`adderProfilesEnrichment` outcome (`skipped`, `ok`, or `unavailable`) instead of silently
+hiding display-only degradation.
+
+Added 10 tests in
+`frontend/lab-tests/imported-event-supporting-reads-repository-baseline.test.tsx` covering:
+event-scoped guest reads, profile id de-duplication, typed degraded profile enrichment,
+authoritative guest/duty read failure propagation, explicit Supabase and ICP routing with
+provider reuse, cross-club backend isolation, ICP provider failure with zero Supabase
+fallback calls, and unavailable placement handling with no fallback.
+
+`tsconfig.lab.json` was extended to typecheck `hybridEventSupportingReadsRepository.ts`; no
+runtime allowlist expansion was made. The bundle's raw Postgrest client and event detail UI
+caller remain disconnected.
+
+Focused validation:
+
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/imported-event-supporting-reads-repository-baseline.test.tsx`
+  passed 1 file / 10 tests.
+- `npm run typecheck:lab` passed.
+- `npm run check:isolation` passed.
+- `npm run check:prod-secrets` passed.
+- `npm test` passed 9 Node tests and 62 Vitest files / 379 tests.
+- `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
+  third-party `"use client"` directive warnings.
