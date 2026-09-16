@@ -722,6 +722,19 @@ applicable. Focused tests preserve the helper's deterministic domain
 semantics. The full calendar/pitch-packing pass and legacy competition page
 callers remain disconnected; no runtime allowlist expansion was required.
 
+## Imported hybrid club/team metadata cache - 2026-09-16
+
+Adapted the bundle's refactored `clubTeamCache` behavior into
+`hybridClubTeamCache.ts`: TTL-based club/team entries, batch hit/miss
+partitioning, provider-backed miss hydration, explicit invalidation, and
+backend-client reuse. Misses are routed by authoritative placement in
+explicit Supabase or ICP mode; an ICP provider failure is surfaced without
+Supabase fallback. The lab intentionally keeps this cache in memory rather
+than importing the bundle's global localStorage persistence until authenticated
+identity scoping is proven. Tests cover both provider modes, expiry, cache
+reuse, batch behavior, invalidation, and fail-closed ICP routing. No runtime
+allowlist expansion was required.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
