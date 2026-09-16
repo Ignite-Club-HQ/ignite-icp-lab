@@ -44,6 +44,7 @@ import {
 } from "@/features/messaging/inbox/inboxRealtimeReconciliation";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
+import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview, extractEventIds, extractVaultFolderIds, extractVaultFileIds } from "@/lib/messagePreview";
@@ -1667,7 +1668,7 @@ export default function MessagesPage() {
       rafState[key] = requestAnimationFrame(() => { rafState[key] = 0; fn(); });
     };
     const bumpUnread = () => schedule('unread', () => {
-      queryClient.invalidateQueries({ queryKey: ["unread-message-counts", user.id] });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.messageUnreadFor(user.id) });
     });
 
     // Web: patch the latestMessages cache IN PLACE so the preview text updates
@@ -1975,7 +1976,7 @@ export default function MessagesPage() {
       if (kind === 'group' && targetId && path === `/groups/${targetId}`) return;
       if (kind === 'dm' && targetId && path === `/messages/dm/${targetId}`) return;
       if (kind === 'broadcast' && path === '/messages/broadcast') return;
-      queryClient.setQueryData(["unread-message-counts", user.id], (old: any) => {
+      queryClient.setQueryData(notificationKeys.messageUnreadFor(user.id), (old: any) => {
         if (!old) return old;
         if (kind === 'broadcast') return { ...old, broadcast: (old.broadcast ?? 0) + 1 };
         if (!targetId) return old;
@@ -2274,7 +2275,7 @@ export default function MessagesPage() {
         ["my-chat-groups-with-messages", user.id],
         ["dm-conversations", user.id],
         ["latest-broadcast"],
-        ["unread-message-counts", user.id],
+        notificationKeys.messageUnreadFor(user.id),
       ]);
     };
 
