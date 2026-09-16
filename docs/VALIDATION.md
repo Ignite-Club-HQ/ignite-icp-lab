@@ -673,6 +673,19 @@ converted into a no-match result, so an unavailable ICP backend remains
 fail-closed. No runtime allowlist expansion was required; the original RPC,
 schema, migration, and Supabase mock remain disconnected.
 
+## Imported hybrid event-series deletion service - 2026-09-16
+
+Adapted the bundle's refactored event deletion primitive into
+`hybridEventDeletion.ts`. The child-before-root ordering, single-event
+isolation, zero-row confirmation, and partial-series outcome are preserved
+behind provider-neutral delete operations. Provider selection now follows the
+authoritative club placement and requires a writable placement; explicit ICP
+provider failures surface directly without Supabase fallback. Synthetic
+coverage exercises both Supabase and ICP modes, denial ordering, partial
+deletion reporting, zero-row failure, and provider selection. The original
+Supabase client, schema, migrations, and page callers remain disconnected;
+no runtime allowlist expansion was required.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
