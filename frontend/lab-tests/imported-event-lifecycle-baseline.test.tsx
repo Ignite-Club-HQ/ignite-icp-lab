@@ -5,11 +5,13 @@ import {
   type BackendProviders,
 } from '../src/lab/backendRouter';
 import type { PlacementRegistry } from '../src/lab/hybridClubLinksService';
+import { validateEventTeamClubScope } from '../src/lab/localEventsService';
 import { createSyntheticPlacementRegistry } from '../src/lab/syntheticPlacementRegistry';
 
 type EventRecord = {
   id: string;
   clubId: string;
+  teamId: string | null;
   title: string;
   description: string;
   cancelled: boolean;
@@ -23,7 +25,7 @@ type EventActor = {
 };
 
 type EventClient = {
-  create(actor: EventActor, title: string, description: string): Promise<EventRecord>;
+  create(actor: EventActor, title: string, description: string, teamId?: string | null): Promise<EventRecord>;
   get(actor: EventActor, eventId: string): Promise<EventRecord | undefined>;
   rsvp(actor: EventActor, eventId: string, status: 'going' | 'maybe'): Promise<void>;
   update(actor: EventActor, eventId: string, title: string, description: string): Promise<void>;
@@ -35,15 +37,22 @@ const CLUB_B = 'club-event-b';
 const ADMIN_A: EventActor = { id: 'event-admin-a', clubId: CLUB_A, admin: true };
 const MEMBER_A: EventActor = { id: 'event-member-a', clubId: CLUB_A, admin: false };
 const OUTSIDER_B: EventActor = { id: 'event-outsider-b', clubId: CLUB_B, admin: true };
+const EVENT_TEAMS = [
+  { id: 'event-team-a', clubId: CLUB_A },
+  { id: 'event-team-b', clubId: CLUB_B },
+];
 
 function createEventClient(): EventClient {
   const events = new Map<string, EventRecord>();
   return {
-    async create(actor, title, description) {
+    async create(actor, title, description, teamId = null) {
       if (!actor.admin) throw new Error('Club or team admin required');
+      const scope = validateEventTeamClubScope(teamId, EVENT_TEAMS, actor.clubId);
+      if (!scope.ok) throw new Error(`Event team scope rejected: ${scope.reason}`);
       const event = {
         id: `event-${events.size + 1}`,
         clubId: actor.clubId,
+        teamId,
         title,
         description,
         cancelled: false,
@@ -138,7 +147,9 @@ for (const mode of ['supabase', 'icp'] as const) {
 
     await expect(client.create(MEMBER_A, 'Unauthorized event', 'No access'))
       .rejects.toThrow('Club or team admin required');
-    const event = await client.create(ADMIN_A, 'Synthetic training', 'Initial details');
+    await expect(client.create(ADMIN_A, 'Cross-club event', 'Must reject', 'event-team-b'))
+      .rejects.toThrow('Event team scope rejected: team_not_in_club');
+    const event = await client.create(ADMIN_A, 'Synthetic training', 'Initial details', 'event-team-a');
     await expect(crossClubClient.get(OUTSIDER_B, event.id)).resolves.toBeUndefined();
 
     await client.rsvp(MEMBER_A, event.id, 'going');

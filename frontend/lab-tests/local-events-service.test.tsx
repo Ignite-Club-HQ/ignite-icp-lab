@@ -1,6 +1,9 @@
 import { expect, test, vi } from 'vitest';
 import { Principal } from '@icp-sdk/core/principal';
-import { createEventsDomainClient } from '../src/lab/localEventsService';
+import {
+  createEventsDomainClient,
+  validateEventTeamClubScope,
+} from '../src/lab/localEventsService';
 import type { _SERVICE } from '../src/lab/bindings/events_domain/declarations/events_domain.did';
 
 test('events domain client maps exported local RSVPs into page rows', async () => {
@@ -83,6 +86,39 @@ test('events domain client surfaces create failures and maps accepted writes', a
     team_id: null,
   });
   expect(createEvent).toHaveBeenLastCalledWith('club-1', [], 'Match day', 'Synthetic match', 1n, 2n);
+});
+
+test('events domain client rejects an unavailable team scope before the ICP call', async () => {
+  const createEvent = vi.fn();
+  const client = createEventsDomainClient({
+    create_event: createEvent,
+  } as unknown as _SERVICE);
+
+  await expect(client.createEvent(
+    'club-1',
+    'team-missing',
+    'Scoped event',
+    'Synthetic details',
+    1n,
+    2n,
+    { teamScope: [] },
+  )).rejects.toThrow('Event team scope rejected: list_unavailable');
+  expect(createEvent).not.toHaveBeenCalled();
+});
+
+test('event team scope guard allows club-wide and same-club events only', () => {
+  const teams = [{ id: 'team-1', clubId: 'club-1' }];
+
+  expect(validateEventTeamClubScope(null, teams, 'club-1')).toEqual({ ok: true });
+  expect(validateEventTeamClubScope('team-1', teams, 'club-1')).toEqual({ ok: true });
+  expect(validateEventTeamClubScope('missing', teams, 'club-1')).toEqual({
+    ok: false,
+    reason: 'team_not_in_club',
+  });
+  expect(validateEventTeamClubScope('team-1', undefined, 'club-1')).toEqual({
+    ok: false,
+    reason: 'list_unavailable',
+  });
 });
 
 test('events domain client gets and updates events without fallback semantics', async () => {

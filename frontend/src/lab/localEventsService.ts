@@ -49,6 +49,38 @@ export interface LocalEventRsvp {
   children: null;
 }
 
+export type EventScopeCheck =
+  | { ok: true }
+  | { ok: false; reason: 'list_unavailable' | 'team_not_in_club' };
+
+export interface TeamScopeShape {
+  id: string;
+  clubId: string;
+}
+
+/**
+ * Validate a selected event team before the provider call.
+ *
+ * This is intentionally provider-neutral: the same guard can run before
+ * either explicit Supabase or ICP routing, while the selected provider still
+ * owns authoritative authorization.
+ */
+export function validateEventTeamClubScope(
+  teamId: string | null | undefined,
+  teams: TeamScopeShape[] | null | undefined,
+  clubId: string | null | undefined,
+): EventScopeCheck {
+  if (!teamId) return { ok: true };
+  if (!teams || teams.length === 0) return { ok: false, reason: 'list_unavailable' };
+
+  const selected = teams.find(team => team.id === teamId);
+  if (!selected || selected.clubId !== clubId) {
+    return { ok: false, reason: 'team_not_in_club' };
+  }
+
+  return { ok: true };
+}
+
 function titleToType(title: string): LocalScheduleEvent['type'] {
   const normalized = title.toLowerCase();
   if (normalized.includes('training')) return 'training';
@@ -109,7 +141,12 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
       description: string,
       startsAtMs: bigint,
       endsAtMs: bigint,
+      options?: { teamScope: TeamScopeShape[] | null | undefined },
     ): Promise<LocalScheduleEvent> {
+      if (options) {
+        const scope = validateEventTeamClubScope(teamId, options.teamScope, clubId);
+        if (!scope.ok) throw new Error(`Event team scope rejected: ${scope.reason}`);
+      }
       const result = await actor.create_event(clubId, teamId ? [teamId] : [], title, description, startsAtMs, endsAtMs);
       if ('Err' in result) throw new Error(result.Err);
       return convertEvent(result.Ok);
@@ -205,8 +242,17 @@ export async function createLocalEvent(
   description: string,
   startsAtMs: bigint,
   endsAtMs: bigint,
+  options?: { teamScope: TeamScopeShape[] | null | undefined },
 ): Promise<LocalScheduleEvent> {
-  return createEventsDomainClient(await connectEventsActor(persona)).createEvent(clubId, teamId, title, description, startsAtMs, endsAtMs);
+  return createEventsDomainClient(await connectEventsActor(persona)).createEvent(
+    clubId,
+    teamId,
+    title,
+    description,
+    startsAtMs,
+    endsAtMs,
+    options,
+  );
 }
 
 export async function getLocalEvent(persona: string, id: string): Promise<LocalScheduleEvent> {

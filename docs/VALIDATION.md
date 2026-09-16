@@ -647,6 +647,18 @@ guardian relationship uniqueness, cross-club isolation, provider selection,
 and ICP failure without Supabase fallback. The original invite RPCs, schema,
 Realtime harness, and fixture remain disconnected.
 
+## Imported event scope validation helper - 2026-09-16
+
+Adapted the bundle's provider-neutral `validateEventTeamClubScope` helper into
+the existing local events service boundary. The guard permits club-wide events,
+accepts a same-club team, and fails closed for an unavailable team list or a
+team belonging to another club. The local ICP adapter can opt into the guard
+before its actor call, while the provider-routed event contract exercises the
+same helper in explicit Supabase and ICP modes. The helper performs no provider
+or Supabase calls; selected-provider authorization remains authoritative.
+No runtime allowlist expansion was required, and the bundle's event pages,
+schema, RPCs, migrations, and Supabase harness remain disconnected.
+
 ## Club-domain collection quota validation slice - 2026-09-15
 
 Bounded the local `club_domain` collections at the established local control-
