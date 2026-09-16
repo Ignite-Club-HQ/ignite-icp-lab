@@ -31,7 +31,7 @@ function convertMessage(message: IcpMessage, teamId: string): LocalChatMessage {
 }
 
 export function createMessagingDomainClient(
-  actor: Pick<_SERVICE, 'export_state' | 'list_messages' | 'send_message' | 'mark_read' | 'unread_count'>,
+  actor: Pick<_SERVICE, 'export_state' | 'list_messages' | 'list_messages_page' | 'send_message' | 'mark_read' | 'unread_count'>,
 ) {
   return {
     async findTeamConversation(teamId: string): Promise<Conversation> {
@@ -43,7 +43,9 @@ export function createMessagingDomainClient(
     },
     async listTeamMessages(teamId: string): Promise<LocalChatMessage[]> {
       const conversation = await this.findTeamConversation(teamId);
-      const messages = await actor.list_messages(conversation.id, []);
+      const page = await actor.list_messages_page(conversation.id, [], 100);
+      if ('Err' in page) throw new Error(page.Err);
+      const messages = page.Ok.messages;
       return messages.map((message) => convertMessage(message, teamId));
     },
     async sendTeamMessage(teamId: string, text: string, idempotencyKey: string): Promise<LocalChatMessage> {
