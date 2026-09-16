@@ -152,6 +152,10 @@ Completed or proven in the lab:
   `identity_access.export_state` contract when the local canister is
   configured, with a narrowly scoped synthetic fallback only for an absent
   local canister; role mutations remain disabled pending authorization parity
+- the local ICP authentication shell now provisions the active synthetic
+  persona through the typed `identity_access.register_account` contract during
+  sign-in and sign-up; Internet Identity origin selection, persistent session
+  recovery, account linking, and production authentication remain pending
 - event frontend connectivity includes local `events_domain` list/detail/create/edit
   paths plus canister-backed event-detail self-RSVP and assigned-duty claim
   writes; attendance, recurrence, timers, and complete duty lifecycle remain

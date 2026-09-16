@@ -21,6 +21,7 @@ import { isNativePlatform, unregisterNativePush } from "@/lib/nativePush";
 import { isTransientAuthFailure } from "@/lib/authRecoveryClassification";
 import { refreshSessionOnce } from "@/lib/refreshSessionOnce";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
+import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 
 
 interface Profile {
@@ -1225,6 +1226,15 @@ export function IcpAuthProvider({ children, persona = "member" }: { children: Re
     ignite_points: 0,
     theme_preference: null,
   };
+  const provisionAccount = async (): Promise<Error | null> => {
+    try {
+      const { client } = await connectLocalIdentityAccessClient(persona);
+      await client.registerAccount();
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error : new Error("ICP account provisioning failed.");
+    }
+  };
   const value = {
     user,
     session: null,
@@ -1237,8 +1247,8 @@ export function IcpAuthProvider({ children, persona = "member" }: { children: Re
     profileResolved: true,
     unreadCount: 0,
     unreadMessagesCount: 0,
-    signUp: async () => ({ error: new Error("ICP account provisioning is not wired in this staging seam."), needsEmailConfirmation: false }),
-    signIn: async () => ({ error: null }),
+    signUp: async () => ({ error: await provisionAccount(), needsEmailConfirmation: false }),
+    signIn: async () => ({ error: await provisionAccount() }),
     signInWithGoogle: async () => ({ error: new Error("Google authentication is disabled in the local ICP shell.") }),
     signOut: async () => {},
     refreshProfile: async () => {},
