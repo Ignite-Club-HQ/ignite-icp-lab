@@ -38,6 +38,11 @@ import {
 import { requestClubSwitchForChatTarget, requestClubSwitchForNotificationUrl } from "@/lib/notificationClubSwitch";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import {
+  invalidateNotificationSurfaces,
+  notificationListFamilyKey,
+} from "@/lab/notificationCachePolicy";
+import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 
 /**
@@ -219,7 +224,7 @@ export default function NotificationsPage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     setDisplayCount(NOTIFICATIONS_PER_PAGE);
-    await queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+    await queryClient.invalidateQueries({ queryKey: notificationListFamilyKey(user?.id) });
     setTimeout(() => {
       setIsRefreshing(false);
       setPullDistance(0);
@@ -255,7 +260,7 @@ export default function NotificationsPage() {
   }, [pullDistance, isRefreshing, handleRefresh]);
 
   const { data: notifications, isLoading } = useQuery({
-    queryKey: ["notifications", user?.id, activeClubFilter ?? "all"],
+    queryKey: notificationKeys.list(user?.id, activeClubFilter),
     queryFn: async () => {
       if (useIcpLab && user?.id) {
         return fixtureData.getLocalLabNotifications(user.id);
@@ -362,7 +367,7 @@ export default function NotificationsPage() {
           const raw = payload.new as any;
           const newNotification: Notification = { ...raw, read: raw.is_read };
           queryClient.setQueriesData<Notification[]>(
-            { queryKey: ["notifications", user.id] },
+            { queryKey: notificationListFamilyKey(user.id) },
             (old) => old ? [newNotification, ...old] : [newNotification]
           );
           
@@ -381,7 +386,7 @@ export default function NotificationsPage() {
           const raw = payload.new as any;
           const updated: Notification = { ...raw, read: raw.is_read };
           queryClient.setQueriesData<Notification[]>(
-            { queryKey: ["notifications", user.id] },
+            { queryKey: notificationListFamilyKey(user.id) },
             (old) => old?.map(n => n.id === updated.id ? updated : n) || []
           );
         }
@@ -397,7 +402,7 @@ export default function NotificationsPage() {
         (payload) => {
           const deleted = payload.old as { id: string };
           queryClient.setQueriesData<Notification[]>(
-            { queryKey: ["notifications", user.id] },
+            { queryKey: notificationListFamilyKey(user.id) },
             (old) => old?.filter(n => n.id !== deleted.id) || []
           );
         }
@@ -423,7 +428,7 @@ export default function NotificationsPage() {
     onMutate: async (id) => {
       // Optimistic update
       queryClient.setQueriesData<Notification[]>(
-        { queryKey: ["notifications", user?.id, activeClubFilter ?? "all"] },
+        { queryKey: notificationKeys.list(user?.id, activeClubFilter) },
         (old) => old?.map(n => n.id === id ? { ...n, read: true } : n) || []
       );
     },
@@ -450,18 +455,13 @@ export default function NotificationsPage() {
     onMutate: async () => {
       // Optimistic update - mark visible notifications as read
       queryClient.setQueriesData<Notification[]>(
-        { queryKey: ["notifications", user?.id, activeClubFilter ?? "all"] },
+        { queryKey: notificationKeys.list(user?.id, activeClubFilter) },
         (old) => old?.map(n => ({ ...n, read: true })) || []
       );
     },
     onSuccess: () => {
       if (!activeClubFilter) clearUnreadCount();
-      queryClient.invalidateQueries({ queryKey: ["recent-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-messages-unread"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-message-counts"] });
+      invalidateNotificationSurfaces(queryClient, { includeMessageUnread: true });
       setTimeout(() => refreshUnreadCount(), 300);
     },
   });
@@ -481,7 +481,7 @@ export default function NotificationsPage() {
     onMutate: async (id) => {
       // Optimistic update - remove from list
       queryClient.setQueriesData<Notification[]>(
-        { queryKey: ["notifications", user?.id, activeClubFilter ?? "all"] },
+        { queryKey: notificationKeys.list(user?.id, activeClubFilter) },
         (old) => old?.filter(n => n.id !== id) || []
       );
     },
@@ -504,22 +504,17 @@ export default function NotificationsPage() {
     },
     onMutate: async () => {
       // Cancel any in-flight queries to prevent stale data overwriting
-      await queryClient.cancelQueries({ queryKey: ["notifications", user?.id] });
-      await queryClient.cancelQueries({ queryKey: ["recent-notifications"] });
-      await queryClient.cancelQueries({ queryKey: ["unread-count"] });
+      await queryClient.cancelQueries({ queryKey: notificationListFamilyKey(user?.id) });
+      await queryClient.cancelQueries({ queryKey: notificationKeys.recent });
+      await queryClient.cancelQueries({ queryKey: notificationKeys.globalUnread });
       // Optimistic update - clear visible notifications
-      queryClient.setQueriesData<Notification[]>({ queryKey: ["notifications", user?.id, activeClubFilter ?? "all"] }, []);
+      queryClient.setQueriesData<Notification[]>({ queryKey: notificationKeys.list(user?.id, activeClubFilter) }, []);
     },
     onSuccess: () => {
       if (!activeClubFilter) clearUnreadCount();
       setDisplayCount(NOTIFICATIONS_PER_PAGE);
       // Invalidate all notification-related queries for consistency
-      queryClient.invalidateQueries({ queryKey: ["recent-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-unread-count"] });
-      queryClient.invalidateQueries({ queryKey: ["club-messages-unread"] });
-      queryClient.invalidateQueries({ queryKey: ["unread-message-counts"] });
+      invalidateNotificationSurfaces(queryClient, { includeMessageUnread: true });
       // Force refresh to get accurate count from server
       setTimeout(() => refreshUnreadCount(), 300);
     },
@@ -624,7 +619,7 @@ export default function NotificationsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists });
       toast.success("Request approved");
     },
     onError: (error: Error) => {
@@ -690,7 +685,7 @@ export default function NotificationsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists });
       toast.success("Request denied");
     },
     onError: (error: Error) => {
