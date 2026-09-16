@@ -9,6 +9,22 @@
 import { IDL } from '@icp-sdk/core/candid';
 
 export const idlFactory = ({ IDL }) => {
+  const Comment = IDL.Record({
+    'id' : IDL.Text,
+    'deleted' : IDL.Bool,
+    'body' : IDL.Text,
+    'author' : IDL.Principal,
+    'created_at_ms' : IDL.Nat64,
+    'asset_id' : IDL.Text,
+  });
+  const Result_6 = IDL.Variant({ 'Ok' : Comment, 'Err' : IDL.Text });
+  const Reaction = IDL.Record({
+    'kind' : IDL.Text,
+    'user' : IDL.Principal,
+    'created_at_ms' : IDL.Nat64,
+    'asset_id' : IDL.Text,
+  });
+  const Result_5 = IDL.Variant({ 'Ok' : Reaction, 'Err' : IDL.Text });
   const Asset = IDL.Record({
     'id' : IDL.Text,
     'storage_path' : IDL.Text,
@@ -34,20 +50,38 @@ export const idlFactory = ({ IDL }) => {
     'purpose' : IDL.Text,
     'expires_at_ms' : IDL.Nat64,
   });
+  const RoleGrant = IDL.Record({
+    'role' : IDL.Text,
+    'user' : IDL.Principal,
+    'team_id' : IDL.Opt(IDL.Text),
+    'club_id' : IDL.Opt(IDL.Text),
+  });
   const State = IDL.Record({
     'capabilities' : IDL.Vec(Capability),
     'schema' : IDL.Nat32,
     'assets' : IDL.Vec(Asset),
     'governor' : IDL.Principal,
+    'comments' : IDL.Vec(Comment),
+    'reactions' : IDL.Vec(Reaction),
+    'roles' : IDL.Vec(RoleGrant),
   });
   const Result_2 = IDL.Variant({ 'Ok' : State, 'Err' : IDL.Text });
+  const Result_4 = IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text });
   const Result_1 = IDL.Variant({ 'Ok' : Capability, 'Err' : IDL.Text });
   const Result = IDL.Variant({ 'Ok' : Asset, 'Err' : IDL.Text });
   
   return IDL.Service({
+    'add_comment' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat64], [Result_6], []),
+    'add_reaction' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat64], [Result_5], []),
     'delete_asset' : IDL.Func([IDL.Text], [Result_3], []),
+    'delete_comment' : IDL.Func([IDL.Text], [Result_6], []),
     'export_state' : IDL.Func([], [Result_2], ['query']),
     'get_asset' : IDL.Func([IDL.Text], [IDL.Opt(Asset)], ['query']),
+    'grant_role' : IDL.Func(
+        [IDL.Principal, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
+        [Result_4],
+        [],
+      ),
     'initialize' : IDL.Func(
         [],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : IDL.Text })],
@@ -58,11 +92,15 @@ export const idlFactory = ({ IDL }) => {
         [Result_1],
         [],
       ),
+    'list_assets' : IDL.Func([IDL.Text], [IDL.Vec(Asset)], ['query']),
+    'list_comments' : IDL.Func([IDL.Text], [IDL.Vec(Comment)], ['query']),
+    'list_reactions' : IDL.Func([IDL.Text], [IDL.Vec(Reaction)], ['query']),
     'register_asset' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat64],
         [Result],
         [],
       ),
+    'remove_reaction' : IDL.Func([IDL.Text], [Result_4], []),
   });
 };
 

@@ -63,7 +63,7 @@
   { "path": "src/pages/ManageRolesPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
   { "path": "src/pages/ManageTeamRolesPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
   { "path": "src/pages/ManageUsersPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "identity_access" },
-  { "path": "src/pages/MediaPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "media_metadata" },
+  { "path": "src/pages/MediaPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "media_metadata" },
   { "path": "src/pages/MessagesPage.tsx", "status": "hybrid", "icpBehavior": "fixture_read_only", "nextDependency": "messaging_domain" },
   { "path": "src/pages/MiniLeagueDetailPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
   { "path": "src/pages/MiniLeaguesPage.tsx", "status": "not_enabled", "icpBehavior": "unavailable", "nextDependency": "competition_domain" },
