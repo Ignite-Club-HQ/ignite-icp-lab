@@ -42,6 +42,9 @@ The system remains coexistence-first:
   all 99 guarded pages. Every such page now has an explicit ICP-mode provider
   boundary. The route-by-route source of truth is
   [lab-route-classification.json](../frontend/lab-route-classification.json).
+- Route validation now also rejects a `hybrid` classification unless the page
+  source contains an explicit local-mode, hybrid-service, or ICP-lab boundary
+  marker, preventing inventory drift from being mistaken for connectivity.
 
 ### Completed frontend connectivity tranche
 

@@ -15,6 +15,33 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveLocalAuthMode } from './localRuntimeMode';
 
+export type HybridBackendMode = 'icp' | 'supabase';
+
+export function hybridQueryKey(
+  queryKey: (string | number)[],
+  backend: HybridBackendMode,
+  userId?: string | null,
+) {
+  return [...queryKey, { backend, userId: userId ?? null }] as const;
+}
+
+export async function executeHybridQuery<T>(
+  backend: HybridBackendMode,
+  userId: string | undefined | null,
+  supabaseQueryFn: (client: SupabaseClient) => Promise<{ data: T | null; error: Error | null }>,
+  fixtureQueryFn: (userId: string) => T,
+) {
+  if (!userId) return null;
+
+  if (backend === 'icp') {
+    return fixtureQueryFn(userId);
+  }
+
+  const { data, error } = await supabaseQueryFn(supabase);
+  if (error) throw error;
+  return data;
+}
+
 /**
  * Hook that automatically routes queries to ICP fixtures (in lab mode)
  * or Supabase (in normal mode).
@@ -31,27 +58,11 @@ export function useHybridQuery<T>(
   options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn' | 'enabled'>,
 ) {
   const useIcp = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
+  const backend: HybridBackendMode = useIcp ? 'icp' : 'supabase';
   
   return useQuery({
-    queryKey,
-    queryFn: async () => {
-      if (!userId) return null;
-      
-      if (useIcp) {
-        // Lab mode: return synthetic fixture data
-        try {
-          return fixtureQueryFn(userId);
-        } catch (err) {
-          console.warn('[HybridQuery] Fixture query failed:', err);
-          return null;
-        }
-      }
-      
-      // Normal mode: query Supabase
-      const { data, error } = await supabaseQueryFn(supabase);
-      if (error) throw error;
-      return data;
-    },
+    queryKey: hybridQueryKey(queryKey, backend, userId),
+    queryFn: () => executeHybridQuery(backend, userId, supabaseQueryFn, fixtureQueryFn),
     enabled: !!userId,
     ...options,
   });
@@ -67,25 +78,16 @@ export function useHybridQueryGlobal<T>(
   options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>,
 ) {
   const useIcp = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
+  const backend: HybridBackendMode = useIcp ? 'icp' : 'supabase';
   
   return useQuery({
-    queryKey,
-    queryFn: async () => {
-      if (useIcp) {
-        // Lab mode: return synthetic fixture data
-        try {
-          return fixtureQueryFn();
-        } catch (err) {
-          console.warn('[HybridQuery] Fixture query failed:', err);
-          return null;
-        }
-      }
-      
-      // Normal mode: query Supabase
-      const { data, error } = await supabaseQueryFn(supabase);
-      if (error) throw error;
-      return data;
-    },
+    queryKey: hybridQueryKey(queryKey, backend),
+    queryFn: () => executeHybridQuery(
+      backend,
+      'global',
+      supabaseQueryFn,
+      () => fixtureQueryFn(),
+    ),
     ...options,
   });
 }

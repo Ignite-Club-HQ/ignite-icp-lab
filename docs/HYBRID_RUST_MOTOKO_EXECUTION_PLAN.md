@@ -141,11 +141,13 @@ Completed or proven in the lab:
   registry, queue retry/dead-letter behavior, and workload-scope tests
 - initial field-level PII classification matrix and separate media-metadata,
   PII-policy, and secret-workload boundaries
-- partial frontend migration: all 99 application pages that directly import
-  the Supabase client now have an explicit ICP-lab guard and are recorded in
-  [lab-route-classification.json](../frontend/lab-route-classification.json); guard
-  coverage includes fixture/read-only and unavailable states rather than
-  proving that every page has a live ICP actor
+- frontend route migration: all 99 application pages that directly import the
+  Supabase client are recorded in
+  [lab-route-classification.json](../frontend/lab-route-classification.json);
+  73 are classified as `hybrid`, 21 as `external_boundary`, and 5 as
+  `supabase_only`. Hybrid coverage includes both typed local services and
+  fixture/read-only branches; classification does not by itself prove that
+  every page has a live ICP actor
 - event frontend connectivity includes local `events_domain` list/detail/create/edit
   paths plus canister-backed event-detail self-RSVP and assigned-duty claim
   writes; attendance, recurrence, timers, and complete duty lifecycle remain

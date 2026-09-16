@@ -76,9 +76,11 @@ The selected baseline is 13 logical canister roles, as defined in
   byte storage, scanning/moderation, key lifecycle, and vault integration.
 - The synthetic external-worker boundary exists, but real provider/vault
   infrastructure remains outside the lab.
-- Frontend migration is partial: 99 application pages directly import
-  Supabase, 22 currently have an explicit ICP-lab guard, and 77 still require
-  classification and provider-neutral migration.
+- Frontend route migration is classified for all 99 application pages that
+  directly import Supabase: 73 are `hybrid`, 21 are explicit
+  `external_boundary`, and 5 remain `supabase_only`. The remaining frontend
+  work is replacing fixture/read-only hybrid branches with typed,
+  authenticated, placement-aware services where a supported contract exists.
 - Placement-admin controls work in the lab but are not mounted as the complete
   application admin workflow.
 - Local topology durability is proven broadly; domain-specific interrupted

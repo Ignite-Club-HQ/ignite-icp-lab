@@ -36,6 +36,21 @@ for (const item of inventory) {
 const directSupabasePages = pageFiles(pagesDir).sort();
 assert.deepEqual(inventoryPaths.slice().sort(), directSupabasePages);
 
+const hybridBoundaryMarkers = [
+  'resolveLocalAuthMode',
+  'useHybridQuery',
+  '/lab/hybrid',
+  '/lab/local',
+  'IcpLab',
+];
+for (const item of inventory.filter(entry => entry.status === 'hybrid')) {
+  const source = fs.readFileSync(path.join(root, item.path), 'utf8');
+  assert(
+    hybridBoundaryMarkers.some(marker => source.includes(marker)),
+    `Hybrid route has no explicit ICP/provider boundary: ${item.path}`,
+  );
+}
+
 const counts = inventory.reduce((acc, item) => {
   acc[item.status] = (acc[item.status] ?? 0) + 1;
   return acc;
