@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AddClubRoleToMemberDialog from "@/components/AddClubRoleToMemberDialog";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabRoleRoster } from "@/lab/fixtureDataLayer";
 
 type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin" | "committee_member" | "league_admin" | "association_admin" | "competition_admin";
 
@@ -61,29 +62,55 @@ const MEMBERS_PER_PAGE = 10;
 type UserRoleGroup = { profile: any; roles: any[] };
 
 export default function ManageRolesPage() {
-  const navigate = useNavigate();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-3xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <Shield className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Club role management is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Membership, role requests, invitations, and role changes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpLabManageRolesPage />;
   }
 
   return <SupabaseManageRolesPage />;
+}
+
+/** Read-only role roster backed by synthetic fixtures; mutations remain unavailable until identity_access role-projection is wired here. */
+function IcpLabManageRolesPage() {
+  const navigate = useNavigate();
+  const { clubId } = useParams<{ clubId: string }>();
+  const roster = getLocalLabRoleRoster(clubId ?? "club-icp-001");
+
+  return (
+    <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Club Roles</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab role data. Inviting members and changing roles are disabled.
+      </p>
+      <div className="space-y-2">
+        {roster.map((entry) => (
+          <Card key={entry.profile.id}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <Avatar>
+                <AvatarFallback>{entry.profile.display_name.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{entry.profile.display_name}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {entry.roles.map((role) => (
+                    <Badge key={role.id} variant="outline" className={roleColors[role.role as AppRole]}>
+                      {roleLabels[role.role as AppRole]}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseManageRolesPage() {

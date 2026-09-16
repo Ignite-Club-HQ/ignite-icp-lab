@@ -8,12 +8,44 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLoading } from "@/components/ui/page-loading";
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
+const ICP_LAB_ADMIN_LINKS: { to: string; label: string }[] = [
+  { to: "/admin/users", label: "Manage users" },
+  { to: "/admin/drills", label: "Drills" },
+  { to: "/admin/deleted-chats", label: "Deleted chats" },
+  { to: "/admin/dm-attachments", label: "DM attachments" },
+  { to: "/admin/feedback", label: "Feedback" },
+  { to: "/admin/active-games", label: "Active games" },
+];
+
 export default function AdminPage() {
+  const navigate = useNavigate();
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Platform administration is unavailable in ICP lab mode" description="The current admin dashboard remains Supabase-authoritative until its controls are split into typed domain and placement services." />;
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">Admin</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Synthetic ICP lab administration links. Billing, ads, AI, and native-storage tooling remain out of
+          scope for this lab per the environment's architectural boundaries.
+        </p>
+        <div className="space-y-2">
+          {ICP_LAB_ADMIN_LINKS.map((link) => (
+            <Card key={link.to} onClick={() => navigate(link.to)} className="cursor-pointer hover:border-primary transition-colors">
+              <CardContent className="p-4 flex items-center justify-between">
+                <span className="text-sm font-medium">{link.label}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
   return <SupabaseAdminPage />;
 }

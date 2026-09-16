@@ -17,12 +17,43 @@ interface ChatImage {
 
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabPublishableChatPhotos } from "@/lab/fixtureDataLayer";
 
 export default function PublishChatPhotosPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Chat photo publishing is unavailable in ICP lab mode" description="Protected media selection, publishing, and storage workflows are not connected to approved ICP services yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabPublishChatPhotosPage />;
   }
   return <SupabasePublishChatPhotosPage />;
+}
+
+/** Read-only synthetic chat-photo list; publishing to the gallery remains unavailable until media_metadata is wired here. */
+function IcpLabPublishChatPhotosPage() {
+  const navigate = useNavigate();
+  const { teamId } = useParams<{ teamId: string }>();
+  const photos = getLocalLabPublishableChatPhotos("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Publish Chat Photos</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab chat photos for team {teamId ?? "team-icp-001"}. Publishing to the gallery is
+        disabled.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {photos.map((photo) => (
+          <div key={photo.id} className="flex aspect-square items-center justify-center rounded-md border bg-muted">
+            <ImageIcon className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabasePublishChatPhotosPage() {

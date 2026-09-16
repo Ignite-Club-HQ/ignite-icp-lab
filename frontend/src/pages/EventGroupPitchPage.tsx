@@ -36,14 +36,43 @@ interface GroupPlayer {
   team: "a" | "b" | null;
 }
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabEventGroupPitch } from "@/lab/fixtureDataLayer";
 
 export default function EventGroupPitchPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Event group pitch is unavailable in ICP lab mode" description="Event-group messaging and live pitch coordination are not connected to ICP services yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabEventGroupPitchPage />;
   }
   return <SupabaseEventGroupPitchPage />;
+}
+
+/** Read-only synthetic event-group pitch feed; live coordination remains unavailable until events_domain messaging is wired here. */
+function IcpLabEventGroupPitchPage() {
+  const { id: eventId } = useParams<{ id: string; groupId: string }>();
+  const navigate = useNavigate();
+  const pitch = getLocalLabEventGroupPitch(eventId ?? "event-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Event Group Pitch</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing a synthetic ICP lab pitch feed. Sending messages and live coordination are disabled.
+      </p>
+      <div className="space-y-2">
+        {pitch.messages.map((message) => (
+          <Card key={message.id}>
+            <CardContent className="p-3 text-sm">{message.text}</CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseEventGroupPitchPage() {

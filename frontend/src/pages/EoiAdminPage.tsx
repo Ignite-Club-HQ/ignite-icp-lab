@@ -49,26 +49,39 @@ import { exportEoisCSV } from "@/lib/exportEois";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabEoiSubmissions } from "@/lab/fixtureDataLayer";
 
 export default function EoiAdminPage() {
   const navigate = useNavigate();
+  const { clubId } = useParams<{ clubId: string }>();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const submissions = getLocalLabEoiSubmissions(clubId ?? "club-icp-001");
     return (
-      <div className="container max-w-3xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">EOI administration is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Submissions, status changes, team suggestions, exports, and invitation delivery are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">Expressions of Interest</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab EOI data. Status changes, team suggestions, exports, and invitations are disabled.
+        </p>
+        <div className="space-y-2">
+          {submissions.map((eoi) => (
+            <Card key={eoi.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium">{eoi.display_name}</p>
+                  <p className="text-xs text-muted-foreground">{eoi.email}</p>
+                </div>
+                <Badge variant="outline">{EOI_STATUS_LABELS[eoi.status] ?? eoi.status}</Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }

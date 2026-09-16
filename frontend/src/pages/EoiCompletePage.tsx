@@ -14,6 +14,7 @@ import { useClaimEoi, useConfirmEoi, useUpdateMyEoi, type EoiSubmission } from "
 import { EOI_STATUS_LABELS } from "@/lib/eoiUtils";
 import { toast } from "sonner";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabEoiSubmissions } from "@/lab/fixtureDataLayer";
 
 /**
  * In-app "Complete your EOI" page.
@@ -26,14 +27,19 @@ export default function EoiCompletePage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const [eoi] = getLocalLabEoiSubmissions("club-icp-001");
     return (
-      <div className="container max-w-md mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">EOI completion is unavailable in ICP lab mode</h1>
+      <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>{eoi.display_name}</CardTitle>
+            <CardDescription>{eoi.email}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <Badge variant="outline">{EOI_STATUS_LABELS[eoi.status] ?? eoi.status}</Badge>
             <p className="text-sm text-muted-foreground">
-              Claim-token lookup, profile updates, and EOI confirmation are disabled. No data has been changed.
+              Showing a synthetic ICP lab EOI record. Editing and confirmation are disabled until identity_access EOI
+              claim-linking is wired here.
             </p>
             <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
           </CardContent>

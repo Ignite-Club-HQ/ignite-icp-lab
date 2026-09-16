@@ -30,26 +30,34 @@ import { SeasonEoiConfigCard } from "@/components/seasons/SeasonEoiConfigCard";
 import { EoiEmbedCard } from "@/components/eoi/EoiEmbedCard";
 import { useClubSeasons } from "@/hooks/useClubSeasons";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabSeasonDetail } from "@/lab/fixtureDataLayer";
 
 export default function SeasonDetailPage() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const season = getLocalLabSeasonDetail(id ?? "season-icp-001") ?? getLocalLabSeasonDetail("season-icp-001");
     return (
-      <div className="container max-w-3xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <Archive className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Season details are unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Team rollover, activation, archiving, EOI configuration, and season analytics are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">{season?.name ?? "Season"}</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab season data. Rollover, activation, archiving, and EOI configuration are disabled.
+        </p>
+        {season && (
+          <Card>
+            <CardContent className="p-4 grid grid-cols-2 gap-2 text-center">
+              <div><p className="text-xl font-bold">{season.stats.games_played}</p><p className="text-xs text-muted-foreground">Games played</p></div>
+              <div><p className="text-xl font-bold">{season.stats.wins}</p><p className="text-xs text-muted-foreground">Wins</p></div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }

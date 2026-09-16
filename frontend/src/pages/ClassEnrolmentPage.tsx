@@ -25,26 +25,41 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClassEnrolment } from "@/lab/fixtureDataLayer";
 
 type TeamType = "junior" | "senior" | "mixed";
 
 export default function ClassEnrolmentPage() {
   const navigate = useNavigate();
+  const { teamId } = useParams<{ teamId: string }>();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const enrolment = getLocalLabClassEnrolment(teamId ?? "team-icp-001");
     return (
-      <div className="container max-w-2xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <UserPlus className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Class enrolment is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Terms, class availability, child eligibility, enrolment, and membership changes are disabled. No data has been changed.
+      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">{enrolment.class_name}</h1>
+        </div>
+        <Alert>
+          <AlertDescription>
+            Showing synthetic ICP lab enrolment data. Submitting a new enrolment is disabled.
+          </AlertDescription>
+        </Alert>
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <p className="text-sm">
+              <span className="font-medium">Capacity:</span> {enrolment.capacity}
             </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
+            <p className="text-sm font-medium flex items-center gap-1"><Users className="h-4 w-4" /> Enrolled</p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside">
+              {enrolment.enrolled.map((child) => (
+                <li key={child.id}>{child.display_name}</li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </div>

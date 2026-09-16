@@ -21,8 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabMiniLeagues } from "@/lab/fixtureDataLayer";
 
 interface MiniLeague {
   id: string;
@@ -42,15 +42,41 @@ interface MiniLeague {
 }
 
 export default function MiniLeaguesPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return (
-      <IcpUnavailablePage
-        title="Mini leagues are unavailable in ICP lab mode"
-        description="Mini-league membership, fixtures, games, and administration are not connected to typed ICP services yet."
-      />
-    );
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabMiniLeaguesPage />;
   }
   return <SupabaseMiniLeaguesPage />;
+}
+
+/** Read-only synthetic mini-league list; creation and administration remain unavailable until competition_domain admin tooling is wired here. */
+function IcpLabMiniLeaguesPage() {
+  const navigate = useNavigate();
+  const leagues = getLocalLabMiniLeagues("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Mini Leagues</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab mini leagues. Creating and managing leagues is disabled.
+      </p>
+      <div className="space-y-2">
+        {leagues.map((league) => (
+          <Card key={league.id} onClick={() => navigate(`/mini-leagues/${league.id}`)} className="cursor-pointer hover:border-primary transition-colors">
+            <CardContent className="p-4 flex items-center justify-between">
+              <span className="text-sm font-medium">{league.name}</span>
+              <span className="text-xs text-muted-foreground">{league.team_count} teams</span>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseMiniLeaguesPage() {

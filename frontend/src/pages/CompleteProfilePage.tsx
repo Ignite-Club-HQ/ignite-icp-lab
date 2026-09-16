@@ -32,6 +32,7 @@ import {
 } from "@/features/membership/acceptParentInvite";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
+import { getLocalLabProfile } from "@/lab/fixtureDataLayer";
 
 
 interface PendingInvite {
@@ -54,17 +55,28 @@ interface PendingInvite {
 
 export default function CompleteProfilePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const profile = getLocalLabProfile(user?.id ?? "icp-member");
     return (
-      <div className="container max-w-md mx-auto px-4 py-10">
+      <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback>{profile.display_name.slice(0, 1)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-lg font-semibold">{profile.display_name}</h1>
+            <p className="text-xs text-muted-foreground">{profile.email}</p>
+          </div>
+        </div>
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-6 space-y-4 text-center">
             <User className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Profile completion is unavailable in ICP lab mode</h1>
             <p className="text-sm text-muted-foreground">
-              Profile updates, invite acceptance, child linking, push setup, and passkey registration are not connected to the ICP identity service yet.
+              Showing a synthetic ICP lab profile. Editing, invite acceptance, child linking, push setup, and passkey
+              registration remain unavailable until identity_access profile mutation is wired here.
             </p>
             <Button variant="outline" onClick={() => navigate("/")}>Go to Home</Button>
           </CardContent>

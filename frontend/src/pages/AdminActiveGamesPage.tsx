@@ -50,14 +50,45 @@ function detectSport(row: ActiveGameRow): string {
   return a || b || "soccer";
 }
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabActiveGames } from "@/lab/fixtureDataLayer";
 
 export default function AdminActiveGamesPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Active-game administration is unavailable in ICP lab mode" description="Platform-wide game monitoring and administrative mutations are not connected to ICP services yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabAdminActiveGamesPage />;
   }
   return <SupabaseAdminActiveGamesPage />;
+}
+
+/** Read-only synthetic active-game list; administrative mutations remain unavailable until events_domain admin tooling is wired here. */
+function IcpLabAdminActiveGamesPage() {
+  const navigate = useNavigate();
+  const games = getLocalLabActiveGames();
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Active Games</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab active-game data. Administrative mutations are disabled.
+      </p>
+      <div className="space-y-2">
+        {games.map((game) => (
+          <Card key={game.id}>
+            <CardContent className="p-4">
+              <p className="text-sm font-medium">{game.title}</p>
+              <p className="text-xs text-muted-foreground">Status: {game.status}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseAdminActiveGamesPage() {

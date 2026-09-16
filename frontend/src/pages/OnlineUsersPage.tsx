@@ -9,12 +9,39 @@ import OnlineUsersTab from "@/components/admin/OnlineUsersTab";
 
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabOnlineUsers } from "@/lab/fixtureDataLayer";
 
 export default function OnlineUsersPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Online-user presence is unavailable in ICP lab mode" description="Realtime presence is not connected to an ICP messaging and presence service yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabOnlineUsersPage />;
   }
   return <SupabaseOnlineUsersPage />;
+}
+
+/** Read-only synthetic presence roster; realtime presence remains unavailable until messaging_domain presence is wired here. */
+function IcpLabOnlineUsersPage() {
+  const navigate = useNavigate();
+  const users = getLocalLabOnlineUsers("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Online Users</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing a synthetic ICP lab presence snapshot. Realtime updates are disabled.
+      </p>
+      <ul className="space-y-2">
+        {users.map((u) => (
+          <li key={u.id} className="rounded-md border p-3 text-sm">{u.display_name}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function SupabaseOnlineUsersPage() {

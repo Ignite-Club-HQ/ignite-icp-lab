@@ -580,3 +580,310 @@ export function getFixtureTeamDetail(teamId: string): FixtureTeam | null {
   }
   return null;
 }
+
+/* ---------------------------------------------------------------------- *
+ * Additional synthetic fixtures for pages migrated from "not_enabled" to
+ * "hybrid"/"fixture_read_only" ICP-lab status. These mirror the same
+ * convention as the fixtures above: static, in-memory, read-only synthetic
+ * data with no persistence and no live canister calls, used only when
+ * `resolveLocalAuthMode` is true and no dedicated hybrid repository exists
+ * yet for the page's domain.
+ * ---------------------------------------------------------------------- */
+
+/** Synthetic club-scoped role roster for role-management surfaces. */
+export function getLocalLabRoleRoster(clubId: string) {
+  return [
+    {
+      profile: { id: 'icp-member', display_name: 'Local ICP Member', avatar_url: null },
+      roles: [{ id: 'role-icp-001', role: 'club_admin', club_id: clubId, team_id: null }],
+    },
+    {
+      profile: { id: 'icp-peer', display_name: 'Local ICP Peer', avatar_url: null },
+      roles: [{ id: 'role-icp-002', role: 'basic_user', club_id: clubId, team_id: null }],
+    },
+  ];
+}
+
+/** Synthetic team-scoped role roster for team role-management surfaces. */
+export function getLocalLabTeamRoleRoster(teamId: string) {
+  return [
+    {
+      profile: { id: 'icp-member', display_name: 'Local ICP Member', avatar_url: null },
+      roles: [{ id: 'role-icp-003', role: 'team_admin', club_id: 'club-icp-001', team_id: teamId }],
+    },
+  ];
+}
+
+/** Synthetic app-wide user directory row for admin user-management surfaces. */
+export function getLocalLabUserDirectory() {
+  return [
+    { id: 'icp-member', display_name: 'Local ICP Member', email: 'icp-member@example.invalid', created_at: new Date(0).toISOString(), is_app_admin: false, banned_at: null },
+    { id: 'icp-peer', display_name: 'Local ICP Peer', email: 'icp-peer@example.invalid', created_at: new Date(0).toISOString(), is_app_admin: false, banned_at: null },
+  ];
+}
+
+/** Synthetic claimable-team record for the team-claim flow. */
+export function getLocalLabClaimableTeam(teamId: string) {
+  return {
+    id: teamId,
+    name: 'ICP Test Team',
+    club_id: 'club-icp-001',
+    claimed_by: null as string | null,
+    claim_code: 'ICP-LAB-CLAIM',
+  };
+}
+
+/** Synthetic class enrolment roster for the class-enrolment flow. */
+export function getLocalLabClassEnrolment(teamId: string) {
+  return {
+    team_id: teamId,
+    class_name: 'Local ICP Lab Class',
+    capacity: 20,
+    enrolled: [{ id: 'icp-member', display_name: 'Local ICP Member' }],
+  };
+}
+
+/** Synthetic expressions-of-interest for EOI admin/public/completion surfaces. */
+export function getLocalLabEoiSubmissions(clubId: string) {
+  return [{
+    id: 'eoi-icp-001',
+    club_id: clubId,
+    display_name: 'Local ICP Applicant',
+    email: 'icp-applicant@example.invalid',
+    status: 'submitted' as const,
+    created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic club drills for the drill-administration surface. */
+export function getLocalLabDrills(clubId: string) {
+  return [{
+    id: 'drill-icp-001',
+    club_id: clubId,
+    title: 'Local ICP lab drill',
+    description: 'Synthetic drill entry. Not persisted.',
+    category: 'general',
+    created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic club welcome message for the welcome-message surface. */
+export function getLocalLabWelcomeMessage(clubId: string) {
+  return {
+    club_id: clubId,
+    message: 'Welcome to the local ICP lab club! This message is synthetic and read-only.',
+    updated_at: new Date(0).toISOString(),
+  };
+}
+
+/** Synthetic deleted-chat records for the deleted-chat administration surface. */
+export function getLocalLabDeletedChats(clubId: string) {
+  return [{
+    id: 'deleted-chat-icp-001',
+    club_id: clubId,
+    conversation_type: 'club' as const,
+    deleted_at: new Date(0).toISOString(),
+    deleted_by: 'icp-admin',
+    message_count: 3,
+  }];
+}
+
+/** Synthetic club-admin chat transcript. */
+export function getLocalLabAdminChatMessages(clubId: string) {
+  return [{
+    id: 'admin-chat-icp-001',
+    club_id: clubId,
+    text: 'Local ICP admin chat message',
+    author_id: 'icp-admin',
+    created_at: new Date(0).toISOString(),
+    author: { display_name: 'Local ICP Admin', avatar_url: null },
+  }];
+}
+
+/** Synthetic online-presence roster. */
+export function getLocalLabOnlineUsers(clubId: string) {
+  return [{ id: 'icp-member', display_name: 'Local ICP Member', club_id: clubId, last_seen_at: new Date().toISOString() }];
+}
+
+/** Synthetic direct-message attachments for the admin attachment-review surface. */
+export function getLocalLabDmAttachments() {
+  return [{
+    id: 'dm-attachment-icp-001',
+    conversation_id: 'conversation-icp-001',
+    url: null,
+    caption: 'Synthetic lab attachment placeholder',
+    created_at: new Date(0).toISOString(),
+    uploaded_by: 'icp-member',
+    flagged: false,
+  }];
+}
+
+/** Synthetic publishable chat photos for the publish-chat-photos surface. */
+export function getLocalLabPublishableChatPhotos(clubId: string) {
+  return [{
+    id: 'chat-photo-icp-001',
+    club_id: clubId,
+    url: null,
+    caption: 'Synthetic lab chat photo placeholder',
+    created_at: new Date(0).toISOString(),
+    uploaded_by: 'icp-member',
+    published: false,
+  }];
+}
+
+/** Synthetic association list for the association surfaces. */
+export function getLocalLabAssociations() {
+  return [{
+    id: 'association-icp-001',
+    name: 'ICP Lab Association',
+    logo_url: null,
+    sport: 'soccer',
+    club_ids: ['club-icp-001'],
+    created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic association detail. */
+export function getLocalLabAssociationDetail(associationId: string) {
+  return getLocalLabAssociations().find((association) => association.id === associationId) ?? null;
+}
+
+/** Synthetic active-games list for platform admin monitoring. */
+export function getLocalLabActiveGames() {
+  return [{
+    id: 'active-game-icp-001',
+    club_id: 'club-icp-001',
+    team_id: 'team-icp-001',
+    title: 'Local ICP Lab Match',
+    status: 'active' as const,
+    started_at: new Date().toISOString(),
+  }];
+}
+
+/** Synthetic attendance stats for a team. */
+export function getLocalLabAttendanceStats(teamId: string) {
+  return {
+    team_id: teamId,
+    total_events: 4,
+    rows: [{ user_id: 'icp-member', display_name: 'Local ICP Member', attended: 3, missed: 1, rate: 0.75 }],
+  };
+}
+
+/** Synthetic event-group pitch messages for live event-group coordination. */
+export function getLocalLabEventGroupPitch(eventId: string) {
+  return {
+    event_id: eventId,
+    messages: [{ id: 'pitch-msg-icp-001', text: 'Local ICP lab pitch update', author_id: 'icp-member', created_at: new Date(0).toISOString() }],
+  };
+}
+
+/** Synthetic club engagement analytics. */
+export function getLocalLabClubEngagementAnalytics(clubId: string) {
+  return {
+    club_id: clubId,
+    active_members_7d: 4,
+    posts_7d: 2,
+    reactions_7d: 6,
+    trend: [
+      { date: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10), active_members: 2 },
+      { date: new Date().toISOString().slice(0, 10), active_members: 4 },
+    ],
+  };
+}
+
+/** Synthetic player stats report rows. */
+export function getLocalLabPlayerStatsReport(teamId: string) {
+  return {
+    team_id: teamId,
+    rows: [{ user_id: 'icp-member', display_name: 'Local ICP Member', games_played: 3, goals: 2, assists: 1 }],
+  };
+}
+
+/** Synthetic club feedback records. */
+export function getLocalLabFeedback(clubId: string) {
+  return [{
+    id: 'feedback-icp-001',
+    club_id: clubId,
+    submitted_by: 'icp-member',
+    message: 'Local ICP lab feedback entry. Synthetic and read-only.',
+    status: 'open' as const,
+    created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic competition settings. */
+export function getLocalLabCompetitionSettings(competitionId: string) {
+  return {
+    id: competitionId,
+    name: 'ICP Lab Competition',
+    format: 'league' as const,
+    club_id: 'club-icp-001',
+    registration_open: false,
+  };
+}
+
+/** Synthetic mini-league list. */
+export function getLocalLabMiniLeagues(clubId: string) {
+  return [{
+    id: 'mini-league-icp-001',
+    club_id: clubId,
+    name: 'ICP Lab Mini League',
+    team_count: 1,
+    created_at: new Date(0).toISOString(),
+  }];
+}
+
+/** Synthetic mini-league detail. */
+export function getLocalLabMiniLeagueDetail(miniLeagueId: string) {
+  const base = getLocalLabMiniLeagues('club-icp-001').find((league) => league.id === miniLeagueId);
+  if (!base) return null;
+  return {
+    ...base,
+    standings: [{ team_id: 'team-icp-001', team_name: 'ICP Test Team', played: 1, points: 3 }],
+  };
+}
+
+/** Synthetic season list. */
+export function getLocalLabSeasons(clubId: string) {
+  return [{
+    id: 'season-icp-001',
+    club_id: clubId,
+    name: 'ICP Lab Season',
+    starts_at: new Date(0).toISOString(),
+    ends_at: null,
+    is_active: true,
+  }];
+}
+
+/** Synthetic season detail. */
+export function getLocalLabSeasonDetail(seasonId: string) {
+  const base = getLocalLabSeasons('club-icp-001').find((season) => season.id === seasonId);
+  if (!base) return null;
+  return { ...base, stats: { games_played: 3, wins: 2, draws: 1, losses: 0 } };
+}
+
+/** Synthetic season-comparison rows. */
+export function getLocalLabSeasonCompare(clubId: string) {
+  return {
+    club_id: clubId,
+    seasons: getLocalLabSeasons(clubId).map((season) => ({ ...season, games_played: 3, wins: 2 })),
+  };
+}
+
+/** Synthetic club link for the in-app link-embed surface. */
+export function getLocalLabClubLink(linkId: string) {
+  return {
+    id: linkId,
+    title: 'Local ICP Lab Link (preview)',
+    url: 'https://example.com/' as string | null,
+  };
+}
+
+/** Synthetic platform-wide app settings (feature-flag-style key/value pairs). Read-only in ICP lab mode. */
+export function getLocalLabAppSettings() {
+  return [
+    { key: 'chat_virtualization_enabled', value: true },
+    { key: 'media_uploads_enabled', value: true },
+    { key: 'maintenance_mode', value: false },
+  ];
+}

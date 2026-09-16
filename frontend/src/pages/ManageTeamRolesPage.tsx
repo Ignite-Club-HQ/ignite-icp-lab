@@ -24,6 +24,7 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabTeamRoleRoster } from "@/lab/fixtureDataLayer";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
 import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 
@@ -51,29 +52,55 @@ const roleColors: Record<AppRole, string> = {
 type UserRoleGroup = { profile: any; roles: any[] };
 
 export default function ManageTeamRolesPage() {
-  const navigate = useNavigate();
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
-    return (
-      <div className="container max-w-3xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <Shield className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Team role management is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Team roles, requests, removals, and administrative changes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <IcpLabManageTeamRolesPage />;
   }
 
   return <SupabaseManageTeamRolesPage />;
+}
+
+/** Read-only team role roster backed by synthetic fixtures; mutations remain unavailable until identity_access role-projection is wired here. */
+function IcpLabManageTeamRolesPage() {
+  const navigate = useNavigate();
+  const { teamId } = useParams<{ teamId: string }>();
+  const roster = getLocalLabTeamRoleRoster(teamId ?? "team-icp-001");
+
+  return (
+    <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Team Roles</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab team role data. Inviting members and changing roles are disabled.
+      </p>
+      <div className="space-y-2">
+        {roster.map((entry) => (
+          <Card key={entry.profile.id}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <Avatar>
+                <AvatarFallback>{entry.profile.display_name.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{entry.profile.display_name}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {entry.roles.map((role) => (
+                    <Badge key={role.id} variant="outline" className={roleColors[role.role as AppRole]}>
+                      {roleLabels[role.role as AppRole]}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseManageTeamRolesPage() {

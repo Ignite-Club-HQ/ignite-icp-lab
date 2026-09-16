@@ -57,12 +57,37 @@ const typeColors = {
 
 type StatusFilter = "all" | FeedbackStatus;
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabFeedback } from "@/lab/fixtureDataLayer";
 
 export default function ManageFeedbackPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Feedback administration is unavailable in ICP lab mode" description="Feedback records and administrative changes are not connected to an ICP domain service yet." />;
+  const navigate = useNavigate();
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    const feedback = getLocalLabFeedback("club-icp-001");
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">Feedback</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab feedback records. Status changes and deletion are disabled.
+        </p>
+        <div className="space-y-2">
+          {feedback.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="p-4 flex items-start justify-between gap-3">
+                <p className="text-sm">{item.message}</p>
+                <Badge variant="secondary">{item.status}</Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
   return <SupabaseManageFeedbackPage />;
 }

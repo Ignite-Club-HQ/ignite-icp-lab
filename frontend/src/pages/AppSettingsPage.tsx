@@ -14,12 +14,37 @@ import { useToast } from "@/hooks/use-toast";
 import { PageLoading } from "@/components/ui/page-loading";
 import { LegalReacceptanceAdminCard } from "@/components/admin/LegalReacceptanceAdminCard";
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabAppSettings } from "@/lab/fixtureDataLayer";
 
 export default function AppSettingsPage() {
+  const navigate = useNavigate();
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Application settings are unavailable in ICP lab mode" description="Platform settings remain Supabase-authoritative until provider-neutral administration contracts are connected." />;
+    const settings = getLocalLabAppSettings();
+    return (
+      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">App Settings</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab settings. Toggling values is disabled until provider-neutral
+          administration contracts are connected.
+        </p>
+        <div className="space-y-2">
+          {settings.map((setting) => (
+            <Card key={setting.key}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <span className="text-sm font-medium">{setting.key}</span>
+                <Switch checked={Boolean(setting.value)} disabled />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
   return <SupabaseAppSettingsPage />;
 }

@@ -84,14 +84,49 @@ interface UserProfile {
   roles: any[];
 }
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabUserDirectory } from "@/lab/fixtureDataLayer";
 
 export default function ManageUsersPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="User administration is unavailable in ICP lab mode" description="Identity, account status, and administrative role changes await typed Internet Identity and authorization services." />;
+    return <IcpLabManageUsersPage />;
   }
   return <SupabaseManageUsersPage />;
+}
+
+/** Read-only synthetic user directory; account status and role mutations remain unavailable until identity_access is wired here. */
+function IcpLabManageUsersPage() {
+  const navigate = useNavigate();
+  const users = getLocalLabUserDirectory();
+
+  return (
+    <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Users</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab user data. Account status changes, bans, and role edits are disabled.
+      </p>
+      <div className="space-y-2">
+        {users.map((profile) => (
+          <Card key={profile.id}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <Avatar>
+                <AvatarFallback>{(profile.display_name ?? "?").slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{profile.display_name}</p>
+                <p className="text-xs text-muted-foreground">{profile.email}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseManageUsersPage() {

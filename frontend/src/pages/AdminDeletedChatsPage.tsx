@@ -40,14 +40,45 @@ interface DeletedGroup {
 
 const RETENTION_DAYS = 30;
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabDeletedChats } from "@/lab/fixtureDataLayer";
 
 export default function AdminDeletedChatsPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Deleted-chat administration is unavailable in ICP lab mode" description="Moderation, retention, and deleted-conversation recovery are not connected to the ICP messaging service yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabAdminDeletedChatsPage />;
   }
   return <SupabaseAdminDeletedChatsPage />;
+}
+
+/** Read-only synthetic deleted-chat list; recovery and moderation mutations remain unavailable until messaging_domain is wired here. */
+function IcpLabAdminDeletedChatsPage() {
+  const navigate = useNavigate();
+  const deletedChats = getLocalLabDeletedChats("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Deleted Chats</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab deleted-conversation records. Recovery and permanent deletion are disabled.
+      </p>
+      <div className="space-y-2">
+        {deletedChats.map((chat) => (
+          <Card key={chat.id}>
+            <CardContent className="p-4">
+              <p className="text-sm font-medium">{chat.conversation_type} conversation</p>
+              <p className="text-xs text-muted-foreground">{chat.message_count} messages, deleted by {chat.deleted_by}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseAdminDeletedChatsPage() {

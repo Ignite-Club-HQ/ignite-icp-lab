@@ -19,7 +19,7 @@ import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { CompetitionAdminsCard } from "@/components/competitions/CompetitionAdminsCard";
 import { CompetitionMemberChatCard } from "@/components/competitions/CompetitionMemberChatCard";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-
+import { getLocalLabCompetitionSettings } from "@/lab/fixtureDataLayer";
 
 export default function CompetitionSettingsPage() {
   usePageTitle("Competition settings");
@@ -27,17 +27,22 @@ export default function CompetitionSettingsPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const settings = getLocalLabCompetitionSettings("competition-icp-001");
     return (
-      <div className="container max-w-2xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <h1 className="text-lg font-semibold">Competition settings are unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Competition settings, administrators, chat, scoring, and visibility changes are disabled. No data has been changed.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
+      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">Competition Settings</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab competition settings. Editing, administrators, and chat are disabled.
+        </p>
+        <Card>
+          <CardContent className="p-4 space-y-1">
+            <p className="text-sm font-medium">{settings.name}</p>
+            <p className="text-xs text-muted-foreground">Format: {settings.format}</p>
           </CardContent>
         </Card>
       </div>

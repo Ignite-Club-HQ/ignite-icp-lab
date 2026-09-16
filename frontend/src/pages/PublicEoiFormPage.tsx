@@ -37,13 +37,17 @@ export default function PublicEoiFormPage() {
 
   if (useIcpLab) {
     return (
-      <div className="container max-w-md mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-3 text-center">
+      <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>ICP Lab Association</CardTitle>
+            <CardDescription>ICP Test Club — synthetic expression-of-interest form</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-center">
             <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Expressions of interest are unavailable in ICP lab mode</h1>
             <p className="text-sm text-muted-foreground">
-              Public EOI configuration, view tracking, and submissions are not connected to an ICP service yet.
+              Showing a synthetic ICP lab EOI configuration. Submitting an expression of interest is disabled until an
+              ICP domain service is connected.
             </p>
           </CardContent>
         </Card>

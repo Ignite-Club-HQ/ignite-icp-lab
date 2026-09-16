@@ -75,6 +75,7 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubEngagementAnalytics } from "@/lab/fixtureDataLayer";
 
 const ALL_TEAMS = "__all__";
 const RANGE_PRESETS = [
@@ -113,20 +114,23 @@ export default function ClubEngagementAnalyticsPage({
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const analytics = getLocalLabClubEngagementAnalytics("club-icp-001");
     return (
-      <div className="container max-w-4xl mx-auto px-4 py-10">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <Activity className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Engagement analytics are unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Membership, messaging, event, media, and adoption aggregates are not connected to an ICP analytics service yet.
-            </p>
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="container max-w-4xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold">Engagement Analytics</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Showing synthetic ICP lab engagement analytics. Live aggregation is not connected to an ICP analytics service yet.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{analytics.active_members_7d}</p><p className="text-xs text-muted-foreground">Active members (7d)</p></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{analytics.posts_7d}</p><p className="text-xs text-muted-foreground">Posts (7d)</p></CardContent></Card>
+          <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{analytics.reactions_7d}</p><p className="text-xs text-muted-foreground">Reactions (7d)</p></CardContent></Card>
+        </div>
       </div>
     );
   }

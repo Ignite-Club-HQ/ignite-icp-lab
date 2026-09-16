@@ -23,14 +23,45 @@ interface SingleFrameDrill {
   arrowCount: number;
 }
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabDrills } from "@/lab/fixtureDataLayer";
 
 export default function AdminDrillsPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Drill administration is unavailable in ICP lab mode" description="Platform drill content and administrative changes are not connected to an ICP domain service yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabAdminDrillsPage />;
   }
   return <SupabaseAdminDrillsPage />;
+}
+
+/** Read-only synthetic drill list; authoring and administrative changes remain unavailable until club_domain drills are wired here. */
+function IcpLabAdminDrillsPage() {
+  const navigate = useNavigate();
+  const drills = getLocalLabDrills("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Drills</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing synthetic ICP lab drill data. Authoring and editing drills are disabled.
+      </p>
+      <div className="space-y-2">
+        {drills.map((drill) => (
+          <Card key={drill.id}>
+            <CardHeader>
+              <CardTitle className="text-base">{drill.title}</CardTitle>
+              <CardDescription>{drill.description}</CardDescription>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseAdminDrillsPage() {

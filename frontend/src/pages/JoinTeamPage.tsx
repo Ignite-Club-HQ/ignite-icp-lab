@@ -41,6 +41,7 @@ import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClaimableTeam } from "@/lab/fixtureDataLayer";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -106,14 +107,16 @@ export default function JoinTeamPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const team = getLocalLabClaimableTeam("team-icp-001");
     return (
-      <div className="container max-w-md mx-auto px-4 py-10">
+      <div className="container max-w-md mx-auto px-4 py-6 space-y-4">
         <Card>
           <CardContent className="p-6 space-y-4 text-center">
-            <XCircle className="h-10 w-10 mx-auto text-destructive" />
-            <h1 className="text-lg font-semibold">Team joining is unavailable in ICP lab mode</h1>
+            <CheckCircle className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h1 className="text-lg font-semibold">{team.name}</h1>
             <p className="text-sm text-muted-foreground">
-              Invite lookup, membership provisioning, child linking, notifications, and role changes are disabled. No data has been changed.
+              Showing a synthetic ICP lab team invite preview. Joining, membership provisioning, and role changes
+              remain unavailable until identity_access invite-linking is wired here.
             </p>
             <Button variant="outline" onClick={() => navigate("/")}>
               Go to Home

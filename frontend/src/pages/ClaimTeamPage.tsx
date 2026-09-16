@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClaimableTeam } from "@/lab/fixtureDataLayer";
 
 export default function ClaimTeamPage() {
   const [searchParams] = useSearchParams();
@@ -15,17 +16,17 @@ export default function ClaimTeamPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [status, setStatus] = useState<"idle" | "claiming" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "claiming" | "done" | "error" | "icp_preview">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  const icpClaimableTeam = getLocalLabClaimableTeam("team-icp-001");
 
   usePageTitle("Claim your team");
 
   useEffect(() => {
     if (useIcpLab) {
-      setStatus("error");
-      setErrorMsg("Team claiming is unavailable in ICP lab mode. No membership or role changes have been made.");
+      setStatus("icp_preview");
       return;
     }
     if (!token) {
@@ -63,6 +64,18 @@ export default function ClaimTeamPage() {
             <>
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Claiming your team…</p>
+            </>
+          ) : status === "icp_preview" ? (
+            <>
+              <CheckCircle2 className="h-10 w-10 mx-auto text-muted-foreground" />
+              <h1 className="text-lg font-semibold">{icpClaimableTeam.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Showing a synthetic ICP lab team preview. Claiming and role provisioning are disabled until
+                identity_access invite-linking is wired here.
+              </p>
+              <Button asChild variant="outline">
+                <Link to="/">Back to home</Link>
+              </Button>
             </>
           ) : status === "done" ? (
             <>

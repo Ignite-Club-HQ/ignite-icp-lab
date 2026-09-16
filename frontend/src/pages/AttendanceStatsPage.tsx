@@ -35,6 +35,7 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabAttendanceStats } from "@/lab/fixtureDataLayer";
 
 type EventType = "game" | "training" | "all";
 
@@ -63,22 +64,28 @@ export default function AttendanceStatsPage({ teamIdOverride, embedded }: Attend
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
 
   if (useIcpLab) {
+    const stats = getLocalLabAttendanceStats(teamIdOverride ?? "team-icp-001");
     return (
-      <div className={embedded ? "py-4" : "container max-w-3xl mx-auto px-4 py-10"}>
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6 space-y-4 text-center">
-            <BarChart3 className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Attendance reporting is unavailable in ICP lab mode</h1>
-            <p className="text-sm text-muted-foreground">
-              Event attendance, member profiles, exports, and reporting aggregates are not connected to an ICP service yet.
-            </p>
-            {!embedded && (
-              <Button variant="outline" onClick={() => navigate(-1)}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Go back
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+      <div className={embedded ? "py-4" : "container max-w-3xl mx-auto px-4 py-6"}>
+        {!embedded && <h1 className="text-lg font-bold mb-4">Attendance</h1>}
+        <p className="text-sm text-muted-foreground mb-3">
+          Showing synthetic ICP lab attendance data. Exports and reporting aggregates beyond this preview are disabled.
+        </p>
+        <div className="space-y-2">
+          {stats.rows.map((row) => (
+            <Card key={row.user_id}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <span className="text-sm font-medium">{row.display_name}</span>
+                <span className="text-xs text-muted-foreground">{row.attended} attended / {row.missed} missed ({Math.round(row.rate * 100)}%)</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {!embedded && (
+          <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Go back
+          </Button>
+        )}
       </div>
     );
   }

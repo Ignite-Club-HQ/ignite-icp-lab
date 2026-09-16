@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import LegalPageEmbed from "@/components/LegalPageEmbed";
 import { Button } from "@/components/ui/button";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabClubLink } from "@/lab/fixtureDataLayer";
 
 /**
  * Renders a club-managed link inside the app (native in-app web view).
@@ -20,7 +21,7 @@ export default function ClubLinkEmbedPage() {
     queryKey: ["club-link", linkId, providerKey],
     enabled: !!linkId,
     queryFn: async () => {
-      if (useIcpLab) return null;
+      if (useIcpLab) return getLocalLabClubLink(linkId!);
       const { data, error } = await supabase
         .from("club_links")
         .select("id, title, url")

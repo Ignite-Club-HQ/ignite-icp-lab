@@ -17,6 +17,7 @@ import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { Button } from "@/components/ui/button";
@@ -142,14 +143,45 @@ const getCachedClubAdminMessages = (conversationId: string): ClubAdminMessage[] 
     })),
   }));
 
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { getLocalLabAdminChatMessages } from "@/lab/fixtureDataLayer";
 
 export default function ClubAdminChatPage() {
-  if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
-    return <IcpUnavailablePage title="Club admin chat is unavailable in ICP lab mode" description="Administrative messaging, realtime delivery, and media workflows are not connected to the ICP messaging service yet." />;
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+  if (useIcpLab) {
+    return <IcpLabClubAdminChatPage />;
   }
   return <SupabaseClubAdminChatPage />;
+}
+
+/** Read-only synthetic admin chat transcript; sending and media workflows remain unavailable until messaging_domain is wired here. */
+function IcpLabClubAdminChatPage() {
+  const navigate = useNavigate();
+  const messages = getLocalLabAdminChatMessages("club-icp-001");
+
+  return (
+    <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Admin Chat</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Showing a synthetic ICP lab admin chat transcript. Sending messages and media uploads are disabled.
+      </p>
+      <div className="space-y-2">
+        {messages.map((message) => (
+          <Card key={message.id}>
+            <CardContent className="p-3">
+              <p className="text-xs font-medium text-muted-foreground">{message.author.display_name}</p>
+              <p className="text-sm">{message.text}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SupabaseClubAdminChatPage() {
