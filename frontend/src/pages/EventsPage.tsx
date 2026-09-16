@@ -240,7 +240,7 @@ export default function EventsPage() {
     queryKey: ["user-memberships-for-events", useIcpLab ? "icp" : "supabase", user?.id, localIcpPersona],
     queryFn: async () => {
       if (useIcpLab) {
-        return fixtureData.getLocalLabHomeSnapshot(user?.id ?? 'icp-member').memberships;
+        return fixtureData.getLocalLabHomeSnapshot(localIcpPersona).memberships;
       }
 
       // Proactively refresh JWT if it's near expiry — prevents an expired

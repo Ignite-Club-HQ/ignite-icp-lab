@@ -65,13 +65,15 @@ export default function ManageTeamRolesPage() {
 /** Read-only team role roster backed by synthetic fixtures; mutations remain unavailable until identity_access role-projection is wired here. */
 function IcpLabManageTeamRolesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { teamId } = useParams<{ teamId: string }>();
+  const persona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const [fallbackRoster] = useState(() => getLocalLabTeamRoleRoster(teamId ?? "team-icp-001"));
   const { data: state, error, isLoading } = useQuery({
-    queryKey: ["icp-team-role-roster", teamId],
+    queryKey: ["icp-team-role-roster", teamId, persona],
     queryFn: async () => {
       try {
-        const connection = await connectLocalIdentityAccessClient("icp-member");
+        const connection = await connectLocalIdentityAccessClient(persona);
         return { source: "icp" as const, state: await connection.client.exportState() };
       } catch (error) {
         if (!(error instanceof Error) || !/not configured/i.test(error.message)) throw error;

@@ -36,7 +36,6 @@ import {
   setLocalCompetitionSeasonStatus,
   setLocalCompetitionMatchResult,
 } from "@/lab/localCompetitionService";
-import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionDetailPage() {
   usePageTitle("Competition");
@@ -54,7 +53,8 @@ function IcpCompetitionDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const { user } = useAuth();
+  const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const [seasonName, setSeasonName] = useState("");
   const [registrationTeamId, setRegistrationTeamId] = useState("");
   const [registrationClubId, setRegistrationClubId] = useState("");

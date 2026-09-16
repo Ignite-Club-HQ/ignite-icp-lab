@@ -19,7 +19,6 @@ import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { createLocalCompetition } from "@/lab/localCompetitionService";
-import { personas } from "@/lab/syntheticIdentities.mjs";
 
 const SPORTS = Object.keys(SPORT_EMOJIS);
 const PERSONAL_ORGANISER = "__personal__";
@@ -45,9 +44,10 @@ export default function CreateCompetitionPage() {
 
 function IcpCreateCompetitionPage({ preselectedOrganizer }: { preselectedOrganizer: string | null }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const [name, setName] = useState("");
   const [season, setSeason] = useState("");
   const [clubId, setClubId] = useState(preselectedOrganizer || "local-club");

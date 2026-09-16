@@ -14,7 +14,6 @@ import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { useMemo } from "react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { isLocalCompetitionCanisterUnavailable, listLocalCompetitions } from "@/lab/localCompetitionService";
-import { personas } from "@/lab/syntheticIdentities.mjs";
 
 export default function CompetitionsPage() {
   usePageTitle("Competitions");
@@ -28,7 +27,8 @@ export default function CompetitionsPage() {
 }
 
 function IcpCompetitionsPage() {
-  const localIcpPersona = personas[0]?.id ?? "club-admin";
+  const { user } = useAuth();
+  const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const { data: competitions = [], isLoading, error } = useQuery({
     queryKey: ["local-icp-competitions", localIcpPersona],
     queryFn: () => listLocalCompetitions(localIcpPersona),

@@ -80,11 +80,13 @@ function IcpLabAttendanceStatsPage({
   embedded?: boolean;
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  const { user } = useAuth();
+  const persona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const { data, error, isLoading } = useQuery({
-    queryKey: ["icp-attendance-stats", teamId],
+    queryKey: ["icp-attendance-stats", teamId, persona],
     queryFn: async () => {
       try {
-        const state = await exportLocalEventsState("icp-member");
+        const state = await exportLocalEventsState(persona);
         const eventIds = new Set(state.events.filter((event) => event.team_id[0] === teamId).map((event) => event.id));
         const attendance = state.attendance.filter((item) => eventIds.has(item.event_id));
         const byAccount = new Map<string, { attended: number; missed: number }>();

@@ -98,12 +98,14 @@ export default function ManageUsersPage() {
 /** Read-only identity_access directory; account status and role mutations remain unavailable pending parity. */
 function IcpLabManageUsersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const persona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const [fallbackUsers] = useState(() => getLocalLabUserDirectory());
   const { data: directory, error, isLoading } = useQuery({
-    queryKey: ["icp-user-directory"],
+    queryKey: ["icp-user-directory", persona],
     queryFn: async () => {
       try {
-        const connection = await connectLocalIdentityAccessClient("icp-member");
+        const connection = await connectLocalIdentityAccessClient(persona);
         const state = await connection.client.exportState();
         return {
           source: "icp" as const,

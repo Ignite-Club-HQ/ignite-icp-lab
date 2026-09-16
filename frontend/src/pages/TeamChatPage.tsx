@@ -229,6 +229,7 @@ export default function TeamChatPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const { user, profile, refreshUnreadCount, decrementUnreadCount, initialized } = useAuth();
   const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
+  const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
   const navigate = useNavigate();
@@ -306,8 +307,8 @@ export default function TeamChatPage() {
     select: (d) => (teamId ? d.teams[teamId] ?? 0 : 0),
   });
   const { data: localTeamUnreadCount = 0 } = useQuery({
-    queryKey: ["local-team-unread-count", teamId],
-    queryFn: () => getLocalTeamUnreadCount("team_member", teamId!),
+    queryKey: ["local-team-unread-count", teamId, localIcpPersona],
+    queryFn: () => getLocalTeamUnreadCount(localIcpPersona, teamId!),
     enabled: useIcpLab && !!teamId,
     refetchInterval: 30_000,
   });
@@ -639,7 +640,7 @@ export default function TeamChatPage() {
       markChatFetch();
       if (useIcpLab && teamId && user?.id) {
         return {
-          messages: await listLocalTeamMessages("team_member", teamId) as unknown as Message[],
+          messages: await listLocalTeamMessages(localIcpPersona, teamId) as unknown as Message[],
           hasOlderMessages: false,
           fromCache: false,
         };
@@ -715,7 +716,7 @@ export default function TeamChatPage() {
         if (!useIcpLab || !teamId || !messagesData?.messages.length) return;
         const latestMessage = messagesData.messages[messagesData.messages.length - 1];
         let cancelled = false;
-        markLocalTeamRead("team_member", teamId, latestMessage.id)
+        markLocalTeamRead(localIcpPersona, teamId, latestMessage.id)
           .then(() => {
             if (!cancelled) {
               queryClient.setQueryData(["local-team-unread-count", teamId], 0);
@@ -1661,7 +1662,7 @@ export default function TeamChatPage() {
       // Lab mode: optimistic cache-only delivery, no backend write and no persistence.
       if (useIcpLab) {
         const localMessage = await sendLocalTeamMessage(
-          "team_member",
+          localIcpPersona,
           teamId!,
           text,
           `team-${teamId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
