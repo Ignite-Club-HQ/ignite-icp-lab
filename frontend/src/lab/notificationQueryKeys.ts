@@ -35,7 +35,7 @@ export const notificationKeys = {
     ["club-messages-unread", userId, clubId] as const,
 
   chatGroupUnread: ["chat-group-unread-cache"] as const,
-  chatGroupUnreadFor: (userId: string) =>
+  chatGroupUnreadFor: (userId: string | null | undefined) =>
     ["chat-group-unread-cache", userId] as const,
 } as const;
 

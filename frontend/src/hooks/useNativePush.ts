@@ -16,6 +16,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { queueChatInvalidation } from '@/lib/chatInvalidationQueue';
+import { notificationKeys } from '@/lab/notificationQueryKeys';
 
 import { mark as coldMark } from '@/lib/coldStartMarks';
 import { useNavigate } from 'react-router-dom';
@@ -75,8 +76,8 @@ function invalidateChatFromPush(queryClient: QueryClient, userId: string | undef
     const keys: QueryKey[] = [];
     if (userId) {
       keys.push(
-        ['unread-message-counts', userId],
-        ['chat-group-unread-cache', userId],
+        notificationKeys.messageUnreadFor(userId),
+        notificationKeys.chatGroupUnreadFor(userId),
         ['my-teams-with-messages', userId],
         ['member-clubs-with-messages', userId],
         ['my-chat-groups-with-messages', userId],

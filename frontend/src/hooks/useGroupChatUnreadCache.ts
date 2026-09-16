@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 export const groupChatUnreadCacheKey = (userId: string | null | undefined) =>
-  ["chat-group-unread-cache", userId] as const;
+  notificationKeys.chatGroupUnreadFor(userId);
 
 type UnreadMap = Record<string, number>;
 
@@ -139,4 +140,3 @@ export function useGroupChatUnreadCache(userId: string | null | undefined) {
 
   return query;
 }
-

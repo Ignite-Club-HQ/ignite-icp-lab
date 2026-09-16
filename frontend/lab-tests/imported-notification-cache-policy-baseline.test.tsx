@@ -37,6 +37,8 @@ test('preserves the existing disabled-query and header key shapes', () => {
   expect(notificationKeys.list(undefined, null)).toEqual(['notifications', undefined, 'all']);
   expect(notificationKeys.recentFor(undefined, null)).toEqual(['recent-notifications', undefined, null]);
   expect(notificationKeys.clubUnreadFor(undefined, null)).toEqual(['club-unread-count', undefined, null]);
+  expect(notificationKeys.chatGroupUnreadFor(undefined)).toEqual(['chat-group-unread-cache', undefined]);
+  expect(notificationKeys.chatGroupUnreadFor(null)).toEqual(['chat-group-unread-cache', null]);
 });
 
 test('gives different users and clubs different exact cache identities', () => {
