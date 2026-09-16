@@ -139,6 +139,7 @@ import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEa
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
 
 
 
@@ -828,9 +829,7 @@ export default function GroupChatPage() {
     // is only ever displayed in the thread it was posted to.
     const scoped = (msgList as any[]).filter((m) => !m?.group_id || m.group_id === groupId);
     // Sort by created_at to ensure proper ordering
-    const sorted = [...scoped].sort((a, b) => 
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = orderChatMessagesChronologically(scoped);
     // Re-apply realtime edits/soft-deletes: an older in-flight fetch resolving
     // after a realtime UPDATE must never restore pre-edit text or resurrect a
     // deleted row.

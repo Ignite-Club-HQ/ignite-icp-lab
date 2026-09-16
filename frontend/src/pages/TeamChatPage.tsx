@@ -49,6 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
+import { selectHistoryChatPlaceholderSource } from "@/lab/chatThreadCacheHydration";
 import {
   getLocalTeamUnreadCount,
   listLocalTeamMessages,
@@ -826,21 +827,12 @@ export default function TeamChatPage() {
     refetchOnWindowFocus: false,
     placeholderData: (prev: any) => {
       if (!teamId) return prev;
+      const cachedMessages = getCachedTeamMessages(teamId);
       // When opened from a push notification, the cached message just written
       // by the preload handler is fresher than `prev`. Prefer it ONLY when
       // it actually contains a meaningful history window — otherwise a
       // single preloaded row replaces `prev` and the user sees one message
       // floating at the top of an empty viewport until the real fetch lands.
-      if (openedFromNotificationRef.current) {
-        const cachedMessages = getCachedTeamMessages(teamId);
-        // Require a meaningful history window (>=5). The notification preload
-        // writes a SINGLE message into cache before the chat mounts — using
-        // that as placeholder strands the user with one message at the top.
-        const cachedHasHistory = cachedMessages.length >= 5;
-        if (cachedHasHistory) {
-          return { messages: cachedMessages, hasOlderMessages: cachedMessages.length >= MESSAGES_PER_PAGE, fromCache: true };
-        }
-      }
       // SECURITY (cross-team bleed): `prev` is whatever THIS hook instance last
       // rendered. If the route param changed without a remount it is the
       // PREVIOUS team's message list — returning it verbatim renders team A's
@@ -851,13 +843,17 @@ export default function TeamChatPage() {
         Array.isArray(prev.messages) &&
         prev.messages.length > 0 &&
         prev.messages.every((m: any) => belongsToTeam(m, teamId));
-      if (prevBelongsToThisTeam) return prev;
+      const source = selectHistoryChatPlaceholderSource({
+        hasPrevious: prevBelongsToThisTeam,
+        cachedMessageCount: cachedMessages.length,
+        openedFromNotification: !!openedFromNotificationRef.current,
+      });
+      if (source === "previous") return prev;
+      if (source === "cache") {
+        return { messages: cachedMessages, hasOlderMessages: cachedMessages.length >= MESSAGES_PER_PAGE, fromCache: true };
+      }
 
-
-      const cachedMessages = getCachedTeamMessages(teamId);
-      if (cachedMessages.length < 2) return undefined;
-
-      return { messages: cachedMessages, hasOlderMessages: cachedMessages.length >= MESSAGES_PER_PAGE, fromCache: true };
+      return undefined;
     },
   });
 

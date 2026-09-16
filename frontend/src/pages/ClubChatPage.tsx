@@ -41,6 +41,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
+import { selectHistoryChatPlaceholderSource } from "@/lab/chatThreadCacheHydration";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -585,24 +587,19 @@ export default function ClubChatPage() {
     refetchOnWindowFocus: false,
     placeholderData: (prev: any) => {
       if (!clubId) return prev;
+      const cachedMessages = getCachedClubMessages(clubId);
       // From-push freshness: prefer the just-preloaded localStorage cache
       // over a stale `prev` so the new message renders at first paint —
       // but only when the cache has a meaningful history window. A single
       // preloaded row replacing `prev` strands the user with one message
       // floating at the top of an empty viewport.
-      if (openedFromNotificationRef.current) {
-        const cachedMessages = getCachedClubMessages(clubId);
-        // Require a meaningful history window (>=5). The notification preload
-        // writes a SINGLE message into cache before the chat mounts.
-        const cachedHasHistory = cachedMessages.length >= 5;
-        if (cachedHasHistory) {
-          return { messages: cachedMessages, hasOlderMessages: isOnline && cachedMessages.length > 0, fromCache: true };
-        }
-      }
-      if (prev) return prev;
-
-      const cachedMessages = getCachedClubMessages(clubId);
-      if (cachedMessages.length < 2) return undefined;
+      const source = selectHistoryChatPlaceholderSource({
+        hasPrevious: !!prev,
+        cachedMessageCount: cachedMessages.length,
+        openedFromNotification: !!openedFromNotificationRef.current,
+      });
+      if (source === "previous") return prev;
+      if (source === "none") return undefined;
 
       return { messages: cachedMessages, hasOlderMessages: isOnline && cachedMessages.length > 0, fromCache: true };
     },
@@ -618,9 +615,7 @@ export default function ClubChatPage() {
       ? messagesData 
       : (messagesData as any).messages || [];
     // Sort by created_at to ensure proper ordering
-    const sorted = [...msgList].sort((a, b) => 
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = orderChatMessagesChronologically(msgList);
     // Re-apply realtime edits/soft-deletes so a stale in-flight fetch cannot
     // restore pre-edit text or resurrect a deleted row.
     return reconcileMessages(reconcileScope, sorted) as Message[];
