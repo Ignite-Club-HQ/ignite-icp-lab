@@ -47,6 +47,7 @@ export function isChunkLoadError(error: unknown): boolean {
  */
 export function tryRecoverFromChunkError(): boolean {
   if (typeof window === "undefined") return false;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
   try {
     const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) ?? 0);
     if (Date.now() - last < 60_000) return false;

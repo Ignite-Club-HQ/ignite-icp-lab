@@ -1713,3 +1713,46 @@ The inventory checker now requires at least 414 retained source test files and
 31 translated hybrid baselines. The browser coverage uses only the loopback Vite
 server and verifies that ICP and hybrid modes remain fail-closed with no
 external browser traffic.
+
+## Exported frontend test-porting phase 1, batch 10 - 2026-09-17
+
+Processed eight additional non-Edge source-backed bundle tests that have local
+component or hook implementations and can run without production services:
+
+- `src/components/RouteErrorBoundary.routing.test.tsx`
+- `src/components/chat/MessageActionSheet.characterization.test.tsx`
+- `src/components/pitch/hooks/usePitchBoardLifecycle.test.tsx`
+- `src/components/seasons/ReturningMembersStep.characterization.test.tsx`
+- `src/components/seasons/SeasonInviteStep.characterization.test.tsx`
+- `src/components/seasons/StartNewSeasonWizard.characterization.test.tsx`
+- `src/components/team/AddPlayerToParentSheet.test.tsx`
+- `src/hooks/useAuth.cache.test.ts`
+
+The batch restored two small exported safety seams in local source: stale-chunk
+recovery now refuses a hard reload while the browser is explicitly offline, and
+the existing user-scoped auth-profile cache helpers are exported for direct
+guard coverage. The season and team tests use synthetic RPC/query/function
+doubles; they do not execute Supabase, Edge Functions, migrations, credentials,
+or remote services.
+
+Validation for this batch:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/components/RouteErrorBoundary.routing.test.tsx \
+  src/components/team/AddPlayerToParentSheet.test.tsx \
+  src/components/chat/MessageActionSheet.characterization.test.tsx \
+  src/components/pitch/hooks/usePitchBoardLifecycle.test.tsx \
+  src/components/seasons/ReturningMembersStep.characterization.test.tsx \
+  src/components/seasons/SeasonInviteStep.characterization.test.tsx \
+  src/components/seasons/StartNewSeasonWizard.characterization.test.tsx \
+  src/hooks/useAuth.cache.test.ts
+# passed: 8 files / 60 tests
+npm run test:legacy # passed: 400 files / 3,937 passed; 2 skipped
+```
+
+The retained source inventory is now **422** `frontend/src` test files. With
+13 Edge-oriented retained source tests still excluded by policy, the observed
+active legacy tier is **400** files. The inventory checker now requires at
+least 422 retained source test files and 31 translated hybrid baselines.
