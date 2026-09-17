@@ -1,5 +1,5 @@
 import { Principal } from '@icp-sdk/core/principal';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   resolveClubBackend,
   type BackendProviders,
@@ -22,6 +22,7 @@ type CompetitionClient = {
   inviteTeam(actor: Actor, id: string, teamId: string): Promise<void>;
   acceptInvitation(actor: Actor, id: string): Promise<void>;
   activate(actor: Actor, id: string): Promise<void>;
+  removeInvitation(actor: Actor, id: string, teamId: string): Promise<void>;
 };
 
 type Actor = {
@@ -82,6 +83,14 @@ function createCompetitionClient(): CompetitionClient {
         throw new Error('Organizer role required');
       }
       competition.status = 'active';
+    },
+    async removeInvitation(actor, id, teamId) {
+      const competition = competitions.get(id);
+      if (!competition || actor.clubId !== competition.organizerClubId || !actor.admin) {
+        throw new Error('Organizer role required');
+      }
+      competition.invitedTeamIds.delete(teamId);
+      competition.acceptedTeamIds.delete(teamId);
     },
   };
 }
@@ -188,4 +197,47 @@ test('does not fall back to Supabase when the selected ICP competition provider 
   await expect(routedClient(registry, providers, new Map(), CLUB_A))
     .rejects.toThrow('local ICP competition provider unavailable');
   expect(supabaseCalls).toBe(0);
+});
+
+// Synthetic local equivalent of the exported Postgres/RLS journey test
+// `local journey: competition creation, invitation and response` (the real
+// fixture-backed RLS journey requires a live local Supabase/Postgres
+// instance, out of scope for this lab). This reuses the in-memory
+// CompetitionClient model above to enforce the same organiser/invited-team
+// permission contract end to end.
+describe('local journey: competition creation, invitation and response', () => {
+  test('enforces organiser and invited-team permissions through the lifecycle', async () => {
+    const client = createCompetitionClient();
+
+    await expect(client.createCompetition(MEMBER_A, 'Member must not organise'))
+      .rejects.toThrow('Organizer role required');
+
+    const created = await client.createCompetition(ADMIN_A, 'Synthetic Cup');
+    expect(created.status).toBe('open');
+
+    const hiddenBeforeInvite = await client.getCompetition(TEAM_ADMIN_B, created.id);
+    expect(hiddenBeforeInvite).toBeUndefined();
+
+    await client.inviteTeam(ADMIN_A, created.id, TEAM_B);
+    await expect(client.inviteTeam(ADMIN_A, created.id, TEAM_B))
+      .rejects.toThrow('Team already invited');
+
+    const visibleAfterInvite = await client.getCompetition(TEAM_ADMIN_B, created.id);
+    expect(visibleAfterInvite?.name).toBe('Synthetic Cup');
+
+    await client.acceptInvitation(TEAM_ADMIN_B, created.id);
+    expect((await client.getCompetition(ADMIN_A, created.id))?.acceptedTeamIds.has(TEAM_B)).toBe(true);
+
+    await expect(client.activate(TEAM_ADMIN_B, created.id)).rejects.toThrow('Organizer role required');
+
+    await client.activate(ADMIN_A, created.id);
+    expect((await client.getCompetition(ADMIN_A, created.id))?.status).toBe('active');
+
+    await expect(client.removeInvitation(TEAM_ADMIN_B, created.id, TEAM_B))
+      .rejects.toThrow('Organizer role required');
+
+    await client.removeInvitation(ADMIN_A, created.id, TEAM_B);
+    const hiddenAfterRemoval = await client.getCompetition(TEAM_ADMIN_B, created.id);
+    expect(hiddenAfterRemoval).toBeUndefined();
+  });
 });
