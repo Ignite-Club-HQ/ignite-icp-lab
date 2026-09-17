@@ -2743,3 +2743,41 @@ npm run check:isolation      # passed
 npm run check:exported-tests # passed: 434 / 146 / 39 / 3 exact inventory
 node --test lab-tests/exported-inventory-manifest.test.mjs # passed
 ```
+
+## Rapid residual exported-test closure checkpoint - 2026-09-17
+
+After the case-level gap was estimated at roughly 1,437 remaining cases,
+the follow-up rapid pass added committed, lab-safe coverage batches for
+large page/workflow, local-Supabase journey, metadata, and residual safety
+surfaces. The new batches include exact local models for local load
+harness safety (15), tranche baseline manifest metadata (22), HomePage
+orchestration (29), ManageUsers privileged operations (26), EventDetail
+RSVP/duty/payment/reminder/manager behavior (45), messaging security
+journey access-control behavior (37), AddTeamMember membership workflow
+(13), MediaPage feed/realtime/mutation behavior (13), VaultPage permission
+and mutation behavior (13), CompetitionJoin token workflow (13), combined
+club-wide RSVP / parent-invite / chat-scope capability behavior (37), and
+a residual safety/orchestration contract batch (119). Earlier commits in
+the same rapid pass also closed retained helper, dependency, archived
+sports, membership, chat, pitch, auth, ClubDetail, TeamDetail, and
+CompetitionSettings cases.
+
+Current runnable verification from this checkpoint:
+
+```sh
+cd frontend
+npm run check:exported-tests # passed: 434 retained source files; 169 lab-tests files; 39 translated hybrid baselines; 3 loopback browser specs
+npm test                     # passed: 393 Node tests; 151 Vitest files / 1,704 tests
+npm run test:e2e             # passed: 20 Playwright tests
+npm run typecheck:lab        # passed
+npm run check:isolation      # passed
+npm run test:legacy          # passed: 412 files / 4,162 tests / 1 skipped
+npm run build                # passed
+```
+
+The directly verified runnable total across the legacy, lab, and e2e tiers
+is now 6,275 passing tests (4,162 legacy + 393 Node lab + 1,704 Vitest lab
++ 20 e2e), before accounting for intentional overlap between tiers. The
+legacy tier alone increased from the previously reported 4,007 passing
+tests to 4,162 passing tests after the rapid retained-test alignment
+commits.
