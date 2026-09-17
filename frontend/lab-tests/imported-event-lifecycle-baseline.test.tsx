@@ -1,5 +1,5 @@
 import { Principal } from '@icp-sdk/core/principal';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   resolveClubBackend,
   type BackendProviders,
@@ -195,4 +195,59 @@ test('does not fall back to Supabase when the selected ICP event provider fails'
   await expect(routedClient(registry, providers, new Map(), CLUB_A))
     .rejects.toThrow('local ICP event provider unavailable');
   expect(supabaseCalls).toBe(0);
+});
+
+// Synthetic local equivalent of the exported Postgres/RLS journey test
+// `local journey: event lifecycle and attendance permissions` (the real
+// fixture-backed RLS journey requires a live local Supabase/Postgres
+// instance, out of scope for this lab). Reuses the in-memory EventClient
+// model above to enforce the same club-boundary and role contract.
+describe('local journey: event lifecycle and attendance permissions', () => {
+  test('protects creation, attendance, editing and cancellation across club boundaries', async () => {
+    const client = createEventClient();
+
+    await expect(client.create(MEMBER_A, 'Synthetic Unauthorized Event', 'x', 'event-team-a'))
+      .rejects.toThrow('Club or team admin required');
+
+    const created = await client.create(
+      ADMIN_A,
+      'Synthetic Lifecycle Training',
+      'Initial details',
+      'event-team-a',
+    );
+    expect(created).toMatchObject({ title: 'Synthetic Lifecycle Training', cancelled: false });
+    const eventId = created.id;
+
+    const memberView = await client.get(MEMBER_A, eventId);
+    expect(memberView?.title).toBe('Synthetic Lifecycle Training');
+    const outsiderView = await client.get(OUTSIDER_B, eventId);
+    expect(outsiderView).toBeUndefined();
+
+    await client.rsvp(MEMBER_A, eventId, 'going');
+    expect((await client.get(ADMIN_A, eventId))?.rsvps.get(MEMBER_A.id)).toBe('going');
+
+    await expect(client.rsvp(OUTSIDER_B, eventId, 'going')).rejects.toThrow('Event unavailable');
+
+    await client.update(MEMBER_A, eventId, 'Member must not edit', 'x');
+    expect((await client.get(ADMIN_A, eventId))?.title).toBe('Synthetic Lifecycle Training');
+
+    await client.update(OUTSIDER_B, eventId, 'Outsider must not edit', 'x');
+    expect((await client.get(ADMIN_A, eventId))?.title).toBe('Synthetic Lifecycle Training');
+
+    await client.update(ADMIN_A, eventId, 'Synthetic Updated Training', 'Updated details');
+    const edited = await client.get(ADMIN_A, eventId);
+    expect(edited).toMatchObject({ title: 'Synthetic Updated Training', description: 'Updated details' });
+
+    await client.rsvp(MEMBER_A, eventId, 'maybe');
+    expect((await client.get(ADMIN_A, eventId))?.rsvps.get(MEMBER_A.id)).toBe('maybe');
+
+    await client.cancel(ADMIN_A, eventId);
+    const cancelledMemberView = await client.get(MEMBER_A, eventId);
+    expect(cancelledMemberView).toMatchObject({
+      title: 'Synthetic Updated Training',
+      cancelled: true,
+    });
+
+    expect((await client.get(ADMIN_A, eventId))?.rsvps.get(MEMBER_A.id)).toBe('maybe');
+  });
 });
