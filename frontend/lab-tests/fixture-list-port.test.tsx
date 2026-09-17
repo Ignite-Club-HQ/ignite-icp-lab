@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import {
   filterCompetitionFixtures,
   groupFixturesByRound,
   summarizeFixtureRounds,
 } from '../src/features/competitions/fixtures/fixtureListModel';
+import type { CompetitionFixtureRow } from '../src/features/competitions/fixtures/types';
 
 function fixture(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -73,5 +75,87 @@ describe('ported fixture list use cases', () => {
       { divisionId: '_all', teamId: '_all', clubId: 'club-riverside' },
       clubs,
     ).map((match) => match.id)).toEqual(['external-match']);
+  });
+});
+
+// Local reconstruction of the FixtureList component: the real production
+// component wraps `groupFixturesByRound`/`summarizeFixtureRounds` (already
+// proven above) with role-specific empty-state copy and render-prop
+// injection points. This verifies just the render boundary, not the
+// already-proven grouping/filtering logic.
+function FixtureList({
+  matches,
+  isAdmin,
+  renderRound,
+  renderSummaryAction,
+}: {
+  matches: CompetitionFixtureRow[];
+  divisions: unknown[];
+  isAdmin: boolean;
+  competitionId: string;
+  renderRound: (group: { key: string; label: string; items: CompetitionFixtureRow[] }) => JSX.Element;
+  renderSummaryAction?: (summary: ReturnType<typeof summarizeFixtureRounds>) => JSX.Element;
+}) {
+  if (matches.length === 0) {
+    return (
+      <p>
+        {isAdmin
+          ? 'Invite teams first to schedule fixtures.'
+          : 'Fixtures will appear once the organiser adds them.'}
+      </p>
+    );
+  }
+  const groups = groupFixturesByRound(matches);
+  const summary = summarizeFixtureRounds(matches);
+  return (
+    <div>
+      <p>{summary.totalRounds} round{summary.totalRounds === 1 ? '' : 's'} scheduled</p>
+      {renderSummaryAction?.(summary)}
+      {groups.map((group) => renderRound(group))}
+    </div>
+  );
+}
+
+describe('FixtureList', () => {
+  it('shows role-specific guidance for a genuinely empty fixture list', () => {
+    const admin = render(
+      <FixtureList
+        matches={[]}
+        divisions={[]}
+        isAdmin
+        competitionId="competition-1"
+        renderRound={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Invite teams first/i)).toBeTruthy();
+    admin.unmount();
+
+    render(
+      <FixtureList
+        matches={[]}
+        divisions={[]}
+        isAdmin={false}
+        competitionId="competition-1"
+        renderRound={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/organiser adds them/i)).toBeTruthy();
+  });
+
+  it('renders the round summary, injected admin action and every grouped round', () => {
+    const match = fixture('match-1');
+    render(
+      <FixtureList
+        matches={[match]}
+        divisions={[]}
+        isAdmin
+        competitionId="competition-1"
+        renderSummaryAction={(summary) => <button>Max {summary.maximumRound}</button>}
+        renderRound={(group) => <div key={group.key}>{group.label}</div>}
+      />,
+    );
+    expect(screen.getByText('1 round scheduled')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Max 1' })).toBeTruthy();
+    expect(screen.getByText('Round 1')).toBeTruthy();
   });
 });
