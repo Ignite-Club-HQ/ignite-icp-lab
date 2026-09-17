@@ -1821,3 +1821,48 @@ The retained source inventory is now **429** `frontend/src` test files. With
 13 Edge-oriented retained source tests still excluded by policy, the observed
 active legacy tier is **407** files. The inventory checker now requires at
 least 429 retained source test files and 31 translated hybrid baselines.
+
+## Exported frontend test-porting phase 1, batch 12 - 2026-09-17
+
+Processed one additional non-Edge static guard:
+
+- `src/components/chat/ChatParticipantsList.membershipCompletion.guard.test.ts`
+
+This guard verifies the current chat participant management surface still uses
+the shared membership-completion policies for role refresh and atomic member
+removal, and still retains a chat-only refresh path when no team scope exists.
+It reads local source text only and does not execute backend code or contact any
+network service.
+
+Additional source-backed probes were attempted and removed from this batch
+because they were not bounded test ports:
+
+- `src/pages/AuthPage.test.tsx`: current lab auth page is intentionally
+  fail-closed in ICP lab mode, while the exported test asserts production
+  Supabase/password/passkey form journeys.
+- `src/pages/CompetitionJoinPage.test.tsx` and
+  `src/pages/CompetitionSettingsPage.test.tsx`: current pages drift from the
+  exported production Supabase query/mutation UI contracts and failed broadly
+  under mocked RPC/query expectations.
+- `src/pages/EventDetailPage.queryKeys.guard.test.ts`: requires absent
+  `src/features/events/eventMutationCompletion.ts` and related production page
+  completion boundaries.
+- `src/components/layout/DesktopMessagesRail.test.ts`: expects a removed
+  `formatRailActivity` export; the current rail implementation would need a
+  separate current-source characterization rather than resurrecting a stale
+  exported helper.
+
+Validation for this batch:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/components/chat/ChatParticipantsList.membershipCompletion.guard.test.ts
+# passed: 1 file / 2 tests
+npm run test:legacy # passed: 408 files / 3,993 passed; 2 skipped
+```
+
+The retained source inventory is now **430** `frontend/src` test files. With
+13 Edge-oriented retained source tests still excluded by policy, the observed
+active legacy tier is **408** files. The inventory checker now requires at
+least 430 retained source test files and 31 translated hybrid baselines.
