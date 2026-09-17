@@ -1862,10 +1862,11 @@ npx vitest run --config vitest.legacy.config.mjs \
 npm run test:legacy # passed: 408 files / 3,993 passed; 2 skipped
 ```
 
-The retained source inventory is now **430** `frontend/src` test files. With
-13 Edge-oriented retained source tests still excluded by policy, the observed
-active legacy tier is **408** files. The inventory checker now requires at
-least 430 retained source test files and 31 translated hybrid baselines.
+At the phase 1 checkpoint, the retained source inventory was **430**
+`frontend/src` test files. With 13 Edge-oriented retained source tests still
+excluded by policy, the observed active legacy tier was **408** files. Phase
+2 below advances the exact current inventory to 431 source files, 72 lab
+files, and 31 translated hybrid baselines.
 
 ## Exported frontend test-porting phase 2 reconciliation - 2026-09-17
 
