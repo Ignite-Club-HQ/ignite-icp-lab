@@ -1387,7 +1387,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/checkPendingSubsRecipients.local.test.tsx"
       ]
     },
     {
@@ -1395,7 +1395,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-supabase-boundaries-local.test.tsx"
+        "lab-tests/edgeFunctionAuthenticationContract.local.test.tsx"
       ]
     },
     {
@@ -1403,7 +1403,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/edgeFunctionEstateValidation.local.test.tsx"
       ]
     },
     {
@@ -1411,7 +1411,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/productionBlocker.test.tsx"
+        "lab-tests/edgeFunctionGovernance.local.test.tsx"
       ]
     },
     {
@@ -1419,7 +1419,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/remainingDependencySecuritySafety.test.tsx"
+        "lab-tests/edgeFunctionSourceValidation.local.test.tsx"
       ]
     },
     {
@@ -1427,8 +1427,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx",
-        "lab-tests/external-worker-coordinator.test.tsx"
+        "lab-tests/engagementReminderDispatch.local.test.tsx"
       ]
     },
     {
@@ -1436,7 +1435,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/eventViewReminderEmail.local.test.tsx"
       ]
     },
     {
@@ -1444,8 +1443,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/productionBlocker.test.tsx",
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/highRiskEdgeFunctions.local.test.tsx"
       ]
     },
     {
@@ -1453,7 +1451,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/paymentEdgeFunctions.local.test.tsx"
       ]
     },
     {
@@ -1461,7 +1459,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-pitch-timer-concurrency-baseline.test.tsx"
+        "lab-tests/pitchTimerLostUpdateGuard.local.test.tsx"
       ]
     },
     {
@@ -1469,8 +1467,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-supabase-boundaries-local.test.tsx",
-        "lab-tests/imported-event-audience-baseline.test.tsx"
+        "lab-tests/processEventNotificationsCharacterization.local.test.tsx"
       ]
     },
     {
@@ -1478,7 +1475,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-supabase-boundaries-local.test.tsx"
+        "lab-tests/processEventNotificationsPagination.local.test.tsx"
       ]
     },
     {
@@ -1486,7 +1483,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/productionBlocker.test.tsx"
+        "lab-tests/prodHotfixParity.local.test.tsx"
       ]
     },
     {
@@ -1494,7 +1491,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/recoverAccount.local.test.tsx"
       ]
     },
     {
@@ -1502,7 +1499,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/renewalReminderPromo.local.test.tsx"
       ]
     },
     {
@@ -1510,7 +1507,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/sendEngagementRemindersAccuracy.local.test.tsx"
       ]
     },
     {
@@ -1518,7 +1515,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-supabase-boundaries-local.test.tsx"
+        "lab-tests/proAccessGuard.local.test.tsx"
       ]
     },
     {
@@ -1526,7 +1523,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/stripeWebhookSecurity.local.test.tsx"
       ]
     },
     {
@@ -1534,8 +1531,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-vault-access-baseline.test.tsx",
-        "lab-tests/vaultCacheContract.guard.test.tsx"
+        "lab-tests/vaultMutationSafety.local.test.tsx"
       ]
     },
     {
@@ -1543,7 +1539,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/edge-oriented-local-doubles.test.tsx"
+        "lab-tests/verifyIapReceiptSecurity.local.test.tsx"
       ]
     },
     {
@@ -4634,8 +4630,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/local-events-service.test.tsx",
-        "lab-tests/rls-parity-matrix.test.tsx"
+        "lab-tests/eventGroupsRls.local.test.tsx"
       ]
     },
     {
@@ -4757,10 +4752,12 @@
     {
       "source": "tests/local-supabase/role-surface-access-matrix.test.ts",
       "scope": "non-browser",
-      "disposition": "local-equivalent",
+      "disposition": "irreducible-boundary",
       "targets": [
-        "lab-tests/rls-parity-matrix.test.tsx"
-      ]
+        "lab-tests/vaultDeletionAuthority.local.test.tsx",
+        "lab-tests/roleSurfaceAccessMatrix.local.test.tsx"
+      ],
+      "reason": "Of 37 expanded cases: 1 (Vault destructive authority) and 28 (team_messages/events/photos role matrices, 4x7) are ported with exact-match verification against the final active Postgres policy/function text. The remaining 8 (7 club_messages send/read cases + the club_messages portion of the cross-club outsider case) depend on a club_messages SELECT policy and a has_role-gated INSERT branch for league_admin that do not exist anywhere in the exported migration corpus; the extracted INSERT policy text has no branch admitting a bare league_admin role at all, yet the bundle test expects league_admin to succeed unconditionally alongside every other role - a confirmed, irreducible contradiction, not merely an absent definition."
     },
     {
       "source": "tests/local-supabase/roles-membership.rls.test.ts",

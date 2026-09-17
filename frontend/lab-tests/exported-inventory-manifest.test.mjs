@@ -13,14 +13,22 @@ test('maps every authoritative source exactly once', () => {
   assert.equal(manifest.entries.filter((entry) => entry.scope === 'browser-native').length, 11);
 });
 
-test('uses exact dispositions and documents the sole irreducible boundary', () => {
+test('uses exact dispositions and documents the irreducible boundaries', () => {
   const counts = Object.groupBy(manifest.entries, (entry) => entry.disposition);
   assert.equal(counts['direct-retained'].length, 412);
-  assert.equal(counts['local-equivalent'].length, 184);
-  assert.equal(counts['irreducible-boundary'].length, 1);
-  assert.equal(
-    counts['irreducible-boundary'][0].source,
+  assert.equal(counts['local-equivalent'].length, 183);
+  assert.equal(counts['irreducible-boundary'].length, 2);
+  const sources = counts['irreducible-boundary'].map((entry) => entry.source).sort();
+  assert.deepEqual(sources, [
     'tests/ios-os/resume.e2e.mjs',
+    'tests/local-supabase/role-surface-access-matrix.test.ts',
+  ]);
+  const iosEntry = counts['irreducible-boundary'].find(
+    (entry) => entry.source === 'tests/ios-os/resume.e2e.mjs',
   );
-  assert.match(counts['irreducible-boundary'][0].reason, /iOS device\/simulator/);
+  assert.match(iosEntry.reason, /iOS device\/simulator/);
+  const rlsEntry = counts['irreducible-boundary'].find(
+    (entry) => entry.source === 'tests/local-supabase/role-surface-access-matrix.test.ts',
+  );
+  assert.match(rlsEntry.reason, /club_messages/);
 });

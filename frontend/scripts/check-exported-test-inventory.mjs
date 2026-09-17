@@ -118,7 +118,7 @@ if (browserNativeSources.length !== 11) {
   throw new Error(`Expected exactly 11 browser/native bundle tests, found ${browserNativeSources.length}`);
 }
 if (sourceTests !== 434) throw new Error(`Expected exactly 434 retained source tests, found ${sourceTests}`);
-if (labTests !== 143) throw new Error(`Expected exactly 143 lab tests, found ${labTests}`);
+if (labTests !== 146) throw new Error(`Expected exactly 146 lab tests, found ${labTests}`);
 if (translatedBaselines !== 39) {
   throw new Error(`Expected exactly 39 translated baselines, found ${translatedBaselines}`);
 }
@@ -179,8 +179,8 @@ for (const entry of manifest.entries) {
 
 const expectedDispositions = {
   'direct-retained': 412,
-  'local-equivalent': 184,
-  'irreducible-boundary': 1,
+  'local-equivalent': 183,
+  'irreducible-boundary': 2,
 };
 if (JSON.stringify(dispositions) !== JSON.stringify(expectedDispositions)) {
   throw new Error(
@@ -198,5 +198,5 @@ console.log(
 console.log(
   `Path-level mapping: ${dispositions['direct-retained']} direct retained; `
   + `${dispositions['local-equivalent']} local equivalents; `
-  + `${dispositions['irreducible-boundary']} irreducible boundary exclusion`,
+  + `${dispositions['irreducible-boundary']} irreducible boundary exclusions`,
 );
