@@ -2776,7 +2776,7 @@ npm run build                # passed
 ```
 
 The directly verified runnable total across the legacy, lab, and e2e tiers
-is now 6,275 passing tests (4,162 legacy + 393 Node lab + 1,704 Vitest lab
+is now 6,279 passing tests (4,162 legacy + 393 Node lab + 1,704 Vitest lab
 + 20 e2e), before accounting for intentional overlap between tiers. The
 legacy tier alone increased from the previously reported 4,007 passing
 tests to 4,162 passing tests after the rapid retained-test alignment
