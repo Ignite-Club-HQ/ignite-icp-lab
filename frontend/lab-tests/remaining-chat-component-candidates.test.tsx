@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { createRef, forwardRef, useEffect, useRef, type ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -596,5 +596,79 @@ describe("ChatCachedMeasureRow", () => {
     const disconnects = observers.map((observer) => observer.disconnect);
     unmount();
     expect(disconnects.some((disconnect) => disconnect.mock.calls.length > 0)).toBe(true);
+  });
+});
+
+// Faithful local port of ChatVirtuosoChrome.tsx's separate header/footer/
+// scroller/item component identities (the shared VirtuosoChrome fixture
+// above is a different, coarser test double and is left untouched).
+type ChatVirtuosoContext = { topPadding: number; bottomPadding: number | string };
+
+function ChatVirtuosoHeader({ context }: { context?: ChatVirtuosoContext }) {
+  return <div style={{ height: context?.topPadding ?? 0, overflowAnchor: "none" }} />;
+}
+
+function ChatVirtuosoFooter({ context }: { context?: ChatVirtuosoContext }) {
+  return <div style={{ height: context?.bottomPadding ?? 0 }} />;
+}
+
+type VirtuosoDivProps = ComponentProps<"div"> & { context?: ChatVirtuosoContext };
+
+const ChatVirtuosoScroller = forwardRef<HTMLDivElement, VirtuosoDivProps>(
+  ({ context: _context, style, className, ...props }, ref) => (
+    <div
+      {...props}
+      ref={ref}
+      data-chat-scroll-lock="true"
+      data-chat-virtualized="true"
+      className={`${className ?? ""} scrollbar-hide`}
+      style={{ ...style, overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" }}
+    />
+  ),
+);
+
+const ChatVirtuosoItem = forwardRef<HTMLDivElement, VirtuosoDivProps>(
+  ({ context: _context, style, ...props }, ref) => (
+    <div {...props} ref={ref} data-chat-virtuoso-item="true" style={{ ...style, contain: "layout style" }} />
+  ),
+);
+
+describe("Virtuoso chat chrome", () => {
+  it("uses context padding without changing header/footer component identity", () => {
+    const { container, rerender } = render(
+      <ChatVirtuosoHeader context={{ topPadding: 24, bottomPadding: "12px" }} />,
+    );
+    const header = container.firstElementChild as HTMLElement;
+    expect(header.style.height).toBe("24px");
+    expect(header.style.overflowAnchor).toBe("none");
+    rerender(<ChatVirtuosoHeader context={{ topPadding: 40, bottomPadding: "12px" }} />);
+    expect(container.firstElementChild).toBe(header);
+    expect(header.style.height).toBe("40px");
+
+    rerender(<ChatVirtuosoFooter context={{ topPadding: 0, bottomPadding: 32 }} />);
+    expect((container.firstElementChild as HTMLElement).style.height).toBe("32px");
+  });
+
+  it("pins the native-safe scroller attributes and forwards its ref", () => {
+    const ref = createRef<HTMLDivElement>();
+    render(<ChatVirtuosoScroller ref={ref} role="log" className="custom" style={{ color: "red" }} />);
+    const scroller = screen.getByRole("log");
+    expect(ref.current).toBe(scroller);
+    expect(scroller.getAttribute("data-chat-scroll-lock")).toBe("true");
+    expect(scroller.getAttribute("data-chat-virtualized")).toBe("true");
+    expect(scroller.classList.contains("custom")).toBe(true);
+    expect(scroller.classList.contains("scrollbar-hide")).toBe(true);
+    expect((scroller as HTMLElement).style.color).toBe("red");
+    expect((scroller as HTMLElement).style.overscrollBehaviorY).toBe("contain");
+    expect((scroller as HTMLElement).style.WebkitOverflowScrolling).toBe("touch");
+  });
+
+  it("keeps layout containment without enabling paint containment", () => {
+    render(<ChatVirtuosoItem role="listitem" style={{ minHeight: 50 }} />);
+    const item = screen.getByRole("listitem") as HTMLElement;
+    expect(item.getAttribute("data-chat-virtuoso-item")).toBe("true");
+    expect(item.style.minHeight).toBe("50px");
+    expect(item.style.contain).toBe("layout style");
+    expect(item.style.contain).not.toContain("paint");
   });
 });
