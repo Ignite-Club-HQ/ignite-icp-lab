@@ -17,7 +17,7 @@ describe("seedClubFilterFromInvite", () => {
     expect(setTheme).toHaveBeenCalledWith("club-invited");
   });
 
-  it("never overrides an explicit club selection", () => {
+  it("never overwrites an explicit club choice", () => {
     localStorage.setItem("ignite-club-theme-user-1", "club-existing");
     const setTheme = vi.fn();
     expect(seedClubFilterFromInvite("user-1", "club-invited", setTheme)).toBe(false);

@@ -44,12 +44,12 @@ describe("recipientParser — supported formats", () => {
 });
 
 describe("recipientParser — hardened rejections", () => {
-  it("rejects `Alex <redacted@example.invalid extra>` (extra tokens in bracket body)", () => {
-    expect(parseRecipients("Alex <redacted@example.invalid extra>")).toEqual([]);
+  it("rejects `Alex <alex@example.test extra>` (extra tokens in bracket body)", () => {
+    expect(parseRecipients("Alex <alex@example.test extra>")).toEqual([]);
   });
 
-  it("rejects `Alex <redacted@example.invalid><redacted@example.invalid>` (multiple brackets)", () => {
-    expect(parseRecipients("Alex <redacted@example.invalid><redacted@example.invalid>")).toEqual([]);
+  it("rejects `Alex <alex@example.test><evil@example.test>` (multiple brackets)", () => {
+    expect(parseRecipients("Alex <alex@example.test><evil@example.test>")).toEqual([]);
   });
 
   it("rejects unmatched opening bracket", () => {

@@ -66,7 +66,7 @@ const folders = [
   { id: "f1", name: "Gallery Uploads", parent_id: null, club_id: CLUB, team_id: null, deleted_at: null },
 ];
 
-describe("vault recursive export repository", () => {
+describe("Vault export folder reads", () => {
   it("never queries public.photos", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: folders });
     await collectVaultExportContents({ folderId: null, clubId: CLUB, teamId: null }, "", [], client);
@@ -74,15 +74,16 @@ describe("vault recursive export repository", () => {
     expect(client.calls.some((c: any) => c.table === "vault_files")).toBe(true);
   });
 
-  it("partitions vault_files into photos and files and excludes soft-deleted rows", async () => {
+  it("uses vault_files as the only item source and excludes soft-deleted rows", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: [] });
     const res = await fetchVaultFolderContents({ folderId: null, clubId: CLUB, teamId: null }, "", client);
+    expect(client.calls.map((c: any) => c.table)).not.toContain("photos");
     expect(res.photos.map(p => p.id).sort()).toEqual(["img1", "img2"]);
     expect(res.files.map(f => f.id)).toEqual(["doc1"]);
     expect(res.photos.every(p => p.image_url && p.title)).toBe(true);
   });
 
-  it("club export scopes to exact club_id with team_id IS NULL", async () => {
+  it("uses exact club-level scope and excludes team rows", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: [] });
     await fetchVaultFolderContents({ folderId: null, clubId: CLUB, teamId: null }, "", client);
     const filters = client.calls[0].filters;
@@ -91,14 +92,14 @@ describe("vault recursive export repository", () => {
     expect(filters).toContain("deleted_at IS NULL");
   });
 
-  it("team export scopes to exact team_id", async () => {
+  it("uses exact team scope", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: [] });
     const res = await fetchVaultFolderContents({ folderId: null, clubId: CLUB, teamId: "team-1" }, "", client);
     expect(client.calls[0].filters).toContain("team_id=team-1");
     expect(res.photos.map(p => p.id)).toEqual(["team-row"]);
   });
 
-  it("nested export applies exact folder_id", async () => {
+  it("uses exact nested-folder scope and preserves its export path", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: [] });
     const res = await fetchVaultFolderContents({ folderId: "f1", clubId: CLUB, teamId: null }, "Gallery Uploads", client);
     expect(client.calls[0].filters).toContain("folder_id=f1");
@@ -106,7 +107,7 @@ describe("vault recursive export repository", () => {
     expect(res.photos[0].path).toBe("Gallery Uploads");
   });
 
-  it("exports a mirrored gallery image exactly once and preserves paths/breakdown", async () => {
+  it("exports a mirrored gallery item exactly once with a truthful breakdown", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: folders });
     const res = await collectVaultExportContents({ folderId: null, clubId: CLUB, teamId: null }, "", [], client);
     expect(res.photos.filter(p => p.id === "nested")).toHaveLength(1);
@@ -117,7 +118,7 @@ describe("vault recursive export repository", () => {
     ]);
   });
 
-  it("fails closed with zero queries when clubId and teamId are absent", async () => {
+  it("fails closed and performs zero queries without club or team scope", async () => {
     const client = makeClient({ vault_files: baseRows, vault_folders: folders });
     const res = await collectVaultExportContents({ folderId: null, clubId: null, teamId: null }, "", [], client);
     expect(res).toEqual({ photos: [], files: [], subfolders: [], folderBreakdown: [] });
