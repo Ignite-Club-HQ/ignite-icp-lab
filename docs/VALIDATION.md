@@ -1709,6 +1709,99 @@ npm run check:exported-tests # passed: 414 retained source files / 31 baselines
 npm run build                # passed
 ```
 
+## Final exported-test path reconciliation - 2026-09-17
+
+The authoritative, exhaustive source-to-evidence ledger is
+[`frontend/exported-test-mapping.json`](../frontend/exported-test-mapping.json).
+It contains one entry for every test source read directly from
+`docs/ignite-all-refactoring-icp-export.bundle` at
+`refs/heads/integration/all-refactoring-icp-export`
+(`7f3a86ba449d2e847843ea9a77ff7e9b76751019`). Each entry records the original
+bundle path, whether it is a directly retained runnable test, a local
+behavioral equivalent, or an irreducible boundary exclusion, and every local
+evidence file. The checker compares the manifest's exact path set with a
+temporary local checkout of the bundle; aggregate counts alone cannot pass
+the gate.
+
+The final path-level accounting is:
+
+| Inventory | Direct retained | Local equivalent | Irreducible boundary | Total |
+| --- | ---: | ---: | ---: | ---: |
+| Non-browser bundle tests | 412 | 174 | 0 | 586 |
+| Browser/native tests | 0 | 10 | 1 | 11 |
+| **All exported tests** | **412** | **184** | **1** | **597** |
+
+The 586 non-browser sources comprise 536 `src/` tests (20 Edge-oriented), 4
+archived sports tests, 35 integration/local-Supabase tests, 8 Supabase Edge
+Function tests, and 3 Supabase SQL tests. The frontend physically retains 434
+source tests: 433 match the bundle and one is current-only. Of the matching
+files, 412 run directly in the guarded legacy tier. The other 21 physically
+retained files are deliberately excluded by that tier because they inspect
+inert Edge, deployment, billing, migration, or native surfaces; the manifest
+therefore maps them to runnable local equivalents rather than misclassifying
+them as direct execution.
+
+The strict 103-path `src/` gap documented above is fully represented by local
+equivalents. The final 20-candidate table above covers the last source gap;
+the manifest expands that table and the preceding residual-batch bullets into
+one explicit row per original path. All 20 Edge-oriented `src/` tests are
+likewise accounted for: 7 absent paths and 13 retained-but-guarded paths map
+to the local Edge doubles, queue/worker tests, static production blockers,
+timer concurrency baseline, Vault policy tests, or notification audience
+baseline named in the manifest.
+
+External bundle sources have the following exact evidence families (the
+manifest lists each source separately):
+
+| Original source(s) | Local evidence |
+| --- | --- |
+| `archive/sports/components/basketball/basketballHelpers.test.ts`, `archive/sports/components/netball/netballHelpers.test.ts`, `archive/sports/hooks/useCourtSpectator.concurrency.test.tsx`, `archive/sports/hooks/useCourtSpectator.sessionLock.test.tsx` | `lab-tests/exported-archive-sports-local.test.tsx` exercises period-scoped substitutions, fair/position-compatible selection, atomic lineup transitions, and stable spectator-session locking across row replacement and competing coaches. |
+| `tests/integration/events.rls.test.ts` | `lab-tests/local-events-service.test.tsx` and `lab-tests/rls-parity-matrix.test.tsx` exercise member/admin event reads, administrator mutations, RSVP ownership, cross-club denial, and explicit exclusions. |
+| `tests/local-supabase/auth-lifecycle.test.ts`, `auth-recovery-mailpit.test.ts`, `auth-session-boundaries.test.ts` | `lab-tests/auth-page-export.test.tsx`, `account-linking.test.tsx`, and `edge-oriented-local-doubles.test.tsx` cover synthetic authentication validation, recovery non-disclosure/rate limiting, identity binding, revocation, and fail-closed sessions. |
+| `tests/local-supabase/child-guardian-rsvp-integrity.test.ts`, `club-links-rls.test.ts`, `club-wide-game-rsvp-journey.test.ts`, `database-invariants.test.ts`, `event-groups-rls.test.ts`, `role-surface-access-matrix.test.ts`, `roles-membership.rls.test.ts` | `lab-tests/rls-parity-matrix.test.tsx` plus the club-links, club-wide RSVP, and local-events baselines model the sanitized role/guardian/exclusion/cross-club policies. This is behavioral parity evidence, not execution of or proof for production PostgreSQL RLS. |
+| `tests/local-supabase/competition-lifecycle-journey.test.ts`, `entitlement-transition-journey.test.ts`, `entitlements.rls.test.ts`, `event-lifecycle-journey.test.ts`, `season-rollover-journey.test.ts` | The competition lifecycle/scheduler, entitlement transition, event lifecycle, event series deletion, competition join, and RLS matrix tests exercise provider-neutral lifecycle and authorization behavior with synthetic state. |
+| `tests/local-supabase/invitations.concurrent.test.ts`, `invitations.transaction.test.ts`, `membership-invitation-journey.test.ts`, `parent-invite-atomic-acceptance.test.ts` | The concurrent guardian invite, email dedupe, parent invite atomicity, bulk invitation, and membership mutation tests preserve deduplication, atomic acceptance, replay, role, and scope behavior. |
+| `tests/local-supabase/media-photo-deletion-rpc.test.ts`, `storage-edge-cases.test.ts`, `storage-permissions.test.ts`, `vault-mutation-safety.test.ts` | The media storage, Vault access, and Vault cache-contract baselines exercise bounded local objects, ownership, mutation confirmation, deletion, and cache completion. |
+| `tests/local-supabase/messaging-security-journey.test.ts`, `notification-lifecycle-journey.test.ts`, `pitch-timer-concurrency.test.ts`, `realtime-isolation.test.ts` | The messaging security, notification lifecycle, hybrid notification, and pitch timer concurrency tests preserve scope isolation, retries, idempotency, stale-write rejection, and account-safe cache behavior. |
+| `tests/local-supabase/edge-runtime-auth.test.ts`, `fixture-cleanup.test.ts`, `local-schema-safety.unit.test.ts`, `localBaselineRunner.unit.test.ts`, `localLoadHarness.unit.test.ts`, `safetyGuard.unit.test.ts`, `trancheBaselineManifest.unit.test.ts` | The exported Supabase boundary double, destructive-migration guard, production blocker, scaling test, and exported inventory manifest test replace the original local-Supabase harness without starting Supabase or executing schema/migration files. |
+| `supabase/functions/cleanup-old-notifications/batchDelete.test.ts` | `lab-tests/exported-supabase-boundaries-local.test.tsx` covers complete paged cleanup, bounded chunks, filters, no-progress/error handling, work caps, and idempotent reruns. |
+| `supabase/functions/process-event-notifications/event_notify_characterization_test.ts` | `lab-tests/exported-supabase-boundaries-local.test.tsx` and `imported-event-audience-baseline.test.tsx` cover exact scoped recipients, creator exclusion, role filters, targeted teams, guardians, and deduplication. |
+| `supabase/functions/process-event-notifications/push_delivery_queue_test.ts` | `lab-tests/phase-3-queue-production.test.tsx` and `external-worker-coordinator.test.tsx` cover claims, leases, retries, terminal states, idempotency, and recovery. |
+| `supabase/functions/process-push-delivery-queue/internal_auth_test.ts` | `lab-tests/exported-supabase-boundaries-local.test.tsx` and `external-worker-boundary.test.tsx` cover bearer parsing, missing configuration, caller rejection, secret non-disclosure, and explicit authorization. |
+| `supabase/functions/recover-account/index_test.ts`, `send-event-view-reminder/event-view-reminder_test.ts`, `verify-iap-receipt/verify_iap_receipt_test.ts` | `lab-tests/edge-oriented-local-doubles.test.tsx` covers strict recovery authorization/rate limits, escaped and protocol-checked reminders, and server-owned receipt verification with replay rejection. |
+| `supabase/functions/summarize-chat/nameProtection_test.ts` | `lab-tests/exported-supabase-boundaries-local.test.tsx` covers protected sponsor tokens, bounded whole-name pseudonyms, and safe fallback rehydration. |
+| `supabase/tests/enqueue_event_push_v2_ambiguity_test.sql`, `push_delivery_queue_test.sql`, `scoped_member_removal_test.sql` | Hybrid notification workflow, phase-3 queue, membership mutation, and RLS matrix tests model unambiguous enqueueing, queue ownership/state, and club-scoped membership removal without executing SQL. |
+| All 10 `e2e-baseline/*.spec.ts` and `e2e/*.spec.ts` sources | `e2e/exported-browser-contracts.spec.ts` provides one loopback browser contract per original source, backed where applicable by the mapped auth, RSVP, invite, event-series, Vault, and chat Vitest suites. It checks local-origin auth safety, duplicate/retry interaction, invite handoff, exact chat scope, responsive navigation, recurring-date validation, upload rejection, bottom pinning, prepend anchoring, and bounded fast-scroll rendering. |
+| `tests/ios-os/resume.e2e.mjs` | **Irreducible boundary exclusion.** It requires an iOS device or simulator, native lifecycle callbacks, and a signed native runtime, none of which exists in this isolated browser lab and native signing is prohibited. `lab-tests/capacitorUpgradeSafety.local.test.tsx` covers only the portable fail-closed lifecycle/build policy and is recorded as supporting evidence, not as native execution. |
+
+The local equivalent additions are
+`src/lab/exportedBackendLocalDoubles.ts`,
+`src/lab/archivedSportsLocalDoubles.ts`,
+`lab-tests/exported-supabase-boundaries-local.test.tsx`,
+`lab-tests/exported-archive-sports-local.test.tsx`, and
+`e2e/exported-browser-contracts.spec.ts`. They are synthetic and
+deterministic, remain outside `frontend/lab-runtime-files.json`, and never
+load exported Edge Functions, SQL, migrations, production credentials, or a
+Supabase endpoint.
+
+`frontend/scripts/check-exported-test-inventory.mjs` now enforces:
+
+- the exact bundle ref and commit;
+- exactly 586 non-browser sources, 536 `src/` sources, 20 Edge-oriented
+  `src/` sources, and 11 browser/native sources;
+- exactly 434 physical source tests, 123 lab-test files, 39 translated
+  `imported-*` baselines, and 2 loopback Playwright specs;
+- exact one-to-one source coverage by the 597-entry manifest;
+- exactly 412 direct-retained, 184 local-equivalent, and 1
+  irreducible-boundary disposition;
+- existence of every mapped evidence target and a concrete reason for every
+  irreducible exclusion.
+
+These mappings prove complete local accounting and executable behavioral
+coverage within the lab boundary. They do not prove production Supabase RLS
+parity, real Edge runtime behavior, external delivery, native lifecycle
+behavior, or production readiness.
+
 The inventory checker now requires at least 414 retained source test files and
 31 translated hybrid baselines. The browser coverage uses only the loopback Vite
 server and verifies that ICP and hybrid modes remain fail-closed with no
