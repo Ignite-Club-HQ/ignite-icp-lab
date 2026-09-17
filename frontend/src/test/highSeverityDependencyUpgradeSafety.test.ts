@@ -221,3 +221,80 @@ describe("high severity dependency upgrade safety", () => {
     expect(load(dump(value))).toEqual(value);
   });
 });
+
+describe("high-severity dependency compatibility", () => {
+  it("round-trips the fixture workbook values used by Ignite imports and templates", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Fixtures");
+    sheet.addRow(["title", "date", "time", "opponent", "address", "description", "reminder_hours"]);
+    sheet.addRow([
+      "U10 - Round 1 vs Eagles",
+      new Date("2027-03-06T00:00:00.000Z"),
+      "10:00",
+      "Eagles FC",
+      "123 Sports Ground Rd",
+      "Home game",
+      24,
+    ]);
+    sheet.getCell("H1").value = "double_reminder";
+    sheet.getCell("H2").value = { formula: "G2*2", result: 48 };
+
+    const output = await workbook.xlsx.writeBuffer();
+    expect(output.byteLength).toBeGreaterThan(1_000);
+
+    const imported = new ExcelJS.Workbook();
+    await imported.xlsx.load(output);
+    const importedSheet = imported.getWorksheet("Fixtures");
+    expect(importedSheet).toBeDefined();
+    expect(importedSheet!.getCell("A2").value).toBe("U10 - Round 1 vs Eagles");
+    expect(importedSheet!.getCell("F2").value).toBe("Home game");
+    expect(importedSheet!.getCell("G2").value).toBe(24);
+    expect(importedSheet!.getCell("H2").value).toMatchObject({ formula: "G2*2", result: 48 });
+    expect(importedSheet!.getCell("B2").value).toBeInstanceOf(Date);
+  });
+
+  it("keeps ExcelJS on the expected tmp and uuid dependency boundary", () => {
+    const excelEntry = lock.packages?.["node_modules/exceljs"];
+    expect(excelEntry?.version).toBe("4.4.0");
+    expect(excelEntry?.dependencies).toMatchObject({ tmp: "^0.2.0", uuid: "^8.3.0" });
+  });
+
+  it("round-trips circular ESLint-style cache data with flatted", () => {
+    const shared = { file: "src/hooks/useAuth.tsx", status: "clean" };
+    const cache: Record<string, unknown> = { version: 1, entries: [shared, shared] };
+    cache.self = cache;
+
+    const decoded = parseFlatted(stringifyFlatted(cache)) as typeof cache;
+    expect(decoded.self).toBe(decoded);
+    expect((decoded.entries as unknown[])[0]).toBe((decoded.entries as unknown[])[1]);
+    expect((decoded.entries as Array<typeof shared>)[0]).toEqual(shared);
+  });
+
+  it("parses and serializes ESLint-style YAML merges without changing values", () => {
+    const source = [
+      "defaults: &defaults",
+      "  severity: warning",
+      "  enabled: true",
+      "rules:",
+      "  no-unsafe-input:",
+      "    <<: *defaults",
+      "    paths:",
+      "      - src",
+      "      - supabase/functions",
+    ].join("\n");
+
+    const parsed = load(source) as any;
+    expect(parsed.rules["no-unsafe-input"]).toEqual({
+      severity: "warning",
+      enabled: true,
+      paths: ["src", "supabase/functions"],
+    });
+    expect(load(dump(parsed))).toEqual(parsed);
+  });
+});
+
+describe("high-severity dependency acceptance gate", () => {
+  it("does not downgrade ExcelJS while fixing its transitive tmp dependency", () => {
+    expect(cmp(lock.packages?.["node_modules/exceljs"]?.version, "4.4.0")).toBeGreaterThanOrEqual(0);
+  });
+});
