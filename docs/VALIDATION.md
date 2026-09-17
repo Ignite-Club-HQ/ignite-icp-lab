@@ -2514,3 +2514,108 @@ npm run check:isolation      # passed
 npm run typecheck:lab        # passed
 npm run check:exported-tests # passed: 434 / 143 / 39 / 3 exact inventory
 ```
+
+## RLS policy archaeology and case-level closure: role-surface-access-matrix and event-groups-rls - 2026-09-18
+
+The line-1761 table above records `role-surface-access-matrix.test.ts` and
+`event-groups-rls.test.ts` only as generally "modeled" by
+`rls-parity-matrix.test.tsx`, a coarse, file-level claim. This pass
+reconciled both files at the exact bundle-effective-case level by
+reconstructing the final-state Postgres RLS policy and helper-function text
+each file's assertions actually depend on, using a chronological
+`CREATE POLICY`/`DROP POLICY`/`CREATE OR REPLACE FUNCTION` simulation
+walked across every exported migration file referencing the relevant
+tables (`club_messages`, `team_messages`, `events`, `photos`,
+`event_groups`, `event_group_players`). This superseding, per-file
+breakdown replaces the earlier coarse claim for these two sources; the
+other five files in that table's row are unaffected.
+
+**`has_role(_user_id, _role, _club_id, _team_id)` semantics** were not
+documented anywhere in the exported corpus (its own `CREATE FUNCTION` body
+is absent), so its behavior was reverse-engineered from the two
+discriminating branches of the `events` INSERT policy (club-wide game
+creation vs. exact-team event creation for `team_admin`/`coach` actors).
+Neither a fully-wildcard-when-NULL nor a fully-exact-match model on both
+dimensions satisfied both branches; the model that does is asymmetric:
+
+```
+has_role(uid, role, club_id, team_id) :=
+  EXISTS row in user_roles WHERE
+    user_id = uid AND role = role
+    AND (club_id IS NULL OR row.club_id = club_id)   -- club_id: wildcard when NULL
+    AND row.team_id = team_id                         -- team_id: always exact match, including NULL-vs-NULL
+```
+
+This reconstructed model was cross-validated against all 14 `events`
+matrix cases, all 7 `team_messages` matrix cases, and all 7 media-gallery
+publish cases in the bundle with zero contradictions.
+
+Separately, `is_team_member`, `is_club_member`, `can_publish_club_wide_photo`,
+`can_manage_event_groups`, and `event_group_player_scope_ok` all turned out
+to have complete, self-contained final definitions in the migration corpus
+(no `has_role` dependency at all for the latter three), found via a
+broader multi-line-safe search than the prior pass used.
+
+### `role-surface-access-matrix.test.ts` (37 bundle cases)
+
+- **29 cases ported** (28 full + 1 partial) in
+  `src/lab/rls/roleSurfaceAccessModel.ts` +
+  `lab-tests/roleSurfaceAccessMatrix.local.test.tsx`: the 4x7 role
+  matrices for `team_messages` INSERT, club-wide game creation, exact-team
+  event creation, and club-wide Media Gallery photo publishing, plus a
+  partial port of the cross-club-outsider-denial case (missing only its
+  `club_messages` sub-assertion).
+- **8 cases remain an irreducible boundary**: `club_messages` never
+  received an explicit SELECT policy anywhere in the exported corpus
+  (genuinely bootstrap/pre-export, same root cause as the missing
+  `has_role` definition), and its extracted INSERT policy text
+  (`has_role(app_admin)`/`has_role(club_admin)`/`has_role(committee_member)`/
+  a team-membership `EXISTS` join) has no branch admitting a bare
+  `league_admin` role under any `has_role` model tested, yet the bundle
+  expects `league_admin` to succeed unconditionally alongside every other
+  role - a confirmed contradiction, not merely an absent definition. This
+  blocks 7 `club_messages` send/read cases plus the `club_messages`
+  portion of the cross-club outsider case.
+- `exported-test-mapping.json`'s disposition for this source moved from a
+  general `local-equivalent` claim to `irreducible-boundary` with the
+  precise reason above, since 8/37 cases are genuinely unrepresentable.
+
+### `event-groups-rls.test.ts` (22 bundle cases)
+
+- **22/22 cases ported**, zero boundary cases: every helper and RPC this
+  file's assertions depend on (`can_manage_event_groups`,
+  `event_group_player_scope_ok`, `move_event_group_player`,
+  `swap_event_group_players`, `replace_event_groups`, and the
+  `UNIQUE(event_id, player_id)` constraint + defense-in-depth trigger
+  raising Postgres error code `23505`) has a complete, self-contained
+  definition, with no `has_role` dependency anywhere in this subsystem.
+  `src/lab/rls/eventGroupsAccessModel.ts` +
+  `lab-tests/eventGroupsRls.local.test.tsx` model group/assignment CRUD
+  authorization, cross-club/cross-league scope enforcement, the unique
+  per-event-per-player invariant, and the move/swap/replace RPCs'
+  invoker-rights atomicity (all-or-nothing rollback on any mid-sequence
+  RLS or validation failure), since those RPCs carry no embedded auth
+  logic of their own and rely entirely on the same table RLS re-checked
+  per statement.
+
+### Updated inventory
+
+- `frontend/lab-tests`: **146** files (was 144).
+- Path-level mapping: 412 direct retained; **183** local equivalents;
+  **2** irreducible boundary exclusions (`tests/ios-os/resume.e2e.mjs`,
+  `tests/local-supabase/role-surface-access-matrix.test.ts`).
+
+Validation for this pass:
+
+```sh
+cd frontend
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/roleSurfaceAccessMatrix.local.test.tsx \
+  lab-tests/eventGroupsRls.local.test.tsx
+# passed: 2 files / 51 tests (29 + 22)
+npx vitest run --config vitest.lab.config.mjs --configLoader runner
+# passed: 140 files / 1,340 tests, no regressions
+npm run typecheck:lab        # passed
+npm run check:exported-tests # passed: 434 / 146 / 39 / 3 exact inventory
+node --test lab-tests/exported-inventory-manifest.test.mjs # passed
+```
