@@ -1,5 +1,174 @@
 # Validation of the lab source transfer
 
+## Step 2 Rust/Motoko build foundations — 2026-09-16
+
+The Step 2 source layout is now canonical: product domains use the Motoko
+implementations directly under `backend/<domain>`, with no duplicate Rust
+product-domain crates or `_motoko` deployment aliases.
+
+Step 3 control-plane evidence:
+
+- Placement registry and shard-router Rust workspace metadata validates after
+  removing the obsolete product-domain comparison crates.
+- Placement decisions now fail closed when an assigned target is missing,
+  disabled, or unhealthy; focused unit coverage was added for the target
+  availability invariant.
+- `npm run check:parity` and `npm run check:parity-evidence` pass.
+- Placement, placement-admin, and control-plane federation probes pass
+  syntax validation and cover operator authorization, country/residency policy,
+  target health, per-site disablement, read-only placement, domain routes,
+  optimistic revisions, and migration fences.
+- Live control-plane execution remains environment-blocked until the managed
+  PocketIC launcher can start successfully.
+- The focused placement Rust test was attempted twice, including a
+  single-job retry, but the constrained runner terminated `rustc` with
+  `SIGTERM` while compiling `syn`; this is an environment limitation rather
+  than a reported source failure.
+
+Step 4 identity and access progress:
+
+- The canonical `identity_access` canister keeps stable application account
+  anchors separate from principals and implements authenticated linking,
+  revocation, optimistic account versions, guardian/family links, scoped
+  roles and exclusions, federated external-site bindings, consent checks,
+  field-level access checks, and account erasure.
+- Role grants and exclusions now reject unknown account IDs, and duplicate
+  exclusions are rejected to keep authorization state deterministic.
+- `test-identity-access.mjs` passes syntax validation and covers positive and
+  negative account, club, team, guardian, exclusion, multi-site, linking,
+  revocation, consent, erasure, and anonymous-access cases.
+- Live identity/access execution remains blocked by the same disposable
+  PocketIC launcher `IncompleteMessage` failure. The focused Rust test was
+  attempted under a single build job but was externally terminated with
+  `SIGTERM` while compiling `syn`; no source diagnostic was reported.
+
+Steps 5-11 domain and privacy progress:
+
+- The canonical Motoko product domains and worker probes are present for club,
+  events, competition, messaging, media metadata, notification, timer,
+  field-level privacy, and secret workload boundaries.
+- Event listing now requires an authenticated caller and filters results to
+  the caller's creator/club/team authorization scope rather than exposing all
+  events through a public query.
+- Competition registration now verifies the team belongs to the competition's
+  club, rejects duplicate registrations, and requires join tokens to be
+  future-expiring and unexpired at claim time.
+- Messaging unauthorized list reads now fail explicitly instead of returning a
+  success-shaped empty list.
+- All remaining dedicated domain, worker, privacy, and external-boundary
+  probe scripts pass Node syntax validation. The modified product-domain
+  canisters pass `mops check --locked --no-lint`; live canister execution
+  remains blocked by the PocketIC launcher limitation.
+
+Follow-up fail-closed parity fixes — 2026-09-16:
+
+- Governor checks in the canonical Motoko product domains now reject the
+  anonymous sentinel principal even before initialization; this prevents
+  pre-initialization anonymous callers from satisfying governor-only
+  operations.
+- Club migration and identity snapshot exports now require the governor.
+- The events domain snapshot export now binds the caller and requires the
+  governor. The product-domain probe includes an outsider negative assertion
+  for this export.
+- `mops check --locked --no-lint` passed for `club_domain`, `events_domain`,
+  `competition_domain`, `media_metadata`, and `messaging_domain`.
+
+Privacy and secret-boundary hardening:
+
+- `pii_access_control` now restricts encrypted PII reads and audit queries to
+  the governor or owning domain, and explicitly rejects the anonymous
+  governor sentinel. PII registration also requires the caller to be the
+  owning domain or governor and rejects an anonymous domain owner.
+- `secret_workload_identity` workload enumeration and audit queries now
+  require the governor and fail explicitly for unauthorized callers.
+- Unlocked `mops check --no-lint` passed for both hardened canisters. Locked
+  checks are currently unavailable for these legacy directories because their
+  local `mops.lock` files are absent or stale; no dependency change was
+  introduced by the source edits.
+
+Frontend routing validation:
+
+- The provider-neutral backend router now rejects blocked placement states in
+  addition to disabled backends and disallowed countries.
+- `npm run typecheck:lab` passes after replacing a stale generated `State`
+  binding import with a type derived from the active Candid service contract.
+- Isolation, topology, Candid drift, route classification, parity, and
+  parity-evidence gates pass. The Node portion of `npm test` passes; the
+  Vitest portion is externally terminated by the constrained runner.
+
+Final autonomous validation:
+
+- The PII registration boundary now rejects anonymous domain owners and
+  requires the caller to be the declared domain owner or governor, preventing
+  unauthorized overwrite/impersonation of protected records.
+- `mops check --no-lint` passes for `pii_access_control`.
+- `npm run typecheck:lab` passes.
+- Isolation, topology, Candid drift, route classification, parity, and
+  parity-evidence checks pass.
+- All frontend probe scripts pass syntax validation and the Node lab test
+  suite passes all 9 tests.
+- The complete frontend lab suite passes: 65 Vitest files and 407 tests,
+  plus the 9 Node lab tests.
+- `npm run build` passes for the isolated lab frontend. Existing dependency,
+  Browserslist, and Tailwind warnings remain non-blocking.
+
+Club identity lifecycle:
+
+- Replaced the canonical club-domain identity placeholders with persistent
+  account lookup, authenticated `whoami`, expiring link challenges,
+  optimistic-version link acceptance, duplicate-identity rejection, and
+  versioned identity revocation.
+- `mops check --no-lint` passes for the club domain. Existing warnings are
+  limited to redundant `persistent` syntax and unused legacy fields.
+
+Remaining domain-boundary hardening completed in this pass:
+
+- Events RSVP and attendance writes now reject empty or oversized account
+  metadata instead of persisting malformed identity references.
+- Media asset and capability expiry must be later than the current clock,
+  and expired/deleted assets are excluded from normal reads and interactions.
+- Secret workload verification now requires the authenticated caller to match
+  the registered workload principal, requires a non-empty nonce, and rejects
+  nonce reuse with an explicit denial audit entry.
+- Notification enqueue now rejects an existing notification ID when its
+  idempotency key differs.
+- Focused `mops check --no-lint` passes for events, media metadata, secret
+  workload identity, and notification queue.
+- The live product-domain probe was not run because the disposable PocketIC
+  launcher remains environment-blocked; no remote or production target was
+  contacted.
+
+The Step 2 build-foundation gate was verified in the isolated worktree:
+
+- `cargo test --locked`: passed all Rust unit and integration tests.
+- `cargo build --locked --release --target wasm32-unknown-unknown`: passed.
+- `mops check --fix`: passed all 9 configured Motoko canisters. The
+  `club_domain` alias now shares the `club_domain` migration chain and
+  check limit, which is required for its persistent state declarations.
+- `mops build`: the canonical notification canister built successfully
+  directly; repeated full-workspace build attempts were externally terminated
+  by the constrained runner after starting the first canisters. The same
+  Motoko sources and migration chains pass `mops check --fix`.
+- `cd frontend && npm run typecheck:lab`: passed.
+- Step 1 topology, Candid drift, isolation, and route-classification checks
+  passed.
+
+The local deployment manifest uses logical domain names for the single
+deployed implementation of each domain (`club_domain`, `events_domain`,
+`competition_domain`, `messaging_domain`, `media_metadata`, and
+`notification_queue`). Rust crates with the same domain concepts remain
+comparison/reference implementations and are not included as additional
+canisters in `icp.yaml`. The previous `club_domain`/`club_domain`
+duplicate Mops entries were consolidated into one `club_domain` entry.
+
+The disposable mixed-topology deployment could not start in this environment:
+the local PocketIC launcher exited while creating its instance with an
+`IncompleteMessage` response from its loopback service. No remote target or
+production endpoint was contacted. The frontend production bundle was also
+terminated by the shared environment during Vite transformation after
+typechecking passed; this was an environment termination, not a reported
+compile error, and should be retried in an unconstrained runner.
+
 Validated in a Bubblewrap sandbox with a separate network namespace, cleared environment, no production source/home credentials mounted, writable lab files and read-only installed dependencies. The host production repository was read only to prepare the sanitized copy and compare source hashes.
 
 - Isolation checker passed: active source allowlist, blocked integration imports, disabled clients, restrictive CSP, fixed loopback ICP target and no runtime environment configuration.
@@ -240,7 +409,7 @@ Topology, parity-matrix, and parity-evidence checks all pass: 11 logical roles, 
 
 ## Motoko media metadata authorization slice — 2026-09-13
 
-Restricted `media_metadata_motoko.get_asset` to the asset owner or governor, returning no metadata to unrelated callers. Added the owner-positive and outsider-negative checks to `frontend/scripts/test-product-motoko-canisters.mjs`. `mops check` for the canister, both affected probe syntax checks, the dedicated lab suite (22 files, 63 tests), topology, parity, parity-evidence, isolation, lab typecheck, and `git diff --check` passed. The live Motoko product probe was not run because this session had no four-canister disposable ID configuration. This slice does not establish production media RLS parity.
+Restricted `media_metadata.get_asset` to the asset owner or governor, returning no metadata to unrelated callers. Added the owner-positive and outsider-negative checks to `frontend/scripts/test-product-motoko-canisters.mjs`. `mops check` for the canister, both affected probe syntax checks, the dedicated lab suite (22 files, 63 tests), topology, parity, parity-evidence, isolation, lab typecheck, and `git diff --check` passed. The live Motoko product probe was not run because this session had no four-canister disposable ID configuration. This slice does not establish production media RLS parity.
 
 ## Identity erasure parity slice - 2026-09-13
 
@@ -1141,6 +1310,130 @@ Focused validation:
 - `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
   third-party `"use client"` directive warnings.
 
+  ## Authoritative exported-test inventory and runnable tiers - 2026-09-17
+
+  The authoritative test source is the local Git bundle
+  `docs/ignite-all-refactoring-icp-export.bundle`, ref
+  `refs/heads/integration/all-refactoring-icp-export`, commit
+  `7f3a86ba449d2e847843ea9a77ff7e9b76751019`. Its non-browser inventory is
+  exactly **586** test/spec source files:
+
+  | Source group | Files | Lab disposition |
+  | --- | ---: | --- |
+  | `src/` frontend Vitest sources | 536 | 180 retained files run unchanged under the guarded legacy Vitest tier; selected behavior is also translated into 31 isolated hybrid baselines. |
+  | `archive/` | 4 | Excluded: archived sports modules are outside the current source/runtime and have no local provider boundary. |
+  | `tests/integration/` + `tests/local-supabase/` | 35 | Excluded: requires the original Supabase schema, RLS engine, and credentials. Re-expressed behavior must use the synthetic placement, local Supabase-compatible, and ICP provider adapters instead. |
+  | `supabase/functions/` | 8 | Excluded: Deno Edge Function code is inert reference material; worker behavior is covered through local queue/secret-boundary tests. |
+  | `supabase/tests/` | 3 | Excluded: SQL tests would execute the inert Supabase backend/migrations. |
+
+  The remaining **356** `src/` sources are not directly runnable unchanged:
+  20 are Edge Function-oriented tests and 336 require absent production
+  routes, migrations, integrations, native/payment facilities, or source
+  modules. A controlled import of the 328 missing non-Edge source tests was
+  run under the hard network guard and produced 557 failures, including
+  missing inert migration/workflow files and incompatible unported UI
+  assumptions. The files were removed again; no production shim, credential,
+  network client, or Supabase fallback was added to make those failures pass.
+
+  Eleven browser/native files are outside the 586 count: 10 Playwright browser
+  specifications and one iOS OS-resume harness. The lab's
+  `playwright.config.ts` only runs the isolated hybrid browser spec on
+  loopback; the original browser/native specifications remain excluded because
+  they assume the full original application, local Supabase, or native tooling.
+
+  Runnable test tiers are now explicit:
+
+  ```sh
+  cd frontend
+  npm run test                 # isolated local-provider and ICP adapter suite
+  npm run test:legacy          # retained source tests with a hard real-network guard
+  npm run test:e2e             # isolated loopback hybrid browser coverage
+  npm run check:exported-tests # verifies bundle ref and inventory prerequisites
+  npm run test:exported        # active + legacy tiers and the authoritative inventory check
+  ```
+
+  `check-exported-test-inventory.mjs` verifies the exact bundle ref/commit,
+  the Vitest and Playwright configurations, and the retained source/translated
+  baseline floors. It is an accounting guard, not a claim of Supabase RLS
+  parity or production readiness. Directly runnable tests use only synthetic
+  identities, the fail-closed local Supabase-compatible adapter, or local ICP
+  actors; no exported test is permitted to contact a production endpoint.
+
+## Exported frontend test-porting phase 1, batch 1 - 2026-09-17
+
+The authoritative bundle comparison was regenerated from
+`docs/ignite-all-refactoring-icp-export.bundle` at
+`refs/heads/integration/all-refactoring-icp-export`
+(`7f3a86ba449d2e847843ea9a77ff7e9b76751019`). It now finds 536 exported
+`src/` test/spec files, 222 retained source test files in this lab, and 335
+currently absent bundle test files before this batch. Of that gap, 20 are
+Edge Function-oriented and remain deferred because their source is inert
+reference text; the non-Edge phase-1 gap is therefore 315 files.
+
+This batch processed 21 non-Edge files:
+
+- **20 ported and passing** source test files (185 tests), raising the
+  retained source-test inventory from 202 to **222** files. The guarded legacy
+  suite executes 200 files after its explicit Edge Function and production-only
+  exclusions. The batch includes
+  deterministic chat virtualization and scheduled-upload coverage, pitch
+  planner analysis/admission/cadence validation, and local cache, scheduling,
+  RSVP, search, unread-count, entitlement, and upload-error utilities.
+- Supabase-shaped tests use `createMockSupabaseClient` and only synthetic
+  user IDs, responses, storage paths, and `example.invalid` URLs. No test
+  contacts Supabase or any other non-loopback service; the legacy setup's hard
+  network guard remains active. No runtime allowlist entry was added.
+- **1 excluded:** `src/lib/chatMessageReconciliation.characterization.test.ts`.
+  Its six assertions require source-order contracts across six full production
+  chat page implementations. Those pages are not a self-contained local
+  provider boundary and their expected query-envelope implementation is absent
+  from the sanitized lab sources. Recreating it would require porting the
+  unported production chat-routing/realtime subsystem, so it remains excluded
+  rather than weakening the assertions or adding a production shim.
+
+The remaining phase-1 non-Edge work is **294 files** (315 minus 20 ported and
+one explicit exclusion), plus the separately deferred 20 Edge Function tests.
+This accounting is not a claim of production Supabase RLS parity or production
+readiness.
+
+Focused batch validation passed:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/components/chat/chatRowHeightEstimator.test.ts \
+  src/components/chat/chatRowPreviewEstimate.test.ts \
+  src/components/chat/chatRowSignature.test.ts \
+  src/components/chat/chatVirtuosoEnvironment.test.ts \
+  src/components/chat/scheduledMessageUpload.test.ts \
+  src/components/pitch/planner/analysis.test.ts \
+  src/components/pitch/planner/diagnostics.test.ts \
+  src/components/pitch/planner/existingPlan.test.ts \
+  src/components/pitch/planner/standardMode.test.ts \
+  src/components/pitch/planner/validation.test.ts \
+  src/lib/competitionScheduler.test.ts \
+  src/lib/matchResultFormat.test.ts \
+  src/lib/messageCache.characterization.test.ts \
+  src/lib/messageQueue.test.ts \
+  src/lib/messagesPageCache.characterization.test.ts \
+  src/lib/rsvpAudience.test.ts \
+  src/lib/searchChatHistory.test.ts \
+  src/lib/unreadMessageCounts.test.ts \
+  src/lib/uploadErrorUtils.test.ts \
+  src/lib/proShareGate.test.ts
+# 20 files / 185 tests passed
+```
+
+Aggregate validation also passed:
+
+```sh
+cd frontend
+npm run test:legacy  # 200 files / 2,186 tests passed; 2 existing skipped tests
+npm run typecheck:lab
+npm run check:isolation
+npm run check:exported-tests
+```
+
 ## Imported hybrid event supporting reads across club placements — 2026-09-16
 
 Ported `src/features/events/eventSupportingReadsRepository.ts` from the export bundle
@@ -1263,3 +1556,107 @@ Focused validation:
   already-tested pure helpers rather than adding new ones).
 - `npm run build` passed with the existing Browserslist, Tailwind arbitrary-class, and
   third-party `"use client"` directive warnings.
+
+## Exported frontend test-porting phase 1 reconciliation - 2026-09-17
+
+This entry supersedes the earlier batch-1 inventory paragraph above. The exact
+comparison was regenerated against the local authoritative bundle
+`docs/ignite-all-refactoring-icp-export.bundle`, ref
+`refs/heads/integration/all-refactoring-icp-export`, commit
+`7f3a86ba449d2e847843ea9a77ff7e9b76751019`, normalizing bundle `src/` paths to
+`frontend/src/` paths. The bundle contains 536 `src/` test/spec files, including
+20 `src/edge-functions/` tests. Therefore the non-Edge source inventory is 516.
+The final lab contains 396 source test/spec files, 13 of which are Edge-oriented,
+for 383 retained non-Edge files. The normalized raw non-Edge gap is **134 bundle
+files**; one current retained non-Edge test is current-only and is not a bundle
+match. The lab also contains 72 files under `frontend/lab-tests`.
+
+The retained batches were:
+
+| Batch | Ported files | Passing tests | Result |
+| --- | ---: | ---: | --- |
+| 1 | 25 | 190 | Passed focused run |
+| 2 | 26 | 210 | Passed focused run |
+| 3 | 26 | 225 | Passed focused run |
+| 4 | 22 | 170 | Passed focused run |
+| 5 | 13 | 193 | Passed focused run |
+| 6 | 19 | 164 | Passed focused run |
+| 7 | 20 | 153 | Passed focused run |
+| 8 | 20 | 168 | Passed focused run |
+| 9 | 4 | 14 | Passed focused guard-only run |
+| **Aggregate** | **175 selections / 174 new bundle files** | **1,487** | **All focused runs passed** |
+
+The one-selection difference is a duplicate candidate in the batch manifests;
+file inventory was counted from the final normalized filesystem, not from stale
+candidate lists. The ported coverage is limited to synthetic, deterministic
+utilities, policies, repositories, hooks, components, and static safety guards.
+Supabase-shaped tests use `createMockSupabaseClient`; provider-shaped tests use
+local actor/provider seams. No runtime allowlist entry was added, no production
+endpoint or credential was used, and no backend source was executed.
+
+Explicit exclusions from the nine batches remain outside the runnable source
+inventory:
+
+- `src/lib/chatMessageReconciliation.characterization.test.ts`: requires query
+  and ordering contracts across six absent production chat pages.
+- `src/features/events/eventSubmissionGate.test.ts`: asserts static wiring that
+  is absent from the current `CreateEventPage.tsx`; recreating the page refactor
+  would not be a bounded test port.
+- `src/features/membership/bulkInvitationWorkflow.test.ts`: requires the absent
+  large `membershipMutationService` integration.
+- `src/features/notifications/cacheContract.guard.test.ts`: requires the absent
+  `useNotificationRealtime.ts` subsystem.
+- Eight chat characterization tests requiring absent page-level chat refactors:
+  `src/lib/chatComposerEdit.characterization.test.ts`,
+  `src/lib/chatComposerIntent.characterization.test.ts`,
+  `src/lib/chatComposerSubmission.characterization.test.ts`,
+  `src/lib/chatScheduleIntent.characterization.test.ts`,
+  `src/features/messaging/scopes/chatScopeCapabilities.characterization.test.ts`,
+  `src/features/messaging/thread/chatMessageOrdering.characterization.test.ts`,
+  `src/features/messaging/thread/chatThreadCacheHydration.characterization.test.ts`,
+  and `src/features/messaging/thread/chatThreadQueryData.characterization.test.ts`.
+- `src/components/chat/ChatHeaderShell.test.tsx` and
+  `src/components/layout/DesktopMessagesRail.test.ts`: current component source
+  drifted from the exported contracts; porting would require a broad absent chat
+  layout refactor rather than a provider-neutral test seam.
+- The 17 static guard/characterization files removed in batch 9 require absent
+  migrations, deployment/promotion workflows, native Capacitor configuration,
+  dependency-governance files, production-only scripts, or large source
+  refactors: `src/test/messagingPolicyParity.guard.test.ts`,
+  `src/test/remainingDependencySecuritySafety.test.ts`,
+  `src/test/pitchBoardEntryPoints.guard.test.ts`,
+  `src/test/teamRecreationChatIsolation.guard.test.ts`,
+  `src/test/capacitorUpgradeSafety.test.ts`,
+  `src/test/deletedTeamPickerIsolation.guard.test.ts`,
+  `src/test/vendorRepositoryGovernance.guard.test.ts`,
+  `src/test/chatPageOrchestration.characterization.test.ts`,
+  `src/test/xmldomSecurityUpgradeSafety.test.ts`,
+  `src/test/pushDeliveryDeploymentSafety.test.ts`,
+  `src/test/legalReacceptanceSecurity.guard.test.ts`,
+  `src/test/destructiveMigrationGuard.test.ts`,
+  `src/test/notificationRealtimeOwnership.guard.test.ts`,
+  `src/test/chatSurfaceNavigationParity.characterization.test.ts`,
+  `src/test/viteUpgradeSafety.test.ts`,
+  `src/test/promotionWorkflowEventIsolation.guard.test.ts`, and
+  `src/test/membershipInviteBoundary.guard.test.ts`.
+
+These exclusions are accounting decisions, not weakened assertions. The
+unported source remains disconnected from the runtime; production migrations,
+Edge Functions, native/payment integrations, deployment workflows, and the
+fail-closed Supabase client were not recreated or enabled.
+
+Final validation for this reconciliation:
+
+```sh
+cd frontend
+npm run test:legacy
+npm run check:exported-tests
+npm run typecheck:lab
+npm run check:isolation
+git diff --check
+```
+
+The commands above were rerun for this final inventory after the batch work; their
+actual pass/fail output is recorded with the local porting commit and final task
+report. The inventory checker now requires at least 396 retained source test
+files and 31 translated baselines.
