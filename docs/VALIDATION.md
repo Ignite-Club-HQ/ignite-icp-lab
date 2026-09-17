@@ -1649,14 +1649,13 @@ Final validation for this reconciliation:
 
 ```sh
 cd frontend
-npm run test:legacy
-npm run check:exported-tests
-npm run typecheck:lab
-npm run check:isolation
-git diff --check
+npm run test:legacy          # passed: 374 files / 3,726 tests; 2 skipped
+npm run check:exported-tests  # passed: 396 retained source files / 31 baselines
+npm run typecheck:lab        # passed
+npm run check:isolation       # passed
+git diff --check              # passed
 ```
 
-The commands above were rerun for this final inventory after the batch work; their
-actual pass/fail output is recorded with the local porting commit and final task
-report. The inventory checker now requires at least 396 retained source test
-files and 31 translated baselines.
+The full legacy run completed after all nine batches under the hard real-network
+guard. The inventory checker now requires at least 396 retained source test files
+and 31 translated baselines.
