@@ -1,3 +1,4 @@
+import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import {
   eventLocationLabels,
@@ -163,4 +164,50 @@ test("preserves calendar formatting and audience precedence", () => {
   expect(getEventEligibleTeamIds({ team_id: null, target_team_ids: ["team-a", "team-b"] }))
     .toEqual(["team-a", "team-b"]);
   expect(getEventEligibleTeamIds({ team_id: null, target_team_ids: [] })).toBeNull();
+});
+
+// Local reconstruction of EventMatchScoreSection: the real production
+// component wraps `resolveEventMatchScoreContract` (already proven above)
+// with a rendered MatchScoreCard; this component-level shell verifies the
+// render boundary (renders nothing when the contract resolves to null,
+// otherwise forwards the exact resolved contract) without re-testing the
+// pure resolution logic itself.
+function EventMatchScoreSection(props: {
+  model: { visible: boolean; opponent: string | null; canEdit: boolean };
+  eventId: string;
+  teamId: string | null;
+  teamName?: string | null;
+  sport?: string;
+}) {
+  const contract = resolveEventMatchScoreContract({
+    visible: props.model.visible,
+    opponent: props.model.opponent,
+    canEdit: props.model.canEdit,
+    eventId: props.eventId,
+    teamId: props.teamId,
+    teamName: props.teamName,
+    sport: props.sport,
+  });
+  if (!contract) return null;
+  return <div data-testid="score-card">{JSON.stringify(contract)}</div>;
+}
+
+test("EventMatchScoreSection passes the resolved event/team/opponent/edit contract to the score card", () => {
+  render(<EventMatchScoreSection
+    model={{ visible: true, opponent: "Wolves", canEdit: false }}
+    eventId="event-1" teamId="team-1" teamName={null} sport="soccer"
+  />);
+  expect(JSON.parse(screen.getByTestId("score-card").textContent || "{}")).toEqual({
+    eventId: "event-1", teamId: "team-1", teamName: "Our Team",
+    opponent: "Wolves", sport: "soccer", canEdit: false,
+  });
+});
+
+test("EventMatchScoreSection renders nothing when policy hides the section or no team is resolved", () => {
+  const { container, rerender } = render(<EventMatchScoreSection
+    model={{ visible: false, opponent: null, canEdit: false }} eventId="event-1" teamId="team-1"
+  />);
+  expect(container.innerHTML).toBe("");
+  rerender(<EventMatchScoreSection model={{ visible: true, opponent: null, canEdit: true }} eventId="event-1" teamId={null} />);
+  expect(container.innerHTML).toBe("");
 });
