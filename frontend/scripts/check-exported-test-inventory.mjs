@@ -118,7 +118,7 @@ if (browserNativeSources.length !== 11) {
   throw new Error(`Expected exactly 11 browser/native bundle tests, found ${browserNativeSources.length}`);
 }
 if (sourceTests !== 434) throw new Error(`Expected exactly 434 retained source tests, found ${sourceTests}`);
-if (labTests !== 146) throw new Error(`Expected exactly 146 lab tests, found ${labTests}`);
+if (labTests !== 148) throw new Error(`Expected exactly 148 lab tests, found ${labTests}`);
 if (translatedBaselines !== 39) {
   throw new Error(`Expected exactly 39 translated baselines, found ${translatedBaselines}`);
 }

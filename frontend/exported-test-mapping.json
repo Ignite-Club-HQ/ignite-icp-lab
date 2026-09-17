@@ -8,7 +8,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-archive-sports-local.test.tsx"
+        "lab-tests/netballBasketballHelpers.local.test.tsx"
       ]
     },
     {
@@ -16,7 +16,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-archive-sports-local.test.tsx"
+        "lab-tests/netballBasketballHelpers.local.test.tsx"
       ]
     },
     {
