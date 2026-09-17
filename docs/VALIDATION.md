@@ -2044,3 +2044,25 @@ The inventory checker now enforces the exact retained counts: 431
 translated hybrid baselines. It also records the 536-file authoritative
 bundle and the 106-file remaining gap so a future local double or provider
 seam can reopen an exclusion deliberately.
+
+Validation completed for this reconciliation:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/pages/TeamDetailPage.membershipCompletion.guard.test.ts
+# passed: 1 file / 3 tests
+npm run test:legacy          # passed: 409 files / 3,996 passed; 2 skipped
+npm test                     # passed: 9 Node tests and 67 Vitest files / 415 tests
+npm run test:provider-matrix # passed: 1 file / 5 tests
+npm run test:e2e             # passed: 2 browser tests
+npm run typecheck:lab        # passed
+npm run check:isolation      # passed
+npm run check:exported-tests # passed: 431 / 72 / 31 exact inventory
+npm run build                # passed
+git diff --check             # passed
+```
+
+The build and browser suite emitted only the existing Browserslist, Tailwind
+arbitrary-class, and third-party `"use client"` warnings. No disposable
+managed ICP network was contacted by this test migration.
