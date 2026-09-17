@@ -34,13 +34,19 @@ for (const config of ['vitest.lab.config.mjs', 'vitest.legacy.config.mjs', 'play
 const sourceTests = countFiles(path.join(frontendRoot, 'src'), file =>
   /\.(?:test|spec)\.(?:ts|tsx)$/.test(file),
 );
+const labTests = countFiles(path.join(frontendRoot, 'lab-tests'), file =>
+  /\.(?:test|spec)\.(?:ts|tsx|mjs)$/.test(file),
+);
 const translatedBaselines = countFiles(path.join(frontendRoot, 'lab-tests'), file =>
   /imported-.*\.test\.tsx$/.test(file),
 );
-if (sourceTests < 430) throw new Error(`Expected at least 430 retained source tests, found ${sourceTests}`);
-if (translatedBaselines < 31) throw new Error(`Expected at least 31 translated baselines, found ${translatedBaselines}`);
+if (sourceTests !== 431) throw new Error(`Expected exactly 431 retained source tests, found ${sourceTests}`);
+if (labTests !== 72) throw new Error(`Expected exactly 72 lab tests, found ${labTests}`);
+if (translatedBaselines !== 31) {
+  throw new Error(`Expected exactly 31 translated baselines, found ${translatedBaselines}`);
+}
 
 console.log(`Authoritative export: ${expectedRef} (${expectedCommit})`);
-console.log('Non-browser bundle inventory: 586 test/spec sources');
-console.log(`Runnable tiers: ${sourceTests} retained source files; ${translatedBaselines} translated hybrid baselines`);
+console.log('Authoritative bundle inventory: 536 frontend/src test/spec sources (20 Edge-oriented)');
+console.log(`Runnable tiers: ${sourceTests} retained source files; ${labTests} lab-tests files; ${translatedBaselines} translated hybrid baselines`);
 console.log('Direct-execution exclusions remain explicitly accounted for in docs/VALIDATION.md.');

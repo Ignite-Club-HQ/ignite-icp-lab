@@ -1866,3 +1866,181 @@ The retained source inventory is now **430** `frontend/src` test files. With
 13 Edge-oriented retained source tests still excluded by policy, the observed
 active legacy tier is **408** files. The inventory checker now requires at
 least 430 retained source test files and 31 translated hybrid baselines.
+
+## Exported frontend test-porting phase 2 reconciliation - 2026-09-17
+
+The authoritative bundle comparison was rerun after phase 1 using
+`docs/ignite-all-refactoring-icp-export.bundle` at
+`refs/heads/integration/all-refactoring-icp-export`
+(`7f3a86ba449d2e847843ea9a77ff7e9b76751019`). The bundle contains 536
+`src/` test/spec files: 516 non-Edge files and 20 Edge-oriented files. After
+normalizing `src/` to `frontend/src/`, the current retained source inventory
+contains 431 files. One additional safe, provider-neutral guard was retained:
+
+- `frontend/src/pages/TeamDetailPage.membershipCompletion.guard.test.ts`
+  passed 3/3 tests and checks the current membership cache-completion seam
+  without importing Supabase, an Edge Function, or a production endpoint.
+
+The lab tier remains 72 files, including 31 translated hybrid baselines. The
+remaining normalized gap is 106 files: 99 non-Edge candidates and 7
+Edge-oriented candidates. The gap is explicitly accounted for below; no
+candidate was silently dropped.
+
+The following non-Edge candidates were attempted or inspected and are
+explicitly excluded because their exported assertions describe source that is
+absent, stale, or intentionally disconnected in this lab. Recreating those
+production surfaces would either weaken the exported contract or cross the
+lab boundary:
+
+- Current-source drift or missing component implementations (the exported
+  tests fail on removed exports, incompatible props, absent components, or
+  broad production-only UI/query contracts):
+  `src/components/AddTeamMemberSheet.characterization.test.tsx`,
+  `src/components/chat/ChatCachedMeasureRow.test.tsx`,
+  `src/components/chat/ChatJumpHydrationSkeleton.test.tsx`,
+  `src/components/chat/ChatMessage.reactions.test.tsx`,
+  `src/components/chat/ChatPageFrame.test.tsx`,
+  `src/components/chat/ChatVirtuosoChrome.test.tsx`,
+  `src/components/chat/ChatVirtuosoDebugProbe.test.tsx`,
+  `src/components/chat/ChatVirtuosoRowAdapter.test.tsx`,
+  `src/components/chat/useChatJumpHydration.test.tsx`,
+  `src/components/chat/useDeferredChatPrepends.test.tsx`,
+  `src/components/chat/usePreparedChatMessageWindow.test.tsx`,
+  `src/components/event/EventAdminActions.test.tsx`,
+  `src/components/event/EventAttendanceSummary.test.tsx`,
+  `src/components/event/EventDateCalendarRow.test.tsx`,
+  `src/components/event/EventIdentityHeader.test.tsx`,
+  `src/components/event/EventLifecycleDialogs.test.tsx`,
+  `src/components/event/EventLocationPresentation.test.tsx`,
+  `src/components/event/EventMatchScoreSection.test.tsx`,
+  `src/components/event/EventNotificationDialogs.test.tsx`,
+  `src/components/event/EventPassiveFacts.test.tsx`,
+  `src/components/event/PitchBoardActions.test.tsx`,
+  `src/components/invite/BulkInvitationSuccessContent.test.tsx`,
+  `src/components/invite/SingleInvitationDeliveryStep.test.tsx`,
+  `src/components/invite/SingleInvitationRoleStep.test.tsx`,
+  `src/components/invite/SingleInvitationSuccessContent.test.tsx`,
+  `src/components/invite/SingleInvitationWizardFooter.test.tsx`,
+  `src/components/layout/DesktopMessagesRail.test.ts`,
+  `src/components/pitch/AutoSubAdvancedSettingsPanel.test.tsx`,
+  `src/components/pitch/AutoSubPlanModeToggle.test.tsx`,
+  `src/components/pitch/AutoSubPlanStatusCard.test.tsx`,
+  `src/components/pitch/AutoSubPlayerMinutesRow.test.tsx`,
+  `src/components/vault/VaultExportDialogs.test.tsx`,
+  `src/components/vault/VaultFolderExportDialog.test.tsx`,
+  `src/components/vault/VaultLargeFilesDialog.test.tsx`,
+  `src/components/vault/VaultMutationConfirmationDialogs.test.tsx`,
+  `src/components/vault/VaultPhotoItem.test.tsx`,
+  `src/components/vault/VaultRenameDialogs.test.tsx`,
+  `src/components/vault/VaultStoragePanel.test.tsx`.
+- Feature seams that are absent or still production-only:
+  `src/features/competitions/fixtures/FixtureList.test.tsx`,
+  `src/features/competitions/fixtures/FixtureRoundSection.test.tsx`,
+  `src/features/competitions/fixtures/repository.test.ts`,
+  `src/features/competitions/ladder/CompetitionLadder.test.tsx`,
+  `src/features/competitions/ladder/repository.test.ts`,
+  `src/features/events/eventMutationCompletion.test.ts`,
+  `src/features/events/eventSubmissionGate.test.ts`,
+  `src/features/media/mediaCacheContract.guard.test.ts`,
+  `src/features/membership/bulkInvitationWorkflow.test.ts`,
+  `src/features/membership/membershipMutationService.test.ts`,
+  `src/features/notifications/cacheContract.guard.test.ts`, and
+  `src/features/vault/vaultCacheContract.guard.test.ts`. The competition
+  component/repository implementations are not present in the current source;
+  the event and membership tests require absent mutation boundaries; the
+  media, notification, and Vault guards assert page refactors that are not
+  present.
+- Messaging characterization tests require the absent page-level chat
+  refactors rather than a provider-neutral utility:
+  `src/features/messaging/scopes/chatScopeCapabilities.characterization.test.ts`,
+  `src/features/messaging/thread/chatMessageOrdering.characterization.test.ts`,
+  `src/features/messaging/thread/chatThreadCacheHydration.characterization.test.ts`,
+  `src/features/messaging/thread/chatThreadQueryData.characterization.test.ts`,
+  `src/hooks/useChatComposerController.test.tsx`,
+  `src/hooks/useChatReconciliationScopeLifecycle.test.tsx`,
+  `src/hooks/useChatVaultDeliverySync.test.tsx`,
+  `src/lib/chatComposerEdit.characterization.test.ts`,
+  `src/lib/chatComposerIntent.characterization.test.ts`,
+  `src/lib/chatMessageReconciliation.characterization.test.ts`, and
+  `src/lib/chatScheduleIntent.characterization.test.ts`. Focused runs showed
+  the current chat pages do not contain the exported centralized calls; the
+  tests were removed rather than changing the assertions or restoring stale
+  orchestration.
+- Page tests that require the disconnected production Supabase/auth UI or
+  stale page contracts:
+  `src/pages/AuthPage.test.tsx`,
+  `src/pages/ClubDetailPage.characterization.test.tsx`,
+  `src/pages/ClubSetupWizardPage.characterization.test.tsx`,
+  `src/pages/CompetitionJoinPage.test.tsx`,
+  `src/pages/CompetitionSettingsPage.test.tsx`,
+  `src/pages/EventDetailPage.characterization.test.tsx`,
+  `src/pages/EventDetailPage.queryKeys.guard.test.ts`,
+  `src/pages/EventGroupPitchPage.pitchboard.test.tsx`,
+  `src/pages/EventPayload.characterization.test.ts`,
+  `src/pages/HomePage.entitlementBoundary.guard.test.ts`,
+  `src/pages/HomePage.nextUp.characterization.test.ts`,
+  `src/pages/HomePage.orchestration.characterization.test.tsx`,
+  `src/pages/HomePage.recoveryInvalidation.guard.test.ts`,
+  `src/pages/HomePage.rewardsBoundary.guard.test.ts`,
+  `src/pages/HomePage.rsvpBoundary.guard.test.ts`,
+  `src/pages/ManageUsersPage.characterization.test.tsx`,
+  `src/pages/MediaPage.characterization.test.tsx`,
+  `src/pages/NotificationsPage.realtime.test.tsx`,
+  `src/pages/TeamDetailPage.access.characterization.test.ts`,
+  `src/pages/TeamDetailPage.roles.characterization.test.tsx`, and
+  `src/pages/VaultPage.characterization.test.tsx`. Focused attempts for the
+  auth, competition, Home, event-payload, and event-cache contracts failed
+  against the current fail-closed/hybrid source or required missing modules;
+  no production provider fallback was introduced.
+- Production-only static guards with no safe local subject:
+  `src/test/capacitorUpgradeSafety.test.ts`,
+  `src/test/chatPageOrchestration.characterization.test.ts`,
+  `src/test/chatSurfaceNavigationParity.characterization.test.ts`,
+  `src/test/deletedTeamPickerIsolation.guard.test.ts`,
+  `src/test/destructiveMigrationGuard.test.ts`,
+  `src/test/legalReacceptanceSecurity.guard.test.ts`,
+  `src/test/membershipInviteBoundary.guard.test.ts`,
+  `src/test/messagingPolicyParity.guard.test.ts`,
+  `src/test/notificationRealtimeOwnership.guard.test.ts`,
+  `src/test/pitchBoardEntryPoints.guard.test.ts`,
+  `src/test/promotionWorkflowEventIsolation.guard.test.ts`,
+  `src/test/pushDeliveryDeploymentSafety.test.ts`,
+  `src/test/remainingDependencySecuritySafety.test.ts`,
+  `src/test/teamRecreationChatIsolation.guard.test.ts`,
+  `src/test/vendorRepositoryGovernance.guard.test.ts`,
+  `src/test/viteUpgradeSafety.test.ts`, and
+  `src/test/xmldomSecurityUpgradeSafety.test.ts`. These require absent
+  migrations, deployment/promotion workflows, native Capacitor configuration,
+  dependency-governance files, or production-only source.
+- The four remaining pure-looking page/lib candidates were not converted into
+  weaker source-text tests: their exported contracts target the old
+  production orchestration and focused runs failed on the current source:
+  `src/pages/EventDetailPage.queryKeys.guard.test.ts`,
+  `src/pages/EventPayload.characterization.test.ts`,
+  `src/lib/chatComposerEdit.characterization.test.ts`, and
+  `src/lib/chatMessageReconciliation.characterization.test.ts`. Their
+  failures are preserved as evidence in the batch notes above rather than
+  being relabelled as passes.
+
+The seven Edge-oriented candidates remain excluded and were not executed:
+`src/edge-functions/checkPendingSubs.recipients.test.ts`,
+`src/edge-functions/edgeFunctionEstateValidation.test.ts`,
+`src/edge-functions/eventViewReminderEmail.test.ts`,
+`src/edge-functions/paymentEdgeFunctions.security.test.ts`,
+`src/edge-functions/recoverAccount.test.ts`,
+`src/edge-functions/sendEngagementReminders.accuracy.test.ts`, and
+`src/edge-functions/verifyIapReceipt.security.test.ts`. Each imports
+`supabase/functions/**`, `supabase/migrations/**`, Deno/remote modules, or
+production payment/email services that are absent by design. The one test
+with an injectable handler still has no local function implementation to
+exercise. A local function/queue double would have to be authored before any
+of these can be safely enabled; executing inert `reference/backend/**`,
+recreating SQL/Edge handlers, or substituting real credentials/endpoints is
+forbidden. This is an explicit boundary exclusion, not a claim that the
+production Edge Functions passed.
+
+The inventory checker now enforces the exact retained counts: 431
+`frontend/src` test/spec files, 72 `frontend/lab-tests` files, and 31
+translated hybrid baselines. It also records the 536-file authoritative
+bundle and the 106-file remaining gap so a future local double or provider
+seam can reopen an exclusion deliberately.
