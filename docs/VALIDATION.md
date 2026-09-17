@@ -2244,3 +2244,59 @@ No disposable managed ICP network was contacted, and no Supabase, Edge
 Function, or production credential/endpoint was executed by this
 reconciliation. Pre-existing backend (Rust/Motoko) working-tree changes in
 this worktree are unrelated to this frontend batch and were left untouched.
+
+## Exported frontend test-porting phase 3 follow-up: 3 more static guards - 2026-09-17
+
+Following the residual-batch reconciliation above, 3 of the 5 still-excluded
+`src/test/*` static-guard candidates were given local, synthetic,
+provider-neutral translations, matching the existing guard-test pattern in
+this directory:
+
+- `lab-tests/destructiveMigrationGuard.test.tsx` classifies migration
+  statement text as destructive (`DROP TABLE`/`DROP COLUMN`/`TRUNCATE`/
+  unconditional `DELETE`) and blocks a migration plan containing an
+  unconfirmed destructive statement. No `reference/backend/**` SQL is
+  parsed or executed; the classifier only inspects synthetic statement
+  strings supplied by the test.
+- `lab-tests/promotionWorkflowEventIsolation.guard.test.tsx` confirms that
+  promoting a player from one team to another only removes them from the
+  origin team's future roster view and never duplicates, moves, or leaks
+  historical event/attendance records into the destination team.
+- `lab-tests/pushDeliveryDeploymentSafety.test.tsx` fails closed for any
+  non-local push provider, native app signing configuration, production
+  credential, or non-synthetic device token, and only accepts a fully
+  synthetic local-loopback-double configuration.
+
+`src/test/chatPageOrchestration.characterization.test.ts` and
+`src/test/chatSurfaceNavigationParity.characterization.test.ts` remain
+excluded: both require characterizing an absent page-level chat
+orchestration surface, and a bounded synthetic translation risked
+fabricating an architecture-shaped claim rather than exercising real
+current source. The 4 `AutoSub*` pitch-panel candidates
+(`AutoSubAdvancedSettingsPanel`, `AutoSubPlanModeToggle`,
+`AutoSubPlanStatusCard`, `AutoSubPlayerMinutesRow`) and
+`VaultPhotoItem.test.tsx` also remain excluded: the current source
+consolidates equivalent behavior into large, differently-shaped components
+(for example a single ~5,600-line `AutoSubPlanDialog.tsx` rather than the
+four separated exported components), so a safe, honest extraction was not
+attempted in this pass.
+
+The inventory checker now enforces **108** `frontend/lab-tests` files
+(434 retained source files and 36 translated hybrid baselines are
+unchanged from the prior entry).
+
+Validation for this follow-up:
+
+```sh
+cd frontend
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/destructiveMigrationGuard.test.tsx \
+  lab-tests/promotionWorkflowEventIsolation.guard.test.tsx \
+  lab-tests/pushDeliveryDeploymentSafety.test.tsx
+# passed: 3 files / 6 tests
+npm test                     # passed: 9 Node tests and 103 Vitest files / 516 tests
+npm run check:isolation      # passed
+npm run typecheck:lab        # passed
+npm run check:exported-tests # passed: 434 / 108 / 36 exact inventory
+npm run build                # passed
+```

@@ -41,7 +41,7 @@ const translatedBaselines = countFiles(path.join(frontendRoot, 'lab-tests'), fil
   /imported-.*\.test\.tsx$/.test(file),
 );
 if (sourceTests !== 434) throw new Error(`Expected exactly 434 retained source tests, found ${sourceTests}`);
-if (labTests !== 105) throw new Error(`Expected exactly 105 lab tests, found ${labTests}`);
+if (labTests !== 108) throw new Error(`Expected exactly 108 lab tests, found ${labTests}`);
 if (translatedBaselines !== 36) {
   throw new Error(`Expected exactly 36 translated baselines, found ${translatedBaselines}`);
 }
