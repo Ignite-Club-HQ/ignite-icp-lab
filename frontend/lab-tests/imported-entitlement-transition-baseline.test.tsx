@@ -1,5 +1,5 @@
 import { Principal } from '@icp-sdk/core/principal';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   resolveClubBackend,
   type BackendProviders,
@@ -193,4 +193,52 @@ test('does not fall back to Supabase when the selected ICP entitlement provider 
   await expect(routedClient(registry, providers, new Map(), CLUB_A))
     .rejects.toThrow('local ICP entitlement provider unavailable');
   expect(supabaseCalls).toBe(0);
+});
+
+// Synthetic local equivalent of the exported Postgres/RLS journey test
+// `local journey: exact-club Free and Pro entitlement transition` (the real
+// fixture-backed `has_active_pro_for_*` RPC journey requires a live local
+// Supabase/Postgres instance that is out of scope for this lab; this exact-
+// club scenario is reconstructed against the in-memory synthetic client
+// above, which implements the same activation/expiry/override/removal rules).
+describe('local journey: exact-club Free and Pro entitlement transition', () => {
+  test('activates, expires and revokes Pro without leaking it across clubs', async () => {
+    const client = createEntitlementClient();
+
+    await expect(client.hasActiveProForClub(CLUB_A, 1_000)).resolves.toBe(false);
+    await expect(client.hasActiveProForTeam(MEMBER_A, TEAM_A, 1_000)).resolves.toBe(false);
+    await expect(client.userHasAnyClubPro(MEMBER_A, 1_000)).resolves.toBe(false);
+
+    await client.setSubscription(ADMIN_A, CLUB_A, {
+      isPro: true,
+      adminOverride: false,
+      expiresAtMs: 2_000,
+    });
+
+    await expect(client.hasActiveProForClub(CLUB_A, 1_000)).resolves.toBe(true);
+    await expect(client.hasActiveProForTeam(MEMBER_A, TEAM_A, 1_000)).resolves.toBe(true);
+    await expect(client.userHasAnyClubPro(MEMBER_A, 1_000)).resolves.toBe(true);
+    await expect(client.hasActiveProForClub(CLUB_B, 1_000)).resolves.toBe(false);
+
+    // Same subscription, checked past its expiry — Pro access lapses.
+    await expect(client.hasActiveProForTeam(MEMBER_A, TEAM_A, 2_000)).resolves.toBe(false);
+
+    await client.setSubscription(ADMIN_A, CLUB_A, {
+      isPro: false,
+      adminOverride: true,
+      expiresAtMs: 3_000,
+    });
+    await expect(client.hasActiveProForTeam(MEMBER_A, TEAM_A, 2_500)).resolves.toBe(true);
+
+    await client.removeMembership(ADMIN_A, CLUB_A, TEAM_A);
+    await expect(client.hasActiveProForClub(CLUB_A, 2_500)).resolves.toBe(true);
+    // The removed team membership was this actor's only affiliation with
+    // CLUB_A, so their effective club membership set is now empty.
+    const memberAfterRemoval: EntitlementActor = {
+      id: MEMBER_A.id,
+      clubIds: new Set(),
+      teamIds: new Set(),
+    };
+    await expect(client.userHasAnyClubPro(memberAfterRemoval, 2_500)).resolves.toBe(false);
+  });
 });
