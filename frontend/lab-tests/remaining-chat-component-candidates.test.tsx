@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { useEffect, useRef } from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CHAT_SCOPE_ADAPTERS,
@@ -93,7 +94,7 @@ function ChatPageFrame({
   onTouchEnd,
 }: {
   children: React.ReactNode;
-  height: number;
+  height: number | string;
   onTouchStart: () => void;
   onTouchEnd: () => void;
 }) {
@@ -102,6 +103,7 @@ function ChatPageFrame({
       data-keyboard-scroll-lock="true"
       onTouchEnd={onTouchEnd}
       onTouchStart={onTouchStart}
+      className="overflow-hidden overscroll-none min-h-0"
       style={{ height, overflow: "hidden", overscrollBehavior: "none" }}
     >
       {children}
@@ -255,6 +257,37 @@ describe("chat component candidates translated to local DOM and state contracts"
     expect(end).toHaveBeenCalledOnce();
   });
 
+  it("preserves the measured native viewport and keyboard scroll lock", () => {
+    render(
+      <ChatPageFrame height="640px" onTouchStart={() => undefined} onTouchEnd={() => undefined}>
+        <span>Thread</span>
+      </ChatPageFrame>,
+    );
+
+    const frame = screen.getByText("Thread").parentElement!;
+    expect(frame.style.height).toBe("640px");
+    expect(frame.dataset.keyboardScrollLock).toBe("true");
+    expect(frame.classList.contains("overflow-hidden")).toBe(true);
+    expect(frame.classList.contains("overscroll-none")).toBe(true);
+    expect(frame.classList.contains("min-h-0")).toBe(true);
+  });
+
+  it("forwards both touch boundaries used by swipe-back navigation", () => {
+    const onTouchStart = vi.fn();
+    const onTouchEnd = vi.fn();
+    render(
+      <ChatPageFrame height={500} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <span>Thread</span>
+      </ChatPageFrame>,
+    );
+
+    const frame = screen.getByText("Thread").parentElement!;
+    fireEvent.touchStart(frame);
+    fireEvent.touchEnd(frame);
+    expect(onTouchStart).toHaveBeenCalledTimes(1);
+    expect(onTouchEnd).toHaveBeenCalledTimes(1);
+  });
+
   it("ChatJumpHydrationSkeleton keeps seven rows mounted while toggling visibility", () => {
     const { getByTestId, rerender } = render(<ChatJumpHydrationSkeleton />);
     const overlay = getByTestId("jump-hydration-skeleton");
@@ -376,5 +409,85 @@ describe("prepared image geometry remains provider-neutral", () => {
     prefetchChatImageAspectRatio(url);
     expect(getCachedImageAspectRatio([url])).toBeCloseTo(16 / 9);
     expect(createChatRowSignature({ id: "m1", text: "hello", image_url: url })).toContain("1.778");
+  });
+});
+
+// Local reconstruction of ChatVirtuosoDebugProbe: the real production
+// component does not exist in this lab tree, so behaviour is re-derived
+// from the sanitized reference text using an isolated recorder (not the
+// shared chatVirtDebug module, to avoid perturbing its global dump state
+// used by other tests in this file).
+function createDebugRecorder() {
+  const trackedRenders: string[] = [];
+  const measureCalls: Array<[string, number | undefined, number, string]> = [];
+  return {
+    trackRender: (id: string) => trackedRenders.push(id),
+    logMeasure: (id: string, estimated: number | undefined, measured: number, rowType: string) =>
+      measureCalls.push([id, estimated, measured, rowType]),
+    trackedRenders,
+    measureCalls,
+  };
+}
+
+function ChatVirtuosoDebugProbe({
+  messageId,
+  estimated,
+  rowType,
+  children,
+  recorder,
+}: {
+  messageId: string;
+  estimated: number;
+  rowType: string;
+  children: React.ReactNode;
+  recorder: ReturnType<typeof createDebugRecorder>;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    recorder.trackRender(messageId);
+  }, [messageId, recorder]);
+  useEffect(() => {
+    if (ref.current) recorder.logMeasure(messageId, estimated, ref.current.offsetHeight, rowType);
+  }, [messageId, estimated, rowType, recorder]);
+  return (
+    <div ref={ref} data-debug-probe={messageId} data-row-type={rowType}>
+      {children}
+    </div>
+  );
+}
+
+describe("ChatVirtuosoDebugProbe", () => {
+  it("records render identity and measured geometry without changing its child", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(123);
+    const recorder = createDebugRecorder();
+    render(
+      <ChatVirtuosoDebugProbe messageId="message-1" estimated={120} rowType="text" recorder={recorder}>
+        <span>Message content</span>
+      </ChatVirtuosoDebugProbe>,
+    );
+    const probe = screen.getByText("Message content").parentElement;
+    expect(probe?.getAttribute("data-debug-probe")).toBe("message-1");
+    expect(probe?.getAttribute("data-row-type")).toBe("text");
+    expect(recorder.trackedRenders).toEqual(["message-1"]);
+    expect(recorder.measureCalls).toEqual([["message-1", 120, 123, "text"]]);
+    vi.restoreAllMocks();
+  });
+
+  it("re-measures when estimator inputs change", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(80);
+    const recorder = createDebugRecorder();
+    const { rerender } = render(
+      <ChatVirtuosoDebugProbe messageId="message-1" estimated={76} rowType="event" recorder={recorder}>
+        Event
+      </ChatVirtuosoDebugProbe>,
+    );
+    recorder.measureCalls.length = 0;
+    rerender(
+      <ChatVirtuosoDebugProbe messageId="message-1" estimated={96} rowType="preview" recorder={recorder}>
+        Event
+      </ChatVirtuosoDebugProbe>,
+    );
+    expect(recorder.measureCalls).toEqual([["message-1", 96, 80, "preview"]]);
+    vi.restoreAllMocks();
   });
 });
