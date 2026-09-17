@@ -2067,3 +2067,180 @@ git diff --check             # passed
 The build and browser suite emitted only the existing Browserslist, Tailwind
 arbitrary-class, and third-party `"use client"` warnings. No disposable
 managed ICP network was contacted by this test migration.
+
+## Exported frontend test-porting phase 3, residual batch reconciliation - 2026-09-17
+
+An uncommitted batch of 41 new frontend files was found in the working tree,
+left by a prior agent session before the batch was committed or validated
+against the inventory checker. The batch was inspected, exercised, and
+reconciled rather than discarded.
+
+New files added by this batch:
+
+- Three exported chat-hook candidates were implemented as genuine local
+  source hooks (not translated doubles) and are now retained
+  `frontend/src` tests: `src/hooks/useChatComposerController.ts` (+ test),
+  `src/hooks/useChatReconciliationScopeLifecycle.ts` (+ test), and
+  `src/hooks/useChatVaultDeliverySync.ts` (+ test). These replace the
+  earlier "require the absent page-level chat refactors" exclusion for the
+  same three hook names with a real, currently-source-backed implementation.
+- Two new lab support modules: `src/lab/componentCandidatePolicies.ts` and
+  `src/lab/edgeOrientedLocalDoubles.ts`, both pure, provider-neutral, and
+  outside `frontend/lab-runtime-files.json` (not wired into the running lab
+  bundle).
+- 33 new `frontend/lab-tests` files translating a large share of the
+  previously-documented 106-file gap into local, synthetic, provider-neutral
+  equivalents. These are translated/local-double tests, not restorations of
+  the original exported assertions, and do not themselves change the
+  106-file gap accounting below except where noted. Verified topic coverage
+  includes:
+  - All 7 Edge-oriented candidates (`checkPendingSubs.recipients`,
+    `edgeFunctionEstateValidation`, `eventViewReminderEmail`,
+    `paymentEdgeFunctions.security`, `recoverAccount`,
+    `sendEngagementReminders.accuracy`, `verifyIapReceipt.security`) via
+    local doubles in `lab-tests/edge-oriented-local-doubles.test.tsx` and
+    `src/lab/edgeOrientedLocalDoubles.ts`. This demonstrates the same
+    authorization/idempotency/escaping properties locally; it is not a
+    restoration of, or proof against, the real Supabase Edge Functions,
+    which remain excluded from direct execution.
+  - All 12 "feature seams" candidates (competitions fixtures/ladder,
+    events mutation/submission, membership bulk-invite/mutation, and the
+    media/notifications/vault cache-contract guards) via
+    `fixture-list-port.test.tsx`, `fixture-repository-port.test.tsx`,
+    `fixture-round-section-port.test.tsx`, `competition-ladder-port.test.tsx`,
+    `ladder-repository-port.test.tsx`, `eventMutationCompletion.test.tsx`,
+    `eventSubmissionGate.test.tsx`, `bulkInvitationWorkflow.test.tsx`,
+    `membershipMutationService.test.tsx`, `mediaCacheContract.guard.test.tsx`,
+    `notificationsCacheContract.guard.test.tsx`, and
+    `vaultCacheContract.guard.test.tsx` (plus a generic
+    `cacheContract.guard.test.tsx` covering the shared ownership-guard
+    shape).
+  - 11 of the 16 `src/test/*` static-guard candidates via matching
+    `deletedTeamPickerIsolation.guard.test.tsx`,
+    `legalReacceptanceSecurity.guard.test.tsx`,
+    `membershipInviteBoundary.guard.test.tsx`,
+    `messagingPolicyParity.guard.test.tsx`,
+    `notificationRealtimeOwnership.guard.test.tsx`,
+    `pitchBoardEntryPoints.guard.test.tsx`,
+    `remainingDependencySecuritySafety.test.tsx`,
+    `teamRecreationChatIsolation.guard.test.tsx`,
+    `vendorRepositoryGovernance.guard.test.tsx`, `viteUpgradeSafety.test.tsx`,
+    and `xmldomSecurityUpgradeSafety.test.tsx`. `productionBlocker.test.tsx`
+    additionally records, as a general evidence entry, that native
+    deployment/promotion/push/migration production-only assertions remain
+    blocked in this lab; it is not a per-file translation.
+  - `AddTeamMemberSheet.characterization.test.tsx` and the ten
+    `src/components/chat/*` candidates (`ChatCachedMeasureRow`,
+    `ChatJumpHydrationSkeleton`, `ChatMessage.reactions`, `ChatPageFrame`,
+    `ChatVirtuosoChrome`, `ChatVirtuosoDebugProbe`, `ChatVirtuosoRowAdapter`,
+    `useChatJumpHydration`, `useDeferredChatPrepends`, and
+    `usePreparedChatMessageWindow`) plus `DesktopMessagesRail.test.ts` via
+    `remaining-chat-component-candidates.test.tsx`, translated to local DOM
+    fixtures and the current `chatRowHeightCache`, `chatVirtDebug`,
+    `chatRowSignature`, `chatJumpLifecycle`, `chatImageAspectCache`, and
+    `chatReactionReconciliation` modules.
+  - 4 of the 11 messaging-characterization candidates
+    (`chatScopeCapabilities`, `chatMessageOrdering`,
+    `chatThreadCacheHydration`, `chatThreadQueryData`) via
+    `remaining-library-thread-scope-candidates.test.tsx`, which exercises
+    the real current `chatScopeAdapters`, `chatMessageOrdering`,
+    `chatThreadCacheHydration`, `chatThreadQueryData`, `messageCache`,
+    `messagesPageCache`, `chatComposerSubmission`, and
+    `chatReactionReconciliation` modules directly (not stale text).
+  - 9 of the 10 `src/components/event/*` candidates and
+    `PitchBoardActions.test.tsx` via
+    `imported-event-components-baseline.test.tsx` and
+    `pitchBoardEntryPoints.guard.test.tsx`.
+  - 5 `src/components/invite/*` candidates via
+    `imported-invite-components-baseline.test.tsx`.
+  - 4 of the 7 `src/components/vault/*` candidates
+    (`VaultStoragePanel`, `VaultFolderExportDialog`/`VaultLargeFilesDialog`/
+    `VaultExportDialogs`, `VaultRenameDialogs`, and
+    `VaultMutationConfirmationDialogs`) via
+    `imported-vault-components-baseline.test.tsx`.
+  - The `pitch/*` board-restore behavior via
+    `imported-pitch-components-baseline.test.tsx` (note: this covers the
+    board-restore concern, not the 4 separate `AutoSub*` panel candidates,
+    which remain unaddressed; see below).
+  - 13 of the 21 non-Edge page candidates (`ClubDetailPage`,
+    `ClubSetupWizardPage`, `EventGroupPitchPage.pitchboard`,
+    `TeamDetailPage.access`/`.roles`, `ManageUsersPage`, `MediaPage`,
+    `NotificationsPage.realtime`, `VaultPage`, and `HomePage`
+    `.nextUp`/`.orchestration`/`.rewardsBoundary`/`.recoveryInvalidation`)
+    via `imported-non-edge-page-candidates-baseline.test.tsx`.
+
+Confirmed still not addressed by any file in this batch (remain excluded,
+unchanged from the prior reconciliation): the 4 `AutoSub*` pitch component
+candidates; `VaultPhotoItem.test.tsx`; `AuthPage.test.tsx`,
+`CompetitionJoinPage.test.tsx`, `CompetitionSettingsPage.test.tsx`,
+`EventDetailPage.characterization.test.tsx`,
+`EventDetailPage.queryKeys.guard.test.ts`, and
+`EventPayload.characterization.test.ts`; `HomePage.entitlementBoundary.guard`
+and `HomePage.rsvpBoundary.guard` (only loosely related coverage exists via
+the generic role-request test); `src/test/chatPageOrchestration.characterization.test.ts`,
+`src/test/chatSurfaceNavigationParity.characterization.test.ts`,
+`src/test/destructiveMigrationGuard.test.ts`,
+`src/test/promotionWorkflowEventIsolation.guard.test.ts`, and
+`src/test/pushDeliveryDeploymentSafety.test.ts`; and
+`src/lib/chatComposerEdit.characterization.test.ts`,
+`src/lib/chatComposerIntent.characterization.test.ts`,
+`src/lib/chatMessageReconciliation.characterization.test.ts`, and
+`src/lib/chatScheduleIntent.characterization.test.ts`. The 7 Edge-oriented
+exported tests also remain not directly executed against the original
+exported assertions (only local doubles exist, as above).
+
+The inventory checker now enforces the exact new retained counts: **434**
+`frontend/src` test/spec files (+3 for the promoted chat hooks), **105**
+`frontend/lab-tests` files (+33), and **36** translated hybrid baselines
+(+5). The 536-file authoritative bundle figure is unchanged. Of the prior
+106-file gap (99 non-Edge + 7 Edge-oriented), 3 non-Edge candidates were
+promoted to retained source in this batch, leaving a strict retained-source
+gap of 103 (96 non-Edge + 7 Edge-oriented); the 7 Edge-oriented items and a
+majority of the 96 remaining non-Edge items now additionally have local
+translated/double coverage in `frontend/lab-tests` as itemized above,
+without being counted as retained-source ports.
+
+Validation completed for this batch:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/hooks/useChatComposerController.test.tsx \
+  src/hooks/useChatReconciliationScopeLifecycle.test.tsx \
+  src/hooks/useChatVaultDeliverySync.test.tsx
+# passed: 3 files / 11 tests
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/bulkInvitationWorkflow.test.tsx lab-tests/cacheContract.guard.test.tsx \
+  lab-tests/competition-ladder-port.test.tsx lab-tests/deletedTeamPickerIsolation.guard.test.tsx \
+  lab-tests/edge-oriented-local-doubles.test.tsx lab-tests/eventMutationCompletion.test.tsx \
+  lab-tests/eventSubmissionGate.test.tsx lab-tests/fixture-list-port.test.tsx \
+  lab-tests/fixture-repository-port.test.tsx lab-tests/fixture-round-section-port.test.tsx \
+  lab-tests/imported-event-components-baseline.test.tsx \
+  lab-tests/imported-invite-components-baseline.test.tsx \
+  lab-tests/imported-non-edge-page-candidates-baseline.test.tsx \
+  lab-tests/imported-pitch-components-baseline.test.tsx \
+  lab-tests/imported-vault-components-baseline.test.tsx lab-tests/ladder-repository-port.test.tsx \
+  lab-tests/legalReacceptanceSecurity.guard.test.tsx lab-tests/mediaCacheContract.guard.test.tsx \
+  lab-tests/membershipInviteBoundary.guard.test.tsx lab-tests/membershipMutationService.test.tsx \
+  lab-tests/messagingPolicyParity.guard.test.tsx lab-tests/notificationRealtimeOwnership.guard.test.tsx \
+  lab-tests/notificationsCacheContract.guard.test.tsx lab-tests/pitchBoardEntryPoints.guard.test.tsx \
+  lab-tests/productionBlocker.test.tsx lab-tests/remaining-chat-component-candidates.test.tsx \
+  lab-tests/remaining-library-thread-scope-candidates.test.tsx \
+  lab-tests/remainingDependencySecuritySafety.test.tsx lab-tests/teamRecreationChatIsolation.guard.test.tsx \
+  lab-tests/vaultCacheContract.guard.test.tsx lab-tests/vendorRepositoryGovernance.guard.test.tsx \
+  lab-tests/viteUpgradeSafety.test.tsx lab-tests/xmldomSecurityUpgradeSafety.test.tsx
+# passed: 33 files / 95 tests
+npm run test:legacy          # passed: 412 files / 4,007 passed; 2 skipped
+npm test                     # passed: 9 Node tests and 100 Vitest files / 519 tests
+npm run test:provider-matrix # passed: 1 file / 5 tests
+npm run test:e2e             # passed: 2 browser tests
+npm run typecheck:lab        # passed
+npm run check:isolation      # passed
+npm run check:exported-tests # passed: 434 / 105 / 36 exact inventory
+npm run build                # passed
+```
+
+No disposable managed ICP network was contacted, and no Supabase, Edge
+Function, or production credential/endpoint was executed by this
+reconciliation. Pre-existing backend (Rust/Motoko) working-tree changes in
+this worktree are unrelated to this frontend batch and were left untouched.

@@ -40,10 +40,10 @@ const labTests = countFiles(path.join(frontendRoot, 'lab-tests'), file =>
 const translatedBaselines = countFiles(path.join(frontendRoot, 'lab-tests'), file =>
   /imported-.*\.test\.tsx$/.test(file),
 );
-if (sourceTests !== 431) throw new Error(`Expected exactly 431 retained source tests, found ${sourceTests}`);
-if (labTests !== 72) throw new Error(`Expected exactly 72 lab tests, found ${labTests}`);
-if (translatedBaselines !== 31) {
-  throw new Error(`Expected exactly 31 translated baselines, found ${translatedBaselines}`);
+if (sourceTests !== 434) throw new Error(`Expected exactly 434 retained source tests, found ${sourceTests}`);
+if (labTests !== 105) throw new Error(`Expected exactly 105 lab tests, found ${labTests}`);
+if (translatedBaselines !== 36) {
+  throw new Error(`Expected exactly 36 translated baselines, found ${translatedBaselines}`);
 }
 
 console.log(`Authoritative export: ${expectedRef} (${expectedCommit})`);
