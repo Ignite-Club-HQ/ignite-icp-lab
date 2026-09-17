@@ -1578,17 +1578,17 @@ The retained batches were:
 | 1 | 25 | 190 | Passed focused run |
 | 2 | 26 | 210 | Passed focused run |
 | 3 | 26 | 225 | Passed focused run |
-| 4 | 22 | 170 | Passed focused run |
+| 4 | 21 | 170 | Passed focused run; one candidate overlapped the existing state |
 | 5 | 13 | 193 | Passed focused run |
 | 6 | 19 | 164 | Passed focused run |
 | 7 | 20 | 153 | Passed focused run |
 | 8 | 20 | 168 | Passed focused run |
 | 9 | 4 | 14 | Passed focused guard-only run |
-| **Aggregate** | **175 selections / 174 new bundle files** | **1,487** | **All focused runs passed** |
+| **Aggregate** | **174 committed files** | **1,487** | **All focused runs passed** |
 
-The one-selection difference is a duplicate candidate in the batch manifests;
-file inventory was counted from the final normalized filesystem, not from stale
-candidate lists. The ported coverage is limited to synthetic, deterministic
+The earlier focused candidate manifests summed to 175 selections because one
+candidate overlapped the existing state; file inventory and commits use the final
+normalized filesystem. The ported coverage is limited to synthetic, deterministic
 utilities, policies, repositories, hooks, components, and static safety guards.
 Supabase-shaped tests use `createMockSupabaseClient`; provider-shaped tests use
 local actor/provider seams. No runtime allowlist entry was added, no production
