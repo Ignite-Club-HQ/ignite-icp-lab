@@ -192,11 +192,14 @@ export default function PitchBoardResumeRedirect() {
     // catch the case where the URL is still /auth or the Suspense fallback
     // when the first attempt runs, and only resolves to "/" a few hundred
     // milliseconds later once the AuthProvider hydrates.
-    const timers = RESTORE_RETRY_DELAYS_MS.map((d) =>
-      window.setTimeout(() => {
+    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    const scheduleAttempt = (delayMs: number) => {
+      const timer = window.setTimeout(() => {
         if (!cancelled) attempt();
-      }, d)
-    );
+      }, delayMs);
+      timers.push(timer);
+    };
+    RESTORE_RETRY_DELAYS_MS.forEach(scheduleAttempt);
 
     // Warm resume on native: phone unlock often delivers appStateChange
     // before any other lifecycle signal.
@@ -218,8 +221,8 @@ export default function PitchBoardResumeRedirect() {
             // sometimes restores the WebView to the start URL ("/") and
             // React needs a frame or two to finish bootstrap.
             attempt();
-            window.setTimeout(attempt, 400);
-            window.setTimeout(attempt, 1200);
+            scheduleAttempt(400);
+            scheduleAttempt(1200);
           });
           if (cancelled) {
             void handle.remove();
@@ -310,4 +313,3 @@ export default function PitchBoardResumeRedirect() {
 
   return null;
 }
-
