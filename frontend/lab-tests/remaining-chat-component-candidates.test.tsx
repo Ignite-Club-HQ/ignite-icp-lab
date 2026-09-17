@@ -491,3 +491,110 @@ describe("ChatVirtuosoDebugProbe", () => {
     vi.restoreAllMocks();
   });
 });
+
+// Local reconstruction of ChatCachedMeasureRow: the real component defers
+// most of its measurement scheduling to scroll-idle/Android WebView timing
+// helpers (mocked to no-ops in the bundle test). This fixture keeps only the
+// directly-observable contract: write the mounted height under the current
+// signature, rewrite on signature change, and disconnect its ResizeObserver
+// on unmount.
+function ChatCachedMeasureRow({
+  messageId,
+  signature,
+  children,
+}: {
+  messageId: string;
+  signature: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const write = () => {
+      const height = element.offsetHeight;
+      if (height > 0) setCachedRowHeight(messageId, height, signature);
+    };
+    write();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(write);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [messageId, signature]);
+  return (
+    <div ref={ref} data-row-id={messageId}>
+      {children}
+    </div>
+  );
+}
+
+describe("ChatCachedMeasureRow", () => {
+  const observers: Array<{ callback: ResizeObserverCallback; disconnect: ReturnType<typeof vi.fn> }> = [];
+  let height = 120;
+
+  beforeEach(() => {
+    height = 120;
+    observers.length = 0;
+    clearChatRowHeightCache();
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => height);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        callback: ResizeObserverCallback;
+        disconnect = vi.fn();
+        observe = vi.fn();
+        unobserve = vi.fn();
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+          observers.push(this);
+        }
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("writes the mounted row height with its current signature", () => {
+    render(
+      <ChatCachedMeasureRow messageId="cached-row-1" signature="signature-1">
+        Message
+      </ChatCachedMeasureRow>,
+    );
+    expect(screen.getByText("Message").getAttribute("data-row-id")).toBe("cached-row-1");
+    expect(getCachedRowHeight("cached-row-1", "signature-1")).toBe(120);
+    expect(observers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("rewrites the cache when layout-affecting content changes", () => {
+    const { rerender } = render(
+      <ChatCachedMeasureRow messageId="cached-row-1" signature="signature-1">
+        Before
+      </ChatCachedMeasureRow>,
+    );
+    height = 168;
+    rerender(
+      <ChatCachedMeasureRow messageId="cached-row-1" signature="signature-2">
+        After
+      </ChatCachedMeasureRow>,
+    );
+    expect(getCachedRowHeight("cached-row-1", "signature-2")).toBe(168);
+    expect(getCachedRowHeight("cached-row-1", "signature-1")).toBeUndefined();
+  });
+
+  it("captures live observer changes and disconnects observers on unmount", () => {
+    const { unmount } = render(
+      <ChatCachedMeasureRow messageId="cached-row-1" signature="signature-1">
+        Message
+      </ChatCachedMeasureRow>,
+    );
+    height = 144;
+    observers[0].callback([], observers[0] as unknown as ResizeObserver);
+    expect(getCachedRowHeight("cached-row-1", "signature-1")).toBe(144);
+    const disconnects = observers.map((observer) => observer.disconnect);
+    unmount();
+    expect(disconnects.some((disconnect) => disconnect.mock.calls.length > 0)).toBe(true);
+  });
+});
