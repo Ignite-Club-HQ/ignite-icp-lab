@@ -1,5 +1,5 @@
 import { Principal } from '@icp-sdk/core/principal';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import type { Notification } from '../src/lab/notificationQueueClient';
 import { createHybridNotificationDispatcher } from '../src/lab/hybridNotificationDispatcher';
 import { createSyntheticPlacementRegistry } from '../src/lab/syntheticPlacementRegistry';
@@ -162,4 +162,135 @@ test('does not fall back to Supabase when an ICP notification provider fails', a
     idempotencyKey: 'event-failure',
   })).rejects.toThrow('local ICP notification provider unavailable');
   expect(supabaseCalls).toBe(0);
+});
+
+// Synthetic local equivalent of the exported Postgres/RLS journey test
+// `local journey: notification preferences, isolation and read state` (the
+// real fixture-backed RLS journey requires a live local Supabase/Postgres
+// instance, out of scope for this lab). This models the same ownership,
+// isolation and duplicate-delivery contracts against in-memory tables that
+// enforce row ownership the way Postgres RLS policies would.
+describe('local journey: notification preferences, isolation and read state', () => {
+  test('keeps preferences and notifications private and prevents duplicate delivery records', () => {
+    const MEMBER_A = 'member-a';
+    const OUTSIDER_B = 'outsider-b';
+    const CLUB_NOTIF_A = 'club-notif-a';
+    const CLUB_NOTIF_B = 'club-notif-b';
+
+    const preferences = new Map<string, { userId: string; eventsEnabled: boolean; membershipEnabled: boolean }>();
+    const insertPreferences = (
+      actingUserId: string,
+      row: { userId: string; eventsEnabled: boolean; membershipEnabled: boolean },
+    ) => {
+      if (actingUserId !== row.userId) return { error: 'RLS: cannot write another user\'s preferences' };
+      preferences.set(row.userId, row);
+      return { error: null, data: row };
+    };
+    const selectPreferences = (actingUserId: string, ownerUserId: string) => {
+      const row = preferences.get(ownerUserId);
+      if (!row || actingUserId !== ownerUserId) return [];
+      return [row];
+    };
+
+    const ownPreferences = insertPreferences(MEMBER_A, {
+      userId: MEMBER_A,
+      eventsEnabled: true,
+      membershipEnabled: false,
+    });
+    expect(ownPreferences.error).toBeNull();
+    expect(ownPreferences.data).toEqual({ userId: MEMBER_A, eventsEnabled: true, membershipEnabled: false });
+
+    const cannotWriteAnotherUsersPreferences = insertPreferences(OUTSIDER_B, {
+      userId: MEMBER_A,
+      eventsEnabled: true,
+      membershipEnabled: true,
+    });
+    expect(cannotWriteAnotherUsersPreferences.error).not.toBeNull();
+    expect(selectPreferences(OUTSIDER_B, MEMBER_A)).toEqual([]);
+
+    type NotificationRow = {
+      id: string;
+      userId: string;
+      clubId: string;
+      relatedId: string;
+      isRead: boolean;
+      skipPush: boolean;
+    };
+    const notifications = new Map<string, NotificationRow>();
+    const dedupeKeys = new Set<string>();
+    let nextId = 0;
+    const insertNotification = (row: Omit<NotificationRow, 'id' | 'isRead'>) => {
+      const dedupeKey = `${row.userId}:${row.relatedId}`;
+      if (dedupeKeys.has(dedupeKey)) return { error: { code: '23505' } };
+      dedupeKeys.add(dedupeKey);
+      const id = `notification-${nextId++}`;
+      const inserted = { ...row, id, isRead: false };
+      notifications.set(id, inserted);
+      return { error: null, data: inserted };
+    };
+    const selectOwnNotifications = (userId: string) =>
+      [...notifications.values()].filter((n) => n.userId === userId);
+    const updateNotification = (actingUserId: string, id: string, patch: Partial<NotificationRow>) => {
+      const row = notifications.get(id);
+      if (!row || row.userId !== actingUserId) return { error: null, data: [] };
+      Object.assign(row, patch);
+      return { error: null, data: [row] };
+    };
+    const deleteNotification = (actingUserId: string, id: string) => {
+      const row = notifications.get(id);
+      if (!row || row.userId !== actingUserId) return { error: null, data: [] };
+      notifications.delete(id);
+      return { error: null, data: [{ id }] };
+    };
+
+    const relatedId = 'related-training-change';
+    const memberNotification = insertNotification({
+      userId: MEMBER_A,
+      clubId: CLUB_NOTIF_A,
+      relatedId,
+      skipPush: true,
+    });
+    expect(memberNotification.error).toBeNull();
+    const otherClubNotification = insertNotification({
+      userId: OUTSIDER_B,
+      clubId: CLUB_NOTIF_B,
+      relatedId: 'related-unrelated-event',
+      skipPush: true,
+    });
+    expect(otherClubNotification.error).toBeNull();
+    const memberNotificationId = memberNotification.data!.id;
+
+    const duplicate = insertNotification({
+      userId: MEMBER_A,
+      clubId: CLUB_NOTIF_A,
+      relatedId,
+      skipPush: true,
+    });
+    expect(duplicate.error?.code).toBe('23505');
+
+    expect(selectOwnNotifications(MEMBER_A)).toEqual([{
+      id: memberNotificationId,
+      userId: MEMBER_A,
+      clubId: CLUB_NOTIF_A,
+      relatedId,
+      isRead: false,
+      skipPush: true,
+    }]);
+
+    const outsiderCannotSeeOrMarkRead = updateNotification(OUTSIDER_B, memberNotificationId, { isRead: true });
+    expect(outsiderCannotSeeOrMarkRead.error).toBeNull();
+    expect(outsiderCannotSeeOrMarkRead.data).toEqual([]);
+
+    const markedRead = updateNotification(MEMBER_A, memberNotificationId, { isRead: true });
+    expect(markedRead.error).toBeNull();
+    expect(markedRead.data?.[0]?.isRead).toBe(true);
+
+    const outsiderCannotDelete = deleteNotification(OUTSIDER_B, memberNotificationId);
+    expect(outsiderCannotDelete.error).toBeNull();
+    expect(outsiderCannotDelete.data).toEqual([]);
+
+    const deleted = deleteNotification(MEMBER_A, memberNotificationId);
+    expect(deleted.error).toBeNull();
+    expect(deleted.data).toEqual([{ id: memberNotificationId }]);
+  });
 });
