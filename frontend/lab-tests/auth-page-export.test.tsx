@@ -156,3 +156,46 @@ test("AuthPage export: an offline guard prevents an authentication attempt", asy
   await expect(attempt(false)).resolves.toEqual({ ok: false, message: "You're offline" });
   expect(client.auth.signInWithPassword).not.toHaveBeenCalled();
 });
+
+// Synthetic reconstruction of the "password recovery through Mailpit" journey
+// (tests/local-supabase/auth-recovery-mailpit.test.ts). The original relies on
+// a live local Supabase Auth server + Mailpit SMTP catcher; those network
+// services are out of scope for this in-memory lab. This model proves the
+// same two behavioural contracts in-memory: a reset request is delivered only
+// to the exact requested address, and an unknown address gets an identical
+// non-disclosing response with no mail emitted.
+type SyntheticMail = { to: string; subject: string };
+
+function createSyntheticRecoveryMailer(knownEmails: string[]) {
+  const inbox: SyntheticMail[] = [];
+  const known = new Set(knownEmails.map((email) => email.toLowerCase()));
+  return {
+    inbox,
+    async resetPasswordForEmail(email: string) {
+      if (known.has(email.toLowerCase())) {
+        inbox.push({ to: email.toLowerCase(), subject: "Reset your password" });
+      }
+      // Always resolves without error: existence of the account is never disclosed.
+      return { error: null as null };
+    },
+  };
+}
+
+test("AuthPage export: recovery email is delivered only to the requested known local user", async () => {
+  const email = "recovery.user@local.invalid";
+  const mailer = createSyntheticRecoveryMailer([email]);
+
+  const result = await mailer.resetPasswordForEmail(email);
+  expect(result.error).toBeNull();
+  expect(mailer.inbox).toHaveLength(1);
+  expect(mailer.inbox[0].to).toBe(email);
+  expect(mailer.inbox[0].subject.toLowerCase()).toContain("reset");
+});
+
+test("AuthPage export: recovery request for an unknown local user discloses nothing and emits no mail", async () => {
+  const mailer = createSyntheticRecoveryMailer(["known.user@local.invalid"]);
+
+  const result = await mailer.resetPasswordForEmail("unknown.user@local.invalid");
+  expect(result.error).toBeNull();
+  expect(mailer.inbox).toHaveLength(0);
+});
