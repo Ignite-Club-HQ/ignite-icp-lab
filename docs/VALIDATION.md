@@ -2619,3 +2619,127 @@ npm run typecheck:lab        # passed
 npm run check:exported-tests # passed: 434 / 146 / 39 / 3 exact inventory
 node --test lab-tests/exported-inventory-manifest.test.mjs # passed
 ```
+
+## OS-harness boundary reclassification and membershipMutationService case-level closure - 2026-09-18
+
+Continued the effective-case-level reconciliation. Two items closed this
+pass: a boundary reclassification (native OS-harness guards) and the
+single largest remaining application-logic gap
+(`membershipMutationService.test.ts`, 101 cases).
+
+### `androidOsHarness.guard.test.ts` (32 cases) and `iosOsHarness.guard.test.ts` (41 cases)
+
+Both were previously marked `local-equivalent` against
+`lab-tests/capacitorUpgradeSafety.local.test.tsx`. Reading both bundle
+source files in full shows every case is a static filesystem/content
+guard over:
+
+- a production native Capacitor+Appium(iOS)/emulator(Android)
+  resume-regression test harness living under `tests/ios-os/**` and
+  `tests/android-os/**` in the source repository (workspace
+  `package.json` scripts, `verify-safety.mjs` signing-credential scan
+  strings, `main.ts` observer/state-contract wiring, and for iOS,
+  `resume.e2e.mjs` assertion text), and
+- an exact `codemagic.yaml` workflow block per platform (instance type
+  `mac_mini_m2`/`linux_x2`, artifact globs, and - critically - explicit
+  assertions that no `signing`, `publishing`, or `groups` sections are
+  present in that workflow).
+
+None of that native harness or CI workflow exists in this lab, and
+building a parallel one purely to satisfy these guards would itself
+introduce native-app-signing-adjacent and deployment-workflow artifacts
+that the lab boundary explicitly forbids. Both sources are reclassified
+`local-equivalent` -> `irreducible-boundary` with the evidence above
+recorded in each entry's `reason` field in `exported-test-mapping.json`.
+This is distinct from the already-boundary `tests/ios-os/resume.e2e.mjs`
+(the live Simulator e2e spec itself, a different source file).
+
+`capacitorUpgradeSafety.local.test.tsx` continues to represent the
+adjacent-but-distinct Capacitor runtime-upgrade-version concern; it was
+never a real equivalent for these two files' file-existence assertions.
+
+### `membershipMutationService.test.ts` (101 cases)
+
+This was the single largest remaining uncovered file, and the only
+`membership/` feature-directory bundle source with **no** sanitized
+counterpart under `frontend/src/features/membership/` - unlike every RLS
+file investigated so far, this required no Postgres/RLS archaeology: all
+27 exported functions operate purely over an injected,
+already-mocked Supabase-shaped client (`.from(table).insert/update/
+select().eq().maybeSingle()`, `.rpc(...)`, `.functions.invoke(...)`),
+making it a pure application-logic port.
+
+The entire 1,222-line implementation and 1,851-line test file were read
+in full and manually tallied per `describe` block; the sum matched the
+bundle's expected count of exactly 101, confirming a complete read.
+
+Ported as:
+
+- `frontend/src/lab/membership/membershipMutationService.local.ts` - a
+  line-for-line behavioral reconstruction of every exported function
+  (`assignExistingTeamRole`/`assignBulkExistingTeamRole`,
+  `linkGuardianToExistingChild`, `createChildForParentOnTeam`,
+  `ensureChildTeamAssignment`/`ensureBulkChildTeamAssignmentBestEffort`,
+  `persistChildJerseyPosition`, `addExistingSecondParent`,
+  `notifyExistingTeamMember`, `processExistingParentChildren`/
+  `processBulkExistingParentChildren`, `addBulkSelectedSecondGuardian`,
+  `inviteBulkPendingSecondGuardian`, `completeBulkExistingMember`,
+  `createBulkPendingTeamInvite`, the pending/existing-parent team email
+  request builders and senders, `createPendingTeamInvite`/
+  `createPendingSecondParentInvite`, `recordPendingInviteEmailDelivery`,
+  `deliverBulkPendingInviteEmail`, and `processBulkPendingRecipient`/
+  `processBulkExistingRecipient`), against a loosely-typed
+  `LocalMembershipClient` interface (mirroring how the bundle's own test
+  file mocks the client - no real Supabase types or client needed).
+- `frontend/lab-tests/membershipMutationService.local.test.tsx` - all
+  **101/101** cases across the source's 25 `describe` blocks, faithfully
+  preserving each assertion's intent: exact insert/update payload shapes
+  (e.g. RPC parameter names, `p_year_of_birth` being `undefined` not
+  `null` for a blank year), exact duplicate-vs-non-duplicate error
+  classification and propagation (`23505` / message-substring fallback),
+  exact best-effort-vs-throwing branch pairs between the "existing
+  member" and "bulk" orchestration variants, exact call ordering
+  (guardian -> assignment -> jersey; role -> children -> guardian ->
+  completion), and exact email subject/branding branch logic (single vs.
+  multi-child wording, `discover` vs `standard` invite-email style,
+  provider-fallback vs invocation-error precedence in delivery-state
+  recording). AST case-count tool confirms **101/101** cases, exactly
+  matching the bundle's expected count.
+
+The prior 1-case superficial stub previously occupying
+`lab-tests/membershipMutationService.test.tsx` (a synthetic
+`applyMembershipMutation` toy with no relation to the bundle source) is
+removed; its bundle-mapping entry and the two other sources that had
+loosely listed it as a secondary target
+(`supabase/tests/scoped_member_removal_test.sql`,
+`tests/local-supabase/membership-invitation-journey.test.ts`) are
+repointed to the new port / their remaining accurate targets
+(`rls-parity-matrix.test.tsx`, `bulkInvitationWorkflow.test.tsx`
+respectively).
+
+### Updated inventory
+
+- `frontend/lab-tests`: **146** files (net unchanged: one stub removed,
+  one comprehensive port added).
+- Path-level mapping: 412 direct retained; **181** local equivalents;
+  **4** irreducible boundary exclusions (`tests/ios-os/resume.e2e.mjs`,
+  `tests/local-supabase/role-surface-access-matrix.test.ts`,
+  `src/test/androidOsHarness.guard.test.ts`,
+  `src/test/iosOsHarness.guard.test.ts`).
+
+Validation for this pass:
+
+```sh
+cd frontend
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/membershipMutationService.local.test.tsx
+# passed: 1 file / 101 tests
+node .case-audit-tmp/count-one.mjs lab-tests/membershipMutationService.local.test.tsx
+# totalCases: 101 dynamicCount: 0
+npx vitest run --config vitest.lab.config.mjs --configLoader runner
+# passed: 140 files / 1,443 tests, no regressions
+npm run typecheck:lab        # passed
+npm run check:isolation      # passed
+npm run check:exported-tests # passed: 434 / 146 / 39 / 3 exact inventory
+node --test lab-tests/exported-inventory-manifest.test.mjs # passed
+```
