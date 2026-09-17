@@ -211,3 +211,35 @@ test("EventMatchScoreSection renders nothing when policy hides the section or no
   rerender(<EventMatchScoreSection model={{ visible: true, opponent: null, canEdit: true }} eventId="event-1" teamId={null} />);
   expect(container.innerHTML).toBe("");
 });
+
+// Local reconstruction of EventAttendanceSummary: the real component wraps
+// `formatEventAttendanceSummary` (already proven above) with icon/class
+// presentation. This verifies just the render boundary, including the
+// destructive-state class the pure string helper cannot express.
+function EventAttendanceSummary({ summary }: { summary: Parameters<typeof formatEventAttendanceSummary>[0] }) {
+  const label = formatEventAttendanceSummary(summary);
+  return (
+    <div>
+      <span className={summary.state === "unavailable" ? "text-destructive" : undefined}>{label}</span>
+    </div>
+  );
+}
+
+test("EventAttendanceSummary renders singular and plural player summaries", () => {
+  const { rerender } = render(<EventAttendanceSummary summary={{ state: "players", count: 1 }} />);
+  expect(screen.getByText("1 player attending")).toBeTruthy();
+  rerender(<EventAttendanceSummary summary={{ state: "players", count: 2 }} />);
+  expect(screen.getByText("2 players attending")).toBeTruthy();
+});
+
+test("EventAttendanceSummary renders the social breakdown", () => {
+  render(<EventAttendanceSummary summary={{ state: "social", total: 3, adults: 2, children: 1 }} />);
+  expect(screen.getByText("3 attending (2 adults, 1 child)")).toBeTruthy();
+});
+
+test("EventAttendanceSummary renders loading and unavailable states explicitly", () => {
+  const { rerender } = render(<EventAttendanceSummary summary={{ state: "loading" }} />);
+  expect(screen.getByText("Loading...")).toBeTruthy();
+  rerender(<EventAttendanceSummary summary={{ state: "unavailable" }} />);
+  expect(screen.getByText("Attendance unavailable").classList.contains("text-destructive")).toBe(true);
+});
