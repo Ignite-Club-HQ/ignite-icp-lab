@@ -19,6 +19,10 @@ const SURFACES = [
 
 const pagesDir = join(__dirname, "..", "pages");
 const read = (f: string) => readFileSync(join(pagesDir, f), "utf8");
+const composerController = readFileSync(
+  join(__dirname, "..", "hooks", "useChatComposerController.ts"),
+  "utf8",
+);
 
 describe("failed-send recovery contract per chat surface", () => {
   for (const file of SURFACES) {
@@ -76,5 +80,13 @@ describe("failed-send recovery contract per chat surface", () => {
       expect(src).toMatch(/splitPollMarkup\(/);
       expect(src).toMatch(/setPoll:\s*setPendingPollId/);
     }
+  });
+
+  it("the shared composer controller conditionally restores every failed-send field", () => {
+    expect(composerController).toMatch(/restoreFailedSendComposer\(\{/);
+    expect(composerController).toMatch(/setText,/);
+    expect(composerController).toMatch(/setImage:\s*setImageUrl/);
+    expect(composerController).toMatch(/setReply:\s*setReplyingTo/);
+    expect(composerController).toMatch(/setPoll:\s*setPendingPollId/);
   });
 });
