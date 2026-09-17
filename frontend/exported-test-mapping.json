@@ -2099,7 +2099,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/membershipMutationService.test.tsx"
+        "lab-tests/membershipMutationService.local.test.tsx"
       ]
     },
     {
@@ -3891,10 +3891,11 @@
     {
       "source": "src/test/androidOsHarness.guard.test.ts",
       "scope": "non-browser",
-      "disposition": "local-equivalent",
+      "disposition": "irreducible-boundary",
       "targets": [
         "lab-tests/capacitorUpgradeSafety.local.test.tsx"
-      ]
+      ],
+      "reason": "All 32 cases assert exact file existence/content of a production tests/android-os/** native Capacitor+emulator harness (workspace package.json, verify-safety.mjs signing-credential scan strings, main.ts observer wiring) and an exact codemagic.yaml android-os-resume-test workflow block (instance type, artifact globs, absence of signing/publishing sections). Reconstructing that native harness scaffold or a parallel deployment-workflow YAML purely to satisfy this guard would itself violate the lab boundary (no native app signing configuration, no deployment workflows). capacitorUpgradeSafety.local.test.tsx covers the adjacent but distinct Capacitor runtime-upgrade-version concern; it does not represent these file/workflow-specific assertions."
     },
     {
       "source": "src/test/androidResumeZombieRequests.guard.test.ts",
@@ -4116,10 +4117,11 @@
     {
       "source": "src/test/iosOsHarness.guard.test.ts",
       "scope": "non-browser",
-      "disposition": "local-equivalent",
+      "disposition": "irreducible-boundary",
       "targets": [
         "lab-tests/capacitorUpgradeSafety.local.test.tsx"
-      ]
+      ],
+      "reason": "All 41 cases assert exact file existence/content of a production tests/ios-os/** native Capacitor+Appium Simulator harness (workspace package.json, verify-safety.mjs signing-credential scan strings, main.ts observer/state-contract wiring, resume.e2e.mjs assertion text) and an exact codemagic.yaml ios-os-resume-test workflow block (mac_mini_m2 instance, artifact globs, absence of signing/publishing sections). Reconstructing that native harness scaffold or a parallel deployment-workflow YAML purely to satisfy this guard would itself violate the lab boundary (no native app signing configuration, no deployment workflows). capacitorUpgradeSafety.local.test.tsx covers the adjacent but distinct Capacitor runtime-upgrade-version concern; it does not represent these file/workflow-specific assertions."
     },
     {
       "source": "src/test/keyboardCssHeight.test.ts",
@@ -4508,7 +4510,6 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/membershipMutationService.test.tsx",
         "lab-tests/rls-parity-matrix.test.tsx"
       ]
     },
@@ -4704,8 +4705,7 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/bulkInvitationWorkflow.test.tsx",
-        "lab-tests/membershipMutationService.test.tsx"
+        "lab-tests/bulkInvitationWorkflow.test.tsx"
       ]
     },
     {

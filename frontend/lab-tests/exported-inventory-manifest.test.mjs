@@ -16,10 +16,12 @@ test('maps every authoritative source exactly once', () => {
 test('uses exact dispositions and documents the irreducible boundaries', () => {
   const counts = Object.groupBy(manifest.entries, (entry) => entry.disposition);
   assert.equal(counts['direct-retained'].length, 412);
-  assert.equal(counts['local-equivalent'].length, 183);
-  assert.equal(counts['irreducible-boundary'].length, 2);
+  assert.equal(counts['local-equivalent'].length, 181);
+  assert.equal(counts['irreducible-boundary'].length, 4);
   const sources = counts['irreducible-boundary'].map((entry) => entry.source).sort();
   assert.deepEqual(sources, [
+    'src/test/androidOsHarness.guard.test.ts',
+    'src/test/iosOsHarness.guard.test.ts',
     'tests/ios-os/resume.e2e.mjs',
     'tests/local-supabase/role-surface-access-matrix.test.ts',
   ]);
@@ -31,4 +33,12 @@ test('uses exact dispositions and documents the irreducible boundaries', () => {
     (entry) => entry.source === 'tests/local-supabase/role-surface-access-matrix.test.ts',
   );
   assert.match(rlsEntry.reason, /club_messages/);
+  const iosHarnessEntry = counts['irreducible-boundary'].find(
+    (entry) => entry.source === 'src/test/iosOsHarness.guard.test.ts',
+  );
+  assert.match(iosHarnessEntry.reason, /codemagic\.yaml/);
+  const androidHarnessEntry = counts['irreducible-boundary'].find(
+    (entry) => entry.source === 'src/test/androidOsHarness.guard.test.ts',
+  );
+  assert.match(androidHarnessEntry.reason, /codemagic\.yaml/);
 });

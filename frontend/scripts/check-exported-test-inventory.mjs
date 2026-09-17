@@ -179,8 +179,8 @@ for (const entry of manifest.entries) {
 
 const expectedDispositions = {
   'direct-retained': 412,
-  'local-equivalent': 183,
-  'irreducible-boundary': 2,
+  'local-equivalent': 181,
+  'irreducible-boundary': 4,
 };
 if (JSON.stringify(dispositions) !== JSON.stringify(expectedDispositions)) {
   throw new Error(
