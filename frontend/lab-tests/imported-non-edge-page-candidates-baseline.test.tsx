@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import { expect, test, vi } from "vitest";
 import { completeHomeAccountRecovery } from "../src/features/home/accountRecoveryCompletion";
@@ -529,4 +531,11 @@ test("VaultPage keeps club-root access fail-closed and only grants a Pro role it
     currentContextHasPro: false,
     isRoot: false,
   })).toBe(false);
+});
+
+test("HomePage delegates account-recovery invalidation to the bounded feature policy", () => {
+  const source = readFileSync(resolve(__dirname, "../src/pages/HomePage.tsx"), "utf8");
+  expect(source).toContain("@/features/home/accountRecoveryCompletion");
+  expect(source).toContain("onRecovered={() => completeHomeAccountRecovery(queryClient)}");
+  expect(source).not.toMatch(/queryClient\.invalidateQueries\(\s*\)/);
 });

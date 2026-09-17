@@ -86,6 +86,7 @@ import {
   type HomeRsvpProvider,
 } from "@/lab/hybridHomeRsvpRepository";
 import { eventKeys } from "@/lab/eventQueryKeys";
+import { completeHomeAccountRecovery } from "@/features/home/accountRecoveryCompletion";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
@@ -2376,7 +2377,7 @@ export default function HomePage() {
         <Suspense fallback={null}>
           <AccountRecoveryBanner
             userId={user.id}
-            onRecovered={() => queryClient.invalidateQueries()}
+            onRecovered={() => completeHomeAccountRecovery(queryClient)}
           />
         </Suspense>
       )}
