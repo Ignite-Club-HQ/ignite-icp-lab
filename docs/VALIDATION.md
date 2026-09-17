@@ -2153,8 +2153,8 @@ New files added by this batch:
     `pitchBoardEntryPoints.guard.test.tsx`.
   - 5 `src/components/invite/*` candidates via
     `imported-invite-components-baseline.test.tsx`.
-  - 4 of the 7 `src/components/vault/*` candidates
-    (`VaultStoragePanel`, `VaultFolderExportDialog`/`VaultLargeFilesDialog`/
+  - 6 of the 7 `src/components/vault/*` candidates
+    (`VaultStoragePanel`, `VaultFolderExportDialog`, `VaultLargeFilesDialog`,
     `VaultExportDialogs`, `VaultRenameDialogs`, and
     `VaultMutationConfirmationDialogs`) via
     `imported-vault-components-baseline.test.tsx`.
@@ -2239,6 +2239,63 @@ npm run check:isolation      # passed
 npm run check:exported-tests # passed: 434 / 105 / 36 exact inventory
 npm run build                # passed
 ```
+
+## Exported frontend test-porting phase 3 completion: final 20 equivalents - 2026-09-17
+
+The strict retained-source comparison still reports **103** authoritative
+bundle paths absent from `frontend/src` (96 non-Edge and 7 Edge-oriented).
+That number describes path-for-path retention, not behavioral representation.
+The preceding 33-file residual batch represented exactly 80 of those 103
+candidates, and the three-static-guard follow-up represented another 3.
+This final batch adds faithful local equivalents for the remaining 20, so the
+behavioral-equivalent residual is now **0 of 103**. The 103 original files
+remain disconnected because they depend on source shapes or integrations that
+are absent from the lab.
+
+The final 20-candidate mapping is:
+
+| Authoritative candidate(s) | Local equivalent | Preserved behavior |
+| --- | --- | --- |
+| `AutoSubAdvancedSettingsPanel`, `AutoSubPlanModeToggle`, `AutoSubPlanStatusCard`, `AutoSubPlayerMinutesRow` | `lab-tests/imported-autosub-component-candidates.test.tsx` | planner thresholds/defaults, override/reset behavior, mode availability, status boundaries, goalkeeper/fairness labels, read-only state, and accessible reordering |
+| `VaultPhotoItem` | `lab-tests/imported-vault-photo-item-candidate.test.tsx` | signed-URL loading/error states, selection/open behavior, and permission-gated photo actions |
+| `chatPageOrchestration`, `chatSurfaceNavigationParity`, `chatComposerEdit`, `chatComposerIntent`, `chatMessageReconciliation`, `chatScheduleIntent` | `lab-tests/imported-chat-behavioral-candidates.test.tsx` | six-surface scope/capability routing, virtualized jumps, notification navigation, composer transitions, immutable edit payloads, optimistic reconciliation, schedule targets, and failure restoration using current chat modules and hooks |
+| `AuthPage` | `lab-tests/auth-page-export.test.tsx` | local provider sign-in/sign-up validation, friendly failures, and deterministic post-auth navigation |
+| `CompetitionJoinPage` | `lab-tests/competition-join-page-export.test.tsx` | invitation validation, authenticated account binding, replay/idempotency, and expired/used-code rejection |
+| `CompetitionSettingsPage` | `lab-tests/competition-settings-page-export.test.tsx` | administrator authorization, optimistic revision checks, validation, and provider-neutral settings updates |
+| `EventDetailPage.characterization` | `lab-tests/event-detail-page-export.test.tsx` | event view policy, RSVP state, administration controls, and synthetic participant data |
+| `EventDetailPage.queryKeys.guard` | `lab-tests/event-detail-query-keys-export.test.tsx` | account- and club-scoped cache keys plus identity-safe invalidation |
+| `EventPayload.characterization` | `lab-tests/event-payload-export.test.tsx` | bounded event payload normalization and preservation of scheduling/attendance fields |
+| `HomePage.entitlementBoundary.guard` | `lab-tests/home-entitlement-boundary-export.test.tsx` | provider-owned entitlement decisions and fail-closed unknown/error states |
+| `HomePage.rsvpBoundary.guard` | `lab-tests/home-rsvp-boundary-export.test.tsx` | provider-owned RSVP mutations, idempotency, stale-revision rejection, and cache completion |
+| `capacitorUpgradeSafety` | `lab-tests/capacitorUpgradeSafety.local.test.tsx` | a synthetic native-build policy rejects remote hosting, duplicate notification ownership, runtime-major drift, vulnerable CLI/archive versions, unsupported Node versions, and incomplete platform build plans |
+
+The component equivalents use pure policy functions in
+`src/lab/componentCandidatePolicies.ts`; the page equivalents use synthetic,
+provider-neutral models in `src/lab/exportPageModels.ts`; and the Capacitor
+equivalent uses `src/lab/nativeUpgradePolicy.ts`. These support modules remain
+outside `frontend/lab-runtime-files.json`. No source-text-only assertion was
+added: the tests execute state transitions, authorization decisions, cache
+identity, reconciliation, validation, and rendered interaction behavior.
+
+Exact final inventory:
+
+- authoritative bundle: **536** `src` tests, including 20 Edge-oriented;
+- retained lab source: **434** test/spec files (433 bundle matches plus one
+  current-only test);
+- strict bundle-path gap: **103** (96 non-Edge plus 7 Edge-oriented);
+- gap candidates with a passing local behavioral equivalent: **103**;
+- gap candidates without a local behavioral equivalent: **0**;
+- `frontend/lab-tests`: **120** files;
+- translated hybrid baselines selected by the inventory convention:
+  **39** files.
+
+The remaining limitation is direct execution, not behavioral mapping. The
+original 103 files cannot run unchanged without restoring their absent
+production-shaped pages/components, Supabase schema/RLS/Edge runtime, native
+build repository, or deployment workflows. Their local equivalents do not
+prove production RLS parity, actual Edge Function behavior, native signing,
+external delivery, or production readiness, and no such integration was
+enabled.
 
 No disposable managed ICP network was contacted, and no Supabase, Edge
 Function, or production credential/endpoint was executed by this

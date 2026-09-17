@@ -325,3 +325,315 @@ export function resolvePitchBoardRestore(input: PitchBoardRestoreInput): {
   params.set("openPitchBoard", "1");
   return { navigateTo: `${path}?${params.toString()}`, clearMarker: true };
 }
+
+export interface AutoSubAdvancedOverrides {
+  standardIntervalFloorSec?: number;
+  standardTargetIntervalSec?: number;
+  frequentIntervalFloorSec?: number;
+  minShiftSeconds?: number;
+  halftimeGuardSeconds?: number;
+  maxSpreadOverrideSec?: number;
+  playerPriorityOrder?: readonly string[];
+}
+
+export type AutoSubNumericOverride = Exclude<
+  keyof AutoSubAdvancedOverrides,
+  "playerPriorityOrder"
+>;
+
+const AUTO_SUB_ADVANCED_DEFAULTS: Record<
+  Exclude<AutoSubNumericOverride, "maxSpreadOverrideSec">,
+  number
+> = {
+  standardTargetIntervalSec: 420,
+  standardIntervalFloorSec: 240,
+  frequentIntervalFloorSec: 180,
+  minShiftSeconds: 180,
+  halftimeGuardSeconds: 180,
+};
+
+const AUTO_SUB_ADVANCED_CONTROLS: ReadonlyArray<{
+  key: AutoSubNumericOverride;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+}> = [
+  {
+    key: "standardTargetIntervalSec",
+    label: "Fairer minutes vs fewer stoppages",
+    min: 180,
+    max: 900,
+    step: 30,
+  },
+  {
+    key: "maxSpreadOverrideSec",
+    label: "Max playing-time spread",
+    min: 120,
+    max: 720,
+    step: 30,
+  },
+  {
+    key: "standardIntervalFloorSec",
+    label: "Space out substitution moments",
+    min: 120,
+    max: 600,
+    step: 30,
+  },
+  {
+    key: "frequentIntervalFloorSec",
+    label: "Space out substitution moments (Frequent mode)",
+    min: 60,
+    max: 420,
+    step: 15,
+  },
+  {
+    key: "minShiftSeconds",
+    label: "Allow short cameos vs protect player shifts",
+    min: 60,
+    max: 360,
+    step: 15,
+  },
+  {
+    key: "halftimeGuardSeconds",
+    label: "Allow halftime subs vs keep halftime clean",
+    min: 0,
+    max: 420,
+    step: 15,
+  },
+];
+
+export function getAutoSubAdvancedSettingsState(input: {
+  open: boolean;
+  overrides: Readonly<AutoSubAdvancedOverrides>;
+  readOnly: boolean;
+  defaultMaxSpreadMinutes: number;
+}): {
+  customCount: number;
+  controls: Array<{
+    key: AutoSubNumericOverride;
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+    disabled: boolean;
+    canReset: boolean;
+  }>;
+  canResetAll: boolean;
+  controlledMessage: string | null;
+} {
+  const customCount = Object.values(input.overrides)
+    .filter((value) => value !== undefined).length;
+  const defaultMaxSpreadSec = Math.round(input.defaultMaxSpreadMinutes * 60);
+  const defaults: Record<AutoSubNumericOverride, number> = {
+    ...AUTO_SUB_ADVANCED_DEFAULTS,
+    maxSpreadOverrideSec: defaultMaxSpreadSec,
+  };
+  return {
+    customCount,
+    controls: input.open
+      ? AUTO_SUB_ADVANCED_CONTROLS.map(({ key, label, min, max, step }) => ({
+          key,
+          label,
+          value: input.overrides[key] ?? defaults[key],
+          min,
+          max,
+          step,
+          disabled: input.readOnly,
+          canReset: !input.readOnly && input.overrides[key] !== undefined,
+        }))
+      : [],
+    canResetAll: !input.readOnly && customCount > 0,
+    controlledMessage: input.readOnly
+      ? "These thresholds are controlled by the parent screen and can't be changed here."
+      : null,
+  };
+}
+
+export function updateAutoSubAdvancedOverride(
+  overrides: Readonly<AutoSubAdvancedOverrides>,
+  key: AutoSubNumericOverride,
+  next: number | undefined,
+  readOnly = false,
+): AutoSubAdvancedOverrides {
+  if (readOnly) return { ...overrides };
+  const merged: AutoSubAdvancedOverrides = { ...overrides };
+  if (next === undefined) delete merged[key];
+  else merged[key] = next;
+  return merged;
+}
+
+export function resetAutoSubAdvancedOverrides(
+  overrides: Readonly<AutoSubAdvancedOverrides>,
+  readOnly = false,
+): AutoSubAdvancedOverrides {
+  return readOnly ? { ...overrides } : {};
+}
+
+export type AutoSubPlanMode = 1 | 2;
+
+const AUTO_SUB_PLAN_MODES: ReadonlyArray<{
+  id: AutoSubPlanMode;
+  title: string;
+  tradeoff: string;
+}> = [
+  {
+    id: 1,
+    title: "Standard",
+    tradeoff: "Fewer substitutions, longer shifts. Minutes may differ a little more between players.",
+  },
+  {
+    id: 2,
+    title: "Frequent",
+    tradeoff: "More substitutions, tighter rotation. Minutes even out faster across the squad.",
+  },
+];
+
+export function getAutoSubPlanModeState(input: {
+  activeMode: AutoSubPlanMode;
+  readOnly: boolean;
+  disabledModes?: readonly AutoSubPlanMode[];
+}): Array<{
+  id: AutoSubPlanMode;
+  title: string;
+  tradeoff: string;
+  active: boolean;
+  disabled: boolean;
+  badge: "On" | "Unavailable" | null;
+  unavailableReason: string | null;
+}> {
+  if (input.readOnly) return [];
+  return AUTO_SUB_PLAN_MODES.map((mode) => {
+    const disabled = input.disabledModes?.includes(mode.id) ?? false;
+    const active = input.activeMode === mode.id;
+    return {
+      ...mode,
+      active,
+      disabled,
+      badge: disabled ? "Unavailable" : active ? "On" : null,
+      unavailableReason: disabled
+        ? "Not available for this squad size and match length"
+        : null,
+    };
+  });
+}
+
+export function requestAutoSubPlanMode(input: {
+  requestedMode: AutoSubPlanMode;
+  readOnly: boolean;
+  disabledModes?: readonly AutoSubPlanMode[];
+}): AutoSubPlanMode | null {
+  if (input.readOnly || input.disabledModes?.includes(input.requestedMode)) return null;
+  return input.requestedMode;
+}
+
+export function getAutoSubPlanStatus(input: {
+  totalSubs: number;
+  spreadMin: number;
+  shortShifts: number;
+  hasHalftimeClash: boolean;
+}): {
+  needsAdjustment: boolean;
+  totalSubsLabel: string;
+  spreadLabel: string;
+  shortShiftsLabel: string;
+  spreadTone: "attention" | "normal";
+  shortShiftsTone: "attention" | "calm";
+} {
+  const hasSpread = input.spreadMin > 6;
+  const hasShortShifts = input.shortShifts > 0;
+  return {
+    needsAdjustment: input.hasHalftimeClash || hasSpread || hasShortShifts,
+    totalSubsLabel: String(input.totalSubs),
+    spreadLabel: `${input.spreadMin.toFixed(1)}m`,
+    shortShiftsLabel: String(input.shortShifts),
+    spreadTone: hasSpread ? "attention" : "normal",
+    shortShiftsTone: hasShortShifts ? "attention" : "calm",
+  };
+}
+
+export type AutoSubGoalkeeperRole = "full" | "1h" | "2h";
+
+export function getAutoSubPlayerMinutesState(input: {
+  player: { name: string; number?: number };
+  predictedMinutes: number;
+  percentageOfGame: number;
+  startsOnPitch: boolean;
+  gkRole?: AutoSubGoalkeeperRole;
+  shortShifts?: number;
+  bounceBacks?: number;
+  draggable: boolean;
+}): {
+  playerName: string;
+  numberLabel: string;
+  lineupLabel: "Start" | "Bench";
+  forecastLabel: string;
+  goalkeeperLabel: "GK" | "GK 1H" | "GK 2H" | null;
+  warningLabels: string[];
+  dragLabel: string | null;
+} {
+  const goalkeeperLabel = input.gkRole === "full"
+    ? "GK"
+    : input.gkRole === "1h"
+      ? "GK 1H"
+      : input.gkRole === "2h"
+        ? "GK 2H"
+        : null;
+  const warningLabels: string[] = [];
+  if ((input.shortShifts ?? 0) > 0) warningLabels.push(`${input.shortShifts} very short`);
+  if ((input.bounceBacks ?? 0) > 0) warningLabels.push(`${input.bounceBacks} bounce`);
+  return {
+    playerName: input.player.name,
+    numberLabel: input.player.number == null ? "?" : String(input.player.number),
+    lineupLabel: input.startsOnPitch ? "Start" : "Bench",
+    forecastLabel: `${input.predictedMinutes}' (${input.percentageOfGame}%)`,
+    goalkeeperLabel,
+    warningLabels,
+    dragLabel: input.draggable
+      ? `Reorder ${input.player.name} playing-time priority`
+      : null,
+  };
+}
+
+export type VaultPhotoLoadState = "pending" | "loaded" | "error";
+export type VaultPhotoAction = "download" | "rename" | "delete";
+
+export function getVaultPhotoPresentation(input: {
+  photo: { id: string; title?: string; fileUrl?: string; imageUrl?: string };
+  signedUrl?: string | null;
+  signedUrlLoading: boolean;
+  loadState: VaultPhotoLoadState;
+  selectionMode: boolean;
+  canDelete: boolean;
+  canRename: boolean;
+  hasDownloadHandler: boolean;
+  hasRenameHandler: boolean;
+}): {
+  phase: "empty" | "loading" | "error" | "ready";
+  photoUrl: string | null;
+  alt: string;
+  downloadName: string;
+  selectedAction: "toggle-selection" | "open";
+  actions: VaultPhotoAction[];
+} {
+  const rawPhotoUrl = input.photo.fileUrl || input.photo.imageUrl || null;
+  const photoUrl = input.signedUrl || rawPhotoUrl;
+  const actions: VaultPhotoAction[] = [];
+  if (input.hasDownloadHandler) actions.push("download");
+  if (input.canRename && input.hasRenameHandler) actions.push("rename");
+  if (input.canDelete) actions.push("delete");
+  const common = {
+    photoUrl,
+    alt: input.photo.title || "Photo",
+    downloadName: input.photo.title || `photo-${input.photo.id}.jpg`,
+    selectedAction: input.selectionMode ? "toggle-selection" as const : "open" as const,
+    actions: input.selectionMode ? [] : actions,
+  };
+  if (!rawPhotoUrl) return { phase: "empty", ...common };
+  if (input.signedUrlLoading || input.loadState === "pending") {
+    return { phase: "loading", ...common };
+  }
+  if (input.loadState === "error") return { phase: "error", ...common };
+  return { phase: "ready", ...common };
+}
