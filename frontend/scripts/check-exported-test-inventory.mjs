@@ -118,11 +118,11 @@ if (browserNativeSources.length !== 11) {
   throw new Error(`Expected exactly 11 browser/native bundle tests, found ${browserNativeSources.length}`);
 }
 if (sourceTests !== 434) throw new Error(`Expected exactly 434 retained source tests, found ${sourceTests}`);
-if (labTests !== 123) throw new Error(`Expected exactly 123 lab tests, found ${labTests}`);
+if (labTests !== 143) throw new Error(`Expected exactly 143 lab tests, found ${labTests}`);
 if (translatedBaselines !== 39) {
   throw new Error(`Expected exactly 39 translated baselines, found ${translatedBaselines}`);
 }
-if (browserSpecs !== 2) throw new Error(`Expected exactly 2 loopback browser specs, found ${browserSpecs}`);
+if (browserSpecs !== 3) throw new Error(`Expected exactly 3 loopback browser specs, found ${browserSpecs}`);
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 if (manifest.schemaVersion !== 1) throw new Error('Unsupported exported-test mapping schema');

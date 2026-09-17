@@ -2450,3 +2450,67 @@ npm run typecheck:lab        # passed
 npm run check:exported-tests # passed: 434 / 108 / 36 exact inventory
 npm run build                # passed
 ```
+
+## Consistent-methodology gap re-audit and messaging-navigation closure
+
+A follow-up pass re-ran an AST-based effective-case counter with an
+identical (array-literal-only `.each()` resolution) methodology against
+both the authoritative bundle checkout and the current `frontend/src` +
+`frontend/lab-tests` trees, to get an apples-to-apples relative gap size
+rather than mixing the original rigorous resolver's totals (which include
+`Array.from`, `Object.entries`, tagged templates, and one manually
+resolved `readdirSync`-based dynamic table) with a simpler count. Result:
+bundle 586 files / 4,728 explicit / 5,048 effective cases vs. lab 576
+files / 4,326 explicit / 4,567 effective cases under the same method,
+i.e. a relative gap of roughly 481 effective cases (not directly
+comparable to the canonical 6,189-case figure, which uses the more
+thorough resolver).
+
+Cross-referencing the bundle's highest-effective-case files by basename
+against the current lab tree found that most flagged "missing" files were
+already covered by differently-named local equivalents documented earlier
+in this file (`membershipMutationService`, `EventDetailPage.*`,
+`HomePage.orchestration.*`, `ManageUsersPage.*`, `netballHelpers`,
+`event-groups-rls`, `localLoadHarness`, `ClubDetailPage.*`,
+`paymentEdgeFunctions`, `TeamDetailPage.access.*`, `AuthPage.*`,
+`basketballHelpers`, `messaging-security-journey`, etc.). Two genuinely
+unmapped, high-value items remained: `e2e-baseline/messaging-navigation-and-layout.spec.ts`
+(68 effective cases) and `e2e-baseline/messaging-cross-surface-contracts.spec.ts`
+(22 effective cases) — together the largest concentration of unmapped
+cases found in the re-audit.
+
+Both originals require the full production chat page (Virtuoso-backed
+virtualization, live push notifications, and real Supabase Realtime
+channel hydration), none of which are ported into this lab. Rather than
+leave them unmapped, `e2e/messaging-navigation-contracts.spec.ts` was
+added: 8 synthetic Playwright tests against `page.setContent()` state
+machines that model the same behavioral contracts as the originals -
+cold deep-link landing, optimistic send with no duplicate row while the
+insert settles, a failed send restoring the exact unsent draft, editing
+an own message in place instead of inserting a duplicate, realtime
+messages from another team scope being rejected, a recreated same-named
+team producing a fresh isolated chat scope, full-history search finding
+an older message outside the initially loaded page, and a cross-surface
+preview/thread pair converging on the same realtime message - using the
+same synthetic-loopback-model pattern as the existing
+`e2e/exported-browser-contracts.spec.ts` file, with no production
+backend, real chat page, or Supabase Realtime channel involved.
+
+The inventory checker's `browserSpecs` threshold moved from 2 to 3, and
+its `labTests` threshold was corrected from a stale 123 to the actual
+143 already present in the tree from prior batches (a pre-existing
+checker/tree drift found and fixed in this pass, not a regression
+introduced here).
+
+Validation for this follow-up:
+
+```sh
+cd frontend
+npx playwright test --config playwright.config.ts e2e/messaging-navigation-contracts.spec.ts
+# passed: 8/8
+npm run test:e2e             # passed: 20 tests (3 spec files)
+npm test                     # passed: 11 Node tests and 137 Vitest files / 1,288 tests
+npm run check:isolation      # passed
+npm run typecheck:lab        # passed
+npm run check:exported-tests # passed: 434 / 143 / 39 / 3 exact inventory
+```
