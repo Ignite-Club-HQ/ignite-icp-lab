@@ -116,6 +116,7 @@ import { deliveredSend, queuedSend, isConfirmedDelivery } from "@/lib/chatSendRe
 import { consumeFromNotificationFlag } from "@/lib/notificationPreload";
 import { logChatOpenLatency } from "@/lib/chatOpenLatency";
 import { useChatPerfMarks, markChatFetch } from "@/hooks/useChatPerfMarks";
+import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 import { getCachedTeam, getCachedClub, cacheTeam, cacheClub } from "@/lib/clubTeamCache";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
@@ -1640,21 +1641,16 @@ export default function TeamChatPage() {
   // `chatSendResult`). Fire-and-forget: a Vault failure must never turn a
   // delivered chat message into a failed send.
   const clubIdForVault = team?.club_id ?? null;
+  const syncDeliveredMessageToVault = useChatVaultDeliverySync({
+    userId: user?.id,
+    scope: clubIdForVault && teamId ? { clubId: clubIdForVault, teamId } : null,
+    surfaceLabel: "Team chat",
+  });
   const syncSendToVault = useCallback(
     (vars: { text: string; image_url: string | null }) => {
-      if (!user || !clubIdForVault || !teamId) return;
-      if (!vars.image_url && !vars.text) return;
-      import("@/lib/chatVaultSync").then(({ syncChatAttachmentToVault }) => {
-        syncChatAttachmentToVault({
-          imageUrl: vars.image_url,
-          text: vars.text,
-          userId: user.id,
-          clubId: clubIdForVault,
-          teamId,
-        }).catch((err) => console.warn("Team chat vault sync failed", err));
-      });
+      syncDeliveredMessageToVault({ text: vars.text, imageUrl: vars.image_url });
     },
-    [user, clubIdForVault, teamId],
+    [syncDeliveredMessageToVault],
   );
 
   const sendMessageMutation = useMutation({

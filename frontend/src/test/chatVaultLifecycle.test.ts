@@ -73,8 +73,9 @@ describe("per-surface vault lifecycle wiring", () => {
         expect(branch).toMatch(/syncSendToVault\(variables\)/);
       });
 
-      it("keeps Vault sync fire-and-forget (never rethrown into the send)", () => {
-        expect(src).toMatch(/vault sync failed/);
+      it("delegates Vault failures to the shared fire-and-forget boundary", () => {
+        expect(src).toMatch(/surfaceLabel:/);
+        expect(src).not.toMatch(/await syncSendToVault/);
       });
     });
   }

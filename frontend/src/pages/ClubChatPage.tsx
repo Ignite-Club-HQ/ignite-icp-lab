@@ -81,6 +81,7 @@ import { PinVaultSheet } from "@/components/chat/PinVaultSheet";
 import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
+import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
@@ -1290,20 +1291,16 @@ export default function ClubChatPage() {
   }, []);
 
   // Vault mirroring runs ONLY for confirmed-delivered messages.
+  const syncDeliveredMessageToVault = useChatVaultDeliverySync({
+    userId: user?.id,
+    scope: clubId ? { clubId } : null,
+    surfaceLabel: "Club chat",
+  });
   const syncSendToVault = useCallback(
     (vars: { text: string; image_url: string | null }) => {
-      if (!user || !clubId) return;
-      if (!vars.image_url && !vars.text) return;
-      import("@/lib/chatVaultSync").then(({ syncChatAttachmentToVault }) => {
-        syncChatAttachmentToVault({
-          imageUrl: vars.image_url,
-          text: vars.text,
-          userId: user.id,
-          clubId,
-        }).catch((err) => console.warn("Club chat vault sync failed", err));
-      });
+      syncDeliveredMessageToVault({ text: vars.text, imageUrl: vars.image_url });
     },
-    [user, clubId],
+    [syncDeliveredMessageToVault],
   );
 
   const sendMutation = useMutation({

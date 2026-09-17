@@ -60,6 +60,7 @@ import {
 } from "@/lib/chatMessageReconciliation";
 import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authoritativeMessageExists, dropSupersededOptimisticRow, type FailedSendContext } from "@/lib/failedSendRestore";
 import { deliveredSend, queuedSend, isConfirmedDelivery } from "@/lib/chatSendResult";
+import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 
 import { MentionInput } from "@/components/chat/MentionInput";
 import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
@@ -776,21 +777,16 @@ function SupabaseClubAdminChatPage() {
   // Vault mirroring runs ONLY for confirmed-delivered messages, always into the
   // club-admin-restricted folder.
   const clubIdForVault = conversation?.club_id ?? null;
+  const syncDeliveredMessageToVault = useChatVaultDeliverySync({
+    userId: user?.id,
+    scope: clubIdForVault ? { clubId: clubIdForVault, isClubAdminChat: true } : null,
+    surfaceLabel: "Club admin chat",
+  });
   const syncSendToVault = useCallback(
     (vars: { text: string; imageUrl: string | null }) => {
-      if (!user || !clubIdForVault) return;
-      if (!vars.imageUrl && !vars.text) return;
-      import("@/lib/chatVaultSync").then(({ syncChatAttachmentToVault }) => {
-        syncChatAttachmentToVault({
-          imageUrl: vars.imageUrl ?? null,
-          text: vars.text,
-          userId: user.id,
-          clubId: clubIdForVault,
-          isClubAdminChat: true,
-        }).catch((err) => console.warn("Club admin chat vault sync failed", err));
-      });
+      syncDeliveredMessageToVault({ text: vars.text, imageUrl: vars.imageUrl ?? null });
     },
-    [user, clubIdForVault],
+    [syncDeliveredMessageToVault],
   );
 
   // Send message mutation

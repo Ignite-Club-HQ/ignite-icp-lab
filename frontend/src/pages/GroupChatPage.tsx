@@ -28,6 +28,7 @@ import { useMeasuredElementHeight } from "@/hooks/useMeasuredElementHeight";
 import { keepComposerFocusedThroughSend } from "@/lib/chatComposerFocus";
 import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
+import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1847,20 +1848,16 @@ export default function GroupChatPage() {
         : null,
     [group?.club_id, group?.team_id, group?.id, group?.name, group?.allowed_roles],
   );
+  const syncDeliveredMessageToVault = useChatVaultDeliverySync({
+    userId: user?.id,
+    scope: vaultGroupScope,
+    surfaceLabel: "Group chat",
+  });
   const syncSendToVault = useCallback(
     (vars: { text: string; image_url: string | null }) => {
-      if (!user || !vaultGroupScope) return;
-      if (!vars.image_url && !vars.text) return;
-      import("@/lib/chatVaultSync").then(({ syncChatAttachmentToVault }) => {
-        syncChatAttachmentToVault({
-          imageUrl: vars.image_url,
-          text: vars.text,
-          userId: user.id,
-          ...vaultGroupScope,
-        }).catch((err) => console.warn("Group chat vault sync failed", err));
-      });
+      syncDeliveredMessageToVault({ text: vars.text, imageUrl: vars.image_url });
     },
-    [user, vaultGroupScope],
+    [syncDeliveredMessageToVault],
   );
 
   // Send message mutation

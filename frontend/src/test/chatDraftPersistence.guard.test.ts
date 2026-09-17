@@ -19,6 +19,12 @@ const SURFACES: Array<{ file: string; draftKey: string }> = [
 const pagesDir = join(__dirname, "..", "pages");
 const read = (f: string) => readFileSync(join(pagesDir, f), "utf8");
 
+function composerCallWindow(source: string) {
+  const start = source.lastIndexOf("useChatComposerController");
+  expect(start).toBeGreaterThanOrEqual(0);
+  return source.slice(start, start + 500);
+}
+
 describe("chat draft persistence per surface", () => {
   for (const { file, draftKey } of SURFACES) {
     describe(file, () => {
@@ -45,5 +51,12 @@ describe("chat draft persistence per surface", () => {
     expect(hook).toMatch(/export function useChatDraft\(/);
     expect(hook).toMatch(/export function useChatDraftReply</);
     expect(hook).toContain("chat_draft_reply_");
+  });
+
+  it("the shared composer controller persists reply identity instead of using ephemeral state", () => {
+    const controller = readFileSync(join(__dirname, "..", "hooks", "useChatComposerController.ts"), "utf8");
+    expect(controller).toContain("useChatDraft(draftId)");
+    expect(controller).toContain("useChatDraftReply<TReply>(draftId)");
+    expect(controller).not.toMatch(/useState<TReply \| null>/);
   });
 });
