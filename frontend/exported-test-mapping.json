@@ -138,7 +138,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/remaining-chat-component-candidates.test.tsx"
+        "lab-tests/remaining-chat-component-candidates.test.tsx",
+        "lab-tests/addTeamMemberSheet.local.test.mjs"
       ]
     },
     {
@@ -2235,7 +2236,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/remaining-library-thread-scope-candidates.test.tsx"
+        "lab-tests/remaining-library-thread-scope-candidates.test.tsx",
+        "lab-tests/clubRsvpParentInviteChatScope.local.test.mjs"
       ]
     },
     {
@@ -3628,7 +3630,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/competition-join-page-export.test.tsx"
+        "lab-tests/competition-join-page-export.test.tsx",
+        "lab-tests/competitionJoinPage.local.test.mjs"
       ]
     },
     {
@@ -3693,7 +3696,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/event-detail-page-export.test.tsx"
+        "lab-tests/event-detail-page-export.test.tsx",
+        "lab-tests/eventDetailPageCharacterization.local.test.mjs"
       ]
     },
     {
@@ -3765,7 +3769,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx"
+        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx",
+        "lab-tests/homePageOrchestration.local.test.mjs"
       ]
     },
     {
@@ -3797,7 +3802,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx"
+        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx",
+        "lab-tests/manageUsersPage.local.test.mjs"
       ]
     },
     {
@@ -3805,7 +3811,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx"
+        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx",
+        "lab-tests/mediaPageCharacterization.local.test.mjs"
       ]
     },
     {
@@ -3869,7 +3876,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx"
+        "lab-tests/imported-non-edge-page-candidates-baseline.test.tsx",
+        "lab-tests/vaultPageCharacterization.local.test.mjs"
       ]
     },
     {
@@ -4581,7 +4589,8 @@
       "disposition": "local-equivalent",
       "targets": [
         "lab-tests/imported-club-wide-rsvp-baseline.test.tsx",
-        "lab-tests/local-events-service.test.tsx"
+        "lab-tests/local-events-service.test.tsx",
+        "lab-tests/clubRsvpParentInviteChatScope.local.test.mjs"
       ]
     },
     {
@@ -4689,7 +4698,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/scaling.test.mjs"
+        "lab-tests/scaling.test.mjs",
+        "lab-tests/localLoadHarness.local.test.mjs"
       ]
     },
     {
@@ -4713,7 +4723,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-messaging-security-baseline.test.tsx"
+        "lab-tests/imported-messaging-security-baseline.test.tsx",
+        "lab-tests/messagingSecurityJourney.local.test.mjs"
       ]
     },
     {
@@ -4729,7 +4740,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/imported-parent-invite-atomic-baseline.test.tsx"
+        "lab-tests/imported-parent-invite-atomic-baseline.test.tsx",
+        "lab-tests/clubRsvpParentInviteChatScope.local.test.mjs"
       ]
     },
     {
@@ -4806,7 +4818,8 @@
       "scope": "non-browser",
       "disposition": "local-equivalent",
       "targets": [
-        "lab-tests/exported-inventory-manifest.test.mjs"
+        "lab-tests/exported-inventory-manifest.test.mjs",
+        "lab-tests/trancheBaselineManifest.local.test.mjs"
       ]
     },
     {
