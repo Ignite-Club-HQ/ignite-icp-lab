@@ -1756,3 +1756,68 @@ The retained source inventory is now **422** `frontend/src` test files. With
 13 Edge-oriented retained source tests still excluded by policy, the observed
 active legacy tier is **400** files. The inventory checker now requires at
 least 422 retained source test files and 31 translated hybrid baselines.
+
+## Exported frontend test-porting phase 1, batch 11 - 2026-09-17
+
+Processed seven additional hook-level non-Edge bundle tests that run against
+mocked Supabase channels, mocked query clients, local storage, and synthetic
+browser/service-worker doubles:
+
+- `src/hooks/useEventGroupSync.realtime.test.tsx`
+- `src/hooks/useMessageReads.realtime.test.tsx`
+- `src/hooks/useMissedNotificationSync.test.tsx`
+- `src/hooks/usePinnedMessages.realtime.test.tsx`
+- `src/hooks/usePublishChatImage.test.tsx`
+- `src/hooks/useRemoteFillInSync.test.tsx`
+- `src/hooks/useSyncActiveClubToChat.test.tsx`
+
+The focused hook suite passed without production network access. The full
+legacy tier initially surfaced an asynchronous jsdom teardown error from the
+existing `BottomNav` iOS layout reset timer after all assertions had passed.
+The component now captures the window/document objects used by delayed reset
+callbacks, preventing a post-teardown global lookup while preserving the runtime
+scroll-reset behavior. The targeted BottomNav/hooks rerun and the full legacy
+tier passed afterward.
+
+Two probe groups were not retained in this batch:
+
+- `src/components/AddTeamMemberSheet.characterization.test.tsx` failed 12 of
+  13 assertions because the current sheet starts in a newer delivery-first
+  workflow rather than the exported multi-step role-selection flow. Porting it
+  requires a separate bounded characterization of the current component rather
+  than replaying stale UI contracts.
+- Seven chat page/static characterization tests still require absent page-level
+  chat refactors and failed 49 assertions across shared composer, ordering,
+  hydration, query-data, and reconciliation contracts. They remain deferred
+  with the earlier chat-refactor exclusion rationale.
+
+Validation for this batch:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/hooks/useMessageReads.realtime.test.tsx \
+  src/hooks/useMissedNotificationSync.test.tsx \
+  src/hooks/usePublishChatImage.test.tsx \
+  src/hooks/usePinnedMessages.realtime.test.tsx \
+  src/hooks/useRemoteFillInSync.test.tsx \
+  src/hooks/useSyncActiveClubToChat.test.tsx \
+  src/hooks/useEventGroupSync.realtime.test.tsx
+# passed: 7 files / 54 tests
+npx vitest run --config vitest.legacy.config.mjs \
+  src/components/layout/BottomNav.iosSafeArea.test.tsx \
+  src/hooks/useMessageReads.realtime.test.tsx \
+  src/hooks/useMissedNotificationSync.test.tsx \
+  src/hooks/usePublishChatImage.test.tsx \
+  src/hooks/usePinnedMessages.realtime.test.tsx \
+  src/hooks/useRemoteFillInSync.test.tsx \
+  src/hooks/useSyncActiveClubToChat.test.tsx \
+  src/hooks/useEventGroupSync.realtime.test.tsx
+# passed: 8 files / 62 tests
+npm run test:legacy # passed: 407 files / 3,991 passed; 2 skipped
+```
+
+The retained source inventory is now **429** `frontend/src` test files. With
+13 Edge-oriented retained source tests still excluded by policy, the observed
+active legacy tier is **407** files. The inventory checker now requires at
+least 429 retained source test files and 31 translated hybrid baselines.
