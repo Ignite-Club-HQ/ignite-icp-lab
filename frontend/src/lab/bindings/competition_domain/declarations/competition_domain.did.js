@@ -9,7 +9,6 @@
 import { IDL } from '@icp-sdk/core/candid';
 
 export const idlFactory = ({ IDL }) => {
-  const Init = IDL.Record({ 'governor' : IDL.Principal });
   const Result_5 = IDL.Variant({ 'Ok' : IDL.Text, 'Err' : IDL.Text });
   const Competition = IDL.Record({
     'id' : IDL.Text,
@@ -87,6 +86,7 @@ export const idlFactory = ({ IDL }) => {
         [Result_4],
         [],
       ),
+    'initialize' : IDL.Func([], [Result_4], []),
     'issue_join_token' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Nat64],
         [Result_1],
@@ -107,8 +107,4 @@ export const idlFactory = ({ IDL }) => {
   });
 };
 
-export const init = ({ IDL }) => {
-  const Init = IDL.Record({ 'governor' : IDL.Principal });
-  
-  return [Init];
-};
+export const init = ({ IDL }) => { return []; };

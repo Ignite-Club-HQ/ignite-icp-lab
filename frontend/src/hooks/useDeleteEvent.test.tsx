@@ -137,7 +137,7 @@ describe("useDeleteEvent", () => {
 
 describe("purgeDeletedEventFromCaches", () => {
   it("removes the deleted event from every cached event list", async () => {
-    const queryClient = new QueryClient();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     queryClient.setQueryData(["events", "team-1"], [{ id: "e1" }, { id: "e2" }]);
     queryClient.setQueryData(["upcoming-events"], [{ id: "e1" }]);
     queryClient.setQueryData(["photos"], [{ id: "e1" }]);

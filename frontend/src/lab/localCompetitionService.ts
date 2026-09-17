@@ -139,7 +139,7 @@ export function createCompetitionDomainClient(
 
 async function connectCompetitionActor(persona: string): Promise<_SERVICE> {
   const config = await fetchLocalLabConfig();
-  const competitionCanisterId = config.canisterIds?.competition_domain ?? config.canisterIds?.competition_domain_motoko;
+  const competitionCanisterId = config.canisterIds?.competition_domain;
   if (!competitionCanisterId) throw new Error('Local competition domain canister is not configured.');
   const agent = await createLocalAgent(config, persona, location.origin);
   return Actor.createActor<_SERVICE>(idlFactory, {

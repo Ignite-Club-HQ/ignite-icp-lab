@@ -37,7 +37,7 @@ const sourceTests = countFiles(path.join(frontendRoot, 'src'), file =>
 const translatedBaselines = countFiles(path.join(frontendRoot, 'lab-tests'), file =>
   /imported-.*\.test\.tsx$/.test(file),
 );
-if (sourceTests < 396) throw new Error(`Expected at least 396 retained source tests, found ${sourceTests}`);
+if (sourceTests < 414) throw new Error(`Expected at least 414 retained source tests, found ${sourceTests}`);
 if (translatedBaselines < 31) throw new Error(`Expected at least 31 translated baselines, found ${translatedBaselines}`);
 
 console.log(`Authoritative export: ${expectedRef} (${expectedCommit})`);

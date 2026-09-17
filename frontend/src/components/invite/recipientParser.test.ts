@@ -3,7 +3,7 @@ import { parseRecipients, looksLikeMultiRecipient } from "./recipientParser";
 
 describe("recipientParser — supported formats", () => {
   it("parses a bare email", () => {
-    expect(parseRecipients("redacted@example.invalid")).toEqual([{ name: "alice", email: "redacted@example.invalid" }]);
+    expect(parseRecipients("alice@example.invalid")).toEqual([{ name: "alice", email: "alice@example.invalid" }]);
   });
 
   it("parses name-only", () => {
@@ -11,35 +11,35 @@ describe("recipientParser — supported formats", () => {
   });
 
   it("parses Name <email>", () => {
-    expect(parseRecipients("Alice Smith <redacted@example.invalid>")).toEqual([
-      { name: "Alice Smith", email: "redacted@example.invalid" },
+    expect(parseRecipients("Alice Smith <alice@example.invalid>")).toEqual([
+      { name: "Alice Smith", email: "alice@example.invalid" },
     ]);
   });
 
   it("parses `Name, email` as one entry when it's the only recipient", () => {
-    expect(parseRecipients("Alice Smith, redacted@example.invalid")).toEqual([
-      { name: "Alice Smith", email: "redacted@example.invalid" },
+    expect(parseRecipients("Alice Smith, alice@example.invalid")).toEqual([
+      { name: "Alice Smith", email: "alice@example.invalid" },
     ]);
   });
 
   it("splits on newline / tab / semicolon", () => {
-    expect(parseRecipients("redacted@example.invalid\redacted@example.invalid\redacted@example.invalid;redacted@example.invalid")).toEqual([
-      { name: "a", email: "redacted@example.invalid" },
-      { name: "b", email: "redacted@example.invalid" },
-      { name: "c", email: "redacted@example.invalid" },
-      { name: "d", email: "redacted@example.invalid" },
+    expect(parseRecipients("a@example.invalid\nb@example.invalid\tc@example.invalid;d@example.invalid")).toEqual([
+      { name: "a", email: "a@example.invalid" },
+      { name: "b", email: "b@example.invalid" },
+      { name: "c", email: "c@example.invalid" },
+      { name: "d", email: "d@example.invalid" },
     ]);
   });
 
   it("splits on commas when multiple emails are present", () => {
-    expect(parseRecipients("redacted@example.invalid, redacted@example.invalid")).toEqual([
-      { name: "a", email: "redacted@example.invalid" },
-      { name: "b", email: "redacted@example.invalid" },
+    expect(parseRecipients("a@example.invalid, b@example.invalid")).toEqual([
+      { name: "a", email: "a@example.invalid" },
+      { name: "b", email: "b@example.invalid" },
     ]);
   });
 
   it("dedupes case-insensitively", () => {
-    expect(parseRecipients("redacted@example.invalid\redacted@example.invalid")).toEqual([{ name: "A", email: "redacted@example.invalid" }]);
+    expect(parseRecipients("A@example.invalid\na@example.invalid")).toEqual([{ name: "A", email: "A@example.invalid" }]);
   });
 });
 
@@ -82,10 +82,10 @@ describe("recipientParser — hardened rejections", () => {
 
 describe("looksLikeMultiRecipient", () => {
   it("returns true for newline-separated pairs", () => {
-    expect(looksLikeMultiRecipient("redacted@example.invalid\redacted@example.invalid")).toBe(true);
+    expect(looksLikeMultiRecipient("a@example.invalid\nb@example.invalid")).toBe(true);
   });
   it("returns true for two bare emails", () => {
-    expect(looksLikeMultiRecipient("redacted@example.invalid, redacted@example.invalid")).toBe(true);
+    expect(looksLikeMultiRecipient("a@example.invalid, b@example.invalid")).toBe(true);
   });
   it("returns false for a single Name <email>", () => {
     expect(looksLikeMultiRecipient("Alice <redacted@example.invalid>")).toBe(false);

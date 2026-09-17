@@ -105,9 +105,17 @@ const source = readFileSync(
 );
 
 describe("CreateEventPage wiring", () => {
+  // CreateEventPage.tsx hosts both the ICP-lab and legacy Supabase submit
+  // paths in one file; "setSaving(true);" appears in each, so the search for
+  // the closing marker must start after the conflict-check block begins
+  // (SupabaseCreateEventPage) rather than matching the first, unrelated
+  // occurrence earlier in the file (IcpCreateEventPage).
+  const conflictCheckStart = source.indexOf(
+    "if (!skipConflictCheck && type === \"training\")",
+  );
   const submitBlock = source.slice(
-    source.indexOf("if (!skipConflictCheck && type === \"training\")"),
-    source.indexOf("setSaving(true);"),
+    conflictCheckStart,
+    source.indexOf("setSaving(true);", conflictCheckStart),
   );
 
   it("aborts creation on a failed conflict read", () => {
@@ -132,8 +140,10 @@ describe("CreateEventPage wiring", () => {
   });
 
   it("conflict check runs before saving state is set", () => {
+    // Same first-occurrence pitfall as submitBlock above — anchor the search
+    // to the SupabaseCreateEventPage conflict-check region.
     expect(source.indexOf("const conflictResult = await checkForConflicts()")).toBeLessThan(
-      source.indexOf("setSaving(true);"),
+      source.indexOf("setSaving(true);", conflictCheckStart),
     );
   });
 

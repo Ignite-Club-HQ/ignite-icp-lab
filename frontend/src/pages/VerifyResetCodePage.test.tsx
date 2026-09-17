@@ -46,6 +46,38 @@ vi.mock("@/lib/passwordResetRedirect", () => ({
   getPasswordResetRedirectUrl: () => "https://reference.invalid",
 }));
 
+vi.mock("@/components/ui/input-otp", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+
+  const InputOTP = React.forwardRef<HTMLInputElement, {
+    value?: string;
+    onChange?: (value: string) => void;
+    disabled?: boolean;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+    autoFocus?: boolean;
+    children?: React.ReactNode;
+  }>(({ value = "", onChange, disabled, inputMode, autoFocus, children }, ref) => (
+    <div>
+      <input
+        ref={ref}
+        autoComplete="one-time-code"
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        disabled={disabled}
+        inputMode={inputMode}
+        autoFocus={autoFocus}
+      />
+      {children}
+    </div>
+  ));
+  InputOTP.displayName = "InputOTP";
+
+  const InputOTPGroup = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const InputOTPSlot = ({ index }: { index: number }) => <div data-slot-index={index} />;
+
+  return { InputOTP, InputOTPGroup, InputOTPSlot };
+});
+
 const verifyOtp = vi.fn();
 const resetPasswordForEmail = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
@@ -63,7 +95,10 @@ vi.mock("@/hooks/usePageTitle", () => ({ usePageTitle: () => {} }));
 import VerifyResetCodePage from "./VerifyResetCodePage";
 
 const renderPage = (search = "") => {
-  currentSearch = search;
+  const params = new URLSearchParams(search);
+  if (!params.has("backend")) params.set("backend", "supabase");
+  currentSearch = `?${params.toString()}`;
+  window.history.replaceState({}, "", `/verify-reset-code${currentSearch}`);
   return render(
     <MemoryRouter>
       <VerifyResetCodePage />

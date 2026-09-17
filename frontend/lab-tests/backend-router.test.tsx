@@ -25,13 +25,21 @@ test('resolves ICP and Supabase providers from authoritative placement', async (
   )).resolves.toBe('supabase:staging-au');
 });
 
-test('fails closed when placement is missing or disabled', async () => {
+test('fails closed when placement is missing, disabled, or in a blocked migration state', async () => {
   const registry = createSyntheticPlacementRegistry([
     { clubId: 'club-icp', country: 'US', backend: { Icp: { canister: Principal.fromText('aaaaa-aa') } } },
   ]);
   registry.setAvailability('icp', false);
 
   await expect(resolveClubBackend(registry, 'unknown')).rejects.toThrow('no backend placement');
+  await expect(resolveClubBackend(registry, 'club-icp')).rejects.toThrow('Backend unavailable');
+
+  registry.setAvailability('icp', true);
+  registry.setState('club-icp', 'Blocked');
+  await expect(resolveClubBackend(registry, 'club-icp')).rejects.toThrow('Backend unavailable');
+
+  registry.setState('club-icp', 'Active');
+  registry.setState('club-icp', 'MigrationRequired');
   await expect(resolveClubBackend(registry, 'club-icp')).rejects.toThrow('Backend unavailable');
 });
 

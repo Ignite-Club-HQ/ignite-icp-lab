@@ -33,13 +33,26 @@ vi.mock("./safeOpenUrl", () => ({ safeOpenUrl: safeOpenUrlMock }));
 vi.mock("@/hooks/useSignedPhotoUrl", () => ({
   resolveSignedUrl: resolveSignedUrlMock,
 }));
+// The production code loads @capacitor-community/file-opener through a
+// `new Function(...)`-based dynamic import (see loadOptionalNativeModule.ts)
+// so bundlers never try to resolve it statically. Vitest's module sandbox
+// can't satisfy that pattern at all (throws "A dynamic import callback was
+// not specified"), so route it through the mockable seam instead.
+vi.mock("./loadOptionalNativeModule", () => ({
+  loadOptionalNativeModule: vi.fn(async (specifier: string) => {
+    if (specifier === "@capacitor-community/file-opener") {
+      return { FileOpener: fileOpenerMock };
+    }
+    throw new Error(`Unexpected optional native module in test: ${specifier}`);
+  }),
+}));
 
 import { safeOpenFile } from "./safeOpenFile";
 
 const RAW_PRIVATE =
-  "https://reference.invalid";
+  "https://reference.invalid/storage/v1/object/public/photos/private-doc.pdf";
 const SIGNED =
-  "https://reference.invalid";
+  "https://reference.invalid/storage/v1/object/sign/photos/private-doc.pdf?token=abc";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -106,7 +119,7 @@ describe("safeOpenFile — private URL fail-closed", () => {
     "/storage/v1/render/image/sign/photos/a.png",
   ])("every supported private storage URL form fails closed when signing fails: %s", async (path) => {
     resolveSignedUrlMock.mockRejectedValue(new Error("nope"));
-    const url = `https://reference.invalid`;
+    const url = `https://reference.invalid${path}`;
     await expect(safeOpenFile(url)).rejects.toBeTruthy();
     expect(filesystemMock.downloadFile).not.toHaveBeenCalled();
     expect(safeOpenUrlMock).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
-import type { HybridBackend, PlacementRegistry } from './hybridClubLinksService';
+import { withClubBackend } from './backendRouter';
+import type { PlacementRegistry } from './hybridClubLinksService';
 
 export type EventRsvpRow = {
   id: string;
@@ -52,12 +52,6 @@ export type EventRsvpFetchResult = {
   profilesEnrichment: EnrichmentOutcome;
   childrenEnrichment: EnrichmentOutcome;
 };
-
-function backendKey(backend: HybridBackend): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
 
 /**
  * Read the authoritative RSVP rows for one event, then enrich display-only
@@ -133,14 +127,11 @@ export function createHybridEventRsvpRepository(
   const clients = new Map<string, EventRsvpProvider>();
 
   const providerFor = async (clubId: string): Promise<EventRsvpProvider> => {
-    const routed = await resolveClubBackend(registry, clubId);
-    const key = backendKey(routed.backend);
+    const key = `club:${clubId}`;
     const existing = clients.get(key);
     if (existing) return existing;
 
-    const provider = 'Icp' in routed.backend
-      ? await providers.icp(routed.backend.Icp.canister)
-      : await providers.supabase(routed.backend.Supabase.environment);
+    const provider = await withClubBackend(registry, providers, clubId, async value => value);
     clients.set(key, provider);
     return provider;
   };

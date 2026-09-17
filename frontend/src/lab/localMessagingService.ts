@@ -70,7 +70,7 @@ export function createMessagingDomainClient(
 
 async function connectMessagingActor(persona: string): Promise<_SERVICE> {
   const config = await fetchLocalLabConfig();
-  const messagingCanisterId = config.canisterIds?.messaging_domain ?? config.canisterIds?.messaging_domain_motoko;
+  const messagingCanisterId = config.canisterIds?.messaging_domain;
   if (!messagingCanisterId) throw new Error('Local messaging domain canister is not configured.');
   const agent = await createLocalAgent(config, persona, location.origin);
   return Actor.createActor<_SERVICE>(idlFactory, {

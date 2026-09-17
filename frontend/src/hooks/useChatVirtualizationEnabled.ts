@@ -38,23 +38,38 @@ export function useChatVirtualizationEnabled(): boolean {
   // the 5-minute staleTime. Single shared channel; the postgres_changes filter
   // ensures we only react to the row we care about.
   useEffect(() => {
-    const channel = supabase
-      .channel("app-settings-chat-virt")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "app_settings",
-          filter: "key=eq.chat_virtualization_enabled",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-        },
-      )
-      .subscribe();
+    let channel:
+      | {
+          unsubscribe?: () => void;
+        }
+      | undefined;
+
+    try {
+      channel = supabase
+        .channel("app-settings-chat-virt")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "app_settings",
+            filter: "key=eq.chat_virtualization_enabled",
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+          },
+        )
+        .subscribe();
+    } catch (error) {
+      console.warn(
+        "[useChatVirtualizationEnabled] Realtime unavailable; defaulting to enabled until refresh.",
+        error,
+      );
+      return;
+    }
 
     return () => {
+      if (!channel) return;
       try {
         supabase.removeChannel(channel);
       } catch {

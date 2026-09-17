@@ -66,9 +66,6 @@ export function PlayHQTeamLinkCard({ teamId, clubId }: Props) {
     enabled: clubHasPlayHQ,
   });
 
-  if (clubLoading) return null;
-  if (!clubHasPlayHQ) return null;
-
   // PlayHQ comps the user can see (RLS already scopes by membership/visibility).
   // We don't pre-filter by organiser here so that comps run by a parent
   // association — or by a sister club the user belongs to — also surface,
@@ -84,13 +81,14 @@ export function PlayHQTeamLinkCard({ teamId, clubId }: Props) {
       if (error) throw error;
       return (data ?? []) as Competition[];
     },
+    enabled: clubHasPlayHQ,
   });
 
   const selectedCompId = team?.playhq_competition_id ?? null;
 
   const { data: matches } = useQuery({
     queryKey: ["playhq-comp-teams", selectedCompId],
-    enabled: !!selectedCompId,
+    enabled: clubHasPlayHQ && !!selectedCompId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("competition_matches")
@@ -142,6 +140,9 @@ export function PlayHQTeamLinkCard({ teamId, clubId }: Props) {
 
   const unlink = () =>
     update.mutate({ playhq_team_id: null, playhq_competition_id: null });
+
+  if (clubLoading) return null;
+  if (!clubHasPlayHQ) return null;
 
   return (
     <Card className="border-orange-500/30 bg-orange-500/5">

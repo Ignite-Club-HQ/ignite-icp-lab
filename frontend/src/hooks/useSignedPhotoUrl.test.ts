@@ -26,14 +26,14 @@ import {
 } from "./useSignedPhotoUrl";
 
 const PRIVATE_URL_A =
-  "https://reference.invalid";
+  "https://reference.invalid/storage/v1/object/public/photos/img-1.jpg";
 const PRIVATE_URL_B =
-  "https://reference.invalid";
+  "https://reference.invalid/storage/v1/object/public/photos/img-2.jpg";
 const PRIVATE_URL_DENIED =
-  "https://reference.invalid";
-const PUBLIC_URL = "https://reference.invalid";
-const SIGNED_A = "https://reference.invalid";
-const SIGNED_B = "https://reference.invalid";
+  "https://reference.invalid/storage/v1/object/public/photos/img-3.jpg";
+const PUBLIC_URL = "https://reference.invalid/static/logo.png";
+const SIGNED_A = "https://reference.invalid/storage/v1/object/sign/photos/img-1.jpg?token=a";
+const SIGNED_B = "https://reference.invalid/storage/v1/object/sign/photos/img-2.jpg?token=b";
 
 function resetAll() {
   createSignedUrlMock.mockReset();

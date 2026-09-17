@@ -12,8 +12,12 @@ vi.mock("@/assets/ignite-icon.png", () => ({ default: "icon.png" }));
 import ShortInviteRedirect from "./ShortInviteRedirect";
 
 function renderAt(path: string) {
+  const url = new URL(path, "http://localhost");
+  if (!url.searchParams.has("backend")) url.searchParams.set("backend", "supabase");
+  const entry = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, "", entry);
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/i/:code" element={<ShortInviteRedirect />} />
         <Route path="/join/p/:token" element={<div data-testid="joined">joined</div>} />

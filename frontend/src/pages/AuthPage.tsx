@@ -16,6 +16,8 @@ import { InviteFlowProgress, getInviteFlowContext, clearInviteFlowContext } from
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { resolveKeyboardCssHeight } from "@/lib/keyboardCssHeight";
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
@@ -133,6 +135,8 @@ function sanitizeRedirectAfterAuth(raw: string | null): string | null {
 }
 
 export default function AuthPage() {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -781,6 +785,15 @@ export default function AuthPage() {
   const authCardClassName = isAndroid && isFormKeyboardOpen
     ? 'border-border/50 bg-card/95'
     : 'border-border/50 bg-card/50 backdrop-blur-sm';
+
+  if (useIcpLab) {
+    return (
+      <IcpUnavailablePage
+        title="Authentication is unavailable in ICP lab mode"
+        description="Supabase identity flows remain disabled in the synthetic lab. Local ICP identities and canister authorities are used instead."
+      />
+    );
+  }
 
   return (
     <div

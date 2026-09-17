@@ -105,12 +105,19 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 // ---- Helpers ------------------------------------------------------------
 
+function setHref(relative: string) {
+  const url = new URL(relative, "http://localhost");
+  if (!url.searchParams.has("backend")) url.searchParams.set("backend", "supabase");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 function setFixtures(next: Record<string, TableFixture>) {
   for (const key of Object.keys(fixtures)) delete fixtures[key];
   Object.assign(fixtures, next);
 }
 
 async function renderPage() {
+  setHref("/notification-preferences");
   const { default: Page } = await import("./NotificationPreferencesPage");
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(

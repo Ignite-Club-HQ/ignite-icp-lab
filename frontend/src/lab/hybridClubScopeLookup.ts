@@ -1,5 +1,5 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
+import { withClubBackend } from './backendRouter';
 import type { PlacementRegistry } from './hybridClubLinksService';
 
 export type ClubScopeTable =
@@ -50,12 +50,6 @@ function parseClubId(raw: unknown): string | null {
   return typeof clubId === 'string' && clubId.length > 0 ? clubId : null;
 }
 
-function backendKey(backend: { Icp: { canister: Principal } } | { Supabase: { environment: string } }): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
-
 /**
  * Centralizes route/notification ownership lookup behind explicit placement.
  *
@@ -75,15 +69,11 @@ export function createHybridClubScopeLookup(
       table: ClubScopeTable,
       id: string,
     ): Promise<string | null> {
-      const routed = await resolveClubBackend(registry, placementClubId);
-      const key = backendKey(routed.backend);
-      let provider = clients.get(key);
-      if (!provider) {
-        provider = 'Icp' in routed.backend
-          ? await providers.icp(routed.backend.Icp.canister)
-          : await providers.supabase(routed.backend.Supabase.environment);
-        clients.set(key, provider);
-      }
+      const key = `club:${placementClubId}`;
+      const provider = clients.get(key) ?? await withClubBackend(registry, providers, placementClubId, async value => {
+        clients.set(key, value);
+        return value;
+      });
 
       const row = parseScopeRow(await provider.lookupRow(table, id));
       if (!row) return null;

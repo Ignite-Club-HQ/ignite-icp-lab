@@ -1,6 +1,6 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
-import type { HybridBackend, PlacementRegistry } from './hybridClubLinksService';
+import { withClubBackend } from './backendRouter';
+import type { PlacementRegistry } from './hybridClubLinksService';
 
 export type HomeUserRsvp = {
   event_id: string;
@@ -54,12 +54,6 @@ export type HomeRsvpFetchResult = {
   groups: Record<string, HomeRsvpGroupOutcome>;
 };
 
-function backendKey(backend: HybridBackend): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
-
 /**
  * Read one club's RSVP rows. Matches the bundle's original empty-input
  * short-circuit so a club with no currently-visible events never issues a
@@ -88,14 +82,11 @@ export function createHybridHomeRsvpRepository(
   const clients = new Map<string, HomeRsvpProvider>();
 
   const providerFor = async (clubId: string): Promise<HomeRsvpProvider> => {
-    const routed = await resolveClubBackend(registry, clubId);
-    const key = backendKey(routed.backend);
+    const key = `club:${clubId}`;
     const existing = clients.get(key);
     if (existing) return existing;
 
-    const provider = 'Icp' in routed.backend
-      ? await providers.icp(routed.backend.Icp.canister)
-      : await providers.supabase(routed.backend.Supabase.environment);
+    const provider = await withClubBackend(registry, providers, clubId, async value => value);
     clients.set(key, provider);
     return provider;
   };

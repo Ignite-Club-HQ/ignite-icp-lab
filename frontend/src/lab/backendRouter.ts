@@ -16,7 +16,8 @@ function decisionError(result: { Ok: [] | [HybridDecision] } | { Err: string }):
   if ('Err' in result) throw new Error(`Placement lookup failed: ${result.Err}`);
   if (result.Ok.length === 0) throw new Error('Club has no backend placement');
   const decision = result.Ok[0];
-  if (!decision.backend_enabled || !decision.country_allowed) {
+  const blockedState = decision.placement.state === 'Blocked' || decision.placement.state === 'MigrationRequired';
+  if (!decision.backend_enabled || !decision.country_allowed || blockedState) {
     throw new Error(`Backend unavailable for club: ${decision.reason}`);
   }
   return decision;

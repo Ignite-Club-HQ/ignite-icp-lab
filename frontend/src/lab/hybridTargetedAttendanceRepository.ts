@@ -1,6 +1,6 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
-import type { HybridBackend, PlacementRegistry } from './hybridClubLinksService';
+import { withClubBackend } from './backendRouter';
+import type { PlacementRegistry } from './hybridClubLinksService';
 
 /**
  * One row of the event-scoped attendance roster: either a `"child"` or an
@@ -48,12 +48,6 @@ export type TargetedAttendanceProviders = {
   icp: (canister: Principal) => Promise<TargetedAttendanceProvider>;
   supabase: (environment: string) => Promise<TargetedAttendanceProvider>;
 };
-
-function backendKey(backend: HybridBackend): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
 
 /**
  * Read the event-scoped attendance roster for exactly one event. This roster
@@ -146,14 +140,11 @@ export function createHybridTargetedAttendanceRepository(
   const clients = new Map<string, TargetedAttendanceProvider>();
 
   const providerFor = async (clubId: string): Promise<TargetedAttendanceProvider> => {
-    const routed = await resolveClubBackend(registry, clubId);
-    const key = backendKey(routed.backend);
+    const key = `club:${clubId}`;
     const existing = clients.get(key);
     if (existing) return existing;
 
-    const provider = 'Icp' in routed.backend
-      ? await providers.icp(routed.backend.Icp.canister)
-      : await providers.supabase(routed.backend.Supabase.environment);
+    const provider = await withClubBackend(registry, providers, clubId, async value => value);
     clients.set(key, provider);
     return provider;
   };

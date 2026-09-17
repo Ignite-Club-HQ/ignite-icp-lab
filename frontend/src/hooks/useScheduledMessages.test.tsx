@@ -252,7 +252,7 @@ describe("useScheduledMessages auth guards", () => {
       // error, so allow for the full backoff chain here.
       await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 15000 });
       expect(result.current.data).toBeUndefined();
-    });
+    }, 20000);
 
     it("all-message query returns [] when no rows exist", async () => {
       setReadResponse([], null);
@@ -270,7 +270,7 @@ describe("useScheduledMessages auth guards", () => {
       });
       await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 15000 });
       expect(result.current.data).toBeUndefined();
-    });
+    }, 20000);
 
     it("failed refetch preserves previous successful data (keepPreviousData)", async () => {
       // Prime with a successful load, then flip to an error and refetch.
@@ -286,9 +286,11 @@ describe("useScheduledMessages auth guards", () => {
       await act(async () => {
         await result.current.refetch();
       });
-      await waitFor(() => expect(result.current.isError).toBe(true));
+      // The refetch itself retries 3x with exponential backoff before the
+      // query settles into an error state — allow for the full chain.
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 15000 });
       // Previous data must remain visible so the UI does not blank the list.
       expect(result.current.data).toEqual([initialRow]);
-    });
+    }, 20000);
   });
 });

@@ -12,7 +12,7 @@ const mappingsPath = path.resolve(repoRoot, '..', '.icp', 'cache', 'mappings', '
 const mappings = JSON.parse(fs.readFileSync(mappingsPath, 'utf8'));
 
 console.log('[WORKER_SECRETS] External Worker Secret Integration & Delivery Harness');
-console.log(`[INFO] Queue Canister: ${mappings.notification_queue_motoko}`);
+console.log(`[INFO] Queue Canister: ${mappings.notification_queue}`);
 console.log(`[INFO] Secret Workload Canister: ${mappings.secret_workload_identity}`);
 
 const jsonStr = v => JSON.stringify(v, (_, x) => typeof x === 'bigint' ? x.toString() : x);
@@ -39,7 +39,7 @@ const secretIdl = ({ IDL }) => {
   });
 };
 
-// IDL Factory for notification_queue_motoko
+// IDL Factory for notification_queue
 const queueIdl = ({ IDL }) => {
   const Notification = IDL.Record({
     'id': IDL.Text,
@@ -64,7 +64,7 @@ const queueIdl = ({ IDL }) => {
 const governorIdentity = syntheticIdentity('governor');
 const governorAgent = await HttpAgent.create({ host, identity: governorIdentity, shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 });
 const secretActor = Actor.createActor(secretIdl, { agent: governorAgent, canisterId: mappings.secret_workload_identity });
-const queueActor = Actor.createActor(queueIdl, { agent: governorAgent, canisterId: mappings.notification_queue_motoko });
+const queueActor = Actor.createActor(queueIdl, { agent: governorAgent, canisterId: mappings.notification_queue });
 
 // Identities for simulated workers
 const emailWorkerIdentity = syntheticIdentity('club_admin');
@@ -115,7 +115,7 @@ await runTest('Worker Registration & Queue Setup', async () => {
   );
   assert('Ok' in regEmail, jsonStr(regEmail));
 
-  // Grant queue worker capability to email worker in notification_queue_motoko
+  // Grant queue worker capability to email worker in notification_queue
   const grantEmailQueue = await queueActor.grant_worker(emailWorkerIdentity.getPrincipal());
   assert('Ok' in grantEmailQueue || ('Err' in grantEmailQueue && grantEmailQueue.Err === 'Already granted'), jsonStr(grantEmailQueue));
 
@@ -146,7 +146,7 @@ await runTest('Email Delivery Worker Flow with RESEND_API_KEY custody', async ()
 
   // Step 2: Email worker claims job from queue
   const emailWorkerAgent = await HttpAgent.create({ host, identity: emailWorkerIdentity, shouldFetchRootKey: true, shouldSyncTime: false, useQueryNonces: true, retryTimes: 1 });
-  const emailWorkerQueue = Actor.createActor(queueIdl, { agent: emailWorkerAgent, canisterId: mappings.notification_queue_motoko });
+  const emailWorkerQueue = Actor.createActor(queueIdl, { agent: emailWorkerAgent, canisterId: mappings.notification_queue });
   const emailWorkerSecret = Actor.createActor(secretIdl, { agent: emailWorkerAgent, canisterId: mappings.secret_workload_identity });
 
   const claimRes = await emailWorkerQueue.claim(BigInt(Date.now()), 10);

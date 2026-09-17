@@ -320,7 +320,7 @@ function isInIframe(): boolean {
 function isLovablePreview(): boolean {
   try {
     const hostname = window.location.hostname;
-    if (hostname === 'ignite.invalid' || hostname.endsWith('.ignite.invalid')) {
+    if (hostname === 'igniteclubhq.app' || hostname.endsWith('.igniteclubhq.app')) {
       return false;
     }
     if ((hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) && isInIframe()) {

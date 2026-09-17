@@ -1,5 +1,5 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
+import { withClubBackend } from './backendRouter';
 import type { PlacementRegistry } from './hybridClubLinksService';
 
 export type DeleteType = 'single' | 'series';
@@ -68,19 +68,19 @@ export function createHybridEventDeletionService(
       event: DeletableEvent,
       deleteType: DeleteType,
     ): Promise<EventDeletionOutcome> {
-      const routed = await resolveClubBackend(registry, clubId);
-      if (!routed.decision.writable) {
-        throw new Error(`Event deletion backend unavailable: ${routed.decision.reason}`);
-      }
-
-      const key = backendKey(routed.backend);
-      let provider = clients.get(key);
-      if (!provider) {
-        provider = 'Icp' in routed.backend
-          ? await providers.icp(routed.backend.Icp.canister)
-          : await providers.supabase(routed.backend.Supabase.environment);
-        clients.set(key, provider);
-      }
+      const provider = await withClubBackend(registry, {
+        icp: providers.icp,
+        supabase: providers.supabase,
+      }, clubId, async (value, routed) => {
+        if (!routed.decision.writable) {
+          throw new Error(`Event deletion backend unavailable: ${routed.decision.reason}`);
+        }
+        const key = `club:${clubId}`;
+        const existing = clients.get(key);
+        if (existing) return existing;
+        clients.set(key, value);
+        return value;
+      });
 
       const isSeries = deleteType === 'series'
         && (!!event.parentEventId || !!event.isRecurring);

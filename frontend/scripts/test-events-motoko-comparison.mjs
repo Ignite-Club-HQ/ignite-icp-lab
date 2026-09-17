@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Actor, HttpAgent } from '../node_modules/@icp-sdk/core/lib/esm/agent/index.js';
-import { idlFactory } from '../src/lab/bindings/events_domain_motoko/declarations/events_domain_motoko.did.js';
+import { idlFactory } from '../src/lab/bindings/events_domain/declarations/events_domain.did.js';
 import { syntheticIdentity } from '../src/lab/syntheticIdentities.mjs';
 
 const host = process.env.EVENTS_HOST ?? 'http://127.0.0.1:4943';

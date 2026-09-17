@@ -1659,3 +1659,57 @@ git diff --check              # passed
 The full legacy run completed after all nine batches under the hard real-network
 guard. The inventory checker now requires at least 396 retained source test files
 and 31 translated baselines.
+
+## Exported frontend test-porting resumed batch - 2026-09-17
+
+Resumed the uncommitted frontend work left after the ninth exported-test batch
+without reverting any committed test-porting history. The orphaned batch adds 18
+source test files across competition fixtures, event/group dialogs, role and
+guardian management, legal reacceptance, offline/push UI, media/lazy-loading
+hooks, chat composer submission, and related component seams. Those tests run
+against synthetic local doubles, `createMockSupabaseClient`, or provider-neutral
+lab adapters only; no production Supabase client, credential, remote endpoint,
+or inert backend Edge Function was enabled or executed.
+
+The retained source inventory is now **414** `frontend/src` test files, including
+13 Edge-oriented source tests that remain excluded by the guarded legacy tier.
+The observed active legacy tier is **392** files.
+
+Validation for this resumed checkpoint:
+
+```sh
+cd frontend
+npx vitest run --config vitest.legacy.config.mjs \
+  src/components/CompetitionFixturesPanel.characterization.test.tsx \
+  src/components/CompetitionFixturesPanel.query-contracts.test.tsx \
+  src/components/CompetitionFixturesPanel.results.test.tsx \
+  src/components/EventGroupsManager.characterization.test.tsx \
+  src/components/EventViewMemberRow.test.tsx \
+  src/components/LegalReacceptanceGate.test.tsx \
+  src/components/ManageGuardiansDialog.characterization.test.tsx \
+  src/components/ManageRolesDialog.test.tsx \
+  src/components/OfflineIndicator.test.tsx \
+  src/components/PlayHQTeamLinkCard.test.tsx \
+  src/components/PushNotificationManager.test.tsx \
+  src/components/QuickRSVPDialog.test.tsx \
+  src/components/RecurringEventActionDialog.test.tsx \
+  src/components/admin/LegalReacceptanceAdminCard.test.tsx \
+  src/components/chat/ChatHeaderShell.test.tsx \
+  src/hooks/useLazyFabric.test.tsx \
+  src/hooks/useRealtimePerfSampler.test.tsx \
+  src/lib/chatComposerSubmission.characterization.test.ts
+# passed: 18 files / 151 tests
+npm run test:legacy          # passed: 392 files / 3,877 passed; 2 skipped
+npm test                     # passed: 9 Node tests and 67 Vitest files / 415 tests
+npm run test:provider-matrix # passed: 1 file / 5 tests
+npm run test:e2e             # passed: 2 Chromium loopback tests
+npm run typecheck:lab        # passed
+npm run check:isolation      # passed
+npm run check:exported-tests # passed: 414 retained source files / 31 baselines
+npm run build                # passed
+```
+
+The inventory checker now requires at least 414 retained source test files and
+31 translated hybrid baselines. The browser coverage uses only the loopback Vite
+server and verifies that ICP and hybrid modes remain fail-closed with no
+external browser traffic.

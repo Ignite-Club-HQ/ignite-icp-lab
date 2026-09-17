@@ -136,7 +136,7 @@ function parseComment(raw: {
   };
 }
 
-/** Adapts the deployed media_metadata_motoko canister to `MediaFeedProvider`. */
+/** Adapts the deployed media_metadata canister to `MediaFeedProvider`. */
 export function createIcpMediaFeedProvider(client: MediaMetadataClient): MediaFeedProvider {
   return {
     async listAssets(clubId) {

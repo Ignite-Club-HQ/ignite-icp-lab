@@ -2,10 +2,10 @@
 import { Actor, HttpAgent } from '../node_modules/@icp-sdk/core/lib/esm/agent/index.js';
 import { Principal } from '../node_modules/@icp-sdk/core/lib/esm/principal/index.js';
 import { syntheticIdentity } from '../src/lab/syntheticIdentities.mjs';
-import { idlFactory as eventsIdl } from '../src/lab/bindings/events_domain_motoko/declarations/events_domain_motoko.did.js';
-import { idlFactory as competitionIdl } from '../src/lab/bindings/competition_domain_motoko/declarations/competition_domain_motoko.did.js';
-import { idlFactory as messagingIdl } from '../src/lab/bindings/messaging_domain_motoko/declarations/messaging_domain_motoko.did.js';
-import { idlFactory as mediaIdl } from '../src/lab/bindings/media_metadata_motoko/declarations/media_metadata_motoko.did.js';
+import { idlFactory as eventsIdl } from '../src/lab/bindings/events_domain/declarations/events_domain.did.js';
+import { idlFactory as competitionIdl } from '../src/lab/bindings/competition_domain/declarations/competition_domain.did.js';
+import { idlFactory as messagingIdl } from '../src/lab/bindings/messaging_domain/declarations/messaging_domain.did.js';
+import { idlFactory as mediaIdl } from '../src/lab/bindings/media_metadata/declarations/media_metadata.did.js';
 
 const host = process.env.DOMAIN_HOST ?? 'http://127.0.0.1:4943';
 const ids = {
@@ -61,6 +61,7 @@ const roster = ok(await events.set_roster(event.id, 'account-domain', ['child-do
 const recurrence = ok(await events.set_recurrence(event.id, 'weekly', 100n), 'event recurrence');
 check(rsvp.event_id === event.id && attendance.present && duty.duty === 'coach' && roster.child_id[0] === 'child-domain' && recurrence.frequency === 'weekly', 'event records were not persisted');
 await err(outsiderEvents.update_event(event.id, 'tampered', 'denied', 10n, 20n), 'unauthorized event update');
+await err(outsiderEvents.export_state(), 'unauthorized event snapshot export');
 
 // Competition domain Motoko verification
 const competitionInit = await competition.initialize();

@@ -8,7 +8,7 @@ const host = process.env.NOTIFY_HOST ?? 'http://127.0.0.1:4943';
 const count = Number(process.env.NOTIFY_COUNT ?? 25);
 const cases = [
   ['rust', process.env.RUST_NOTIFY_ID, '../../target/wasm32-unknown-unknown/release/notification_queue.wasm'],
-  ['motoko', process.env.MOTOKO_NOTIFY_ID, '../../.mops/.build/notification_queue_motoko.wasm'],
+  ['motoko', process.env.MOTOKO_NOTIFY_ID, '../../.mops/.build/notification_queue.wasm'],
 ];
 if (!Number.isInteger(count) || count < 1 || count > 100) throw new Error('NOTIFY_COUNT must be 1..100');
 if (cases.some(([, id]) => !id)) throw new Error('RUST_NOTIFY_ID and MOTOKO_NOTIFY_ID are required');

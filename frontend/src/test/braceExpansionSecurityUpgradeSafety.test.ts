@@ -7,7 +7,7 @@
  * Also keeps coverage that glob / ESLint / ExcelJS consumers still work.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
@@ -76,8 +76,11 @@ describe("brace-expansion security upgrade safety", () => {
   });
 });
 
-describe("bun.lock brace-expansion pins", () => {
-  const bunLock = readFileSync("bun.lock", "utf8");
+// This lab repo uses npm only (package-lock.json, checked above); there is
+// no bun.lock. Skip rather than fabricate a bun-managed lockfile just to
+// satisfy this test - the npm-side pin checks above already prove the fix.
+describe.skipIf(!existsSync("bun.lock"))("bun.lock brace-expansion pins", () => {
+  const bunLock = existsSync("bun.lock") ? readFileSync("bun.lock", "utf8") : "";
   const entries = [...bunLock.matchAll(/brace-expansion@(\d+\.\d+\.\d+)"/g)].map((m) => m[1]);
 
   it("locks every bun-resolved copy to the patched version for its major", () => {

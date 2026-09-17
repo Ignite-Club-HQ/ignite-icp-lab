@@ -1,6 +1,6 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
-import type { HybridBackend, PlacementRegistry } from './hybridClubLinksService';
+import { withClubBackend } from './backendRouter';
+import type { PlacementRegistry } from './hybridClubLinksService';
 
 export type HomeChild = {
   id: string;
@@ -82,12 +82,6 @@ export type HomeRewardsFetchResult = {
   rewardsByClub: Record<string, ClubReward[]>;
   groups: Record<string, HomeRewardsGroupOutcome>;
 };
-
-function backendKey(backend: HybridBackend): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
 
 /**
  * Read active rewards for a single club from its backend provider.
@@ -175,14 +169,11 @@ export function createHybridHomeRewardsRepository(
   const clients = new Map<string, HomeRewardsProvider>();
 
   const providerFor = async (clubId: string): Promise<HomeRewardsProvider> => {
-    const routed = await resolveClubBackend(registry, clubId);
-    const key = backendKey(routed.backend);
+    const key = `club:${clubId}`;
     const existing = clients.get(key);
     if (existing) return existing;
 
-    const provider = 'Icp' in routed.backend
-      ? await providers.icp(routed.backend.Icp.canister)
-      : await providers.supabase(routed.backend.Supabase.environment);
+    const provider = await withClubBackend(registry, providers, clubId, async value => value);
     clients.set(key, provider);
     return provider;
   };

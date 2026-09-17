@@ -62,6 +62,38 @@ vi.mock("@capacitor/keyboard", () => ({
   },
 }));
 
+vi.mock("@/components/ui/input-otp", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+
+  const InputOTP = React.forwardRef<HTMLInputElement, {
+    value?: string;
+    onChange?: (value: string) => void;
+    disabled?: boolean;
+    inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+    autoFocus?: boolean;
+    children?: React.ReactNode;
+  }>(({ value = "", onChange, disabled, inputMode, autoFocus, children }, ref) => (
+    <div>
+      <input
+        ref={ref}
+        autoComplete="one-time-code"
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+        disabled={disabled}
+        inputMode={inputMode}
+        autoFocus={autoFocus}
+      />
+      {children}
+    </div>
+  ));
+  InputOTP.displayName = "InputOTP";
+
+  const InputOTPGroup = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const InputOTPSlot = ({ index }: { index: number }) => <div data-slot-index={index} />;
+
+  return { InputOTP, InputOTPGroup, InputOTPSlot };
+});
+
 const exchangeCodeForSession = vi.fn();
 const getSession = vi.fn();
 const getUser = vi.fn();
@@ -101,7 +133,12 @@ const renderPage = () =>
 
 const setHref = (relative: string) => {
   // JSDOM disallows replaceState across origins; use a relative URL.
-  window.history.replaceState({}, "", relative);
+  // These tests specifically exercise the Supabase recovery-session flow,
+  // so explicitly opt out of the lab's default ICP mode (see
+  // resolveLocalAuthMode) the same way a real user would via ?backend=supabase.
+  const url = new URL(relative, "http://localhost");
+  if (!url.searchParams.has("backend")) url.searchParams.set("backend", "supabase");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 };
 
 

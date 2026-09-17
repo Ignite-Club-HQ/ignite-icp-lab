@@ -281,7 +281,7 @@ describe("email delivery verification", () => {
 
   it("14. verified success messaging does say the email was sent", async () => {
     renderSheet();
-    await fillAndSubmit({ email: "redacted@example.invalid" });
+    await fillAndSubmit({ email: "a@b.com" });
     expect(await screen.findByText(/invite sent to a@b\.com/i)).toBeInTheDocument();
   });
 

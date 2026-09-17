@@ -90,6 +90,7 @@ export interface _SERVICE {
     [Principal, string, string, [] | [string]],
     Result_4
   >,
+  'initialize' : ActorMethod<[], Result_4>,
   'issue_join_token' : ActorMethod<[string, string, bigint], Result_1>,
   'record_match' : ActorMethod<[string, string, string], Result_6>,
   'register_team' : ActorMethod<[string, string, string], Result_3>,

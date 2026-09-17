@@ -29,7 +29,7 @@ describe("isPlausibleInvitableEmail", () => {
     ["internal space", "a redacted@example.invalid"],
     ["embedded space", "a @example.com"],
     ["two @", "a@redacted@example.invalid"],
-    ["double dot local", "redacted@example.invalid"],
+    ["double dot local", "re..dacted@example.invalid"],
     ["leading dot", ".redacted@example.invalid"],
     ["not a string", null as unknown as string],
   ])("rejects %s", (_label, v) => expect(isPlausibleInvitableEmail(v as string)).toBe(false));

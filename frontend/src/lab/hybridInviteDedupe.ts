@@ -1,5 +1,5 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
+import { withClubBackend } from './backendRouter';
 import type { PlacementRegistry } from './hybridClubLinksService';
 
 export interface InviteDedupeMatch {
@@ -66,12 +66,6 @@ function parseDedupeResponse(raw: unknown): InviteDedupeMatch | null {
   };
 }
 
-function backendKey(backend: { Icp: { canister: Principal } } | { Supabase: { environment: string } }): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
-
 /**
  * Centralizes invite deduplication lookup while keeping provider selection
  * explicit and scoped to the club's authoritative placement.
@@ -87,15 +81,11 @@ export function createHybridInviteDedupeService(
       const email = request.email.trim().toLowerCase();
       if (!isPlausibleInvitableEmail(email)) return null;
 
-      const routed = await resolveClubBackend(registry, request.clubId);
-      const key = backendKey(routed.backend);
-      let provider = clients.get(key);
-      if (!provider) {
-        provider = 'Icp' in routed.backend
-          ? await providers.icp(routed.backend.Icp.canister)
-          : await providers.supabase(routed.backend.Supabase.environment);
-        clients.set(key, provider);
-      }
+      const key = `club:${request.clubId}`;
+      const provider = clients.get(key) ?? await withClubBackend(registry, providers, request.clubId, async value => {
+        clients.set(key, value);
+        return value;
+      });
 
       const raw = await provider.lookup({
         email,

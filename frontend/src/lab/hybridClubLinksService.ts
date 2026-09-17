@@ -50,7 +50,8 @@ export function createHybridClubLinksService(
   const getDecision = async (clubId: string): Promise<HybridDecision> => {
     live();
     const decision = decisionError(await registry.get_decision(clubId));
-    if (!decision.backend_enabled || !decision.country_allowed) {
+    const blockedState = decision.placement.state === 'Blocked' || decision.placement.state === 'MigrationRequired';
+    if (!decision.backend_enabled || !decision.country_allowed || blockedState) {
       throw new Error(`Backend unavailable for club ${clubId}: ${decision.reason}`);
     }
     return decision;

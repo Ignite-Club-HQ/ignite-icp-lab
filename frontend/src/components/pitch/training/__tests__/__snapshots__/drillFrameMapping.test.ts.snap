@@ -1,4 +1,4 @@
-// Vitest Snapshot v1, https://reference.invalid
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`drillStorage mapping (snapshots) > maps an official drill row → Drill (visibility collapses to 'club') 1`] = `
 {

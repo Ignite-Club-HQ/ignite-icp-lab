@@ -1,8 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { safeOpenUrl } from "./safeOpenUrl";
-
-const loadOptionalNativeModule = (specifier: string) =>
-  new Function("moduleName", "return import(moduleName)")(specifier) as Promise<any>;
+import { loadOptionalNativeModule } from "./loadOptionalNativeModule";
 
 /**
  * Recognized Supabase storage URL forms that require authorization before

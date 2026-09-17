@@ -1,7 +1,7 @@
 import { Actor } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
-import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, State, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
+import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
 import { createLocalAgent, fetchLocalLabConfig } from './localActor';
 
 export interface LocalScheduleEvent {
@@ -57,6 +57,11 @@ export interface TeamScopeShape {
   id: string;
   clubId: string;
 }
+
+type EventsState = Extract<
+  Awaited<ReturnType<_SERVICE['export_state']>>,
+  { Ok: unknown }
+>['Ok'];
 
 /**
  * Validate a selected event team before the provider call.
@@ -216,7 +221,7 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
           };
         });
     },
-    async exportState(): Promise<State> {
+    async exportState(): Promise<EventsState> {
       const result = await actor.export_state();
       if ('Err' in result) throw new Error(result.Err);
       return result.Ok;
@@ -226,7 +231,7 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
 
 async function connectEventsActor(persona: string): Promise<_SERVICE> {
   const config = await fetchLocalLabConfig();
-  const eventsCanisterId = config.canisterIds?.events_domain ?? config.canisterIds?.events_domain_motoko;
+  const eventsCanisterId = config.canisterIds?.events_domain;
   if (!eventsCanisterId) throw new Error('Local events domain canister is not configured.');
   const agent = await createLocalAgent(config, persona, location.origin);
   return Actor.createActor<_SERVICE>(idlFactory, {
@@ -306,6 +311,6 @@ export async function listLocalEventRsvps(persona: string, eventId: string): Pro
   return createEventsDomainClient(await connectEventsActor(persona)).listEventRsvps(eventId);
 }
 
-export async function exportLocalEventsState(persona: string): Promise<State> {
+export async function exportLocalEventsState(persona: string): Promise<EventsState> {
   return createEventsDomainClient(await connectEventsActor(persona)).exportState();
 }

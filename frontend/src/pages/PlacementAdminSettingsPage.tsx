@@ -1,6 +1,8 @@
 import { ArrowLeft, Globe2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
+import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { createPlacementAdminController, type PlacementAdminController } from "@/lab/placementAdminSettings";
 import { PlacementAdminSettingsPanel } from "@/lab/PlacementAdminSettingsPanel";
 
@@ -33,11 +35,16 @@ export function PlacementAdminSettingsPage({
   controller?: PlacementAdminController;
   isAppAdmin?: boolean;
 }) {
+  const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
   const onBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
     }
   };
+
+  if (useIcpLab) {
+    return <IcpUnavailablePage title="Placement settings are unavailable in ICP lab mode" description="The local placement-admin control plane is intentionally disabled until the approved external worker and policy boundary is implemented." />;
+  }
 
   if (!isAppAdmin) {
     return (

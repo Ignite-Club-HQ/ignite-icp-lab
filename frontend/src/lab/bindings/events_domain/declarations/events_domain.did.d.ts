@@ -32,7 +32,6 @@ export interface Event {
   'revision' : bigint,
   'club_id' : string,
 }
-export interface Init { 'governor' : Principal }
 export interface LineupEntry {
   'member' : string,
   'slot' : string,
@@ -44,24 +43,6 @@ export interface Recurrence {
   'frequency' : string,
   'event_id' : string,
 }
-export type Result = { 'Ok' : Event } |
-  { 'Err' : string };
-export type Result_1 = { 'Ok' : Attendance } |
-  { 'Err' : string };
-export type Result_2 = { 'Ok' : LineupEntry } |
-  { 'Err' : string };
-export type Result_3 = { 'Ok' : State } |
-  { 'Err' : string };
-export type Result_4 = { 'Ok' : null } |
-  { 'Err' : string };
-export type Result_5 = { 'Ok' : Rsvp } |
-  { 'Err' : string };
-export type Result_6 = { 'Ok' : Duty } |
-  { 'Err' : string };
-export type Result_7 = { 'Ok' : Recurrence } |
-  { 'Err' : string };
-export type Result_8 = { 'Ok' : RosterEntry } |
-  { 'Err' : string };
 export interface RoleGrant {
   'role' : string,
   'user' : Principal,
@@ -79,38 +60,71 @@ export interface Rsvp {
   'state' : string,
   'event_id' : string,
 }
-export interface State {
-  'lineups' : Array<LineupEntry>,
-  'schema' : number,
-  'recurrences' : Array<Recurrence>,
-  'attendance' : Array<Attendance>,
-  'events' : Array<Event>,
-  'duties' : Array<Duty>,
-  'governor' : Principal,
-  'roster' : Array<RosterEntry>,
-  'roles' : Array<RoleGrant>,
-  'rsvps' : Array<Rsvp>,
-}
 export interface _SERVICE {
-  'add_lineup' : ActorMethod<[string, string, string, [] | [string]], Result_2>,
+  'add_lineup' : ActorMethod<
+    [string, string, string, [] | [string]],
+    { 'Ok' : LineupEntry } |
+      { 'Err' : string }
+  >,
   'create_event' : ActorMethod<
     [string, [] | [string], string, string, bigint, bigint],
-    Result
+    { 'Ok' : Event } |
+      { 'Err' : string }
   >,
-  'export_state' : ActorMethod<[], Result_3>,
+  'export_state' : ActorMethod<
+    [],
+    {
+        'Ok' : {
+          'lineups' : Array<LineupEntry>,
+          'schema' : number,
+          'recurrences' : Array<Recurrence>,
+          'attendance' : Array<Attendance>,
+          'events' : Array<Event>,
+          'duties' : Array<Duty>,
+          'governor' : Principal,
+          'roster' : Array<RosterEntry>,
+          'roles' : Array<RoleGrant>,
+          'rsvps' : Array<Rsvp>,
+        }
+      } |
+      { 'Err' : string }
+  >,
   'grant_role' : ActorMethod<
     [Principal, string, string, [] | [string]],
-    Result_4
+    { 'Ok' : null } |
+      { 'Err' : string }
   >,
+  'initialize' : ActorMethod<[], { 'Ok' : null } | { 'Err' : string }>,
   'list_events' : ActorMethod<[[] | [string], [] | [string]], Array<Event>>,
-  'set_attendance' : ActorMethod<[string, string, boolean, string], Result_1>,
-  'set_duty' : ActorMethod<[string, string, string], Result_6>,
-  'set_recurrence' : ActorMethod<[string, string, bigint], Result_7>,
-  'set_roster' : ActorMethod<[string, string, [] | [string]], Result_8>,
-  'set_rsvp' : ActorMethod<[string, string, string], Result_5>,
+  'set_attendance' : ActorMethod<
+    [string, string, boolean, string],
+    { 'Ok' : Attendance } |
+      { 'Err' : string }
+  >,
+  'set_duty' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : Duty } |
+      { 'Err' : string }
+  >,
+  'set_recurrence' : ActorMethod<
+    [string, string, bigint],
+    { 'Ok' : Recurrence } |
+      { 'Err' : string }
+  >,
+  'set_roster' : ActorMethod<
+    [string, string, [] | [string]],
+    { 'Ok' : RosterEntry } |
+      { 'Err' : string }
+  >,
+  'set_rsvp' : ActorMethod<
+    [string, string, string],
+    { 'Ok' : Rsvp } |
+      { 'Err' : string }
+  >,
   'update_event' : ActorMethod<
     [string, string, string, bigint, bigint],
-    Result
+    { 'Ok' : Event } |
+      { 'Err' : string }
   >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

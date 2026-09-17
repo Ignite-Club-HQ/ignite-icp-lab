@@ -1,5 +1,5 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import { resolveClubBackend } from './backendRouter';
+import { withClubBackend } from './backendRouter';
 import type { PlacementRegistry } from './hybridClubLinksService';
 
 export interface CachedClub {
@@ -36,14 +36,6 @@ export interface ClubTeamCacheOptions {
   now?: () => number;
 }
 
-type Backend = { Icp: { canister: Principal } } | { Supabase: { environment: string } };
-
-function backendKey(backend: Backend): string {
-  return 'Icp' in backend
-    ? `icp:${backend.Icp.canister.toText()}`
-    : `supabase:${backend.Supabase.environment}`;
-}
-
 function isFresh(entry: { cached_at: number }, now: number, ttlMs: number): boolean {
   return now - entry.cached_at >= 0 && now - entry.cached_at < ttlMs;
 }
@@ -67,14 +59,11 @@ export function createHybridClubTeamCache(
   const clients = new Map<string, ClubTeamMetadataProvider>();
 
   const providerFor = async (placementClubId: string): Promise<ClubTeamMetadataProvider> => {
-    const routed = await resolveClubBackend(registry, placementClubId);
-    const key = backendKey(routed.backend);
+    const key = `club:${placementClubId}`;
     const existing = clients.get(key);
     if (existing) return existing;
 
-    const provider = 'Icp' in routed.backend
-      ? await providers.icp(routed.backend.Icp.canister)
-      : await providers.supabase(routed.backend.Supabase.environment);
+    const provider = await withClubBackend(registry, providers, placementClubId, async value => value);
     clients.set(key, provider);
     return provider;
   };

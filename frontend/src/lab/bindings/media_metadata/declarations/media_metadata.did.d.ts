@@ -34,7 +34,21 @@ export interface Capability {
   'purpose' : string,
   'expires_at_ms' : bigint,
 }
+export interface Comment {
+  'id' : string,
+  'deleted' : boolean,
+  'body' : string,
+  'author' : Principal,
+  'created_at_ms' : bigint,
+  'asset_id' : string,
+}
 export interface Init { 'governor' : Principal }
+export interface Reaction {
+  'kind' : string,
+  'user' : Principal,
+  'created_at_ms' : bigint,
+  'asset_id' : string,
+}
 export type Result = { 'Ok' : Asset } |
   { 'Err' : string };
 export type Result_1 = { 'Ok' : Capability } |
@@ -43,21 +57,48 @@ export type Result_2 = { 'Ok' : State } |
   { 'Err' : string };
 export type Result_3 = { 'Ok' : Asset } |
   { 'Err' : string };
+export type Result_4 = { 'Ok' : null } |
+  { 'Err' : string };
+export type Result_5 = { 'Ok' : Reaction } |
+  { 'Err' : string };
+export type Result_6 = { 'Ok' : Comment } |
+  { 'Err' : string };
+export interface RoleGrant {
+  'role' : string,
+  'user' : Principal,
+  'team_id' : [] | [string],
+  'club_id' : [] | [string],
+}
 export interface State {
   'capabilities' : Array<Capability>,
   'schema' : number,
   'assets' : Array<Asset>,
   'governor' : Principal,
+  'comments' : Array<Comment>,
+  'reactions' : Array<Reaction>,
+  'roles' : Array<RoleGrant>,
 }
 export interface _SERVICE {
+  'add_comment' : ActorMethod<[string, string, bigint], Result_6>,
+  'add_reaction' : ActorMethod<[string, string, bigint], Result_5>,
   'delete_asset' : ActorMethod<[string], Result_3>,
+  'delete_comment' : ActorMethod<[string], Result_6>,
   'export_state' : ActorMethod<[], Result_2>,
   'get_asset' : ActorMethod<[string], [] | [Asset]>,
+  'grant_role' : ActorMethod<
+    [Principal, string, [] | [string], [] | [string]],
+    Result_4
+  >,
+  'initialize' : ActorMethod<[], { 'Ok' : null } | { 'Err' : string }>,
   'issue_capability' : ActorMethod<[string, string, string, bigint], Result_1>,
+  'list_assets' : ActorMethod<[string], Array<Asset>>,
+  'list_comments' : ActorMethod<[string], Array<Comment>>,
+  'list_reactions' : ActorMethod<[string], Array<Reaction>>,
   'register_asset' : ActorMethod<
     [string, string, string, string, string, string, bigint],
     Result
   >,
+  'remove_reaction' : ActorMethod<[string], Result_4>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

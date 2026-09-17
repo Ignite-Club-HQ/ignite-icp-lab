@@ -47,7 +47,14 @@ const revokeUrlFn = vi.fn();
 
 import AccountPage from "./AccountPage";
 
+const setHref = (relative: string) => {
+  const url = new URL(relative, "http://localhost");
+  if (!url.searchParams.has("backend")) url.searchParams.set("backend", "supabase");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
 function renderPage() {
+  setHref("/account");
   return render(
     <MemoryRouter>
       <AccountPage />

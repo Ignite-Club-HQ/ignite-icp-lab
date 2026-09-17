@@ -1,9 +1,9 @@
-import type { _SERVICE } from './bindings/media_metadata_motoko/declarations/media_metadata_motoko.did.js';
+import type { _SERVICE } from './bindings/media_metadata/declarations/media_metadata.did.js';
 
 export type MediaMetadataClient = ReturnType<typeof createMediaMetadataClient>;
 
 /**
- * Thin, typed wrapper around the raw candid actor for the media_metadata_motoko
+ * Thin, typed wrapper around the raw candid actor for the media_metadata
  * canister. Mirrors identityAccessClient.ts: unwrap {Ok}/{Err} results into
  * throw/return, translate optional params to candid's `[] | [T]` shape, and
  * fail closed once the underlying identity/session is discarded.
