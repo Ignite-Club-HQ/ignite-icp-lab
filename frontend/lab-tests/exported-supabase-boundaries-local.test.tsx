@@ -111,3 +111,69 @@ describe('exported inert Supabase and Edge boundary equivalents', () => {
     );
   });
 });
+
+// Synthetic local equivalent of the exported Postgres integration test
+// `local infrastructure: synthetic fixture cleanup` — the real fixture uses
+// a live local Supabase Auth/Postgres instance (out of scope for this lab).
+// This models the same "cleanup must remove every row/identity a fixture
+// created" contract against in-memory tables instead of a live service role.
+describe('local infrastructure: synthetic fixture cleanup', () => {
+  test('removes clubs, memberships, profiles and Auth users created by a fixture', async () => {
+    const clubs = new Map<string, { id: string }>();
+    const userRoles = new Map<string, { id: string; userId: string }>();
+    const profiles = new Map<string, { id: string }>();
+    const authUsers = new Map<string, { id: string }>();
+
+    const createSecurityFixture = () => {
+      const clubA = 'club-fx-a';
+      const clubB = 'club-fx-b';
+      const adminA = 'user-fx-admin-a';
+      const memberA = 'user-fx-member-a';
+      const outsiderB = 'user-fx-outsider-b';
+      clubs.set(clubA, { id: clubA });
+      clubs.set(clubB, { id: clubB });
+      for (const [role, userId] of [
+        ['role-admin', adminA],
+        ['role-member', memberA],
+        ['role-outsider', outsiderB],
+      ] as const) {
+        userRoles.set(role, { id: role, userId });
+      }
+      for (const userId of [adminA, memberA, outsiderB]) {
+        profiles.set(userId, { id: userId });
+        authUsers.set(userId, { id: userId });
+      }
+      return {
+        adminA: { id: adminA },
+        memberA: { id: memberA },
+        outsiderB: { id: outsiderB },
+        clubA,
+        clubB,
+        cleanup: () => {
+          clubs.delete(clubA);
+          clubs.delete(clubB);
+          for (const [key, row] of userRoles) {
+            if ([adminA, memberA, outsiderB].includes(row.userId)) userRoles.delete(key);
+          }
+          for (const userId of [adminA, memberA, outsiderB]) {
+            profiles.delete(userId);
+            authUsers.delete(userId);
+          }
+        },
+      };
+    };
+
+    const fixture = createSecurityFixture();
+    const userIds = [fixture.adminA.id, fixture.memberA.id, fixture.outsiderB.id];
+    const clubIds = [fixture.clubA, fixture.clubB];
+
+    fixture.cleanup();
+
+    expect(clubIds.every((id) => !clubs.has(id))).toBe(true);
+    expect([...userRoles.values()].some((row) => userIds.includes(row.userId))).toBe(false);
+    expect(userIds.every((id) => !profiles.has(id))).toBe(true);
+    for (const userId of userIds) {
+      expect(authUsers.has(userId)).toBe(false);
+    }
+  });
+});
