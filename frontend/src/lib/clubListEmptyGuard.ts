@@ -26,17 +26,8 @@ export class TransientEmptyClubListError extends Error {
 /** Keys that have produced at least one non-empty result in this app session. */
 const hadDataKeys = new Set<string>();
 
-export function markClubListHadData(cacheKey: string) {
-  hadDataKeys.add(cacheKey);
-}
-
 export function resetClubListEmptyGuard() {
   hadDataKeys.clear();
-}
-
-/** Exposed for tests / callers that need to know whether a key is protected. */
-export function clubListHadData(cacheKey: string) {
-  return hadDataKeys.has(cacheKey);
 }
 
 export async function guardClubListResult<T>(cacheKey: string, next: T[]): Promise<T[]> {

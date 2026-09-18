@@ -1,5 +1,3 @@
-import { Actor } from '@icp-sdk/core/agent';
-import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/competition_domain/declarations/competition_domain.did.js';
 import type {
   Competition as IcpCompetition,
@@ -9,7 +7,7 @@ import type {
   TeamEntry,
   _SERVICE,
 } from './bindings/competition_domain/declarations/competition_domain.did.js';
-import { createLocalAgent, fetchLocalLabConfig } from './localActor';
+import { connectLocalDomainActor } from './localActor';
 
 export interface LocalCompetitionSummary {
   id: string;
@@ -138,14 +136,7 @@ export function createCompetitionDomainClient(
 }
 
 async function connectCompetitionActor(persona: string): Promise<_SERVICE> {
-  const config = await fetchLocalLabConfig();
-  const competitionCanisterId = config.canisterIds?.competition_domain;
-  if (!competitionCanisterId) throw new Error('Local competition domain canister is not configured.');
-  const agent = await createLocalAgent(config, persona, location.origin);
-  return Actor.createActor<_SERVICE>(idlFactory, {
-    agent,
-    canisterId: Principal.fromText(competitionCanisterId),
-  });
+  return connectLocalDomainActor<_SERVICE>(persona, 'competition_domain', 'competition', idlFactory);
 }
 
 export async function listLocalCompetitions(persona: string): Promise<LocalCompetitionSummary[]> {

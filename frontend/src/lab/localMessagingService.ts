@@ -1,8 +1,6 @@
-import { Actor } from '@icp-sdk/core/agent';
-import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/messaging_domain/declarations/messaging_domain.did.js';
 import type { Conversation, Message as IcpMessage, _SERVICE } from './bindings/messaging_domain/declarations/messaging_domain.did.js';
-import { createLocalAgent, fetchLocalLabConfig } from './localActor';
+import { connectLocalDomainActor } from './localActor';
 
 export interface LocalChatMessage {
   id: string;
@@ -69,14 +67,7 @@ export function createMessagingDomainClient(
 }
 
 async function connectMessagingActor(persona: string): Promise<_SERVICE> {
-  const config = await fetchLocalLabConfig();
-  const messagingCanisterId = config.canisterIds?.messaging_domain;
-  if (!messagingCanisterId) throw new Error('Local messaging domain canister is not configured.');
-  const agent = await createLocalAgent(config, persona, location.origin);
-  return Actor.createActor<_SERVICE>(idlFactory, {
-    agent,
-    canisterId: Principal.fromText(messagingCanisterId),
-  });
+  return connectLocalDomainActor<_SERVICE>(persona, 'messaging_domain', 'messaging', idlFactory);
 }
 
 export async function listLocalTeamMessages(persona: string, teamId: string): Promise<LocalChatMessage[]> {

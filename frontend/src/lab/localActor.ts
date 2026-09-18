@@ -1,4 +1,5 @@
 import { Actor, HttpAgent, type Identity } from '@icp-sdk/core/agent';
+import type { IDL } from '@icp-sdk/core/candid';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/declarations/club_links.did.js';
 import type { _SERVICE } from './bindings/declarations/club_links.did.js';
@@ -84,6 +85,25 @@ export async function fetchLocalLabConfig(): Promise<LocalLabConfig> {
   const response = await fetch('/icp/api/v2/lab-config', { cache: 'no-store' });
   if (!response.ok) throw new Error('Local ICP is not configured. Start and deploy the local canisters.');
   return validateLocalLabConfig(await response.json());
+}
+
+/**
+ * Shared "resolve canister id -> build agent -> build actor" wiring for the
+ * per-domain local canister services (events, competition, messaging, ...).
+ * Each domain service still owns its own idl/type imports and domain client,
+ * this only removes the copy-pasted connect-actor boilerplate.
+ */
+export async function connectLocalDomainActor<T>(
+  persona: string,
+  domainKey: string,
+  domainLabel: string,
+  idlFactoryForDomain: IDL.InterfaceFactory,
+): Promise<T> {
+  const config = await fetchLocalLabConfig();
+  const canisterId = config.canisterIds?.[domainKey];
+  if (!canisterId) throw new Error(`Local ${domainLabel} domain canister is not configured.`);
+  const agent = await createLocalAgent(config, persona, location.origin);
+  return Actor.createActor<T>(idlFactoryForDomain, { agent, canisterId: Principal.fromText(canisterId) });
 }
 
 export async function connectLocalActor(persona: string) {

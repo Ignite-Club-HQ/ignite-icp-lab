@@ -1,8 +1,6 @@
-import { Actor } from '@icp-sdk/core/agent';
-import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/events_domain/declarations/events_domain.did.js';
 import type { Attendance, Duty, Event as IcpEvent, Recurrence, Rsvp, _SERVICE } from './bindings/events_domain/declarations/events_domain.did.js';
-import { createLocalAgent, fetchLocalLabConfig } from './localActor';
+import { connectLocalDomainActor } from './localActor';
 
 export interface LocalScheduleEvent {
   id: string;
@@ -230,14 +228,7 @@ export function createEventsDomainClient(actor: Pick<_SERVICE, 'list_events' | '
 }
 
 async function connectEventsActor(persona: string): Promise<_SERVICE> {
-  const config = await fetchLocalLabConfig();
-  const eventsCanisterId = config.canisterIds?.events_domain;
-  if (!eventsCanisterId) throw new Error('Local events domain canister is not configured.');
-  const agent = await createLocalAgent(config, persona, location.origin);
-  return Actor.createActor<_SERVICE>(idlFactory, {
-    agent,
-    canisterId: Principal.fromText(eventsCanisterId),
-  });
+  return connectLocalDomainActor<_SERVICE>(persona, 'events_domain', 'events', idlFactory);
 }
 
 export async function listLocalEvents(persona: string, clubId?: string | null, teamId?: string | null): Promise<LocalScheduleEvent[]> {
