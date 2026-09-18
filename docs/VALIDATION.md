@@ -3140,3 +3140,34 @@ npm run test:messaging:icp:performance -- \
 The local network teardown completed with a verified full recovery snapshot
 and stopped successfully. Generated local backup artifacts were removed
 after validation to avoid exhausting the shared workspace volume.
+
+### Country and club-level backend placement controls
+
+Extended `lab-tests/placement-admin-settings.test.tsx` with explicit
+country-policy and club-assignment coverage for the hybrid control plane:
+
+- Country-level policy changes are normalized to uppercase ISO alpha-2
+  values, duplicate allowed-backend entries are de-duplicated, and the
+  policy gate is applied before a club can be assigned to a backend.
+- A club can be moved from an approved Supabase target to an approved ICP
+  target in a country that allows both, without changing other clubs'
+  assignments.
+- `backendFromAssignment` maps club-level Supabase assignments to the
+  exact Supabase environment payload and ICP assignments to the exact
+  canister-principal payload, while failing closed if an ICP assignment is
+  missing its canister principal.
+- `PlacementAdminSettingsPanel` exposes approved club-level assignments in
+  the UI and rejects disallowed country/backend pairs (for example AU →
+  ICP when AU is Supabase-only in the synthetic policy).
+
+Focused and aggregate validation passed:
+
+```sh
+cd frontend
+npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/placement-admin-settings.test.tsx
+# 1 file / 7 tests passed
+
+npm run test
+# 274 Node lab tests passed
+# 152 lab Vitest files / 1,710 tests passed
+```
