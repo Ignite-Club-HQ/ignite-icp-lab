@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, UserPlus, Check } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { RoleSelectionList, type RoleSelectionOption } from "./RoleSelectionList";
 
 type ClubRole = "club_admin" | "coach" | "committee_member" | "league_admin" | "competition_admin" | "parent" | "player" | "basic_user";
 
@@ -24,7 +24,7 @@ interface AddClubRoleToMemberDialogProps {
   existingRoles: Array<{ role: string; club_id?: string | null; team_id?: string | null }>;
 }
 
-const availableRoles: { value: ClubRole; label: string; description: string; color: string }[] = [
+const availableRoles: RoleSelectionOption<ClubRole>[] = [
   { value: "club_admin", label: "Club Admin", description: "Full club management access", color: "bg-purple-500/10 text-purple-600 border-purple-200 dark:text-purple-400 dark:border-purple-500/30" },
   { value: "committee_member", label: "Committee Member", description: "Club committee access", color: "bg-cyan-500/10 text-cyan-600 border-cyan-200 dark:text-cyan-400 dark:border-cyan-500/30" },
   { value: "league_admin", label: "League Admin", description: "Manage mini leagues", color: "bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/30" },
@@ -87,10 +87,10 @@ export default function AddClubRoleToMemberDialog({
       setSelectedRoles([]);
       toast({ title: "Role(s) added successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ 
         title: "Failed to add role(s)", 
-        description: error.message,
+        description: error instanceof Error ? error.message : "The role could not be added.",
         variant: "destructive" 
       });
     },
@@ -129,44 +129,12 @@ export default function AddClubRoleToMemberDialog({
           </div>
         </ResponsiveDialogHeader>
         
-        <div className="space-y-3 py-4 max-h-[50vh] overflow-y-auto">
-          {availableToAdd.map((role) => {
-            const isSelected = selectedRoles.includes(role.value);
-            return (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => toggleRole(role.value)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left",
-                  isSelected 
-                    ? "border-primary bg-primary/5" 
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
-                )}
-              >
-                <div className={cn(
-                  "h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
-                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
-                )}>
-                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "text-xs font-medium px-2 py-0.5 rounded-full border",
-                      role.color
-                    )}>
-                      {role.label}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {role.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        <RoleSelectionList
+          options={availableToAdd}
+          selected={selectedRoles}
+          onToggle={toggleRole}
+          className="max-h-[50vh] overflow-y-auto"
+        />
 
         <ResponsiveDialogFooter>
           <Button 

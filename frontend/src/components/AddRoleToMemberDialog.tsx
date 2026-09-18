@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, UserPlus, Check } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
+import { RoleSelectionList, type RoleSelectionOption } from "./RoleSelectionList";
 
 type TeamRole = "player" | "parent" | "coach" | "team_admin";
 
@@ -28,7 +28,7 @@ interface AddRoleToMemberDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-const availableRoles: { value: TeamRole; label: string; description: string; color: string }[] = [
+const availableRoles: RoleSelectionOption<TeamRole>[] = [
   { value: "player", label: "Player", description: "Can participate in team events", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
   { value: "parent", label: "Parent", description: "Can view team activities", color: "bg-blue-500/10 text-blue-600 border-blue-200" },
   { value: "coach", label: "Coach", description: "Can manage team events", color: "bg-amber-500/10 text-amber-600 border-amber-200" },
@@ -127,44 +127,11 @@ export default function AddRoleToMemberDialog({
           </div>
         </ResponsiveDialogHeader>
         
-        <div className="space-y-3 py-4">
-          {availableToAdd.map((role) => {
-            const isSelected = selectedRoles.includes(role.value);
-            return (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => toggleRole(role.value)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left",
-                  isSelected 
-                    ? "border-primary bg-primary/5" 
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
-                )}
-              >
-                <div className={cn(
-                  "h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
-                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
-                )}>
-                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "text-xs font-medium px-2 py-0.5 rounded-full border",
-                      role.color
-                    )}>
-                      {role.label}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {role.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        <RoleSelectionList
+          options={availableToAdd}
+          selected={selectedRoles}
+          onToggle={toggleRole}
+        />
 
         <ResponsiveDialogFooter>
           <Button 
