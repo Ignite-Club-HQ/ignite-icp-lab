@@ -12,7 +12,7 @@ const run = (label, command, args) => {
   process.stderr.write(result.stderr);
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${label} failed with exit status ${result.status}`);
-  return result.stdout;
+  return `${result.stdout}\n${result.stderr}`;
 };
 
 // The imported legacy Vitest suite has one known pre-existing flake
@@ -54,7 +54,7 @@ try {
     mode: backend,
     localBackend: backend === 'icp' ? 'PocketIC canisters' : 'in-memory synthetic Supabase provider',
     testsExecutedUnderForcedMode: {
-      nodeLab: count(lab, /# tests\s+(\d+)/, 'Node lab'),
+      nodeLab: count(lab, /(?:#|ℹ) tests\s+(\d+)/, 'Node lab'),
       labVitest: count(lab, /Tests\s+(\d+) passed/, 'lab Vitest'),
       legacyVitest: count(legacy, /Tests\s+(\d+) passed/, 'legacy Vitest'),
       playwright: count(browser, /(\d+) passed/, 'Playwright'),

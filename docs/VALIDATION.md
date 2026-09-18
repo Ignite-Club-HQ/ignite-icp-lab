@@ -3046,6 +3046,15 @@ Verified independently per component tier:
 - Forced-Supabase: lab/legacy Vitest suites and the Playwright suite
   (including the new forced-backend CRUD contract, UI locked to Supabase,
   zero external traffic) all pass.
+- A full `npm run test:all:supabase` run passed end-to-end: 274 Node lab
+  tests, 1,705 lab Vitest tests (1 skipped), 4,162 legacy Vitest tests
+  (1 skipped), and 19 Playwright tests (2 skipped), for **6,160 tests
+  executed under forced Supabase mode**. Its
+  `FORCED_BACKEND_MATRIX_REPORT` identified the local backend as the
+  in-memory synthetic Supabase provider. The forced-backend Club Links
+  Playwright CRUD contract is direct provider evidence; other retained
+  tests execute under the same forced build but may use explicit unit
+  doubles or be backend-agnostic.
 - Forced-ICP: lab and legacy Vitest suites pass together; the ICP
   Playwright CRUD contract passed once against a real local deploy with
   the `governor` persona.
@@ -3064,6 +3073,14 @@ Two real bugs were found and fixed while proving this:
    file happened to be running next. Fixed by draining the chain inside
    `vi.useFakeTimers()`/`vi.runAllTimers()`, matching the file's existing
    pattern for its other fake-timer test.
+3. The full Supabase run exposed a separate cleanup-time legacy-suite
+   error: the delayed iOS layout reset in `BottomNav.tsx` assumed jsdom
+   implements `window.scrollTo`. It now capability-checks `scrollTo` while
+   retaining the document scroll reset, so a browser keeps the original
+   behavior and a non-browser environment cannot throw after test mocks
+   are restored. The first successful all-tier run then exposed a
+   report-only defect: Node 24 emits the TAP count as `ℹ tests`, not
+   `# tests`; the matrix parser now accepts both forms.
 
 **Not yet achieved: one single, uninterrupted, full `npm run test:all:icp`
 run in this sandbox.** After the two fixes above, every remaining failure
@@ -3091,8 +3108,9 @@ only, synthetic identities only), just an incomplete deploy from resource
 exhaustion.
 
 **Conclusion:** the forced-backend feature and its Supabase-side matrix
-are code-complete and verified; the ICP-side matrix is code-complete and
-verified component-by-component, but a full end-to-end run (including a
-fresh local deploy) needs to be retried in a less memory-constrained
-environment, or at a moment when this sandbox has materially more than
-~2.3Gi available, to get a single clean pass with certainty.
+are code-complete and verified by a clean all-tier, 6,160-test aggregate
+run. The ICP-side matrix is code-complete and verified
+component-by-component, but a full end-to-end run (including a fresh local
+deploy) needs to be retried in a less memory-constrained environment, or
+at a moment when this sandbox has materially more than ~2.3Gi available,
+to get a single clean pass with certainty.

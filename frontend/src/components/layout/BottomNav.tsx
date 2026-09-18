@@ -348,7 +348,9 @@ export function BottomNav() {
     const win = window;
     const doc = typeof document !== "undefined" ? document : null;
     const resetWindow = () => {
-      win.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      if (typeof win.scrollTo === "function") {
+        win.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
       if (doc) {
         doc.documentElement.scrollTop = 0;
         doc.body.scrollTop = 0;
