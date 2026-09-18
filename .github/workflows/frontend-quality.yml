@@ -37,6 +37,7 @@ jobs:
         run: |
           npm run check:isolation
           npm run check:prod-secrets
+          npm run check:quality-ratchet
 
       - name: Lab tests
         working-directory: frontend

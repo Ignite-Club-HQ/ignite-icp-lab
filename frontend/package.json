@@ -26,6 +26,7 @@
     "check:exported-tests": "node scripts/check-exported-test-inventory.mjs",
     "test:exported": "npm run test && npm run test:legacy && npm run check:exported-tests",
     "check:isolation": "node scripts/check-isolation.mjs",
+    "check:quality-ratchet": "node scripts/check-quality-ratchet.mjs",
     "lint": "eslint --max-warnings=0 src/lib/observability src/product-main.tsx vite.product.config.ts scripts/build-product.mjs scripts/check-product-bundle.mjs",
     "typecheck:strict": "tsc -p tsconfig.strict.json",
     "test:observability": "vitest run --config vitest.legacy.config.mjs src/lib/observability/observability.test.ts",

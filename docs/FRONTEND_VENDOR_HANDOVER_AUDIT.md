@@ -23,6 +23,10 @@ changing the isolated lab entry or runtime allowlist:
   provider-neutral observability and product-build surfaces. `tsconfig.strict.json`
   and `typecheck:strict` establish a strict sidecar for those modules without
   forcing an unsafe global strict-mode conversion.
+- `check:quality-ratchet` records the current source counts for `as any`,
+  console calls, and direct Supabase-client imports in
+  `frontend/quality-baseline.json`. Generated type definitions, tests, and the
+  centralized logger are explicit exclusions; increases fail CI.
 - `src/lib/observability` provides redacted, provider-neutral logging and
   telemetry boundaries. The product entry records Web Vitals through the
   boundary; no Supabase telemetry sink is installed.
