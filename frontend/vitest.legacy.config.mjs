@@ -1,5 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+const forcedBackend = process.env.IGNITE_LAB_FORCED_BACKEND;
+if (forcedBackend !== undefined && forcedBackend !== 'icp' && forcedBackend !== 'supabase') {
+  throw new Error('IGNITE_LAB_FORCED_BACKEND must be "icp" or "supabase"');
+}
 
 // Runs the original imported app test suite from `src/**/*.test.ts(x)`.
 //
@@ -14,6 +18,7 @@ import path from 'node:path';
 // that is what frontend/lab-tests/imported-*-baseline.test.tsx covers.
 export default defineConfig({
   cacheDir: '.lab-cache-legacy',
+  define: { __IGNITE_LAB_FORCED_BACKEND__: JSON.stringify(forcedBackend ?? null) },
   resolve: { alias: { '@': path.resolve('src') } },
   esbuild: { jsx: 'automatic' },
   test: {

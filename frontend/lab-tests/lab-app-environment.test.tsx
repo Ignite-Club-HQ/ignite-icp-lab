@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LabApp from '../src/lab/LabApp';
+import { getForcedBackend } from '../src/lab/forcedBackend';
 
 const originalFetch = globalThis.fetch;
 
@@ -15,7 +16,7 @@ afterEach(() => {
 });
 
 describe('lab app environment behavior', () => {
-  it('runs the fixture editor flow for real app functionality without network access', async () => {
+  it.skipIf(getForcedBackend() === 'icp')('runs the fixture or forced-Supabase editor flow without network access', async () => {
     globalThis.fetch = async () => {
       throw new Error('No network permitted in fixture editor test');
     };
@@ -23,8 +24,10 @@ describe('lab app environment behavior', () => {
     render(<LabApp />);
 
     const dataSource = screen.getByLabelText('Data source') as HTMLSelectElement;
-    expect(dataSource.value).toBe('fixture');
+    expect(dataSource.value).toBe(getForcedBackend() ?? 'fixture');
+    expect(dataSource.disabled).toBe(getForcedBackend() !== null);
 
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Add$/ })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Synthetic registration' } });
     fireEvent.change(screen.getByLabelText('Web address'), { target: { value: 'https://example.invalid/register' } });
@@ -57,7 +60,7 @@ describe('lab app environment behavior', () => {
     });
   });
 
-  it('supports hybrid mode selection without silently switching backends', async () => {
+  it.skipIf(getForcedBackend() !== null)('supports hybrid mode selection without silently switching backends', async () => {
     const fetchStub = vi.fn().mockRejectedValue(new Error('Local ICP is not configured. Start and deploy the local canisters.'));
     globalThis.fetch = fetchStub as typeof fetch;
 

@@ -1,10 +1,12 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
 import LabApp from '../src/lab/LabApp';
+import { getForcedBackend } from '../src/lab/forcedBackend';
 afterEach(cleanup);
-test('existing editor creates, edits, hides and deletes a synthetic link', async () => {
+test.skipIf(getForcedBackend() === 'icp')('existing editor creates, edits, hides and deletes a synthetic link', async () => {
   globalThis.fetch = async () => { throw new Error('No network permitted in editor test'); };
   render(<LabApp />);
+  await waitFor(() => expect(screen.getByRole('button', { name: /^Add$/ })).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
   fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Synthetic registration' } });
   fireEvent.change(screen.getByLabelText('Web address'), { target: { value: 'https://example.invalid/register' } });

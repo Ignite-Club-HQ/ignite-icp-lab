@@ -5,10 +5,15 @@ import { requireOwnedNetwork } from './scripts/local-lifecycle.mjs';
 
 const allowed = new Set(JSON.parse(fs.readFileSync(new URL('./lab-runtime-files.json', import.meta.url), 'utf8')));
 const csp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; manifest-src 'none'; media-src 'self' blob:";
+const forcedBackend = process.env.IGNITE_LAB_FORCED_BACKEND;
+if (forcedBackend !== undefined && forcedBackend !== 'icp' && forcedBackend !== 'supabase') {
+  throw new Error('IGNITE_LAB_FORCED_BACKEND must be "icp" or "supabase"');
+}
 export default defineConfig({
   // Never load production .env files or expose inherited VITE_* variables.
   envDir: false, envPrefix: 'IGNITE_LAB_UNUSED_', publicDir: 'public',
   esbuild: { jsx: 'automatic' }, cacheDir: '.lab-cache',
+  define: { __IGNITE_LAB_FORCED_BACKEND__: JSON.stringify(forcedBackend ?? null) },
   plugins: [
     { name: 'local-canister-public-config',
       configureServer(server) {

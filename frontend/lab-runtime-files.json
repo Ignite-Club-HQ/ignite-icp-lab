@@ -16,6 +16,7 @@
   "src/lab/placementAdminSettings.ts",
   "src/lab/placementAdminClient.ts",
   "src/lab/deviceCountry.ts",
+  "src/lab/forcedBackend.ts",
   "src/lab/piiAccessClient.ts",
   "src/lab/secretWorkloadClient.ts",
   "src/lab/externalWorkerBoundary.ts",

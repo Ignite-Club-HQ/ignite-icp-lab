@@ -52,17 +52,33 @@ describe("VirtualizedChatMessageList — empty/cold-start guards", () => {
   });
 
   it("imperative scroll commands no-op safely on an empty list", () => {
-    const ref = createRef<VirtualizedChatMessageListHandle>();
-    render(withQuery(<VirtualizedChatMessageList ref={ref} messages={[]} {...baseProps} />));
+    // Fake timers here (matching the "cold-open" test below) so that any
+    // Virtuoso-internal scroll-settle frame chain triggered by these
+    // imperative calls is deterministically drained inside this test's own
+    // boundary instead of continuing on real timers after the test (and
+    // this file's) run has finished - a real leaked chain can eventually hit
+    // `requestAnimationFrame is not defined` once Vitest recycles the
+    // jsdom environment for a later, unrelated test file.
+    vi.useFakeTimers();
+    try {
+      const ref = createRef<VirtualizedChatMessageListHandle>();
+      render(withQuery(<VirtualizedChatMessageList ref={ref} messages={[]} {...baseProps} />));
 
-    expect(() => {
+      expect(() => {
+        act(() => {
+          ref.current?.scrollToBottom?.("auto");
+          ref.current?.scrollToIndex?.(0);
+          ref.current?.scrollToIndex?.(999);
+          ref.current?.scrollToMessageId?.("does-not-exist");
+        });
+      }).not.toThrow();
+
       act(() => {
-        ref.current?.scrollToBottom?.("auto");
-        ref.current?.scrollToIndex?.(0);
-        ref.current?.scrollToIndex?.(999);
-        ref.current?.scrollToMessageId?.("does-not-exist");
+        vi.runAllTimers();
       });
-    }).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("isAtBottom / isNearBottom are safe to query before any messages mount", () => {

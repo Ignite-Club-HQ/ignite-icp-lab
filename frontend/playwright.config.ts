@@ -15,7 +15,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5180',
     url: 'http://127.0.0.1:5180',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !process.env.IGNITE_LAB_FORCED_BACKEND,
     timeout: 120_000,
   },
   projects: [

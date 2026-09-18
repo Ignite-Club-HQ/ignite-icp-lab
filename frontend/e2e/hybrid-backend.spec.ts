@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+const forcedBackend = process.env.IGNITE_LAB_FORCED_BACKEND;
+
 test.describe('hybrid backend browser coverage', () => {
   test('keeps the local ICP mode in a fail-closed state with no external browser traffic', async ({ page }) => {
+    test.skip(forcedBackend !== undefined, 'This non-forced-mode contract selects its own backend.');
     const externalOrigins: string[] = [];
 
     page.on('request', request => {
@@ -21,6 +24,7 @@ test.describe('hybrid backend browser coverage', () => {
   });
 
   test('supports the hybrid mode flow and keeps the app in a lab-safe routing model', async ({ page }) => {
+    test.skip(forcedBackend !== undefined, 'This non-forced-mode contract selects its own backend.');
     const externalOrigins: string[] = [];
 
     page.on('request', request => {
