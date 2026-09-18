@@ -27,6 +27,27 @@ did not affect the exit status.
 
 The normal Playwright suite passed with 20 tests and 2 existing guarded skips.
 
+Baseline expansion:
+
+- Added `npm run test:auth:icp:internet-identity` for the local Internet
+  Identity smoke check.
+- Added `npm run test:icp:local-baseline`, which deploys one disposable local
+  ICP network, runs the local Internet Identity smoke check, the guarded
+  backend-switch Playwright test, and the ICP messaging performance test, then
+  stops the network after backup verification.
+- Updated `npm run test:all` so these local ICP auth/switching/performance
+  checks are part of the baseline after the existing lab, legacy, and normal
+  Playwright tiers.
+- `npm run test:icp:local-baseline` passed with:
+  `LOCAL_ICP_BASELINE_REPORT={"localInternetIdentity":{"ok":true,"authorizeUrl":"http://id.ai.localhost:4943/authorize","backendCanisterId":"rdmx6-jaaaa-aaaaa-aaadq-cai","frontendCanisterId":"uqzsh-gqaaa-aaaaq-qaada-cai"},"backendSwitchPlaywright":1,"messagingPerformance":{"kind":"local-icp-messaging-performance","localOnly":true,"messages":40,"pageSize":20,"thresholds":{"sendP95Ms":1500,"pageP95Ms":500,"unreadP95Ms":500},"send":{"count":40,"p95Ms":251.71},"page":{"count":2,"p95Ms":10.48},"unread":{"count":10,"p95Ms":16.65},"failures":[]}}`.
+- `npm run test:all` passed after the baseline expansion. It now runs the
+  274 Node lab tests, 153 lab Vitest files / 1,714 tests, 413 legacy Vitest
+  files / 4,164 passed plus one existing skip, normal Playwright with
+  20 passed / 2 existing guarded skips, and the local ICP baseline. The local
+  ICP baseline report in this full run included local-II HTTP 200 coverage,
+  one backend-switch Playwright pass, and ICP messaging p95s of send
+  245.96ms, page 10.38ms, and unread 9.71ms, all below thresholds.
+
 Follow-up local-II deployment validation:
 
 - Added `ii: true` to the managed loopback ICP network.
