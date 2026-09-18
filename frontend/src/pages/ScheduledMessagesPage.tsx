@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +40,7 @@ import {
   useAllScheduledMessages,
   useCancelScheduledMessage,
 } from "@/hooks/useScheduledMessages";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubTheme } from "@/hooks/useClubTheme";
@@ -50,6 +50,12 @@ interface ThreadInfo {
   sublabel?: string;
   href?: string;
 }
+
+const ScheduleMessageDialog = lazyWithRetry(() =>
+  import("@/components/chat/ScheduleMessageDialog").then(module => ({
+    default: module.ScheduleMessageDialog,
+  })),
+);
 
 function rowTarget(row: ScheduledMessageRow) {
   return {
@@ -638,12 +644,16 @@ function SupabaseScheduledMessagesPage() {
         )}
       </div>
 
-      <ScheduleMessageDialog
-        open={!!editingRow}
-        onOpenChange={(o) => !o && setEditingRow(null)}
-        target={editingRow ? rowTarget(editingRow) : { chat_type: "broadcast" }}
-        editingRow={editingRow}
-      />
+      {editingRow && (
+        <Suspense fallback={null}>
+          <ScheduleMessageDialog
+            open
+            onOpenChange={(o) => !o && setEditingRow(null)}
+            target={rowTarget(editingRow)}
+            editingRow={editingRow}
+          />
+        </Suspense>
+      )}
 
       <AlertDialog
         open={!!confirmDeleteId}

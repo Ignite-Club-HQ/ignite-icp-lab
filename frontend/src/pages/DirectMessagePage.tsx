@@ -1,5 +1,5 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
@@ -48,7 +48,7 @@ import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
 import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { useScheduleProAccess } from "@/hooks/useScheduleProAccess";
@@ -97,6 +97,12 @@ import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEa
 
 
 const MESSAGES_PER_PAGE = 15;
+
+const ScheduleMessageDialog = lazyWithRetry(() =>
+  import("@/components/chat/ScheduleMessageDialog").then(module => ({
+    default: module.ScheduleMessageDialog,
+  })),
+);
 
 interface DirectMessage {
   id: string;
@@ -1722,17 +1728,19 @@ export default function DirectMessagePage() {
                   canSend={!!message.trim() || !!dmImageUrl || !!pendingNewsId}
                 />
               </ChatComposerShell>
-              {scheduleTarget && (
-                <ScheduleMessageDialog
-                  open={scheduleDialogOpen}
-                  onOpenChange={setScheduleDialogOpen}
-                  target={scheduleTarget}
-                  initialText={message}
-                  onScheduled={() => {
-                    setMessage("");
-                    clearDraft?.();
-                  }}
-                />
+              {scheduleTarget && scheduleDialogOpen && (
+                <Suspense fallback={null}>
+                  <ScheduleMessageDialog
+                    open
+                    onOpenChange={setScheduleDialogOpen}
+                    target={scheduleTarget}
+                    initialText={message}
+                    onScheduled={() => {
+                      setMessage("");
+                      clearDraft?.();
+                    }}
+                  />
+                </Suspense>
               )}
               {!isIgniteSupportConversation && (
                 <>

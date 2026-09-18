@@ -33,6 +33,10 @@ changing the isolated lab entry or runtime allowlist:
 - `.github/workflows/frontend-quality.yml` runs lab isolation, lab and legacy
   tests, lab and strict typechecks, lint, both builds, and bundle budgets
   without deployment credentials.
+- `DirectMessagePage` and `ScheduledMessagesPage` now defer the scheduling
+  dialog until it is opened, using the existing retry-safe lazy loader and a
+  local Suspense boundary. A characterization contract prevents either route
+  from reverting to an eager dialog import.
 
 This establishes a build and quality baseline, not production release
 readiness. The product entry still contains the documented direct-Supabase
