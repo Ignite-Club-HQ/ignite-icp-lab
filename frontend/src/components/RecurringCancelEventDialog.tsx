@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, Loader2, MessageSquare } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
+import { useEventCancellationRecipients } from "@/hooks/useEventCancellationRecipients";
 
 
 interface RecurringCancelEventDialogProps {
@@ -42,100 +42,28 @@ export function RecurringCancelEventDialog({
   onSeriesAction,
   isPending,
 }: RecurringCancelEventDialogProps) {
-  const [memberCount, setMemberCount] = useState<number | null>(null);
   const [customMessage, setCustomMessage] = useState("");
   const [sendPushNotification, setSendPushNotification] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [recipientLookupFailed, setRecipientLookupFailed] = useState(false);
   const keyboardBottomInset = useNativeKeyboardBottomInset();
-  const requestIdRef = useRef(0);
-
+  const { memberCount, isLoading, recipientLookupFailed } = useEventCancellationRecipients({
+    open,
+    teamId,
+    clubId,
+    miniLeagueId,
+  });
 
   useEffect(() => {
     if (open) {
       setCustomMessage("");
       setSendPushNotification(true);
-      setRecipientLookupFailed(false);
-      const reqId = ++requestIdRef.current;
-      fetchMemberCount(reqId);
-    } else {
-      // Invalidate any in-flight lookup so its result cannot leak into a later open
-      requestIdRef.current++;
     }
   }, [open, teamId, clubId, miniLeagueId]);
 
-  const fetchMemberCount = async (reqId: number) => {
-    setIsLoading(true);
-    setRecipientLookupFailed(false);
-    const isCurrent = () => requestIdRef.current === reqId;
-    try {
-      // For mini-league events, count parents + league/club admins
-      if (miniLeagueId) {
-        // Get mini league to find the club_id
-        const { data: league, error: leagueError } = await supabase
-          .from("mini_leagues")
-          .select("club_id")
-          .eq("id", miniLeagueId)
-          .maybeSingle();
-        if (leagueError) throw leagueError;
-
-        if (league) {
-          // Get all parent user IDs from mini league players
-          const { data: playersData, error: playersError } = await supabase
-            .from("mini_league_players")
-            .select("parent_user_id")
-            .eq("mini_league_id", miniLeagueId)
-            .not("parent_user_id", "is", null);
-          if (playersError) throw playersError;
-
-          const parentIds = [...new Set(
-            (playersData?.map(p => p.parent_user_id).filter(Boolean) as string[]) || []
-          )];
-
-          // Get club admins, league admins, and coaches
-          const { data: adminRoles, error: adminError } = await supabase
-            .from("user_roles")
-            .select("user_id")
-            .eq("club_id", league.club_id)
-            .in("role", ["club_admin", "league_admin", "coach"]);
-          if (adminError) throw adminError;
-
-          const adminIds = adminRoles?.map(r => r.user_id) || [];
-
-          // Combine all unique IDs
-          const allUserIds = [...new Set([...parentIds, ...adminIds])];
-          if (!isCurrent()) return;
-          setMemberCount(allUserIds.length);
-          setSendPushNotification(true);
-        } else {
-          throw new Error("Mini league not found");
-        }
-      } else {
-        // Standard team/club member count
-        let memberQuery = supabase.from("user_roles").select("user_id");
-        if (teamId) {
-          memberQuery = memberQuery.eq("team_id", teamId);
-        } else {
-          memberQuery = memberQuery.eq("club_id", clubId);
-        }
-
-        const { data: members, error: membersError } = await memberQuery;
-        if (membersError) throw membersError;
-        const uniqueMembers = [...new Set(members?.map(m => m.user_id) || [])];
-        if (!isCurrent()) return;
-        setMemberCount(uniqueMembers.length);
-        setSendPushNotification(true);
-      }
-    } catch (error) {
-      console.error("Failed to fetch member count:", error);
-      if (!isCurrent()) return;
-      setMemberCount(null);
-      setRecipientLookupFailed(true);
+  useEffect(() => {
+    if (recipientLookupFailed) {
       setSendPushNotification(false);
-    } finally {
-      if (isCurrent()) setIsLoading(false);
     }
-  };
+  }, [recipientLookupFailed]);
 
   const handleSingleAction = () => {
     const push = recipientLookupFailed ? false : sendPushNotification;

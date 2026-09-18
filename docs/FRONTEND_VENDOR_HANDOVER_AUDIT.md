@@ -41,6 +41,10 @@ changing the isolated lab entry or runtime allowlist:
   email validator in `src/lib/csv.ts`; focused tests preserve quoted-comma,
   trimming, and email-validation behavior. Lab/reference-only mirrors remain
   intentionally separate.
+- `CancelEventConfirmDialog` and `RecurringCancelEventDialog` now share
+  recipient counting, stale-request fencing, and fail-closed lookup handling
+  through `useEventCancellationRecipients`; their action-specific UI and
+  callbacks remain separate.
 
 This establishes a build and quality baseline, not production release
 readiness. The product entry still contains the documented direct-Supabase
