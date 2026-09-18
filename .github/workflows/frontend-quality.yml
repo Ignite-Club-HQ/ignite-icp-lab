@@ -1,0 +1,77 @@
+name: Frontend quality gates
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-quality.yml"
+  push:
+    branches:
+      - main
+      - staging
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-quality.yml"
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-fund --no-audit
+
+      - name: Verify lab isolation
+        working-directory: frontend
+        run: |
+          npm run check:isolation
+          npm run check:prod-secrets
+
+      - name: Lab tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Legacy tests
+        working-directory: frontend
+        run: npm run test:legacy
+
+      - name: Type checks
+        working-directory: frontend
+        run: |
+          npm run typecheck:lab
+          npm run typecheck:strict
+
+      - name: ESLint quality ratchet
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Lab build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Product/staging build
+        working-directory: frontend
+        run: |
+          npm run build:product
+          npm run check:product-bundle
+
+      - name: Upload product bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-product-bundle-report
+          path: |
+            frontend/dist-product/bundle-analysis.html
+            frontend/dist-product/bundle-analysis.json
+          if-no-files-found: ignore

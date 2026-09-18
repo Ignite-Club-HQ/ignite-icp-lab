@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node scripts/check-isolation.mjs && vite --host 127.0.0.1 --port 5180 --strictPort",
     "build": "node scripts/check-isolation.mjs && vite build",
+    "build:product": "node scripts/build-product.mjs",
+    "check:product-bundle": "node scripts/check-product-bundle.mjs",
     "preview": "node scripts/check-isolation.mjs && vite preview --host 127.0.0.1 --port 5180 --strictPort",
     "test": "node --test lab-tests/*.test.mjs && vitest run --config vitest.lab.config.mjs --configLoader runner",
     "test:lab": "vitest run --config vitest.lab.config.mjs --configLoader runner",
@@ -24,6 +26,9 @@
     "check:exported-tests": "node scripts/check-exported-test-inventory.mjs",
     "test:exported": "npm run test && npm run test:legacy && npm run check:exported-tests",
     "check:isolation": "node scripts/check-isolation.mjs",
+    "lint": "eslint --max-warnings=0 src/lib/observability src/product-main.tsx vite.product.config.ts scripts/build-product.mjs scripts/check-product-bundle.mjs",
+    "typecheck:strict": "tsc -p tsconfig.strict.json",
+    "test:observability": "vitest run --config vitest.legacy.config.mjs src/lib/observability/observability.test.ts",
     "check:route-classification": "node scripts/check-route-classification.mjs",
     "check:prod-secrets": "node scripts/check-production-secrets.mjs",
     "deploy:staging": "node scripts/deploy-staging.mjs",

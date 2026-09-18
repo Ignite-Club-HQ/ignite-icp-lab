@@ -4,6 +4,37 @@ Audit date: 2026-09-18
 
 ## Executive decision
 
+## Baseline implementation update — 2026-09-18
+
+The first reproducible-baseline work package is now implemented without
+changing the isolated lab entry or runtime allowlist:
+
+- `frontend/product-index.html`, `frontend/src/product-main.tsx`, and
+  `frontend/vite.product.config.ts` provide a separate guarded product/staging
+  build target. The lab continues to use `vite.config.ts` and `src/main.tsx`.
+- `npm run build:product` produces `dist-product` without loading `.env` files or
+  exposing inherited `VITE_*` variables. It does not add credentials or a
+  provider fallback.
+- `rollup-plugin-visualizer` emits HTML and raw-data bundle reports, and
+  `check:product-bundle` enforces the measured baseline budget. The current
+  product build is 8,880,821 bytes of JavaScript, with a 9,800,000-byte review
+  ceiling; the largest chunk is 1,112,444 bytes.
+- `eslint.config.mjs` and `lint` establish a zero-warning ratchet for the new
+  provider-neutral observability and product-build surfaces. `tsconfig.strict.json`
+  and `typecheck:strict` establish a strict sidecar for those modules without
+  forcing an unsafe global strict-mode conversion.
+- `src/lib/observability` provides redacted, provider-neutral logging and
+  telemetry boundaries. The product entry records Web Vitals through the
+  boundary; no Supabase telemetry sink is installed.
+- `.github/workflows/frontend-quality.yml` runs lab isolation, lab and legacy
+  tests, lab and strict typechecks, lint, both builds, and bundle budgets
+  without deployment credentials.
+
+This establishes a build and quality baseline, not production release
+readiness. The product entry still contains the documented direct-Supabase
+reference domains, and the budget is intentionally a review ceiling derived
+from the first product build rather than a claim that the bundle is optimal.
+
 ### Handover status
 
 | Handover objective | Status | Decision |
