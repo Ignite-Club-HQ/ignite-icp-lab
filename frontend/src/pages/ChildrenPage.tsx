@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, UserPlus, Loader2, Check, CheckSquare, Square, Users, Send } from "lucide-react";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import ManageGuardiansDialog from "@/components/ManageGuardiansDialog";
-import InviteOtherParentSheet from "@/components/InviteOtherParentSheet";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const InviteOtherParentSheet = lazyWithRetry(() => import("@/components/InviteOtherParentSheet"));
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -820,6 +821,7 @@ function SupabaseChildrenPage() {
 
       {/* Invite Other Parent Sheet */}
       {selectedChild && (
+        <Suspense fallback={null}>
         <InviteOtherParentSheet
           open={inviteParentOpen}
           onOpenChange={(open) => {
@@ -830,6 +832,7 @@ function SupabaseChildrenPage() {
           childName={selectedChild.name}
           teamIds={getChildAssignments(selectedChild.id).map(a => a.team_id)}
         />
+        </Suspense>
       )}
     </div>
   );

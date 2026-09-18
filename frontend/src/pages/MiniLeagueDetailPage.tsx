@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ManagePlayersDialog } from "@/components/mini-league/ManagePlayersDialog";
-import { MiniLeagueSettingsDialog } from "@/components/mini-league/MiniLeagueSettingsDialog";
 const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMiniLeagueMemberSheet").then(m => ({ default: m.AddMiniLeagueMemberSheet })));
+const ManagePlayersDialog = lazyWithRetry(() => import("@/components/mini-league/ManagePlayersDialog").then(m => ({ default: m.ManagePlayersDialog })));
+const MiniLeagueSettingsDialog = lazyWithRetry(() => import("@/components/mini-league/MiniLeagueSettingsDialog").then(m => ({ default: m.MiniLeagueSettingsDialog })));
 import { ManageMiniLeagueAdminsSheet } from "@/components/mini-league/ManageMiniLeagueAdminsSheet";
 import PendingInvitesList from "@/components/PendingInvitesList";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
@@ -909,6 +909,7 @@ function SupabaseMiniLeagueDetailPage() {
       )}
 
       {/* Dialogs */}
+      <Suspense fallback={null}>
       <ManagePlayersDialog
         open={playersOpen}
         onOpenChange={setPlayersOpen}
@@ -918,13 +919,16 @@ function SupabaseMiniLeagueDetailPage() {
         canManage={!!canManageLeague}
         onOpenAddPlayers={() => setAddPlayersOpen(true)}
       />
+      </Suspense>
 
+      <Suspense fallback={null}>
       <MiniLeagueSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         league={league}
         canDelete={!!canDeleteLeague}
       />
+      </Suspense>
 
       {canManageLeague && addPlayersOpen && (
         <Suspense fallback={null}>

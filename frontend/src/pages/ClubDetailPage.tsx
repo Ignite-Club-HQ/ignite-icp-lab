@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
@@ -78,7 +78,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useToast } from "@/hooks/use-toast";
 import { exportClubRosterCsv } from "@/lib/exportClubRoster";
-import AddClubAdminSheet from "@/components/AddClubAdminSheet";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const AddClubAdminSheet = lazyWithRetry(() => import("@/components/AddClubAdminSheet"));
 
 import { getFolderColorClass, FOLDER_COLORS } from "@/components/TeamFoldersManager";
 import { SponsorsManager } from "@/components/SponsorsManager";
@@ -2025,10 +2026,12 @@ export default function ClubDetailPage() {
               <div className="space-y-2 pt-2">
                 {isAdmin && (
                   <div className="flex items-center gap-2 justify-end mb-3">
+                    <Suspense fallback={null}>
                     <AddClubAdminSheet 
                       clubId={id!}
                       clubName={club.name}
                     />
+                    </Suspense>
                   </div>
                 )}
                 {/* Member search */}

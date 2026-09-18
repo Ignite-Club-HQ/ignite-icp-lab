@@ -1,13 +1,17 @@
 import { useStickyList } from "@/hooks/useStickyList";
 import { useStableInboxReadModel } from "@/hooks/useStableInboxReadModel";
-import React, { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import React, { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
+const StartDMDialog = lazyWithRetry(() => import("@/components/chat/StartDMDialog").then(m => ({ default: m.StartDMDialog })));
+const CreateGroupDialog = lazyWithRetry(() => import("@/components/chat/CreateGroupDialog"));
 import { Virtuoso } from "react-virtuoso";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAllChatDrafts } from "@/hooks/useChatDraft";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, ChevronRight, Users, Trash2, Search, BellOff, ImageIcon, Lock, RefreshCw, Flame, Filter, Check, Building2, Clock, Sparkles } from "lucide-react";
-import { GlobalChatRecapSheet, type RecapScopeRef } from "@/components/chat/GlobalChatRecapSheet";
+import { type RecapScopeRef } from "@/components/chat/GlobalChatRecapSheet";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
 import { CreateActionButton } from "@/components/CreateActionButton";
 import { ConversationAvatar } from "@/components/chat/ConversationAvatar";
@@ -48,9 +52,6 @@ import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview, extractEventIds, extractVaultFolderIds, extractVaultFileIds } from "@/lib/messagePreview";
-import CreateGroupDialog from "@/components/chat/CreateGroupDialog";
-import EditGroupDialog from "@/components/chat/EditGroupDialog";
-import { StartDMDialog } from "@/components/chat/StartDMDialog";
 import { NewMessageSheet } from "@/components/chat/NewMessageSheet";
 import { ContactClubButton } from "@/components/ContactClubButton";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
@@ -3379,6 +3380,7 @@ export default function MessagesPage() {
         message="Couldn't load chats. Tap to retry."
       />
 
+      <Suspense fallback={null}>
       <GlobalChatRecapSheet
         open={showGlobalRecap}
         onOpenChange={setShowGlobalRecap}
@@ -3403,6 +3405,7 @@ export default function MessagesPage() {
             typeLabel: c.type,
           })))}
       />
+      </Suspense>
 
 
 
@@ -3433,22 +3436,28 @@ export default function MessagesPage() {
 
       {/* DM and Group dialogs — DM creation is Pro-gated */}
       {(!!hasAnyProAccess || !!isAppAdmin) && (
+        <Suspense fallback={null}>
         <StartDMDialog open={showDMDialog} onOpenChange={setShowDMDialog} mode="dm" />
+        </Suspense>
       )}
       {(!!hasAnyProAccess || !!isAppAdmin) && (
+        <Suspense fallback={null}>
         <StartDMDialog
           open={showCustomGroupDialog}
           onOpenChange={setShowCustomGroupDialog}
           mode="custom-group"
           allowCategory={!!canCreateGroups}
         />
+        </Suspense>
       )}
       {canCreateGroups && (
+        <Suspense fallback={null}>
         <CreateGroupDialog
           open={showGroupDialog}
           onOpenChange={setShowGroupDialog}
           groupType={groupDialogType}
         />
+        </Suspense>
       )}
 
       {/* Search input */}

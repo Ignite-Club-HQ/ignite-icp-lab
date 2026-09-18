@@ -11,7 +11,6 @@ import { TeamLatestPhotos } from "@/components/team/TeamLatestPhotos";
 import { TeamChatPreview } from "@/components/team/TeamChatPreview";
 import { ArchiveTeamDialog } from "@/components/ArchiveTeamDialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import InviteOtherParentSheet from "@/components/InviteOtherParentSheet";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -75,9 +74,9 @@ import {
   shouldRestorePitchBoardForCurrentPath,
 } from "@/components/pitch/pitchBoardOpenFlag";
 import { DefaultPitchSettings } from "@/components/pitch/DefaultPitchSettings";
-import CreateGroupDialog from "@/components/chat/CreateGroupDialog";
 import ChatGroupsList from "@/components/chat/ChatGroupsList";
 const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
+const InviteOtherParentSheet = lazyWithRetry(() => import("@/components/InviteOtherParentSheet"));
 import AddPlayerToParentSheet from "@/components/team/AddPlayerToParentSheet";
 import LinkChildToParentSheet from "@/components/LinkChildToParentSheet";
 import { TeamAdminInviteDialog } from "@/components/TeamAdminInviteDialog";
@@ -2874,6 +2873,7 @@ export default function TeamDetailPage() {
         />
       )}
       {inviteParentChild && id && (
+        <Suspense fallback={null}>
         <InviteOtherParentSheet
           open={!!inviteParentChild}
           onOpenChange={(open) => { if (!open) setInviteParentChild(null); }}
@@ -2881,6 +2881,7 @@ export default function TeamDetailPage() {
           childName={inviteParentChild.childName}
           teamIds={[id]}
         />
+        </Suspense>
       )}
       {linkChildToParent && id && team && (
         <LinkChildToParentSheet

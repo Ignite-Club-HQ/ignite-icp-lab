@@ -113,12 +113,14 @@ import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
 import type { PitchBoardLayoutContextValue } from "./PitchBoardLayoutContext";
 import { acknowledgeHalftimePrompt, canShowHalftimePrompt, getHalftimePromptAckKey, hasAcknowledgedHalftimePrompt } from "./halftimePromptAck";
-import PitchBoardLandscapeLayout from "./PitchBoardLandscapeLayout";
-import PitchBoardPortraitLayout from "./PitchBoardPortraitLayout";
 
 import { Download } from "lucide-react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const TrainingBoard = lazyWithRetry(() => import("./training/TrainingBoard"));
+// Only one orientation layout is ever rendered at a time (~3.9k combined lines);
+// lazy-load both so a device only downloads/parses the one it actually needs.
+const PitchBoardLandscapeLayout = lazyWithRetry(() => import("./PitchBoardLandscapeLayout"));
+const PitchBoardPortraitLayout = lazyWithRetry(() => import("./PitchBoardPortraitLayout"));
 
 
 
@@ -3414,7 +3416,9 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
   return (
     <PitchBoardLayoutContext.Provider value={layoutCtx}>
-      {isLandscape ? <PitchBoardLandscapeLayout /> : <PitchBoardPortraitLayout />}
+      <Suspense fallback={null}>
+        {isLandscape ? <PitchBoardLandscapeLayout /> : <PitchBoardPortraitLayout />}
+      </Suspense>
     </PitchBoardLayoutContext.Provider>
   );
 }

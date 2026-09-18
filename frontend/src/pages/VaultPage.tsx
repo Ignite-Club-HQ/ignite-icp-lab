@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
@@ -15,8 +15,9 @@ import { CreateFolderDialog } from "@/components/vault/CreateFolderDialog";
 import { UploadFilesDialog } from "@/components/vault/UploadFilesDialog";
 import { AddLinkDialog } from "@/components/vault/AddLinkDialog";
 import { MoveFileDialog } from "@/components/vault/MoveFileDialog";
-import { GoogleDriveImportDialog } from "@/components/vault/GoogleDriveImportDialog";
-import { LinkDriveFolderDialog } from "@/components/vault/LinkDriveFolderDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const GoogleDriveImportDialog = lazyWithRetry(() => import("@/components/vault/GoogleDriveImportDialog").then(m => ({ default: m.GoogleDriveImportDialog })));
+const LinkDriveFolderDialog = lazyWithRetry(() => import("@/components/vault/LinkDriveFolderDialog").then(m => ({ default: m.LinkDriveFolderDialog })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import JSZip from "jszip";
@@ -44,7 +45,7 @@ import { HighlightedText } from "@/components/vault/HighlightedText";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { removePhotoFromCache } from "@/lib/mediaCache";
 import { downloadImage } from "@/lib/downloadImage";
-import { StoragePurchaseDialog } from "@/components/StoragePurchaseDialog";
+const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import {
@@ -3782,6 +3783,7 @@ function SupabaseVaultPage() {
               targetName={currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.type === "club" ? currentView.clubName : "Vault")}
             />
 
+            <Suspense fallback={null}>
             <GoogleDriveImportDialog
               open={googleDriveImportOpen}
               onOpenChange={setGoogleDriveImportOpen}
@@ -3793,8 +3795,10 @@ function SupabaseVaultPage() {
               targetTeamId={currentView.type === "team" ? currentView.teamId : null}
               targetClubId={currentView.clubId}
             />
+            </Suspense>
 
             {'clubId' in currentView && (
+              <Suspense fallback={null}>
               <LinkDriveFolderDialog
                 open={linkDriveFolderOpen}
                 onOpenChange={setLinkDriveFolderOpen}
@@ -3806,6 +3810,7 @@ function SupabaseVaultPage() {
                   queryClient.invalidateQueries({ queryKey: ["vault-folders"] });
                 }}
               />
+              </Suspense>
             )}
           </div>
         </div>
@@ -4855,6 +4860,7 @@ function SupabaseVaultPage() {
 
       {/* Storage Purchase Dialog */}
       {currentClub && (
+        <Suspense fallback={null}>
         <StoragePurchaseDialog
           open={storagePurchaseDialogOpen}
           onOpenChange={setStoragePurchaseDialogOpen}
@@ -4865,6 +4871,7 @@ function SupabaseVaultPage() {
           scheduledDowngradeGb={scheduledDowngradeGb}
           storageDowngradeAt={storageDowngradeAt}
         />
+        </Suspense>
       )}
 
       {/* Move File Dialog */}

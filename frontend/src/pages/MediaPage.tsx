@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment, Suspense } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { cn } from "@/lib/utils";
@@ -44,12 +44,13 @@ import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { formatTimeShort } from "@/lib/formatTimeShort";
 import { Link } from "react-router-dom";
 import { EmojiReactions } from "@/components/EmojiReactions";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
-import { MediaCommentSheet } from "@/components/MediaCommentSheet";
+const MediaCommentSheet = lazyWithRetry(() => import("@/components/MediaCommentSheet").then(m => ({ default: m.MediaCommentSheet })));
 import { LazyImage } from "@/components/LazyImage";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { AlbumCarousel } from "@/components/AlbumCarousel";
-import { UploadPhotoSheet } from "@/components/UploadPhotoSheet";
+const UploadPhotoSheet = lazyWithRetry(() => import("@/components/UploadPhotoSheet").then(m => ({ default: m.UploadPhotoSheet })));
 import { SharePhotoButton } from "@/components/SharePhotoButton";
 import { ClubTeamFilter } from "@/components/ClubTeamFilter";
 import { MediaSponsorTile } from "@/components/media/MediaSponsorTile";
@@ -1592,6 +1593,7 @@ function SupabaseMediaPage() {
             ariaLabel="Add photo"
             onClick={() => setUploadDialogOpen(true)}
           />
+          <Suspense fallback={null}>
           <UploadPhotoSheet
             open={uploadDialogOpen}
             onOpenChange={setUploadDialogOpen}
@@ -1599,6 +1601,7 @@ function SupabaseMediaPage() {
             defaultTeamId={searchParams.get("team")}
             defaultEventId={searchParams.get("event")}
           />
+          </Suspense>
 
         </div>
       </div>
@@ -1985,6 +1988,7 @@ function SupabaseMediaPage() {
         const sheetDisplayName = (activePhoto as any).profiles?.display_name || cachedProfileSheet?.display_name || null;
         const sheetAvatarUrl = (activePhoto as any).profiles?.avatar_url || cachedProfileSheet?.avatar_url || null;
         return (
+          <Suspense fallback={null}>
           <MediaCommentSheet
             open={!!activeCommentPhotoId}
             onOpenChange={(open) => { if (!open) setActiveCommentPhotoId(null); }}
@@ -2012,6 +2016,7 @@ function SupabaseMediaPage() {
             onSetReplyingTo={(reply) => setReplyingTo(prev => ({ ...prev, [activeCommentPhotoId]: reply }))}
             currentUserId={user?.id}
           />
+          </Suspense>
         );
       })()}
 
