@@ -77,9 +77,12 @@ function resolveLocalInternetIdentityProvider(config: LocalLabConfig): { authori
     throw new Error("Local Internet Identity canister ID is invalid.");
   }
 
-  const authorizeUrl = new URL(rawConfig.internetIdentityAuthorizeUrl ?? "http://id.ai.localhost:8000/authorize");
+  if (!rawConfig.internetIdentityAuthorizeUrl) {
+    throw new Error("Local Internet Identity authorize URL is not configured for this ICP lab network.");
+  }
+  const authorizeUrl = new URL(rawConfig.internetIdentityAuthorizeUrl);
   const localHostnames = new Set(["id.ai.localhost", "localhost", "127.0.0.1", "[::1]"]);
-  if (authorizeUrl.protocol !== "http:" || !localHostnames.has(authorizeUrl.hostname) || authorizeUrl.username || authorizeUrl.password) {
+  if (authorizeUrl.protocol !== "http:" || !localHostnames.has(authorizeUrl.hostname) || authorizeUrl.pathname !== "/authorize" || authorizeUrl.username || authorizeUrl.password) {
     throw new Error("Only local Internet Identity authorize URLs are allowed in the ICP lab.");
   }
 

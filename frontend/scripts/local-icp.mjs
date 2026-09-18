@@ -87,7 +87,15 @@ function publicConfig() {
   const mapping = JSON.parse(fs.readFileSync(path.join(root,'.icp/cache/mappings/local.ids.json'),'utf8'));
   const clubLinksId = mapping.club_domain;
   const canisterIds = Object.fromEntries(Object.entries(mapping).filter(([, value]) => typeof value === 'string' && value.length > 0));
-  const data = { network: 'local', canisterId: clubLinksId, identityAccessCanisterId: mapping.identity_access, canisterIds, rootKey: status.root_key };
+  const data = {
+    network: 'local',
+    canisterId: clubLinksId,
+    identityAccessCanisterId: mapping.identity_access,
+    internetIdentityCanisterId: 'rdmx6-jaaaa-aaaaa-aaadq-cai',
+    internetIdentityAuthorizeUrl: 'http://id.ai.localhost:4943/authorize',
+    canisterIds,
+    rootKey: status.root_key,
+  };
   if (!data.canisterId || !data.identityAccessCanisterId || !/^[0-9a-f]{266}$/i.test(data.rootKey)) throw new Error('Missing local binding');
   fs.writeFileSync(path.join(local,'public.json'), JSON.stringify(data,null,2)+'\n');
   return data;
@@ -95,7 +103,7 @@ function publicConfig() {
 const project=parse(fs.readFileSync(path.join(root,'icp.yaml'),'utf8'));
 const network=project.networks?.find(n=>n.name==='local');
 const environment=project.environments?.find(e=>e.name==='local');
-if (network?.mode!=='managed' || network.gateway?.bind!=='127.0.0.1' || network.gateway?.port!==4943 || environment?.network!=='local') throw new Error('Local target configuration changed; refusing lifecycle action');
+if (network?.mode!=='managed' || network.ii!==true || network.gateway?.bind!=='127.0.0.1' || network.gateway?.port!==4943 || environment?.network!=='local') throw new Error('Local target configuration changed; refusing lifecycle action');
 prepare();
 const flow=lifecycle({root,local,icp,publicConfig});
 const action = process.argv[2];

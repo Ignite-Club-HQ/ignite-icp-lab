@@ -39,6 +39,7 @@ beforeEach(() => {
         canisterId: "rrkah-fqaaa-aaaaa-aaaaq-cai",
         identityAccessCanisterId: "rrkah-fqaaa-aaaaa-aaaaq-cai",
         internetIdentityCanisterId: "rdmx6-jaaaa-aaaaa-aaadq-cai",
+        internetIdentityAuthorizeUrl: "http://id.ai.localhost:4943/authorize",
         rootKey,
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }

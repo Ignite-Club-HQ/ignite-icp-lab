@@ -1,23 +1,23 @@
 # Local synthetic lab only. Run through scripts/local-icp.mjs, never target mainnet.
 canisters:
-  - name: club_links_motoko
+  - name: club_domain
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/club_links_motoko/src/main.mo
-        candid: backend/club_links_motoko/club_links_motoko.did
-  - name: competition_domain_motoko
+        main: backend/club_domain/src/main.mo
+        candid: backend/club_domain/club_domain.did
+  - name: competition_domain
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/competition_domain_motoko/src/main.mo
-        candid: backend/competition_domain_motoko/competition_domain_motoko.did
-  - name: events_domain_motoko
+        main: backend/competition_domain/src/main.mo
+        candid: backend/competition_domain/competition_domain.did
+  - name: events_domain
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/events_domain_motoko/src/main.mo
-        candid: backend/events_domain_motoko/events_domain_motoko.did
+        main: backend/events_domain/src/main.mo
+        candid: backend/events_domain/events_domain.did
   - name: identity_access
     recipe:
       type: "@dfinity/rust@v3.3.0"
@@ -27,12 +27,12 @@ canisters:
     init_args:
       path: .local-icp/identity-init.bin
       format: bin
-  - name: media_metadata_motoko
+  - name: media_metadata
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/media_metadata_motoko/src/main.mo
-        candid: backend/media_metadata_motoko/media_metadata_motoko.did
+        main: backend/media_metadata/src/main.mo
+        candid: backend/media_metadata/media_metadata.did
   - name: migration_coordinator
     recipe:
       type: "@dfinity/motoko@v5.1.0"
@@ -51,18 +51,18 @@ canisters:
       configuration:
         main: backend/secret_workload_identity/src/main.mo
         candid: backend/secret_workload_identity/secret_workload_identity.did
-  - name: messaging_domain_motoko
+  - name: messaging_domain
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/messaging_domain_motoko/src/main.mo
-        candid: backend/messaging_domain_motoko/messaging_domain_motoko.did
-  - name: notification_queue_motoko
+        main: backend/messaging_domain/src/main.mo
+        candid: backend/messaging_domain/messaging_domain.did
+  - name: notification_queue
     recipe:
       type: "@dfinity/motoko@v5.1.0"
       configuration:
-        main: backend/notification_queue_motoko/src/main.mo
-        candid: backend/notification_queue_motoko/notification_queue_motoko.did
+        main: backend/notification_queue/src/main.mo
+        candid: backend/notification_queue/notification_queue.did
   - name: placement_registry
     recipe:
       type: "@dfinity/rust@v3.3.0"
@@ -90,6 +90,7 @@ canisters:
 networks:
   - name: local
     mode: managed
+    ii: true
     gateway:
       bind: 127.0.0.1
       port: 4943
@@ -101,4 +102,4 @@ networks:
 environments:
   - name: local
     network: local
-    canisters: [club_links_motoko, identity_access, events_domain_motoko, competition_domain_motoko, messaging_domain_motoko, media_metadata_motoko, migration_coordinator, notification_queue_motoko, pii_access_control, secret_workload_identity, placement_registry, shard_router, timer_jobs]
+    canisters: [club_domain, identity_access, events_domain, competition_domain, messaging_domain, media_metadata, migration_coordinator, notification_queue, pii_access_control, secret_workload_identity, placement_registry, shard_router, timer_jobs]

@@ -31,4 +31,20 @@ test('missing or non-local actor configuration fails before making a request', (
     identityAccessCanisterId: 'aaaaa-aa',
     rootKey: '00'.repeat(133),
   })).toThrow('identity access');
+  expect(validateLocalLabConfig({
+    network: 'local',
+    canisterId: 'rrkah-fqaaa-aaaaa-aaaaq-cai',
+    identityAccessCanisterId: 'rrkah-fqaaa-aaaaa-aaaaq-cai',
+    internetIdentityCanisterId: 'rdmx6-jaaaa-aaaaa-aaadq-cai',
+    internetIdentityAuthorizeUrl: 'http://id.ai.localhost:4943/authorize',
+    rootKey: '00'.repeat(133),
+  }).internetIdentityCanisterId).toBe('rdmx6-jaaaa-aaaaa-aaadq-cai');
+  expect(() => validateLocalLabConfig({
+    network: 'local',
+    canisterId: 'rrkah-fqaaa-aaaaa-aaaaq-cai',
+    identityAccessCanisterId: 'rrkah-fqaaa-aaaaa-aaaaq-cai',
+    internetIdentityCanisterId: 'rdmx6-jaaaa-aaaaa-aaadq-cai',
+    internetIdentityAuthorizeUrl: 'https://id.ai/authorize',
+    rootKey: '00'.repeat(133),
+  })).toThrow('Internet Identity authorize URL');
 });

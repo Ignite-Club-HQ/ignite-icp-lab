@@ -27,6 +27,32 @@ did not affect the exit status.
 
 The normal Playwright suite passed with 20 tests and 2 existing guarded skips.
 
+Follow-up local-II deployment validation:
+
+- Added `ii: true` to the managed loopback ICP network.
+- `scripts/local-icp.mjs` now requires that local-II network flag and emits
+  `internetIdentityCanisterId` plus the loopback-only
+  `http://id.ai.localhost:4943/authorize` URL into `.local-icp/public.json`.
+- The Vite lab-config endpoint forwards those public local-II fields to the
+  browser.
+- `node scripts/local-icp.mjs prepare` passed.
+- `node scripts/local-icp.mjs deploy` passed, deploying all 13 application
+  canisters with local II enabled.
+- A browser-equivalent GET to `http://id.ai.localhost:4943/authorize` returned
+  HTTP 200 from the local II frontend canister (`uqzsh-gqaaa-aaaaq-qaada-cai`).
+- `node scripts/local-icp.mjs stop` passed and stopped the disposable network
+  after verifying a full recovery snapshot.
+- Re-ran the complete dedicated frontend lab suite after the local-II config
+  change: 274 Node lab tests and 153 Vitest files / 1,714 tests passed.
+- Re-ran `npm run build`; isolation checks and production build passed with
+  only the existing non-blocking Browserslist, Tailwind, and module-directive
+  warnings.
+- Re-ran normal Playwright after the Vite lab-config change: 20 passed and
+  2 existing guarded skips.
+- Re-ran the full forced ICP backend matrix with local II enabled:
+  `FORCED_BACKEND_MATRIX_REPORT={"mode":"icp","localBackend":"PocketIC canisters","testsExecutedUnderForcedMode":{"nodeLab":274,"labVitest":1711,"legacyVitest":4164,"playwright":19,"total":6168}}`.
+  The matrix stopped the local network after a verified recovery snapshot.
+
 ## Step 2 Rust/Motoko build foundations — 2026-09-16
 
 The Step 2 source layout is now canonical: product domains use the Motoko

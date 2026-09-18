@@ -7,6 +7,8 @@ import { syntheticIdentity } from './syntheticIdentities.mjs';
 export interface LocalConfig { canisterId: string; rootKey: string; network: 'local' }
 export interface LocalLabConfig extends LocalConfig {
   identityAccessCanisterId?: string;
+  internetIdentityCanisterId?: string;
+  internetIdentityAuthorizeUrl?: string;
   canisterIds?: Record<string, string | undefined>;
 }
 
@@ -26,6 +28,15 @@ export function validateLocalLabConfig(value: LocalLabConfig): LocalLabConfig {
   validateLocalConfig(value);
   if (value.identityAccessCanisterId !== undefined) {
     validateCanisterId(value.identityAccessCanisterId, 'identity access');
+  }
+  if (value.internetIdentityCanisterId !== undefined) {
+    validateCanisterId(value.internetIdentityCanisterId, 'internet identity');
+  }
+  if (value.internetIdentityAuthorizeUrl !== undefined) {
+    const authorizeUrl = new URL(value.internetIdentityAuthorizeUrl);
+    if (authorizeUrl.protocol !== 'http:' || authorizeUrl.hostname !== 'id.ai.localhost' || authorizeUrl.pathname !== '/authorize' || authorizeUrl.username || authorizeUrl.password) {
+      throw new Error('Local Internet Identity authorize URL is missing or invalid');
+    }
   }
   for (const [name, canisterId] of Object.entries(value.canisterIds ?? {})) {
     if (canisterId !== undefined) validateCanisterId(canisterId, name);

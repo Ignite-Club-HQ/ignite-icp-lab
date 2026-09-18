@@ -36,6 +36,8 @@ export default defineConfig({
               network: 'local',
               canisterId: config.canisterId,
               identityAccessCanisterId: config.identityAccessCanisterId,
+              internetIdentityCanisterId: config.internetIdentityCanisterId,
+              internetIdentityAuthorizeUrl: config.internetIdentityAuthorizeUrl,
               canisterIds: config.canisterIds ?? {},
               rootKey: config.rootKey,
             }));
