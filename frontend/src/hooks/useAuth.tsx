@@ -21,7 +21,11 @@ import { isNativePlatform, unregisterNativePush } from "@/lib/nativePush";
 import { isTransientAuthFailure } from "@/lib/authRecoveryClassification";
 import { refreshSessionOnce } from "@/lib/refreshSessionOnce";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
-import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
+import {
+  signInWithInternetIdentity,
+  signOutInternetIdentity,
+  type InternetIdentitySession,
+} from "@/lab/internetIdentityAuth";
 
 
 interface Profile {
@@ -1207,50 +1211,68 @@ export function useAuth() {
 
 /** Local ICP session seam for staged frontend migration work. */
 export function IcpAuthProvider({ children, persona = "member" }: { children: ReactNode; persona?: string }) {
-  const principal = `icp-${persona}`;
-  const user = {
+  const [session, setSession] = useState<InternetIdentitySession | null>(() => {
+    try {
+      const raw = localStorage.getItem("ignite_icp_internet_identity_session");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as InternetIdentitySession;
+      return parsed?.provider === "internet-identity" && typeof parsed.principal === "string" ? parsed : null;
+    } catch {
+      localStorage.removeItem("ignite_icp_internet_identity_session");
+      return null;
+    }
+  });
+  const principal = session?.principal ?? null;
+  const user = principal ? {
     id: principal,
     aud: "authenticated",
     role: "authenticated",
-    email: `${persona}@ignite-icp.test`,
+    email: `${principal}@internet-identity.ignite-icp.test`,
     app_metadata: { provider: "icp" },
-    user_metadata: { display_name: persona },
+    user_metadata: { display_name: "Internet Identity" },
     identities: [],
     created_at: new Date(0).toISOString(),
     updated_at: new Date(0).toISOString(),
-  } as unknown as User;
-  const profile = {
+  } as unknown as User : null;
+  const profile = principal ? {
     id: principal,
-    display_name: persona,
+    display_name: "Internet Identity",
     avatar_url: null,
     ignite_points: 0,
     theme_preference: null,
-  };
-  const provisionAccount = async (): Promise<Error | null> => {
+  } : null;
+  const signInWithIcp = async (): Promise<{ error: Error | null }> => {
     try {
-      const { client } = await connectLocalIdentityAccessClient(persona);
-      await client.registerAccount();
-      return null;
+      const nextSession = await signInWithInternetIdentity(
+        typeof window !== "undefined" ? `${location.pathname}${location.search}${location.hash}` : undefined,
+      );
+      localStorage.setItem("ignite_icp_internet_identity_session", JSON.stringify(nextSession));
+      setSession(nextSession);
+      return { error: null };
     } catch (error) {
-      return error instanceof Error ? error : new Error("ICP account provisioning failed.");
+      return { error: error instanceof Error ? error : new Error("Internet Identity sign-in failed.") };
     }
   };
   const value = {
     user,
-    session: null,
+    session: null as Session | null,
     profile,
     loading: false,
     profileLoading: false,
     profileError: false,
     initialized: true,
-    sessionRestoration: "authenticated" as const,
+    sessionRestoration: principal ? "authenticated" as const : "signed_out" as const,
     profileResolved: true,
     unreadCount: 0,
     unreadMessagesCount: 0,
-    signUp: async () => ({ error: await provisionAccount(), needsEmailConfirmation: false }),
-    signIn: async () => ({ error: await provisionAccount() }),
-    signInWithGoogle: async () => ({ error: new Error("Google authentication is disabled in the local ICP shell.") }),
-    signOut: async () => {},
+    signUp: async () => ({ error: (await signInWithIcp()).error, needsEmailConfirmation: false }),
+    signIn: async () => signInWithIcp(),
+    signInWithGoogle: async () => signInWithIcp(),
+    signOut: async () => {
+      localStorage.removeItem("ignite_icp_internet_identity_session");
+      setSession(null);
+      await signOutInternetIdentity();
+    },
     refreshProfile: async () => {},
     refreshUnreadCount: async () => {},
     clearUnreadCount: () => {},

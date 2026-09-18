@@ -1,5 +1,32 @@
 # Validation of the lab source transfer
 
+## ICP Internet Identity auth slice - 2026-09-18
+
+ICP backend mode now has a lab-scoped Internet Identity sign-in path instead
+of the previous auth-unavailable screen. The implementation uses
+`@icp-sdk/auth` 9.x, requires a local Internet Identity canister configuration,
+blocks non-local authorize URLs, never fetches a root key implicitly, and
+provisions the local `identity_access` account through the signed Internet
+Identity principal rather than a synthetic persona. Supabase auth remains
+disabled in ICP mode.
+
+Focused validation passed:
+
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/icp-internet-identity-auth.test.tsx`
+- `npx vitest run --config vitest.legacy.config.mjs src/pages/AuthPage.icp.test.tsx`
+- `npm run typecheck:lab`
+
+The complete dedicated frontend lab suite also passed: 274 Node lab tests and
+153 Vitest files / 1,714 tests. `npm run build` passed the isolation check
+and production build; existing Browserslist, Tailwind, and module-directive
+warnings remain non-blocking.
+
+The legacy Vitest suite also passed: 413 files and 4,164 tests passed, with
+one existing skipped test. Existing jsdom navigation and dynamic-import noise
+did not affect the exit status.
+
+The normal Playwright suite passed with 20 tests and 2 existing guarded skips.
+
 ## Step 2 Rust/Motoko build foundations — 2026-09-16
 
 The Step 2 source layout is now canonical: product domains use the Motoko

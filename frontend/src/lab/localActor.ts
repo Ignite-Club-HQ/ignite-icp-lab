@@ -1,4 +1,4 @@
-import { Actor, HttpAgent } from '@icp-sdk/core/agent';
+import { Actor, HttpAgent, type Identity } from '@icp-sdk/core/agent';
 import { Principal } from '@icp-sdk/core/principal';
 import { idlFactory } from './bindings/declarations/club_links.did.js';
 import type { _SERVICE } from './bindings/declarations/club_links.did.js';
@@ -33,13 +33,8 @@ export function validateLocalLabConfig(value: LocalLabConfig): LocalLabConfig {
   return value;
 }
 
-export async function createLocalAgent(config: LocalConfig, persona: string, origin: string, transport: typeof fetch = globalThis.fetch) {
-  validateLocalConfig(config);
-  const base = new URL(origin);
-  if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin) throw new Error('Invalid lab origin');
-  // The current SDK resolves absolute /api paths. Rewrite every call to the fixed same-origin
-  // lab proxy, including Codespaces custom domains. Never allow the SDK's mainnet default host.
-  const localFetch: typeof fetch = (input, init) => {
+function createLocalReplicaFetch(origin: string, transport: typeof fetch = globalThis.fetch): typeof fetch {
+  return (input, init) => {
     const target = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, origin);
     const base = new URL(origin);
     if (target.origin !== base.origin || !/^\/api\/(v2|v3|v4)\//.test(target.pathname) || target.username || target.password || target.hash || !['http:', 'https:'].includes(target.protocol)) {
@@ -48,12 +43,24 @@ export async function createLocalAgent(config: LocalConfig, persona: string, ori
     target.pathname = `/icp${target.pathname}`;
     return transport(target, { ...init, credentials: 'omit', redirect: 'error', cache: 'no-store' });
   };
+}
+
+export async function createLocalAgentWithIdentity(config: LocalConfig, identity: Identity, origin: string, transport: typeof fetch = globalThis.fetch) {
+  validateLocalConfig(config);
+  const base = new URL(origin);
+  if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin) throw new Error('Invalid lab origin');
+  // The current SDK resolves absolute /api paths. Rewrite every call to the fixed same-origin
+  // lab proxy, including Codespaces custom domains. Never allow the SDK's mainnet default host.
   return HttpAgent.create({
-    host: origin, identity: syntheticIdentity(persona),
+    host: origin, identity,
     rootKey: Uint8Array.from(config.rootKey.match(/../g)!, b => parseInt(b,16)),
     shouldFetchRootKey: false, shouldSyncTime: false, useQueryNonces: true,
-    fetch: localFetch, retryTimes: 1,
+    fetch: createLocalReplicaFetch(origin, transport), retryTimes: 1,
   });
+}
+
+export async function createLocalAgent(config: LocalConfig, persona: string, origin: string, transport: typeof fetch = globalThis.fetch) {
+  return createLocalAgentWithIdentity(config, syntheticIdentity(persona), origin, transport);
 }
 
 export async function createLocalActor(config: LocalConfig, persona: string, origin: string, transport: typeof fetch = globalThis.fetch) {

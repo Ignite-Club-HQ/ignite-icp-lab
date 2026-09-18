@@ -16,7 +16,6 @@ import { InviteFlowProgress, getInviteFlowContext, clearInviteFlowContext } from
 import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
 import { resolveKeyboardCssHeight } from "@/lib/keyboardCssHeight";
-import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 import { z } from "zod";
@@ -730,9 +729,10 @@ export default function AuthPage() {
         message = "Please check your internet connection and try again.";
       }
       toast({
-        title: "Unable to sign in with Google",
+        title: useIcpLab ? "Unable to sign in with Internet Identity" : "Unable to sign in with Google",
         description: message,
       });
+      if (useIcpLab) setAuthError(message);
     }
   };
 
@@ -788,10 +788,34 @@ export default function AuthPage() {
 
   if (useIcpLab) {
     return (
-      <IcpUnavailablePage
-        title="Authentication is unavailable in ICP lab mode"
-        description="Supabase identity flows remain disabled in the synthetic lab. Local ICP identities and canister authorities are used instead."
-      />
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardHeader className="text-center space-y-3">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
+              <Fingerprint className="h-8 w-8 text-primary" />
+            </div>
+            <CardDescription>
+              Sign in with local Internet Identity for the ICP backend. Supabase identity flows remain disabled in ICP mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {authError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                {authError}
+              </div>
+            )}
+            <Button
+              type="button"
+              className="w-full gap-2"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading || authLoading}
+            >
+              {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+              Continue with Internet Identity
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
