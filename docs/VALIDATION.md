@@ -2913,3 +2913,50 @@ verified property of the seam that actually chooses a backend
 (`backendRouter`/`hybridClubLinksService` and their `.each`-parameterized
 tests), which is the correct place for that property to hold in a
 permanently-hybrid architecture.
+
+### Standalone Supabase-only running mode (no ICP dependency)
+
+Following the isolation work above, the running lab app now has a true
+standalone Supabase-only mode, not just a Supabase-routed placement
+within hybrid mode. `src/lab/LabApp.tsx`'s "Data source" selector gained
+a fourth option, `supabase`, alongside `fixture` / `icp` / `hybrid`. When
+selected, `Session()` never calls `connectLocalActor`/
+`connectLocalActorWithConfig` at all - it goes straight to
+`createSyntheticSupabaseProvider` (the same in-memory, credential-free,
+network-free provider already used by the hybrid AU placement) for both
+the editor and member views. This is different from selecting `hybrid`
+and leaving the placement on the AU club: hybrid mode still opens a local
+ICP actor connection up front to validate the placement registry (see
+`Session()`'s `mode === 'hybrid'` branch), even when the active placement
+never routes data through it. The new `supabase` mode opens no ICP
+connection whatsoever.
+
+A dedicated browser baseline, mirroring the existing ICP-only
+`scripts/browser-poc.mjs`, proves this end-to-end:
+
+```sh
+cd frontend
+npm run dev                      # in one terminal - no dfx/local replica needed
+npm run test:browser:supabase    # in another terminal
+```
+
+This was run and verified with **no local ICP replica running at all**
+(`curl http://127.0.0.1:4943` returns no response) and passed: add,
+reload, edit, member-visibility toggle, and remove all work purely
+through the synthetic Supabase provider, with zero external browser
+requests and zero ICP actor calls. The script also explicitly confirms
+the synthetic provider's honest limitation - it is in-memory only, so a
+reload starts from an empty store (unlike ICP mode, which persists
+through a real local canister) - rather than silently assuming
+persistence it doesn't have.
+
+Together with `npm run test:browser` (ICP-only) and
+`npm run test:browser:hybrid` (both placements in one flow), the lab now
+has three real-browser baselines corresponding to the three non-fixture
+data sources, plus the faster unit-level `npm run test:backend:icp` /
+`npm run test:backend:supabase` pair for the routing seam itself.
+Verified alongside this change: `npm test` (274 Node + 1,704 Vitest,
+unchanged), `npm run test:e2e` (20 passed, unchanged),
+`npm run check:exported-tests`, `npm run check:isolation`,
+`npm run check:route-classification`, `npm run typecheck:lab`, and
+`npm run build` all still pass.

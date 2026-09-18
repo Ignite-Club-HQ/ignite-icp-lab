@@ -37,6 +37,7 @@
     "test:product-motoko-canisters": "node scripts/test-product-motoko-canisters.mjs",
     "bootstrap:identity-local": "node scripts/bootstrap-identity-local.mjs",
     "test:browser": "node scripts/browser-poc.mjs",
+    "test:browser:supabase": "node scripts/supabase-browser-poc.mjs",
     "test:browser:hybrid": "node scripts/hybrid-browser-poc.mjs",
     "test:placement-registry": "node scripts/test-placement-registry.mjs",
     "test:placement-admin-live": "node scripts/test-placement-admin-live.mjs",
