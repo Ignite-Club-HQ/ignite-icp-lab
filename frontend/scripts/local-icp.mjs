@@ -12,6 +12,11 @@ import { syntheticIdentity, syntheticAcl } from '../src/lab/syntheticIdentities.
 const root = path.resolve(import.meta.dirname, '../..');
 const local = path.join(root, '.local-icp');
 fs.mkdirSync(local, { recursive: true });
+// Motoko domain actors that self-appoint their governor on first
+// `initialize()` call instead of taking an init argument (identity_access
+// is the exception: it takes its governor as an actor init argument, see
+// prepare()'s identity-init.bin, so it is deliberately excluded here).
+const SELF_APPOINTING_CANISTERS = ['club_domain', 'competition_domain', 'events_domain', 'media_metadata', 'messaging_domain', 'migration_coordinator', 'notification_queue', 'secret_workload_identity'];
 const env = { PATH: process.env.PATH, DO_NOT_TRACK: '1',
   XDG_CONFIG_HOME: path.join(local, 'config'), XDG_CACHE_HOME: path.join(local, 'cache'),
   XDG_DATA_HOME: path.join(local, 'share'),
@@ -117,6 +122,19 @@ try { switch (action) {
     if (fs.existsSync(mappingPath)) flow.backup();
     icp(['deploy','-e','local','--identity','ignite-lab-governor', ...(action === 'upgrade' ? ['--mode','upgrade','--no-create','--args','()'] : [])]);
     publicConfig();
+    // Several Motoko domain actors self-appoint their governor on first call
+    // to `initialize()` rather than taking an init argument (see each
+    // canister's `initialize` gate). Calling it once here, right after a
+    // fresh deploy, makes the governor identity usable immediately for
+    // every test/exercise script without a separate manual bootstrap step.
+    // Already-initialized canisters (e.g. on `upgrade`) reject the call;
+    // that failure is expected and safely ignored.
+    if (action === 'deploy') {
+      for (const canister of SELF_APPOINTING_CANISTERS) {
+        try { icp(['canister', 'call', canister, 'initialize', '()', '-e', 'local', '--identity', 'ignite-lab-governor']); }
+        catch { /* already initialized, or canister has no initialize() gate */ }
+      }
+    }
     break;
   }
   default: throw new Error('Allowed actions: prepare, start, stop, restart, backup, verify-backup, full-restore-probe, status, deploy, upgrade, connect, restore-probe');

@@ -182,6 +182,12 @@ fn require_governor(state: &State, caller: Principal) -> Outcome<()> {
         Err("Forbidden".into())
     }
 }
+fn account_exists(state: &State, account_id: &str) -> bool {
+    state
+        .accounts
+        .iter()
+        .any(|account| account.id == account_id)
+}
 fn account_has_role(
     state: &State,
     id: &str,
@@ -241,9 +247,7 @@ fn has_direct_team_role(
             (Some(grant_site), Some(requested_site)) => grant_site == requested_site,
             (Some(_), None) => false,
         };
-        grant.account_id == account_id
-            && grant.team.as_deref() == Some(team_id)
-            && site_matches
+        grant.account_id == account_id && grant.team.as_deref() == Some(team_id) && site_matches
     })
 }
 fn team_member_access(
@@ -656,6 +660,9 @@ fn grant_role_scoped(
     {
         return Err("Invalid role fields".into());
     }
+    if !account_exists(&state, &account_id) {
+        return Err("Unknown account".into());
+    }
     if state.roles.len() >= MAX_ROLES {
         return Err("Role quota reached".into());
     }
@@ -734,8 +741,19 @@ fn set_exclusion_scoped(
     {
         return Err("Invalid exclusion fields".into());
     }
+    if !account_exists(&state, &account_id) {
+        return Err("Unknown account".into());
+    }
     if state.exclusions.len() >= MAX_EXCLUSIONS {
         return Err("Exclusion quota reached".into());
+    }
+    if state.exclusions.iter().any(|item| {
+        item.account_id == account_id
+            && item.site_id == site_id
+            && item.club == club
+            && item.team == team
+    }) {
+        return Err("Duplicate exclusion".into());
     }
     state.exclusions.push(Exclusion {
         account_id,
@@ -821,6 +839,8 @@ mod tests {
             Some("club-b"),
             None
         ));
+        assert!(account_exists(&state, "account-1"));
+        assert!(!account_exists(&state, "missing"));
     }
     #[test]
     fn exclusions_override_scoped_roles_but_not_global_role_detection() {

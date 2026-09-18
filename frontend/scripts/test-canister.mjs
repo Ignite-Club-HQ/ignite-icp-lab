@@ -86,7 +86,7 @@ if (phase === 'exercise') {
   await service.setActive(record.id,false);
   const staleDraft = { id: record.id, expectedRevision: record.revision, title:'Stale edit', subtitle:null, url:'https://example.invalid', icon:'link', open_mode:'browser', is_active:true };
   await service.listAdmin(CLUB_A); // A background refresh must not upgrade an open draft's revision.
-  await assert.rejects(()=>service.save(CLUB_A,staleDraft),/Conflict/);
+  await assert.rejects(()=>service.save(CLUB_A,staleDraft),/conflict/i);
   assert.equal((await service.get(record.id)).is_active,false);
   await service.remove(record.id);
   service.dispose(); await assert.rejects(()=>service.listAdmin(CLUB_A),/Identity changed/);

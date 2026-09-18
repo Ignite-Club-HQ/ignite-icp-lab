@@ -89,7 +89,7 @@ persistent actor {
   };
 
   func isGovernor(caller : Principal) : Bool {
-    governor.equal(caller)
+    not caller.equal(Principal.anonymous()) and governor.equal(caller)
   };
 
   func is_valid_scope(scope : Text) : Bool {
@@ -174,6 +174,30 @@ persistent actor {
     nonce : Text
   ) : async SecretAccessResult {
     auth(caller);
+    if (workload_principal.equal(Principal.anonymous()) or (not caller.equal(workload_principal) and not isGovernor(caller))) {
+      log_secret_audit(caller, "invalid-caller", secret_scope, false, ?"Caller does not match workload principal", nonce);
+      return {
+        approved = false;
+        reason = "Workload principal must be the authenticated caller or an authorized governor checking on its behalf";
+        timestamp = now_ns();
+      };
+    };
+    if (nonce == "") {
+      log_secret_audit(caller, "invalid-request", secret_scope, false, ?"Nonce is required", nonce);
+      return {
+        approved = false;
+        reason = "Nonce is required";
+        timestamp = now_ns();
+      };
+    };
+    if (secret_audit_log.any(func(record) = record.requesting_principal.equal(caller) and record.nonce == nonce)) {
+      log_secret_audit(caller, "replay", secret_scope, false, ?"Nonce has already been used", nonce);
+      return {
+        approved = false;
+        reason = "Nonce has already been used";
+        timestamp = now_ns();
+      };
+    };
 
     let matching_workload = workloads.find(func(w) = w.workload_principal.equal(workload_principal));
 
@@ -250,6 +274,7 @@ persistent actor {
 
   public shared query ({ caller }) func get_workload(workload_principal : Principal) : async { #Ok : WorkloadIdentity; #Err : Text } {
     auth(caller);
+    if (not isGovernor(caller)) return #Err("Governor only");
 
     switch (workloads.find(func(w) = w.workload_principal.equal(workload_principal))) {
       case (?w) { #Ok(w) };
@@ -259,6 +284,7 @@ persistent actor {
 
   public shared query ({ caller }) func list_workloads() : async [WorkloadIdentity] {
     auth(caller);
+    if (not isGovernor(caller)) Runtime.trap("Governor only");
     workloads
   };
 
@@ -301,6 +327,7 @@ persistent actor {
 
   public shared query ({ caller }) func audit_secret_access(filter : WorkloadIdentityFilter) : async [SecretAccessAudit] {
     auth(caller);
+    if (not isGovernor(caller)) Runtime.trap("Governor only");
 
     Array.filter<SecretAccessAudit>(secret_audit_log, func(record) {
       let principal_match = switch (filter.opt_principal) {
@@ -347,6 +374,7 @@ persistent actor {
 
   public shared query ({ caller }) func get_audit_summary() : async AuditSummary {
     auth(caller);
+    if (not isGovernor(caller)) Runtime.trap("Governor only");
 
     var approved_count : Nat = 0;
     var denied_count : Nat = 0;
