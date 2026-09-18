@@ -17,6 +17,8 @@
     "test:all": "npm run test && npm run test:legacy && npm run test:e2e",
     "test:all:icp": "node scripts/run-forced-backend-matrix.mjs icp",
     "test:all:supabase": "node scripts/run-forced-backend-matrix.mjs supabase",
+    "test:backend:switch": "sh -c 'status=0; node scripts/local-icp.mjs deploy && IGNITE_LAB_BACKEND_SWITCH_E2E=1 npx playwright test --config playwright.config.ts e2e/backend-switch.spec.ts || status=$?; node scripts/local-icp.mjs stop || status=$?; exit $status'",
+    "test:messaging:icp:performance": "sh -c 'status=0; node scripts/local-icp.mjs deploy && node scripts/test-icp-messaging-performance.mjs \"$@\" || status=$?; node scripts/local-icp.mjs stop || status=$?; exit $status' sh",
     "check:exported-tests": "node scripts/check-exported-test-inventory.mjs",
     "test:exported": "npm run test && npm run test:legacy && npm run check:exported-tests",
     "check:isolation": "node scripts/check-isolation.mjs",
@@ -52,7 +54,8 @@
     "test:notification-upgrade": "node scripts/test-notification-upgrade.mjs",
     "benchmark:notification-implementations": "node scripts/benchmark-notification-implementations.mjs",
     "benchmark:scaling": "node scripts/scaling-benchmark.mjs",
-    "benchmark:local-icp": "node scripts/local-load-test.mjs"
+    "benchmark:local-icp": "node scripts/local-load-test.mjs",
+    "benchmark:messaging:icp": "node scripts/test-icp-messaging-performance.mjs --json"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

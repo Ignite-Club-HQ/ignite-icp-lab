@@ -3093,3 +3093,50 @@ network/credential isolation or production Supabase RLS parity; it proves
 the current local forced-backend test tiers run independently against the
 synthetic Supabase provider and the disposable local ICP/PocketIC
 canisters.
+
+### Backend switching and ICP messaging performance smoke tests
+
+Added focused follow-up coverage for runtime backend switching and
+message-canister latency concerns:
+
+- `npm run test:backend:switch` deploys the disposable local ICP canisters,
+  runs `e2e/backend-switch.spec.ts`, and stops the local network. The
+  browser test starts in standalone synthetic Supabase mode, writes a
+  synthetic Club Link that appears in both admin and member views, switches
+  to local ICP mode, asserts the Supabase-only row does not bleed into the
+  ICP-backed view, writes a second synthetic Club Link through the local
+  canister, verifies it appears in both ICP admin and member views, and
+  asserts the browser made no non-loopback requests.
+- `npm run test:messaging:icp:performance` deploys the disposable local ICP
+  canisters, runs `scripts/test-icp-messaging-performance.mjs`, and stops
+  the local network. The script refuses non-loopback hosts, requires the
+  local replica status endpoint, creates a synthetic
+  `messaging_domain` conversation, sends signed update messages, pages
+  them back through the team-member actor, checks unread counts, and fails
+  if configurable p95 thresholds are exceeded.
+- `npm run benchmark:messaging:icp -- --json` runs the same performance
+  measurement against an already deployed local ICP environment and emits
+  machine-readable output. It is a loopback PocketIC smoke/performance
+  guard, not a mainnet or subnet capacity claim.
+
+Focused validation passed in one fresh disposable local ICP deploy:
+
+```sh
+cd frontend
+IGNITE_LAB_BACKEND_SWITCH_E2E=1 npx playwright test --config playwright.config.ts e2e/backend-switch.spec.ts
+# 1 browser test passed
+
+npm run test:messaging:icp:performance -- \
+  --messages=40 \
+  --page-size=20 \
+  --max-send-p95-ms=1500 \
+  --max-page-p95-ms=500 \
+  --max-unread-p95-ms=500
+# send:   count=40 p50=224.99ms p95=239.59ms max=248.70ms
+# page:   count=2  p50=9.75ms   p95=9.75ms   max=91.94ms
+# unread: count=10 p50=6.96ms   p95=9.09ms   max=24.44ms
+```
+
+The local network teardown completed with a verified full recovery snapshot
+and stopped successfully. Generated local backup artifacts were removed
+after validation to avoid exhausting the shared workspace volume.
