@@ -6,6 +6,8 @@ export type BackendPolicy = {
   enabled: boolean;
   targetAlias: string;
   version: string;
+  targetKind?: 'supabase-region' | 'icp-cloud-engine' | 'icp-mainnet';
+  region?: string;
 };
 
 export type CountryPolicy = {
@@ -42,6 +44,12 @@ function backendAllowed(policy: CountryPolicy, backend: 'icp' | 'supabase'): boo
   return policy.allowedBackends.includes(backend) && policy.policies.some(item => item.backend === backend && item.enabled);
 }
 
+function validateTargetKind(policy: BackendPolicy) {
+  if (policy.targetKind === undefined) return;
+  if (policy.backend === 'supabase' && policy.targetKind !== 'supabase-region') throw new Error('Supabase targets must use a Supabase region target type');
+  if (policy.backend === 'icp' && policy.targetKind === 'supabase-region') throw new Error('ICP targets must use an ICP target type');
+}
+
 export function createPlacementAdminController(initial: PlacementAdminSettings): PlacementAdminController {
   const current: PlacementAdminSettings = structuredClone(initial);
 
@@ -52,8 +60,10 @@ export function createPlacementAdminController(initial: PlacementAdminSettings):
       if (!/^[A-Z]{2}$/.test(country)) throw new Error('Country must be ISO alpha-2 uppercase');
       const allowed = [...new Set(policy.allowedBackends)];
       if (policy.policies.some(item => !item.targetAlias || !item.version)) throw new Error('Backend target and version are required');
+      policy.policies.forEach(validateTargetKind);
+      const policies = policy.policies.map(item => ({ ...item, region: item.region?.trim() || undefined }));
       current.countries = current.countries.filter(item => item.country !== country);
-      current.countries.push({ ...policy, country, allowedBackends: allowed });
+      current.countries.push({ ...policy, country, allowedBackends: allowed, policies });
     },
     assignClub(assignment) {
       const country = normalizeCountry(assignment.country);

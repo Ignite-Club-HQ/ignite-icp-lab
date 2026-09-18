@@ -148,6 +148,93 @@ describe('placement admin settings', () => {
     expect(controller.decision('club-au')).toBeUndefined();
   });
 
+  it('lets app admins approve country targets for Supabase regions, Cloud Engines, and ICP mainnet from the UI', () => {
+    const controller = createPlacementAdminController({ countries: [], clubs: [] });
+
+    render(<PlacementAdminSettingsPanel controller={controller} />);
+
+    fireEvent.change(screen.getByLabelText('Policy country'), { target: { value: 'gb' } });
+    fireEvent.change(screen.getByLabelText('Policy backend'), { target: { value: 'supabase' } });
+    fireEvent.change(screen.getByLabelText('Target alias'), { target: { value: 'supabase-gb-london-primary' } });
+    fireEvent.change(screen.getByLabelText('Target version'), { target: { value: 'db-v3' } });
+    fireEvent.change(screen.getByLabelText('Region or engine'), { target: { value: 'eu-west-2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve country target' }));
+
+    expect(screen.getByRole('status').textContent).toContain('GB approves supabase · supabase-gb-london-primary · db-v3 · supabase-region · eu-west-2');
+
+    fireEvent.change(screen.getByLabelText('Club ID'), { target: { value: 'club-gb' } });
+    fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'GB' } });
+    fireEvent.change(screen.getByLabelText('Backend'), { target: { value: 'supabase' } });
+    fireEvent.change(screen.getByLabelText('Approved target'), { target: { value: 'supabase|supabase-gb-london-primary|db-v3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Assign approved target' }));
+
+    expect(controller.decision('club-gb')).toEqual({
+      clubId: 'club-gb',
+      country: 'GB',
+      backend: 'supabase',
+      targetAlias: 'supabase-gb-london-primary',
+      version: 'db-v3',
+    });
+
+    fireEvent.change(screen.getByLabelText('Policy country'), { target: { value: 'sg' } });
+    fireEvent.change(screen.getByLabelText('Policy backend'), { target: { value: 'icp' } });
+    fireEvent.change(screen.getByLabelText('Target type'), { target: { value: 'icp-cloud-engine' } });
+    fireEvent.change(screen.getByLabelText('Target alias'), { target: { value: 'cloud-engine-sg-1' } });
+    fireEvent.change(screen.getByLabelText('Target version'), { target: { value: 'engine-v1' } });
+    fireEvent.change(screen.getByLabelText('Region or engine'), { target: { value: 'OpenCloud SG' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve country target' }));
+
+    fireEvent.change(screen.getByLabelText('Club ID'), { target: { value: 'club-sg' } });
+    fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'SG' } });
+    fireEvent.change(screen.getByLabelText('Backend'), { target: { value: 'icp' } });
+    fireEvent.change(screen.getByLabelText('Approved target'), { target: { value: 'icp|cloud-engine-sg-1|engine-v1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Assign approved target' }));
+
+    expect(controller.decision('club-sg')).toMatchObject({
+      country: 'SG',
+      backend: 'icp',
+      targetAlias: 'cloud-engine-sg-1',
+      version: 'engine-v1',
+    });
+
+    fireEvent.change(screen.getByLabelText('Policy country'), { target: { value: 'ch' } });
+    fireEvent.change(screen.getByLabelText('Policy backend'), { target: { value: 'icp' } });
+    fireEvent.change(screen.getByLabelText('Target type'), { target: { value: 'icp-mainnet' } });
+    fireEvent.change(screen.getByLabelText('Target alias'), { target: { value: 'icp-public-mainnet-eu' } });
+    fireEvent.change(screen.getByLabelText('Target version'), { target: { value: 'mainnet-v1' } });
+    fireEvent.change(screen.getByLabelText('Region or engine'), { target: { value: 'IC mainnet' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve country target' }));
+
+    fireEvent.change(screen.getByLabelText('Club ID'), { target: { value: 'club-ch' } });
+    fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'CH' } });
+    fireEvent.change(screen.getByLabelText('Backend'), { target: { value: 'icp' } });
+    fireEvent.change(screen.getByLabelText('Approved target'), { target: { value: 'icp|icp-public-mainnet-eu|mainnet-v1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Assign approved target' }));
+
+    expect(controller.decision('club-ch')).toMatchObject({
+      country: 'CH',
+      backend: 'icp',
+      targetAlias: 'icp-public-mainnet-eu',
+      version: 'mainnet-v1',
+    });
+  });
+
+  it('rejects mismatched backend target types before they can become country policy', () => {
+    const controller = createPlacementAdminController({ countries: [], clubs: [] });
+
+    expect(() => controller.setCountryPolicy({
+      country: 'US',
+      allowedBackends: ['supabase'],
+      policies: [{ backend: 'supabase', enabled: true, targetAlias: 'bad-icp-shaped-supabase', version: 'v1', targetKind: 'icp-mainnet' }],
+    })).toThrow('Supabase targets must use a Supabase region target type');
+
+    expect(() => controller.setCountryPolicy({
+      country: 'US',
+      allowedBackends: ['icp'],
+      policies: [{ backend: 'icp', enabled: true, targetAlias: 'bad-supabase-shaped-icp', version: 'v1', targetKind: 'supabase-region' }],
+    })).toThrow('ICP targets must use an ICP target type');
+  });
+
   it('renders the ICP lab unavailable state by default and the app-admin surface when the app opts into supabase mode', () => {
     const controller = createPlacementAdminController({
       countries: [{ country: 'AU', allowedBackends: ['supabase'], policies: [{ backend: 'supabase', enabled: true, targetAlias: 'supabase-au-primary', version: 'v1' }] }],

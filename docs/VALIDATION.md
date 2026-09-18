@@ -3143,12 +3143,25 @@ after validation to avoid exhausting the shared workspace volume.
 
 ### Country and club-level backend placement controls
 
-Extended `lab-tests/placement-admin-settings.test.tsx` with explicit
-country-policy and club-assignment coverage for the hybrid control plane:
+Extended the app-admin placement surface and
+`lab-tests/placement-admin-settings.test.tsx` with explicit country-policy
+and club-assignment coverage for the hybrid control plane:
 
 - Country-level policy changes are normalized to uppercase ISO alpha-2
   values, duplicate allowed-backend entries are de-duplicated, and the
   policy gate is applied before a club can be assigned to a backend.
+- `PlacementAdminSettingsPanel` now lets an app admin approve synthetic
+  country targets for:
+  - specific Supabase database/region aliases (for example a London
+    database alias in `eu-west-2`);
+  - specific ICP Cloud Engine aliases;
+  - ICP public-mainnet target aliases.
+  These are aliases, regions, versions, and target kinds only; no
+  production URLs, credentials, OAuth, billing, push, or signing
+  configuration is accepted or stored.
+- Club assignment now selects the exact approved target for its country
+  and backend, rather than implicitly taking the first target for that
+  backend.
 - A club can be moved from an approved Supabase target to an approved ICP
   target in a country that allows both, without changing other clubs'
   assignments.
@@ -3159,15 +3172,24 @@ country-policy and club-assignment coverage for the hybrid control plane:
 - `PlacementAdminSettingsPanel` exposes approved club-level assignments in
   the UI and rejects disallowed country/backend pairs (for example AU →
   ICP when AU is Supabase-only in the synthetic policy).
+- Backend target type validation prevents mismatches such as a Supabase
+  policy pointing at an ICP-mainnet target kind, or an ICP policy pointing
+  at a Supabase-region target kind.
 
 Focused and aggregate validation passed:
 
 ```sh
 cd frontend
 npx vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/placement-admin-settings.test.tsx
-# 1 file / 7 tests passed
+# 1 file / 9 tests passed
+
+npm run typecheck:lab
+# passed
 
 npm run test
 # 274 Node lab tests passed
-# 152 lab Vitest files / 1,710 tests passed
+# 152 lab Vitest files / 1,712 tests passed
+
+npx playwright test --config playwright.config.ts
+# 20 browser tests passed / 2 skipped
 ```
