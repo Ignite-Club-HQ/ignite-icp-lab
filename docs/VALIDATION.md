@@ -2960,3 +2960,58 @@ unchanged), `npm run test:e2e` (20 passed, unchanged),
 `npm run check:exported-tests`, `npm run check:isolation`,
 `npm run check:route-classification`, `npm run typecheck:lab`, and
 `npm run build` all still pass.
+
+### Running the full ICP-only canister test suite end-to-end
+
+The unit-level `npm run test:backend:icp` and browser-level
+`npm run test:browser` prove the *routing seam* works in ICP-only mode,
+but neither exercises the real Motoko/Rust canisters through an actual
+local replica. Doing that surfaced pre-existing, uncommitted backend
+build/logic errors from an in-progress Rust->Motoko migration in
+`backend/`, unrelated to the test-porting or backend-mode-isolation work
+above. Each was fixed (see the commit for the itemized list: a stray
+nested function declaration and two Result/() type errors in
+`identity_access`; a stable-declaration-outside-actor-body error, a
+`get_link` contract mismatch, missing member/exclusion/family-membership
+logic, a missing `app_admin` recognition, no request-id idempotency, no
+draft validation, and a trap-instead-of-`#Err` bug in `club_domain`; a
+trap-instead-of-`#Err` bug in every guarded mutation of `events_domain`;
+and an overly strict caller check in `secret_workload_identity` that
+blocked the governor from checking access on a workload's behalf).
+
+With those fixes, a full local deploy (`node scripts/local-icp.mjs
+deploy`) now builds and installs all 13 domain canisters cleanly, and
+every ICP-only canister test script passes against the real local
+replica:
+
+```sh
+cd frontend
+node scripts/local-icp.mjs deploy   # builds + deploys all 13 canisters
+npm run dev                          # in another terminal, for the loopback proxy
+
+npm run test:icp                     # club_links RLS matrix + adapter retry/disposal
+npm run test:identity-access
+npm run test:club-domain
+npm run test:domain-canisters        # events/competition/messaging/media (env: EVENTS_ID etc.)
+npm run test:placement-registry      # env: PLACEMENT_ID
+npm run test:placement-admin-live
+npm run test:control-plane-federation
+npm run test:timer-jobs              # env: TIMER_HOST=http://127.0.0.1:4943 TIMER_ID
+npm run test:notification-queue      # env: NOTIFY_HOST=http://127.0.0.1:4943 NOTIFY_ID
+node scripts/test-phase1-pii-access-control.mjs        # run from repo root
+node scripts/test-phase3-secret-workload-identity.mjs   # run from repo root
+
+node scripts/local-icp.mjs stop      # verified full backup snapshot, clean shutdown
+```
+
+All of the above were run twice: once fix-by-fix to isolate each bug,
+and once more as a full clean-deploy pass at the end to confirm no
+regressions. `competition_domain`, `media_metadata`, `messaging_domain`,
+`migration_coordinator`, `notification_queue`, `shard_router`, and
+`placement_registry` already built and passed their scripts without any
+changes and were left untouched.
+
+This closes the gap between "the hybrid routing seam is verified
+ICP-only" (documented above) and "the actual ICP backend canisters run
+and pass their tests independently of Supabase" - both are now true and
+independently reproducible from a clean local deploy.
