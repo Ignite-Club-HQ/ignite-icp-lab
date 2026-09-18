@@ -3016,7 +3016,7 @@ ICP-only" (documented above) and "the actual ICP backend canisters run
 and pass their tests independently of Supabase" - both are now true and
 independently reproducible from a clean local deploy.
 
-## Forced-backend test matrix (ICP-only / Supabase-only), and a resource-ceiling deploy blocker
+## Forced-backend test matrix (ICP-only / Supabase-only)
 
 Added a build-time forced-backend contract so every test tier (Node lab
 scripts, lab Vitest, legacy Vitest, Playwright) can be locked to a single
@@ -3030,10 +3030,9 @@ version of the combined suite:
   never from a browser-controlled query param).
 - `LabApp.tsx` initializes `mode` from the forced backend, disables the
   Data source selector, and (for ICP) defaults the editor persona to
-  `governor` instead of `club_admin`, because a freshly deployed
-  `club_domain` canister has no ACL seed and correctly returns `Forbidden`
-  for the default persona - this is expected fail-closed behavior, not a
-  bug, and the forced-ICP Playwright contract now asserts it explicitly.
+  `governor` instead of `club_admin`. Forced ICP also includes the
+  `governor` option in the synthetic-identity selector, because that is the
+  authority used to initialize and seed the disposable local canister.
 - `frontend/e2e/forced-backend.spec.ts` is a real browser CRUD contract
   (add/remove a Club Link) that only runs when a forced backend is set.
 - `frontend/scripts/run-forced-backend-matrix.mjs` orchestrates a full
@@ -3041,11 +3040,8 @@ version of the combined suite:
   all three test tiers, and a `FORCED_BACKEND_MATRIX_REPORT` JSON summary.
   Run via `npm run test:all:icp` / `npm run test:all:supabase`.
 
-Verified independently per component tier:
+Verified forced-backend runs:
 
-- Forced-Supabase: lab/legacy Vitest suites and the Playwright suite
-  (including the new forced-backend CRUD contract, UI locked to Supabase,
-  zero external traffic) all pass.
 - A full `npm run test:all:supabase` run passed end-to-end: 274 Node lab
   tests, 1,705 lab Vitest tests (1 skipped), 4,162 legacy Vitest tests
   (1 skipped), and 19 Playwright tests (2 skipped), for **6,160 tests
@@ -3055,62 +3051,45 @@ Verified independently per component tier:
   Playwright CRUD contract is direct provider evidence; other retained
   tests execute under the same forced build but may use explicit unit
   doubles or be backend-agnostic.
-- Forced-ICP: lab and legacy Vitest suites pass together; the ICP
-  Playwright CRUD contract passed once against a real local deploy with
-  the `governor` persona.
+- A full `npm run test:all:icp` run passed end-to-end in this worktree
+  after clearing stale local CLI state and freeing generated backup
+  artifacts: 274 Node lab tests, 1,703 lab Vitest tests (3 skipped),
+  4,162 legacy Vitest tests (1 skipped), and 19 Playwright tests (2
+  skipped), for **6,158 tests executed under forced ICP mode**. Its
+  `FORCED_BACKEND_MATRIX_REPORT` identified the local backend as
+  PocketIC canisters. The forced-backend Club Links Playwright CRUD
+  contract exercised the real local `club_domain` canister through the
+  loopback Vite ICP proxy. The matrix teardown completed with a verified
+  full recovery snapshot and stopped the local network cleanly.
 
-Two real bugs were found and fixed while proving this:
+Fixes made while proving the forced-backend matrices:
 
-1. The default browser persona (`club_admin`) has no ACL seed on a fresh
-   canister and is correctly rejected - fixed by defaulting the forced-ICP
-   persona to `governor`, not by weakening the ACL.
-2. `VirtualizedChatMessageList.emptyMount.test.tsx`'s "imperative scroll
-   commands no-op safely on an empty list" test triggered react-virtuoso's
-   internal recursive `requestAnimationFrame` scroll-settle chain
-   (~150 frames) without fake timers, so under sustained full-matrix load
-   the leaked real-timer chain could straddle a Vitest environment recycle
-   boundary and throw `requestAnimationFrame is not defined` in whatever
-   file happened to be running next. Fixed by draining the chain inside
-   `vi.useFakeTimers()`/`vi.runAllTimers()`, matching the file's existing
-   pattern for its other fake-timer test.
-3. The full Supabase run exposed a separate cleanup-time legacy-suite
-   error: the delayed iOS layout reset in `BottomNav.tsx` assumed jsdom
-   implements `window.scrollTo`. It now capability-checks `scrollTo` while
-   retaining the document scroll reset, so a browser keeps the original
-   behavior and a non-browser environment cannot throw after test mocks
-   are restored. The first successful all-tier run then exposed a
-   report-only defect: Node 24 emits the TAP count as `ℹ tests`, not
-   `# tests`; the matrix parser now accepts both forms.
+1. The matrix report parser now accepts Node 24's TAP count line
+   (`ℹ tests`) as well as the older `# tests` format.
+2. `BottomNav.tsx` capability-checks `window.scrollTo` before calling it
+   from the delayed iOS layout-reset path, preserving browser behavior
+   while avoiding jsdom cleanup-time errors.
+3. `VirtualizedChatMessageList.emptyMount.test.tsx` drains the
+   react-virtuoso RAF-driven measurement/settle chain under fake timers
+   when transitioning from empty to populated messages, preventing leaked
+   real timers from firing after Vitest recycles the jsdom environment.
+4. `PitchBoardResumeRedirect.test.tsx` makes the route-drift warm-unlock
+   regression deterministic under fake timers and advances past the
+   component's 250ms restore debounce before asserting the foreground
+   repair.
+5. `local-icp.mjs` now seeds the Motoko `club_domain` ACL after fresh
+   deploy initialization by calling `replace_acl` with the synthetic ACL.
+   This keeps admin and member identities aligned with the lower-level
+   canister RLS matrix instead of leaving the browser member preview with
+   a `Forbidden` response.
+6. `LabApp.tsx` includes the `governor` synthetic identity option when
+   ICP is force-locked, so the DOM selector represents the actual forced
+   editor identity used for canister initialization and CRUD.
 
-**Not yet achieved: one single, uninterrupted, full `npm run test:all:icp`
-run in this sandbox.** After the two fixes above, every remaining failure
-was at the local canister *deploy* step itself, not in any test: `mops
-build` was killed with `SIGTERM`/exit 143 for 1-2 of the 13 canisters,
-every time, across more than 15 consecutive attempts, using several
-mitigations in turn - a bare retry loop, serially pre-building every
-canister with `mops build` directly, serially pre-building every canister
-with `icp build` (the same cache path `icp deploy` uses internally), and
-freeing ~100MB by stopping redundant editor language-server processes.
-None of these converged to zero failures; which 1-2 of the 13 canisters
-died was different (effectively random) each time. `free -h` showed only
-~1.4-2.3Gi available out of 7.8Gi, only 2 CPUs, and no swap. This matches
-the environment limitation already documented above (constrained runner
-terminating `rustc`/`mops build` under load) - `icp deploy` unconditionally
-rebuilds all 13 canisters in parallel every time regardless of any
-external build-cache warming, and that parallel load exceeds this
-sandbox's available memory. During one of these attempts the local
-PocketIC replica process itself was also killed (found later as a
-zombie/defunct process), leaving the network's on-disk state stale; this
-is inert (port 4943 is not listening, no live process holds it) and will
-be self-healed by `local-icp.mjs deploy`'s existing stale-state detection
-on the next attempt - it is not a security or isolation concern (loopback
-only, synthetic identities only), just an incomplete deploy from resource
-exhaustion.
-
-**Conclusion:** the forced-backend feature and its Supabase-side matrix
-are code-complete and verified by a clean all-tier, 6,160-test aggregate
-run. The ICP-side matrix is code-complete and verified
-component-by-component, but a full end-to-end run (including a fresh local
-deploy) needs to be retried in a less memory-constrained environment, or
-at a moment when this sandbox has materially more than ~2.3Gi available,
-to get a single clean pass with certainty.
+The previous resource-ceiling blocker (parallel `mops build` processes
+being externally killed in a 7.8Gi / 2 CPU runner) was not reproduced in
+the later 15Gi / 4 CPU environment. This does not certify production
+network/credential isolation or production Supabase RLS parity; it proves
+the current local forced-backend test tiers run independently against the
+synthetic Supabase provider and the disposable local ICP/PocketIC
+canisters.

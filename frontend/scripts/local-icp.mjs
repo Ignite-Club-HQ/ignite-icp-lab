@@ -26,6 +26,20 @@ for (const key of Object.keys(env)) if (!env[key]) delete env[key];
 function icp(args, capture = false) { return execFileSync('icp', ['--project-root-override', root, ...args], { cwd: root, env, stdio: capture ? ['ignore','pipe','inherit'] : 'inherit', encoding: 'utf8' }); }
 function prepare() {
   fs.writeFileSync(path.join(local, 'init.bin'), new Uint8Array(IDL.encode(init({ IDL }), [syntheticIdentity('governor').getPrincipal(), syntheticAcl()])));
+  const aclTeam = IDL.Record({ id: IDL.Text, club: IDL.Text });
+  const aclGuardian = IDL.Record({ child: IDL.Text, user: IDL.Principal });
+  const aclChild = IDL.Record({ id: IDL.Text, teams: IDL.Vec(IDL.Text), parent: IDL.Opt(IDL.Principal) });
+  const aclExclusion = IDL.Record({ club: IDL.Text, user: IDL.Principal });
+  const aclRoleGrant = IDL.Record({ club: IDL.Opt(IDL.Text), role: IDL.Text, team: IDL.Opt(IDL.Text), user: IDL.Principal });
+  const acl = IDL.Record({
+    teams: IDL.Vec(aclTeam),
+    guardians: IDL.Vec(aclGuardian),
+    clubs: IDL.Vec(IDL.Text),
+    children: IDL.Vec(aclChild),
+    exclusions: IDL.Vec(aclExclusion),
+    roles: IDL.Vec(aclRoleGrant),
+  });
+  fs.writeFileSync(path.join(local, 'club-domain-acl.bin'), new Uint8Array(IDL.encode([IDL.Nat64, acl], [0n, syntheticAcl()])));
   const identityInit = IDL.Record({ governor: IDL.Principal });
   fs.writeFileSync(path.join(local, 'identity-init.bin'), new Uint8Array(IDL.encode([identityInit], [{ governor: syntheticIdentity('governor').getPrincipal() }])));
   fs.writeFileSync(path.join(local, 'events-domain-init.bin'), new Uint8Array(IDL.encode([IDL.Record({ governor: IDL.Principal })], [{ governor: syntheticIdentity('governor').getPrincipal() }])));
@@ -134,6 +148,7 @@ try { switch (action) {
         try { icp(['canister', 'call', canister, 'initialize', '()', '-e', 'local', '--identity', 'ignite-lab-governor']); }
         catch { /* already initialized, or canister has no initialize() gate */ }
       }
+      icp(['canister', 'call', 'club_domain', 'replace_acl', '-e', 'local', '--identity', 'ignite-lab-governor', '--args-file', path.join(local, 'club-domain-acl.bin'), '--args-format', 'bin']);
     }
     break;
   }

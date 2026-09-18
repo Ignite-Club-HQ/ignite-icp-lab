@@ -92,23 +92,33 @@ describe("VirtualizedChatMessageList — empty/cold-start guards", () => {
   });
 
   it("transitioning from empty → populated messages does not throw", () => {
-    const ref = createRef<VirtualizedChatMessageListHandle>();
-    const { rerender } = render(
-      withQuery(<VirtualizedChatMessageList ref={ref} messages={[]} {...baseProps} />),
-    );
+    // Drain Virtuoso's RAF-driven settle chain inside this test boundary.
+    vi.useFakeTimers();
+    try {
+      const ref = createRef<VirtualizedChatMessageListHandle>();
+      const { rerender } = render(
+        withQuery(<VirtualizedChatMessageList ref={ref} messages={[]} {...baseProps} />),
+      );
 
-    const messages = Array.from({ length: 20 }, (_, i) => ({
-      id: `m${i}`,
-      text: `msg ${i}`,
-      author_id: "u1",
-      created_at: new Date(Date.now() - (20 - i) * 60_000).toISOString(),
-    }));
+      const messages = Array.from({ length: 20 }, (_, i) => ({
+        id: `m${i}`,
+        text: `msg ${i}`,
+        author_id: "u1",
+        created_at: new Date(Date.now() - (20 - i) * 60_000).toISOString(),
+      }));
 
-    expect(() =>
-      rerender(
-        withQuery(<VirtualizedChatMessageList ref={ref} messages={messages} {...baseProps} />),
-      ),
-    ).not.toThrow();
+      expect(() =>
+        rerender(
+          withQuery(<VirtualizedChatMessageList ref={ref} messages={messages} {...baseProps} />),
+        ),
+      ).not.toThrow();
+
+      act(() => {
+        vi.runAllTimers();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("notification cold-start: initialTargetMessageId on an empty list does not crash", () => {

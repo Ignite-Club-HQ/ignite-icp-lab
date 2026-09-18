@@ -121,32 +121,43 @@ describe("PitchBoardResumeRedirect lock/unlock recovery", () => {
   });
 
   it("warm unlock repairs route drift that occurred while the app was hidden", async () => {
-    persistOpenBoard("/events/event-1?tab=lineup");
-    (window as any).__pitchBoardMountedThisSession = true;
-    (window as any).__pitchBoardMounted = false;
-    mountAt("/events/event-1?tab=lineup");
+    // Control the component's scheduled restore retries so they cannot race
+    // the transient "/media" drift assertion under load.
+    vi.useFakeTimers();
+    try {
+      persistOpenBoard("/events/event-1?tab=lineup");
+      (window as any).__pitchBoardMountedThisSession = true;
+      (window as any).__pitchBoardMounted = false;
+      mountAt("/events/event-1?tab=lineup");
 
-    let visibility: DocumentVisibilityState = "hidden";
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      get: () => visibility,
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
+      let visibility: DocumentVisibilityState = "hidden";
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => visibility,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
 
-    // Model the native WebView restoring an older history entry while the
-    // phone is locked. This is not a user navigation and must not close the
-    // persisted board.
-    await act(async () => screen.getByRole("button", { name: "media" }).click());
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/media"));
+      // Model the native WebView restoring an older history entry while the
+      // phone is locked. This is not a user navigation and must not close the
+      // persisted board.
+      await act(async () => screen.getByRole("button", { name: "media" }).click());
+      expect(screen.getByTestId("location")).toHaveTextContent("/media");
 
-    visibility = "visible";
-    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+      // Date.now() is frozen under fake timers; advance past the component's
+      // 250ms same-attempt debounce before firing the foreground restore.
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
 
-    await waitFor(() =>
+      visibility = "visible";
+      await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+
       expect(screen.getByTestId("location")).toHaveTextContent(
         "/events/event-1?tab=lineup&openPitchBoard=1",
-      ),
-    );
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("converges on the exact board route under repeated unlock signals", async () => {
