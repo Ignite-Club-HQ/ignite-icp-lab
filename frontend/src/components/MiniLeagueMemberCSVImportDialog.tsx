@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { isValidEmail, parseCsvLine } from "@/lib/csv";
 
 interface ParsedPlayer {
   id: string;
@@ -45,8 +46,6 @@ interface MiniLeagueMemberCSVImportDialogProps {
   onOpenChange: (open: boolean) => void;
   onImport: (players: ParsedPlayer[]) => void;
 }
-
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const abilityOptions = [
   { value: "1", label: "1 - Beginner" },
@@ -84,26 +83,6 @@ export function MiniLeagueMemberCSVImportDialog({
   const allPlayersValid = parsedPlayers.every(isPlayerValid);
   const invalidCount = parsedPlayers.filter(p => !isPlayerValid(p)).length;
 
-  const parseCSVLine = (line: string): string[] => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    return values;
-  };
-
   const validateAndParse = (content: string): { players: ParsedPlayer[]; errors: ValidationError[] } => {
     const lines = content.trim().split('\n').filter(line => line.trim());
     const players: ParsedPlayer[] = [];
@@ -120,7 +99,7 @@ export function MiniLeagueMemberCSVImportDialog({
 
     for (let i = startIndex; i < lines.length; i++) {
       const rowNum = i + 1;
-      const values = parseCSVLine(lines[i]);
+      const values = parseCsvLine(lines[i]);
 
       const name = values[0]?.trim();
       const abilityStr = values[1]?.trim() || "3";

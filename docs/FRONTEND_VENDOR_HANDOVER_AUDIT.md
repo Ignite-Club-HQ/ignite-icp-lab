@@ -37,6 +37,10 @@ changing the isolated lab entry or runtime allowlist:
   dialog until it is opened, using the existing retry-safe lazy loader and a
   local Suspense boundary. A characterization contract prevents either route
   from reverting to an eager dialog import.
+- The member and mini-league CSV import dialogs now share the same parser and
+  email validator in `src/lib/csv.ts`; focused tests preserve quoted-comma,
+  trimming, and email-validation behavior. Lab/reference-only mirrors remain
+  intentionally separate.
 
 This establishes a build and quality baseline, not production release
 readiness. The product entry still contains the documented direct-Supabase

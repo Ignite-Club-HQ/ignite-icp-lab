@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { isValidEmail, parseCsvLine } from "@/lib/csv";
 
 type TeamRole = "player" | "parent" | "coach" | "team_admin";
 
@@ -49,8 +50,6 @@ interface MemberCSVImportDialogProps {
 }
 
 const VALID_ROLES: TeamRole[] = ["player", "parent", "coach", "team_admin"];
-
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 export function MemberCSVImportDialog({
   open,
@@ -85,26 +84,6 @@ export function MemberCSVImportDialog({
   const allMembersValid = parsedMembers.every(isMemberValid);
   const invalidCount = parsedMembers.filter(m => !isMemberValid(m)).length;
 
-  const parseCSVLine = (line: string): string[] => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    return values;
-  };
-
   const validateAndParse = (content: string): { members: ParsedMember[]; errors: ValidationError[] } => {
     const lines = content.trim().split('\n').filter(line => line.trim());
     const members: ParsedMember[] = [];
@@ -121,7 +100,7 @@ export function MemberCSVImportDialog({
     const startIndex = hasHeader ? 1 : 0;
 
     if (hasHeader) {
-      const header = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+      const header = parseCsvLine(lines[0]).map(h => h.toLowerCase());
       const nameIdx = header.findIndex(h => h.includes('name'));
       const emailIdx = header.findIndex(h => h.includes('email'));
       
@@ -137,7 +116,7 @@ export function MemberCSVImportDialog({
 
     for (let i = startIndex; i < lines.length; i++) {
       const rowNum = i + 1;
-      const values = parseCSVLine(lines[i]);
+      const values = parseCsvLine(lines[i]);
 
       const name = values[0]?.trim();
       const email = values[1]?.trim() || "";
