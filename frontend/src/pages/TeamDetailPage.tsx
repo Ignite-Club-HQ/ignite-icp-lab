@@ -78,12 +78,12 @@ import ChatGroupsList from "@/components/chat/ChatGroupsList";
 const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
 const InviteOtherParentSheet = lazyWithRetry(() => import("@/components/InviteOtherParentSheet"));
 const AddPlayerToParentSheet = lazyWithRetry(() => import("@/components/team/AddPlayerToParentSheet"));
+const MemberDetailSheet = lazyWithRetry(() => import("@/components/MemberDetailSheet"));
 import LinkChildToParentSheet from "@/components/LinkChildToParentSheet";
 import { TeamAdminInviteDialog } from "@/components/TeamAdminInviteDialog";
 import TeamPlayerPositionEditor from "@/components/TeamPlayerPositionEditor";
 import PlayerPositionSheet from "@/components/PlayerPositionSheet";
 import AddRoleToMemberDialog from "@/components/AddRoleToMemberDialog";
-import MemberDetailSheet from "@/components/MemberDetailSheet";
 import ChildDetailSheet from "@/components/ChildDetailSheet";
 import PromoteToTeamAdminDialog from "@/components/PromoteToTeamAdminDialog";
 import TeamCaptainCard from "@/components/TeamCaptainCard";
@@ -2969,6 +2969,7 @@ export default function TeamDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
       {selectedMember && (
+        <Suspense fallback={null}>
         <MemberDetailSheet
           open={!!selectedMember}
           onOpenChange={(open) => { if (!open) setSelectedMember(null); }}
@@ -3015,6 +3016,7 @@ export default function TeamDetailPage() {
             }
           }}
         />
+        </Suspense>
       )}
       {selectedChild && (
         <ChildDetailSheet

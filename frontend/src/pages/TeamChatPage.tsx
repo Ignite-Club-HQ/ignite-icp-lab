@@ -41,8 +41,8 @@ import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ChatPageSkeleton } from "@/components/chat/ChatPageSkeleton";
 const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
+const MemberDetailSheet = lazyWithRetry(() => import("@/components/MemberDetailSheet"));
 import AddRoleToMemberDialog from "@/components/AddRoleToMemberDialog";
-import MemberDetailSheet from "@/components/MemberDetailSheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -2416,6 +2416,7 @@ export default function TeamChatPage() {
       </div>
 
       {selectedMember && teamId && team && (
+        <Suspense fallback={null}>
         <MemberDetailSheet
           open={!!selectedMember}
           onOpenChange={(open) => { if (!open) setSelectedMember(null); }}
@@ -2437,6 +2438,7 @@ export default function TeamChatPage() {
           onRemove={handleRemoveSelectedMemberFromTeam}
           onRemoveRole={handleRemoveRoleFromSelectedMember}
         />
+        </Suspense>
       )}
 
       {addRoleMember && teamId && team && (

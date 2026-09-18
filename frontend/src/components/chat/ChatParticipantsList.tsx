@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Loader2, ChevronRight, UserPlus, X, LogOut } from "lucide-react";
@@ -18,9 +18,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import MemberDetailSheet from "@/components/MemberDetailSheet";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const MemberDetailSheet = lazyWithRetry(() => import("@/components/MemberDetailSheet"));
+const AddGroupMembersDialog = lazyWithRetry(() => import("@/components/chat/AddGroupMembersDialog").then(m => ({ default: m.AddGroupMembersDialog })));
 import AddRoleToMemberDialog from "@/components/AddRoleToMemberDialog";
-import { AddGroupMembersDialog } from "@/components/chat/AddGroupMembersDialog";
 import { ParticipantProfileSheet, type ParticipantRoleEntry } from "@/components/chat/ParticipantProfileSheet";
 import { cn } from "@/lib/utils";
 import { useOnlineSet } from "@/hooks/useUserPresence";
@@ -877,6 +878,7 @@ export function ChatParticipantsList({
       )}
 
       {selectedMember && effectiveTeamId && (
+        <Suspense fallback={null}>
         <MemberDetailSheet
           open={!!selectedMember}
           onOpenChange={(o) => {
@@ -900,6 +902,7 @@ export function ChatParticipantsList({
           onRemove={handleRemoveMember}
           onRemoveRole={handleRemoveRole}
         />
+        </Suspense>
       )}
 
       {addRoleMember && effectiveTeamId && resolvedClubId && (
@@ -921,12 +924,14 @@ export function ChatParticipantsList({
       )}
 
       {isPersonalGroupChat && (
+        <Suspense fallback={null}>
         <AddGroupMembersDialog
           open={addPeopleOpen}
           onOpenChange={setAddPeopleOpen}
           groupId={chatId}
           existingMemberIds={memberIds}
         />
+        </Suspense>
       )}
 
       <AlertDialog
