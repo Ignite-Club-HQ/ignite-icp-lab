@@ -17,8 +17,9 @@ changing the isolated lab entry or runtime allowlist:
   provider fallback.
 - `rollup-plugin-visualizer` emits HTML and raw-data bundle reports, and
   `check:product-bundle` enforces the measured baseline budget. The current
-  product build is 8,880,821 bytes of JavaScript, with a 9,800,000-byte review
-  ceiling; the largest chunk is 1,112,444 bytes.
+  product build is 8,887,246 bytes of JavaScript and 172,796 bytes of CSS,
+  with 9,800,000- and 500,000-byte review ceilings; the largest JavaScript
+  chunk is 1,112,493 bytes.
 - `eslint.config.mjs` and `lint` establish a zero-warning ratchet for the new
   provider-neutral observability and product-build surfaces. `tsconfig.strict.json`
   and `typecheck:strict` establish a strict sidecar for those modules without
@@ -50,6 +51,29 @@ This establishes a build and quality baseline, not production release
 readiness. The product entry still contains the documented direct-Supabase
 reference domains, and the budget is intentionally a review ceiling derived
 from the first product build rather than a claim that the bundle is optimal.
+
+### Milestone validation
+
+The 2026-09-18 milestone ran the following checks from `frontend/`:
+
+- `npm test`: 275 Node tests and 1,714 Vitest tests passed.
+- `npm run test:legacy`: completed successfully; the existing suite emits
+  jsdom/dynamic-import diagnostics but reported no test failure.
+- `npm run typecheck:lab`, `npm run typecheck:strict`, and the configured
+  zero-warning `npm run lint` passed.
+- Isolation, production-secret, and quality-ratchet checks passed.
+- Both the isolated lab build and guarded product build passed.
+- Product bundle analysis and budgets passed at 8,887,246 JavaScript bytes,
+  172,796 CSS bytes, 492 JavaScript chunks, and a 1,112,493-byte largest
+  JavaScript chunk.
+
+The full reference-product check `tsc -p tsconfig.app.json` is not yet a
+passing gate. It currently reports pre-existing errors across unported
+components (for example `unknown` Supabase query results and timer types) and
+missing inert Edge Function/reference modules under `src/edge-functions`.
+Those errors are intentionally not hidden by this handover work; the strict
+sidecar remains limited to newly governed provider-neutral modules until each
+product domain is migrated and its source dependencies are available.
 
 ### Handover status
 
