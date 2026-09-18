@@ -70,12 +70,10 @@ import { usePublishChatImage } from "@/hooks/usePublishChatImage";
 import { useRecentMatchWindow } from "@/hooks/useRecentMatchWindow";
 import { PinnedMessagesBanner } from "@/components/chat/PinnedMessagesBanner";
 import { PinnedVaultBanner } from "@/components/chat/PinnedVaultBanner";
-import { PinVaultSheet } from "@/components/chat/PinVaultSheet";
 import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -88,7 +86,6 @@ import { EditingBanner } from "@/components/chat/EditingBanner";
 import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
 import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
 import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
-import { CreatePollDialog } from "@/components/chat/CreatePollDialog";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 
@@ -126,6 +123,9 @@ import { registerChannel } from "@/lib/realtimeChannelRegistry";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
+const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
+const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 
 
 const MESSAGES_PER_PAGE = 30;
@@ -2155,6 +2155,7 @@ export default function TeamChatPage() {
 
 
       {teamId && (
+        <Suspense fallback={null}>
         <PinVaultSheet
           open={pinVaultSheetOpen}
           onOpenChange={setPinVaultSheetOpen}
@@ -2163,6 +2164,7 @@ export default function TeamChatPage() {
           clubId={team.club_id ?? null}
           teamId={teamId}
         />
+        </Suspense>
       )}
 
       {/* Sponsor / Ad strip (per-club opt-in; never enters message stream) */}
@@ -2367,6 +2369,7 @@ export default function TeamChatPage() {
           />
         </ChatComposerShell>
         {scheduleTarget && (
+          <Suspense fallback={null}>
           <ScheduleMessageDialog
             open={scheduleDialogOpen}
             onOpenChange={setScheduleDialogOpen}
@@ -2379,6 +2382,7 @@ export default function TeamChatPage() {
               clearDraft?.();
             }}
           />
+          </Suspense>
         )}
         <EventPickerSheet
           open={eventPickerOpen}
@@ -2405,6 +2409,7 @@ export default function TeamChatPage() {
           }}
         />
         {teamId && (
+          <Suspense fallback={null}>
           <CreatePollDialog
             open={pollDialogOpen}
             onOpenChange={setPollDialogOpen}
@@ -2412,6 +2417,7 @@ export default function TeamChatPage() {
             chatId={teamId}
             onCreated={(pollId) => setPendingPollId(pollId)}
           />
+          </Suspense>
         )}
       </div>
 

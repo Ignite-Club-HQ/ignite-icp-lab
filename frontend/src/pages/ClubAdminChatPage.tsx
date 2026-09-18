@@ -1,5 +1,5 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
+import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
@@ -22,7 +22,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Send, Loader2, Users, Search, BarChart3, RefreshCw } from "lucide-react";
-import { CreatePollDialog } from "@/components/chat/CreatePollDialog";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
@@ -44,8 +43,10 @@ import { toast } from "sonner";
 import { ReplyPreview } from "@/components/chat/ReplyPreview";
 import { EditingBanner } from "@/components/chat/EditingBanner";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
+const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
@@ -1448,6 +1449,7 @@ function SupabaseClubAdminChatPage() {
           />
         </ChatComposerShell>
         {scheduleTarget && (
+          <Suspense fallback={null}>
           <ScheduleMessageDialog
             open={scheduleDialogOpen}
             onOpenChange={setScheduleDialogOpen}
@@ -1458,8 +1460,10 @@ function SupabaseClubAdminChatPage() {
               clearDraft?.();
             }}
           />
+          </Suspense>
         )}
         {conversationId && (
+          <Suspense fallback={null}>
           <CreatePollDialog
             open={pollDialogOpen}
             onOpenChange={setPollDialogOpen}
@@ -1467,6 +1471,7 @@ function SupabaseClubAdminChatPage() {
             chatId={conversationId}
             onCreated={(pollId) => setPendingPollId(pollId)}
           />
+          </Suspense>
         )}
       </div>
       {conversationId && (

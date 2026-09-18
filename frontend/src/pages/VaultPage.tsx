@@ -20,7 +20,6 @@ const AddLinkDialog = lazyWithRetry(() => import("@/components/vault/AddLinkDial
 const MoveFileDialog = lazyWithRetry(() => import("@/components/vault/MoveFileDialog").then(m => ({ default: m.MoveFileDialog })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
-import JSZip from "jszip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,6 +58,11 @@ import { fetchVaultFolderContents, collectVaultExportContents } from "@/features
 import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
 import { runZipExport, summarizeZipExport, type ZipExportItem } from "@/features/vault/vaultZipExport";
+
+async function createZipArchive() {
+  const { default: JSZip } = await import("jszip");
+  return new JSZip();
+}
 
 
 
@@ -2835,7 +2839,7 @@ function SupabaseVaultPage() {
       setIsExporting(true);
       
       try {
-        const zip = new JSZip();
+        const zip = await createZipArchive();
         const items: ZipExportItem[] = [
           ...photosToExport.map((photo: any) => ({
             id: photo.id,
@@ -2977,7 +2981,7 @@ function SupabaseVaultPage() {
     setIsExporting(true);
 
     try {
-      const zip = new JSZip();
+      const zip = await createZipArchive();
       let fileCount = 0;
 
       // Add photos to ZIP with path
@@ -3083,7 +3087,7 @@ function SupabaseVaultPage() {
     setIsExporting(true);
 
     try {
-      const zip = new JSZip();
+      const zip = await createZipArchive();
       let fileCount = 0;
 
       // Add photos to ZIP with path

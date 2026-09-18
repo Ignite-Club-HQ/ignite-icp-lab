@@ -1,6 +1,6 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
 import { useChatLoadingLatch } from "@/hooks/useChatLoadingLatch";
-import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
+import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
@@ -56,7 +56,6 @@ import { EditingBanner } from "@/components/chat/EditingBanner";
 import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
 import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
 import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
-import { CreatePollDialog } from "@/components/chat/CreatePollDialog";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 
@@ -77,14 +76,16 @@ import { deliveredSend, queuedSend, isConfirmedDelivery } from "@/lib/chatSendRe
 import { usePublishChatImage } from "@/hooks/usePublishChatImage";
 import { PinnedMessagesBanner } from "@/components/chat/PinnedMessagesBanner";
 import { PinnedVaultBanner } from "@/components/chat/PinnedVaultBanner";
-import { PinVaultSheet } from "@/components/chat/PinVaultSheet";
 import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
 import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
+const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
+const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { jumpToMessageInVirtualizedChat } from "@/lib/jumpToMessage";
@@ -1749,6 +1750,7 @@ export default function ClubChatPage() {
       />
 
       {clubId && (
+        <Suspense fallback={null}>
         <PinVaultSheet
           open={pinVaultSheetOpen}
           onOpenChange={setPinVaultSheetOpen}
@@ -1756,6 +1758,7 @@ export default function ClubChatPage() {
           chatId={clubId}
           clubId={clubId}
         />
+        </Suspense>
       )}
 
       <ChatThreadSponsorStrip clubId={clubId ?? null} />
@@ -1952,6 +1955,7 @@ export default function ClubChatPage() {
             />
           </ChatComposerShell>
           {scheduleTarget && (
+            <Suspense fallback={null}>
             <ScheduleMessageDialog
               open={scheduleDialogOpen}
               onOpenChange={setScheduleDialogOpen}
@@ -1964,6 +1968,7 @@ export default function ClubChatPage() {
                 clearDraft?.();
               }}
             />
+            </Suspense>
           )}
           <EventPickerSheet
             open={eventPickerOpen}
@@ -1989,6 +1994,7 @@ export default function ClubChatPage() {
             }}
           />
           {clubId && (
+            <Suspense fallback={null}>
             <CreatePollDialog
               open={pollDialogOpen}
               onOpenChange={setPollDialogOpen}
@@ -1996,6 +2002,7 @@ export default function ClubChatPage() {
               chatId={clubId}
               onCreated={(pollId) => setPendingPollId(pollId)}
             />
+            </Suspense>
           )}
         </div>
         </>

@@ -11,6 +11,7 @@ Complete sanitized React source and backend source references for an incremental
 - `reference/SUPABASE_CALL_SITES.json`: frontend Supabase call-site map to guide subsequent domains.
 - `docs/PORTING_PLAN.md`: scope, architecture, remaining work and verification limits.
 - `docs/NEXT_IMPLEMENTATION_PLAN.md`: prioritized gaps and implementation sequence for the 10-role ICP topology.
+- `docs/FRONTEND_VENDOR_HANDOVER_AUDIT.md`: frontend quality, performance, duplication, and vendor-readiness assessment.
 
 The full source is available for refactoring, but the entire original app is not enabled. Unported source cannot enter the default runtime bundle. The active domain is the synthetic club-links editor and member preview, with explicit fixture or local ICP selection. A local Rust canister and signed synthetic actor adapter are now implemented, with synthetic account linking and tested full-snapshot recovery. The original demo network is currently stopped with a stale binding; the latest recovery checks used a separate local test project. See [the POC runbook](docs/CLUB_LINKS_POC.md) for setup, permission coverage, tests and limits.
 

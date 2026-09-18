@@ -1,5 +1,5 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
+import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
@@ -42,14 +42,15 @@ import { ChatImageInput } from "@/components/chat/ChatImageInput";
 import { ReplyPreview } from "@/components/chat/ReplyPreview";
 import { EditingBanner } from "@/components/chat/EditingBanner";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { useScheduleProAccess } from "@/hooks/useScheduleProAccess";
 import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
 import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
-import { CreatePollDialog } from "@/components/chat/CreatePollDialog";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
+const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 import { BroadcastAudienceSelector } from "@/components/chat/BroadcastAudienceSelector";
 
 const BROADCAST_CHAT_ID = "00000000-0000-0000-0000-000000000000";
@@ -1290,25 +1291,29 @@ export default function BroadcastChatPage() {
               canSend={!!message.trim() || !!imageUrl || !!pendingPollId}
             />
           </ChatComposerShell>
-          <ScheduleMessageDialog
-            open={scheduleDialogOpen}
-            onOpenChange={setScheduleDialogOpen}
-            target={scheduleTarget}
-            initialText={message}
-            initialImageUrl={imageUrl}
-            onScheduled={() => {
-              setMessage("");
-              setImageUrl(null);
-              clearDraft?.();
-            }}
-          />
-          <CreatePollDialog
-            open={pollDialogOpen}
-            onOpenChange={setPollDialogOpen}
-            chatType="broadcast"
-            chatId={BROADCAST_CHAT_ID}
-            onCreated={(pollId) => setPendingPollId(pollId)}
-          />
+          <Suspense fallback={null}>
+            <ScheduleMessageDialog
+              open={scheduleDialogOpen}
+              onOpenChange={setScheduleDialogOpen}
+              target={scheduleTarget}
+              initialText={message}
+              initialImageUrl={imageUrl}
+              onScheduled={() => {
+                setMessage("");
+                setImageUrl(null);
+                clearDraft?.();
+              }}
+            />
+          </Suspense>
+          <Suspense fallback={null}>
+            <CreatePollDialog
+              open={pollDialogOpen}
+              onOpenChange={setPollDialogOpen}
+              chatType="broadcast"
+              chatId={BROADCAST_CHAT_ID}
+              onCreated={(pollId) => setPendingPollId(pollId)}
+            />
+          </Suspense>
           <BoardPickerSheet
             open={boardPickerOpen}
             onOpenChange={setBoardPickerOpen}

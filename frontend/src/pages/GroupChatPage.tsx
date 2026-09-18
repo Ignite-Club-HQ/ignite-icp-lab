@@ -80,7 +80,6 @@ import { ReplyPreview } from "@/components/chat/ReplyPreview";
 import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
 import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
 import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
-import { CreatePollDialog } from "@/components/chat/CreatePollDialog";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 import { GroupChatMessageRow } from "@/components/chat/GroupChatMessageRow";
@@ -88,13 +87,11 @@ import { usePublishChatImage } from "@/hooks/usePublishChatImage";
 import { useRecentMatchWindow } from "@/hooks/useRecentMatchWindow";
 import { PinnedMessagesBanner } from "@/components/chat/PinnedMessagesBanner";
 import { PinnedVaultBanner } from "@/components/chat/PinnedVaultBanner";
-import { PinVaultSheet } from "@/components/chat/PinVaultSheet";
 import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useUserHasAnyClubPro } from "@/hooks/useUserHasAnyClubPro";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -138,6 +135,9 @@ import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
 import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
+const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
+const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
@@ -2901,6 +2901,7 @@ export default function GroupChatPage() {
       />
 
       {groupId && (
+        <Suspense fallback={null}>
         <PinVaultSheet
           open={pinVaultSheetOpen}
           onOpenChange={setPinVaultSheetOpen}
@@ -2909,6 +2910,7 @@ export default function GroupChatPage() {
           clubId={group.club_id ?? null}
           teamId={group.team_id ?? null}
         />
+        </Suspense>
       )}
 
 
@@ -3114,6 +3116,7 @@ export default function GroupChatPage() {
         )}
 
         {scheduleTarget && (
+          <Suspense fallback={null}>
           <ScheduleMessageDialog
             open={scheduleDialogOpen}
             onOpenChange={setScheduleDialogOpen}
@@ -3126,6 +3129,7 @@ export default function GroupChatPage() {
               clearDraft?.();
             }}
           />
+          </Suspense>
         )}
         <EventPickerSheet
           open={eventPickerOpen}
@@ -3155,6 +3159,7 @@ export default function GroupChatPage() {
           }}
         />
         {groupId && (
+          <Suspense fallback={null}>
           <CreatePollDialog
             open={pollDialogOpen}
             onOpenChange={setPollDialogOpen}
@@ -3162,6 +3167,7 @@ export default function GroupChatPage() {
             chatId={groupId}
             onCreated={(pollId) => setPendingPollId(pollId)}
           />
+          </Suspense>
         )}
       </div>
 
