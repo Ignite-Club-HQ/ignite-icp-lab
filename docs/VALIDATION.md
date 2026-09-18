@@ -2781,3 +2781,135 @@ is now 6,279 passing tests (4,162 legacy + 393 Node lab + 1,704 Vitest lab
 legacy tier alone increased from the previously reported 4,007 passing
 tests to 4,162 passing tests after the rapid retained-test alignment
 commits.
+
+## Triple-check correction: removed non-evidential residual batch - later same day
+
+A follow-up completeness audit re-verified every claim in the checkpoint
+above against the bundle rather than trusting commit-message counts. The
+audit found that `lab-tests/residualExportContracts.local.test.mjs` (119
+cases, added in the checkpoint above) was **not real ported coverage** and
+has been deleted:
+
+- It was never added to `exported-test-mapping.json`, so it played no
+  part in the file-level completeness invariant that
+  `check-exported-test-inventory.mjs` enforces (that invariant still
+  passes exactly the same after its removal, confirming it was additive
+  padding, not required evidence).
+- Every one of its 119 cases called the same placeholder
+  `evaluateContract(surface, description)` helper, which unconditionally
+  returns `{ labSafe: true, productionNetwork: false }` regardless of
+  input - the cases asserted nothing about the actual behavior of any
+  bundle source file.
+- Of its 14 named "surfaces", 12 correspond to bundle files that already
+  have legitimate, independently-verified retained/local-equivalent
+  coverage elsewhere (`src/lib/serverTimer*.test.ts`,
+  `src/test/clubAnnouncementDiagnosability.guard.test.ts`,
+  `src/test/reactRouterUpgradeSafety.test.tsx`,
+  `src/test/parentInviteProvisioningSecurity.guard.test.ts`,
+  `src/test/remainingDependencySecuritySafety.test.ts`,
+  `src/lib/chatScheduleIntent*.test.ts`,
+  `src/components/chat/useChatJumpHydration.test.tsx`,
+  `src/components/invite/SingleInvitationWizardFooter.test.tsx`,
+  `src/components/event/EventPassiveFacts.test.tsx`,
+  `src/pages/ClubSetupWizardPage.characterization.test.tsx`,
+  `src/components/pitch/timerSchemaMarker.guard.test.ts`,
+  `src/pages/EditEventRecurringConversion.{contract,security}.test.ts`),
+  making its cases for those surfaces pure duplicates.
+- The remaining 2 surfaces (`realtimeIsolation`, 10 cases; `clubLinksRls`,
+  6 cases) do not correspond to any file or identifier anywhere in the
+  authoritative bundle checkout - they were invented names with no
+  bundle source to port from.
+
+Corrective actions taken:
+
+```sh
+cd frontend
+git rm lab-tests/residualExportContracts.local.test.mjs
+# scripts/check-exported-test-inventory.mjs: labTests guard 169 -> 168
+npm run check:exported-tests # still passed: 434 retained source files; 168 lab-tests files; 39 translated hybrid baselines; 3 loopback browser specs; 412 direct retained; 181 local equivalents; 4 irreducible boundary exclusions
+npm test                     # passed: 274 Node tests (393 - 119); 151 Vitest files / 1,704 tests
+```
+
+Corrected directly-verified runnable total: **6,160 passing tests**
+(4,162 legacy + 274 Node lab + 1,704 Vitest lab + 20 e2e), down from the
+previously reported 6,279. The 119-case delta is entirely attributable to
+the deleted placeholder batch; no other counts changed.
+
+### Consistent-methodology bundle-vs-lab case audit
+
+To answer "are all bundle cases represented" with one methodology applied
+identically to both sides (rather than comparing two differently-built
+counters, as earlier informal passes in this project did), a single
+AST-based counter (`@babel/parser`, iterative non-recursive walk,
+resolving `it`/`test`/`describe` `.each` tables that are literal arrays,
+`Array.from({length})`, or `Object.entries/keys/values(literalObject)`,
+falling back to counting an unresolved dynamic table as 1 case) was run
+against:
+
+- The 586 authoritative non-browser bundle test files: **5,017 cases**
+  (79 call sites had a dynamically-built table the static counter could
+  not resolve and were conservatively counted as 1 case each, so 5,017 is
+  a floor, not a ceiling).
+- The current lab tree (`src/**/*.test.ts(x)` + `lab-tests/*.test.{mjs,tsx}`
+  + `e2e/*.spec.ts`, 605 files): **5,278 cases** (89 unresolved dynamic
+  sites, same conservative treatment).
+
+Both counts had zero parser errors. Using one consistent methodology, the
+current lab tree's statically-countable case volume (5,278) already
+exceeds the bundle's (5,017) by 261 cases. Combined with the
+`check-exported-test-inventory.mjs` file-level invariant (every one of
+the 586 non-browser + 11 browser/native = 597 authoritative bundle test
+files is mapped to exactly one disposition - 412 direct-retained, 181
+local-equivalent, 4 irreducible-boundary - each backed by an existing,
+readable evidence file, and this invariant is enforced on every
+`check:exported-tests` run), this is the strongest evidence to date that
+bundle test coverage is fully represented, and it corrects the earlier
+never-reconciled "6,189 rigorous vs 5,048/4,567 crude" discrepancy by
+replacing both with one documented, reproducible methodology.
+
+### Backend-mode isolation: running Supabase-only vs ICP-only
+
+The hybrid architecture (`src/lab/backendRouter.ts`,
+`src/lab/hybridClubLinksService.ts`) routes every operation per-club
+through an authoritative placement decision (`PlacementRegistry`) that
+selects exactly one backend (`Icp` or `Supabase`) and never silently
+falls back to the other. `lab-tests/backend-provider-matrix.test.tsx`
+exercises both backend selections with the same test bodies via
+`describe.each`, and each side can be run in isolation with Vitest's
+`-t` filter:
+
+```sh
+cd frontend
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/backend-provider-matrix.test.tsx -t icp       # 2 passed | 3 skipped
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/backend-provider-matrix.test.tsx -t supabase  # 2 passed | 3 skipped
+npx vitest run --config vitest.lab.config.mjs --configLoader runner \
+  lab-tests/backend-provider-matrix.test.tsx              # 5 passed (both + fail-closed test)
+```
+
+Both backend paths currently pass independently of one another, and the
+fail-closed test in the same file confirms that a disabled/blocked
+placement correctly throws rather than falling back to the other backend.
+
+The running lab app itself also exposes this as a real UI control:
+`src/lab/LabApp.tsx` renders a "Data source" selector
+(`fixture` / `icp` / `hybrid`), and `e2e/hybrid-backend.spec.ts` drives it
+in a real browser to prove both configurations independently: selecting
+`icp` puts the app in a fail-closed state with zero external network
+requests when the local canister isn't deployed, and selecting `hybrid`
+with the explicit "Australia · synthetic Supabase" club placement proves
+the synthetic-Supabase-backed path is reachable and routed correctly,
+again with zero external network requests. Both e2e cases currently pass
+(`npm run test:e2e`).
+
+Scope note: this per-backend isolation currently applies to the
+routing/selection layer that the hybrid architecture is built around. The
+large majority of the ~6,160 ported test cases are backend-agnostic - they
+exercise business logic, UI, and validation against in-memory doubles and
+do not themselves select between Supabase and ICP, so "run in Supabase-only
+mode" / "run in ICP-only mode" is not yet a whole-suite toggle. It is a
+verified property of the seam that actually chooses a backend
+(`backendRouter`/`hybridClubLinksService` and their `.each`-parameterized
+tests), which is the correct place for that property to hold in a
+permanently-hybrid architecture.

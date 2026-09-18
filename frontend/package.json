@@ -11,6 +11,8 @@
     "test:lab": "vitest run --config vitest.lab.config.mjs --configLoader runner",
     "test:legacy": "vitest run --config vitest.legacy.config.mjs",
     "test:provider-matrix": "vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/backend-provider-matrix.test.tsx",
+    "test:backend:icp": "vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/backend-provider-matrix.test.tsx -t icp",
+    "test:backend:supabase": "vitest run --config vitest.lab.config.mjs --configLoader runner lab-tests/backend-provider-matrix.test.tsx -t supabase",
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:all": "npm run test && npm run test:legacy && npm run test:e2e",
     "check:exported-tests": "node scripts/check-exported-test-inventory.mjs",
