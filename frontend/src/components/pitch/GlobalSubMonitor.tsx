@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, Suspense } from "react";
 import { playSubAlertBeep, playTimerBeep } from "./GameTimer";
 import SubConfirmDialog from "./SubConfirmDialog";
-import GameFinishedDialog from "./GameFinishedDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const GameFinishedDialog = lazyWithRetry(() => import("./GameFinishedDialog"));
 import { END_GAME_REQUEST_EVENT, type EndGameRequestDetail } from "./endGameRequest";
 import { useGameStats } from "@/hooks/useGameStats";
 import { showBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
@@ -1393,6 +1394,7 @@ export default function GlobalSubMonitor() {
         players={currentPlayers}
       />
       {finishedGameData && (
+        <Suspense fallback={null}>
         <GameFinishedDialog
           open={gameFinishedOpen}
           onClose={handleGameFinishedClose}
@@ -1412,6 +1414,7 @@ export default function GlobalSubMonitor() {
           manual={manualFinish}
           boardTeamId={finishedGameData.teamId}
         />
+        </Suspense>
       )}
     </>
   );

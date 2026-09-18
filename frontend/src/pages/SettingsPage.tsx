@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { usePasskey } from "@/hooks/usePasskey";
-import { PasskeyManagementDialog } from "@/components/PasskeyManagementDialog";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
@@ -40,6 +39,8 @@ const LazyPushDiagnosticsCard = !SKIP_WEB_PUSH
 const LazyNativePushCard = SKIP_WEB_PUSH
   ? lazyWithRetry(() => import("@/components/NativePushCard").then(m => ({ default: m.NativePushCard })))
   : () => null;
+
+const PasskeyManagementDialog = lazyWithRetry(() => import("@/components/PasskeyManagementDialog").then(m => ({ default: m.PasskeyManagementDialog })));
 
 interface NotificationPreferences {
   messages_enabled: boolean;
@@ -921,7 +922,9 @@ export default function SettingsPage() {
       </Card>
 
       {/* Passkey Management Dialog */}
+      <Suspense fallback={null}>
       <PasskeyManagementDialog open={passkeyDialogOpen} onOpenChange={setPasskeyDialogOpen} />
+      </Suspense>
 
       {/* Change Password Dialog */}
       <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />

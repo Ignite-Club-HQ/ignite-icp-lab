@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Archive, CheckCircle2, Clock, Lock, Users, GitCompare, Copy } from "lucide-react";
@@ -9,7 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PageLoading } from "@/components/ui/page-loading";
 import { useClubSeasons, type Season, type SeasonStatus } from "@/hooks/useClubSeasons";
-import { StartNewSeasonWizard } from "@/components/seasons/StartNewSeasonWizard";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const StartNewSeasonWizard = lazyWithRetry(() => import("@/components/seasons/StartNewSeasonWizard").then(m => ({ default: m.StartNewSeasonWizard })));
 import { SeasonTemplateDialog } from "@/components/seasons/SeasonTemplateDialog";
 import { OrphanEventsCard } from "@/components/seasons/OrphanEventsCard";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
@@ -216,6 +217,7 @@ function SupabaseSeasonsPage() {
       )}
 
       {clubId && (
+        <Suspense fallback={null}>
         <StartNewSeasonWizard
           clubId={clubId}
           open={wizardOpen}
@@ -226,6 +228,7 @@ function SupabaseSeasonsPage() {
             refetch();
           }}
         />
+        </Suspense>
       )}
 
       {clubId && templateSource && (

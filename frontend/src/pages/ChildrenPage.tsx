@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import ManageGuardiansDialog from "@/components/ManageGuardiansDialog";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const InviteOtherParentSheet = lazyWithRetry(() => import("@/components/InviteOtherParentSheet"));
+const ManageGuardiansDialog = lazyWithRetry(() => import("@/components/ManageGuardiansDialog"));
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -807,6 +807,7 @@ function SupabaseChildrenPage() {
 
       {/* Manage Guardians Dialog */}
       {selectedChild && (
+        <Suspense fallback={null}>
         <ManageGuardiansDialog
           open={guardiansDialogOpen}
           onOpenChange={(open) => {
@@ -817,6 +818,7 @@ function SupabaseChildrenPage() {
           childName={selectedChild.name}
           teamIds={getChildAssignments(selectedChild.id).map(a => a.team_id)}
         />
+        </Suspense>
       )}
 
       {/* Invite Other Parent Sheet */}

@@ -50,13 +50,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { MatchDutiesDialog } from "@/components/MatchDutiesDialog";
 import { QuickSetupDutyDialog } from "@/components/QuickSetupDutyDialog";
 import { ManualMatchDialog } from "@/components/ManualMatchDialog";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 // Lazy load PitchBoard for performance
 const PitchBoard = lazyWithRetry(() => import("@/components/pitch/PitchBoard"));
+const MatchDutiesDialog = lazyWithRetry(() => import("@/components/MatchDutiesDialog").then(m => ({ default: m.MatchDutiesDialog })));
 
 // Default bib color pairs when league has no custom colors
 const DEFAULT_BIB_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#f97316", "#a855f7"];
@@ -1408,6 +1408,7 @@ export function EventGroupsManager({ eventId, miniLeagueId, isAdmin, playerOverr
       </Dialog>
 
       {/* Match Duties Dialog */}
+      <Suspense fallback={null}>
       <MatchDutiesDialog
         open={!!activeDutiesGroup}
         onOpenChange={(open) => {
@@ -1423,6 +1424,7 @@ export function EventGroupsManager({ eventId, miniLeagueId, isAdmin, playerOverr
         miniLeagueId={miniLeagueId}
         initialDutyId={quickAssignDutyId}
       />
+      </Suspense>
 
       {/* Pitch Board Portal */}
       {boardSupported && activePitchBoardGroup && activePitchBoardGroup.players.length > 0 && createPortal(

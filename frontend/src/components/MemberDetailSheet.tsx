@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,7 +9,8 @@ import { Plus, ArrowRightLeft, Trash2, X, MessageCircle, Loader2, ShieldCheck, S
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import ManageRolesDialog from "@/components/ManageRolesDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const ManageRolesDialog = lazyWithRetry(() => import("@/components/ManageRolesDialog"));
 
 const ROLE_LABELS: Record<string, string> = {
   app_admin: "App Admin",
@@ -314,6 +315,7 @@ export default function MemberDetailSheet({
         </div>
       </DrawerContent>
       {useUnifiedDialog && teamId && teamName && clubId && (
+        <Suspense fallback={null}>
         <ManageRolesDialog
           open={manageRolesOpen}
           onOpenChange={setManageRolesOpen}
@@ -330,6 +332,7 @@ export default function MemberDetailSheet({
             onRolesUpdated?.();
           }}
         />
+        </Suspense>
       )}
     </Drawer>
   );

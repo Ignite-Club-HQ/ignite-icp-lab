@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Users, Trash2, Loader2, Star, CheckSquare, Pencil, Check, X, UserRound, GripVertical, UserPlus, MoreVertical, Plus } from "lucide-react";
-import { AddSecondParentDialog } from "@/components/mini-league/AddSecondParentDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const AddSecondParentDialog = lazyWithRetry(() => import("@/components/mini-league/AddSecondParentDialog").then(m => ({ default: m.AddSecondParentDialog })));
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { Button } from "@/components/ui/button";
@@ -892,6 +893,7 @@ export function ManagePlayersDialog({
       </ResponsiveDialogContent>
 
       {secondParentForPlayer && (
+        <Suspense fallback={null}>
         <AddSecondParentDialog
           open={!!secondParentForPlayer}
           onOpenChange={(o) => { if (!o) setSecondParentForPlayer(null); }}
@@ -902,6 +904,7 @@ export function ManagePlayersDialog({
           miniLeagueName={miniLeagueName}
           clubId={clubId}
         />
+        </Suspense>
       )}
     </ResponsiveDialog>
   );

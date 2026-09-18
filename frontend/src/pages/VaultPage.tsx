@@ -12,12 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateFolderDialog } from "@/components/vault/CreateFolderDialog";
-import { UploadFilesDialog } from "@/components/vault/UploadFilesDialog";
-import { AddLinkDialog } from "@/components/vault/AddLinkDialog";
-import { MoveFileDialog } from "@/components/vault/MoveFileDialog";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GoogleDriveImportDialog = lazyWithRetry(() => import("@/components/vault/GoogleDriveImportDialog").then(m => ({ default: m.GoogleDriveImportDialog })));
 const LinkDriveFolderDialog = lazyWithRetry(() => import("@/components/vault/LinkDriveFolderDialog").then(m => ({ default: m.LinkDriveFolderDialog })));
+const UploadFilesDialog = lazyWithRetry(() => import("@/components/vault/UploadFilesDialog").then(m => ({ default: m.UploadFilesDialog })));
+const AddLinkDialog = lazyWithRetry(() => import("@/components/vault/AddLinkDialog").then(m => ({ default: m.AddLinkDialog })));
+const MoveFileDialog = lazyWithRetry(() => import("@/components/vault/MoveFileDialog").then(m => ({ default: m.MoveFileDialog })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import JSZip from "jszip";
@@ -3767,6 +3767,7 @@ function SupabaseVaultPage() {
               isCreating={createFolderMutation.isPending}
             />
             
+            <Suspense fallback={null}>
             <UploadFilesDialog
               open={uploadDialogOpen}
               onOpenChange={setUploadDialogOpen}
@@ -3774,7 +3775,9 @@ function SupabaseVaultPage() {
               isUploading={uploading}
               targetName={currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.type === "club" ? currentView.clubName : "Vault")}
             />
+            </Suspense>
 
+            <Suspense fallback={null}>
             <AddLinkDialog
               open={addLinkDialogOpen}
               onOpenChange={setAddLinkDialogOpen}
@@ -3782,6 +3785,7 @@ function SupabaseVaultPage() {
               isAdding={addLinkMutation.isPending}
               targetName={currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.type === "club" ? currentView.clubName : "Vault")}
             />
+            </Suspense>
 
             <Suspense fallback={null}>
             <GoogleDriveImportDialog
@@ -4875,6 +4879,7 @@ function SupabaseVaultPage() {
       )}
 
       {/* Move File Dialog */}
+      <Suspense fallback={null}>
       <MoveFileDialog
         open={moveFileDialogOpen}
         onOpenChange={setMoveFileDialogOpen}
@@ -4884,6 +4889,7 @@ function SupabaseVaultPage() {
         onMove={(fileId, targetFolderId, targetTeamId) => moveFileMutation.mutate({ fileId, targetFolderId, targetTeamId })}
         isMoving={moveFileMutation.isPending}
       />
+      </Suspense>
     </div>
   );
 }

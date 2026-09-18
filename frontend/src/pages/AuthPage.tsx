@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { Flame, Mail, Lock, Loader2, Eye, EyeOff, Fingerprint, CheckCircle2, Circle, XCircle, WifiOff } from "lucide-react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+const ForgotPasswordDialog = lazyWithRetry(() => import("@/components/ForgotPasswordDialog").then(m => ({ default: m.ForgotPasswordDialog })));
 import { usePasskey, isPlatformAuthenticatorAvailable } from "@/hooks/usePasskey";
 import { InviteFlowProgress, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
 import { Capacitor } from "@capacitor/core";
@@ -1332,11 +1333,13 @@ export default function AuthPage() {
         </Card>
 
         {/* Forgot Password Dialog */}
+        <Suspense fallback={null}>
         <ForgotPasswordDialog 
           open={forgotPasswordOpen} 
           onOpenChange={setForgotPasswordOpen}
           defaultEmail={email}
         />
+        </Suspense>
 
         {/* Footer Links — hidden when keyboard is open on native sign-in */}
         {!isFormKeyboardOpen && (

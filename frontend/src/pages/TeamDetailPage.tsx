@@ -77,7 +77,7 @@ import { DefaultPitchSettings } from "@/components/pitch/DefaultPitchSettings";
 import ChatGroupsList from "@/components/chat/ChatGroupsList";
 const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
 const InviteOtherParentSheet = lazyWithRetry(() => import("@/components/InviteOtherParentSheet"));
-import AddPlayerToParentSheet from "@/components/team/AddPlayerToParentSheet";
+const AddPlayerToParentSheet = lazyWithRetry(() => import("@/components/team/AddPlayerToParentSheet"));
 import LinkChildToParentSheet from "@/components/LinkChildToParentSheet";
 import { TeamAdminInviteDialog } from "@/components/TeamAdminInviteDialog";
 import TeamPlayerPositionEditor from "@/components/TeamPlayerPositionEditor";
@@ -1183,6 +1183,7 @@ export default function TeamDetailPage() {
       )}
 
       {(isAdmin || isClubAdmin) && (
+        <Suspense fallback={null}>
         <AddPlayerToParentSheet
           open={addPlayerOpen}
           onOpenChange={setAddPlayerOpen}
@@ -1190,6 +1191,7 @@ export default function TeamDetailPage() {
           teamName={team.name}
           rawMembers={rawMembers as any}
         />
+        </Suspense>
       )}
 
       {/* Soft-deleted banner */}

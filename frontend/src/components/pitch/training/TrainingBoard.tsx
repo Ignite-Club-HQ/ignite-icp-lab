@@ -28,7 +28,6 @@ import { FrameStrip } from "./FrameStrip";
 import { PlaybackController } from "./PlaybackController";
 import { useDrillPlayback } from "@/hooks/useDrillPlayback";
 import { SaveDrillDialog } from "./SaveDrillDialog";
-import { DrillLibrarySheet } from "./DrillLibrarySheet";
 import { SessionPlanStrip } from "./SessionPlanStrip";
 import { RecentDrillsList } from "./RecentDrillsList";
 import { useAddToSession, useSessionDrills } from "@/hooks/useDrillLibrary";
@@ -40,6 +39,7 @@ import { useEventGoingAttendees } from "@/hooks/useEventGoingAttendees";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 const PresentationMode = lazyWithRetry(() => import("./PresentationMode"));
+const DrillLibrarySheet = lazyWithRetry(() => import("./DrillLibrarySheet").then(m => ({ default: m.DrillLibrarySheet })));
 
 interface TrainingBoardProps {
   /** Optional: focus the toolbar in landscape (board fills full screen) */
@@ -650,6 +650,7 @@ export default function TrainingBoard({
         </div>
 
         {/* Library sheet */}
+        <Suspense fallback={null}>
         <DrillLibrarySheet
           open={libraryOpen}
           onOpenChange={setLibraryOpen}
@@ -657,6 +658,7 @@ export default function TrainingBoard({
           onOpenDrill={handleOpenDrill}
           onNewDrill={handleNewDrill}
         />
+        </Suspense>
       </div>
     );
   }
@@ -953,6 +955,7 @@ export default function TrainingBoard({
       />
 
       {/* Library sheet */}
+      <Suspense fallback={null}>
       <DrillLibrarySheet
         open={libraryOpen}
         onOpenChange={setLibraryOpen}
@@ -960,6 +963,7 @@ export default function TrainingBoard({
         onOpenDrill={handleOpenDrill}
         onNewDrill={handleNewDrill}
       />
+      </Suspense>
 
       {/* Drill settings */}
       <TrainingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

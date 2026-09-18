@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMiniLeagueMemberSheet").then(m => ({ default: m.AddMiniLeagueMemberSheet })));
 const ManagePlayersDialog = lazyWithRetry(() => import("@/components/mini-league/ManagePlayersDialog").then(m => ({ default: m.ManagePlayersDialog })));
 const MiniLeagueSettingsDialog = lazyWithRetry(() => import("@/components/mini-league/MiniLeagueSettingsDialog").then(m => ({ default: m.MiniLeagueSettingsDialog })));
-import { ManageMiniLeagueAdminsSheet } from "@/components/mini-league/ManageMiniLeagueAdminsSheet";
+const ManageMiniLeagueAdminsSheet = lazyWithRetry(() => import("@/components/mini-league/ManageMiniLeagueAdminsSheet").then(m => ({ default: m.ManageMiniLeagueAdminsSheet })));
 import PendingInvitesList from "@/components/PendingInvitesList";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
@@ -943,6 +943,7 @@ function SupabaseMiniLeagueDetailPage() {
       )}
 
       {isClubAdmin && (
+        <Suspense fallback={null}>
         <ManageMiniLeagueAdminsSheet
           miniLeagueId={id!}
           miniLeagueName={league.name}
@@ -950,6 +951,7 @@ function SupabaseMiniLeagueDetailPage() {
           open={manageAdminsOpen}
           onOpenChange={setManageAdminsOpen}
         />
+        </Suspense>
       )}
     </div>
   );
