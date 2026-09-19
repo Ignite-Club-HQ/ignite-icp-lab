@@ -4,7 +4,7 @@ import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { FolderOpen, FileText, Image, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, ImageIcon, FolderPlus, Plus, Home, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, Share2, FileImage, File, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
+import { FolderOpen, FileText, Image, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, ImageIcon, FolderPlus, Plus, Home, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, Share2, FileImage, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +18,8 @@ const LinkDriveFolderDialog = lazyWithRetry(() => import("@/components/vault/Lin
 const UploadFilesDialog = lazyWithRetry(() => import("@/components/vault/UploadFilesDialog").then(m => ({ default: m.UploadFilesDialog })));
 const AddLinkDialog = lazyWithRetry(() => import("@/components/vault/AddLinkDialog").then(m => ({ default: m.AddLinkDialog })));
 const MoveFileDialog = lazyWithRetry(() => import("@/components/vault/MoveFileDialog").then(m => ({ default: m.MoveFileDialog })));
+const VaultStorageBreakdown = lazyWithRetry(() => import("@/components/vault/VaultStorageBreakdown").then(m => ({ default: m.VaultStorageBreakdown })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
@@ -3389,49 +3389,15 @@ function SupabaseVaultPage() {
                       </div>
                     )}
                     
-                    {/* Storage breakdown pie chart - photos vs documents */}
+                    {/* Recharts only loads after the storage details are opened. */}
                     {storageBreakdown && (storageBreakdown.photos > 0 || storageBreakdown.documents > 0) && (
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { name: 'Photos', value: storageBreakdown.photos, color: 'hsl(var(--primary))' },
-                                  { name: 'Documents', value: storageBreakdown.documents, color: 'hsl(var(--muted-foreground))' },
-                                ].filter(d => d.value > 0)}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={16}
-                                outerRadius={28}
-                                paddingAngle={2}
-                                dataKey="value"
-                              >
-                                {[
-                                  { name: 'Photos', value: storageBreakdown.photos, color: 'hsl(var(--primary))' },
-                                  { name: 'Documents', value: storageBreakdown.documents, color: 'hsl(var(--muted-foreground))' },
-                                ].filter(d => d.value > 0).map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-2 h-2 rounded-sm bg-primary shrink-0" />
-                            <FileImage className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">Photos</span>
-                            <span className="ml-auto font-medium">{formatStorageSize(storageBreakdown.photos)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-2 h-2 rounded-sm bg-muted-foreground shrink-0" />
-                            <File className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">Documents</span>
-                            <span className="ml-auto font-medium">{formatStorageSize(storageBreakdown.documents)}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <Suspense fallback={null}>
+                        <VaultStorageBreakdown
+                          photos={storageBreakdown.photos}
+                          documents={storageBreakdown.documents}
+                          formatStorageSize={formatStorageSize}
+                        />
+                      </Suspense>
                     )}
                     
                     {/* Storage breakdown by team */}
