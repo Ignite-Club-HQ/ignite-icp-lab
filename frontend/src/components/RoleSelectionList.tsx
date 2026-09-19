@@ -30,6 +30,7 @@ export function RoleSelectionList<T extends string>({
             key={role.value}
             type="button"
             onClick={() => onToggle(role.value)}
+            aria-pressed={isSelected}
             className={cn(
               "w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left",
               isSelected

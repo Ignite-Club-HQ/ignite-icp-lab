@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, User, Bell, Moon, Sun, Smartphone, Download, Send, MessageSquare, Calendar, Image, Users, LayoutGrid, Mail, Gift, Trophy, Settings, Fingerprint, ChevronRight, Lock, HelpCircle, Eye, Sparkles, Accessibility } from "lucide-react";
@@ -20,6 +20,7 @@ import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { NotificationPreferenceList, type NotificationPreferenceDescriptor } from "@/components/NotificationPreferenceList";
 
 // Check if we're on native platform at module load time
 let isNativePlatform = false;
@@ -62,6 +63,38 @@ interface EmailPreferences {
   email_rewards_enabled: boolean;
   email_pom_enabled: boolean;
 }
+
+type NotificationPreferenceKey = keyof NotificationPreferences;
+type EmailPreferenceKey = keyof EmailPreferences;
+
+const pushPreferenceDescriptors: readonly NotificationPreferenceDescriptor<NotificationPreferenceKey>[] = [
+  { key: "messages_enabled", icon: MessageSquare, label: "Messages", description: "Team, club, group chats & broadcasts" },
+  {
+    key: "show_message_preview",
+    icon: Eye,
+    label: "Show message text preview",
+    description: "Show the message text on your lock screen. Sender name is always shown.",
+    disabled: (values) => !values.messages_enabled,
+  },
+  { key: "events_enabled", icon: Calendar, label: "Events", description: "Invites, cancellations & duty assignments" },
+  { key: "media_enabled", icon: Image, label: "Media", description: "Photo uploads, reactions & comments" },
+  { key: "membership_enabled", icon: Users, label: "Membership", description: "Join requests & approvals" },
+  { key: "pitch_board_enabled", icon: LayoutGrid, label: "Pitch Board", description: "Substitution alerts & game updates" },
+  { key: "rewards_enabled", icon: Trophy, label: "Points & Rewards", description: "Points earned, rewards & engagement nudges" },
+];
+
+const nativePushPreferenceDescriptors = pushPreferenceDescriptors.filter(
+  ({ key }) => key !== "rewards_enabled",
+);
+
+const emailPreferenceDescriptors: readonly NotificationPreferenceDescriptor<EmailPreferenceKey>[] = [
+  { key: "email_events_enabled", icon: Calendar, label: "Events & Reminders", description: "Event invites, reminders & duty assignments" },
+  { key: "email_membership_enabled", icon: Users, label: "Membership", description: "Team invites & join confirmations" },
+  { key: "email_admin_enabled", icon: Settings, label: "Account & Admin", description: "Subscription renewals & system alerts" },
+  { key: "email_pitch_board_enabled", icon: LayoutGrid, label: "Pitch Board", description: "Substitution alerts & game updates" },
+  { key: "email_rewards_enabled", icon: Gift, label: "Rewards", description: "Reward redemptions & point updates" },
+  { key: "email_pom_enabled", icon: Trophy, label: "Game Stats & Player of Match", description: "Player stats reports & POM award notifications" },
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -140,24 +173,25 @@ export default function SettingsPage() {
         .single();
       
       if (data) {
+        const preferenceData = data as Record<string, boolean | null | undefined>;
         setPreferences({
-          messages_enabled: data.messages_enabled,
-          events_enabled: data.events_enabled,
-          media_enabled: data.media_enabled,
-          membership_enabled: data.membership_enabled,
-          pitch_board_enabled: data.pitch_board_enabled ?? true,
-          rewards_enabled: data.rewards_enabled ?? true,
-          show_message_preview: (data as any).show_message_preview ?? true,
+          messages_enabled: Boolean(preferenceData.messages_enabled),
+          events_enabled: Boolean(preferenceData.events_enabled),
+          media_enabled: Boolean(preferenceData.media_enabled),
+          membership_enabled: Boolean(preferenceData.membership_enabled),
+          pitch_board_enabled: preferenceData.pitch_board_enabled ?? true,
+          rewards_enabled: preferenceData.rewards_enabled ?? true,
+          show_message_preview: preferenceData.show_message_preview ?? true,
         });
         setEmailPreferences({
-          email_messages_enabled: data.email_messages_enabled ?? true,
-          email_events_enabled: data.email_events_enabled ?? true,
-          email_media_enabled: data.email_media_enabled ?? true,
-          email_membership_enabled: data.email_membership_enabled ?? true,
-          email_admin_enabled: data.email_admin_enabled ?? true,
-          email_pitch_board_enabled: data.email_pitch_board_enabled ?? true,
-          email_rewards_enabled: data.email_rewards_enabled ?? true,
-          email_pom_enabled: data.email_pom_enabled ?? true,
+          email_messages_enabled: preferenceData.email_messages_enabled ?? true,
+          email_events_enabled: preferenceData.email_events_enabled ?? true,
+          email_media_enabled: preferenceData.email_media_enabled ?? true,
+          email_membership_enabled: preferenceData.email_membership_enabled ?? true,
+          email_admin_enabled: preferenceData.email_admin_enabled ?? true,
+          email_pitch_board_enabled: preferenceData.email_pitch_board_enabled ?? true,
+          email_rewards_enabled: preferenceData.email_rewards_enabled ?? true,
+          email_pom_enabled: preferenceData.email_pom_enabled ?? true,
         });
       }
     };
@@ -174,7 +208,10 @@ export default function SettingsPage() {
         .select("ai_catch_up_enabled")
         .eq("id", user.id)
         .maybeSingle();
-      if (data) setAiCatchUpEnabled((data as any).ai_catch_up_enabled ?? true);
+      if (data) {
+        const profileData = data as Record<string, unknown>;
+        setAiCatchUpEnabled(profileData.ai_catch_up_enabled !== false);
+      }
     };
     loadAiPref();
   }, [user, useIcpLab]);
@@ -186,7 +223,7 @@ export default function SettingsPage() {
     setAiCatchUpEnabled(value);
     const { error } = await supabase
       .from("profiles")
-      .update({ ai_catch_up_enabled: value } as any)
+      .update({ ai_catch_up_enabled: value })
       .eq("id", user.id);
     setAiCatchUpLoading(false);
     if (error) {
@@ -291,7 +328,7 @@ export default function SettingsPage() {
         .upsert({ user_id: user.id, ...newPrefs }, { onConflict: "user_id" });
       
       if (error) throw error;
-    } catch (error) {
+    } catch {
       setPreferences(preferences);
       toast({ title: "Failed to update preference", variant: "destructive" });
     }
@@ -641,65 +678,13 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium">Notification Categories</p>
                 <p className="text-xs text-muted-foreground">Choose which types of notifications you want to receive</p>
                 
-                <div className="space-y-3">
-                  <NotificationToggle
-                    icon={MessageSquare}
-                    label="Messages"
-                    description="Team, club, group chats & broadcasts"
-                    checked={preferences.messages_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("messages_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                  <NotificationToggle
-                    icon={Eye}
-                    label="Show message text preview"
-                    description="Show the message text on your lock screen. Sender name is always shown."
-                    checked={preferences.show_message_preview}
-                    onCheckedChange={(v) => handlePreferenceChange("show_message_preview", v)}
-                    disabled={prefsLoading || !preferences.messages_enabled}
-                  />
-
-                  <NotificationToggle
-                    icon={Calendar}
-                    label="Events"
-                    description="Invites, cancellations & duty assignments"
-                    checked={preferences.events_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("events_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                  <NotificationToggle
-                    icon={Image}
-                    label="Media"
-                    description="Photo uploads, reactions & comments"
-                    checked={preferences.media_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("media_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                  <NotificationToggle
-                    icon={Users}
-                    label="Membership"
-                    description="Join requests & approvals"
-                    checked={preferences.membership_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("membership_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                  <NotificationToggle
-                    icon={LayoutGrid}
-                    label="Pitch Board"
-                    description="Substitution alerts & game updates"
-                    checked={preferences.pitch_board_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("pitch_board_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                  <NotificationToggle
-                    icon={Trophy}
-                    label="Points & Rewards"
-                    description="Points earned, rewards & engagement nudges"
-                    checked={preferences.rewards_enabled}
-                    onCheckedChange={(v) => handlePreferenceChange("rewards_enabled", v)}
-                    disabled={prefsLoading}
-                  />
-                </div>
+                <NotificationPreferenceList
+                  descriptors={pushPreferenceDescriptors}
+                  values={preferences}
+                  onChange={handlePreferenceChange}
+                  disabled={prefsLoading}
+                  className="space-y-3"
+                />
               </div>
             )}
           </CardContent>
@@ -724,54 +709,12 @@ export default function SettingsPage() {
             <CardDescription>Choose which types of push notifications you want to receive</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <NotificationToggle
-              icon={MessageSquare}
-              label="Messages"
-              description="Team, club, group chats & broadcasts"
-              checked={preferences.messages_enabled}
-              onCheckedChange={(v) => handlePreferenceChange("messages_enabled", v)}
+            <NotificationPreferenceList
+              descriptors={nativePushPreferenceDescriptors}
+              values={preferences}
+              onChange={handlePreferenceChange}
               disabled={prefsLoading}
-            />
-            <NotificationToggle
-              icon={Eye}
-              label="Show message text preview"
-              description="Show the message text on your lock screen. Sender name is always shown."
-              checked={preferences.show_message_preview}
-              onCheckedChange={(v) => handlePreferenceChange("show_message_preview", v)}
-              disabled={prefsLoading || !preferences.messages_enabled}
-            />
-
-            <NotificationToggle
-              icon={Calendar}
-              label="Events"
-              description="Invites, cancellations & duty assignments"
-              checked={preferences.events_enabled}
-              onCheckedChange={(v) => handlePreferenceChange("events_enabled", v)}
-              disabled={prefsLoading}
-            />
-            <NotificationToggle
-              icon={Image}
-              label="Media"
-              description="Photo uploads, reactions & comments"
-              checked={preferences.media_enabled}
-              onCheckedChange={(v) => handlePreferenceChange("media_enabled", v)}
-              disabled={prefsLoading}
-            />
-            <NotificationToggle
-              icon={Users}
-              label="Membership"
-              description="Join requests & approvals"
-              checked={preferences.membership_enabled}
-              onCheckedChange={(v) => handlePreferenceChange("membership_enabled", v)}
-              disabled={prefsLoading}
-            />
-            <NotificationToggle
-              icon={LayoutGrid}
-              label="Pitch Board"
-              description="Substitution alerts & game updates"
-              checked={preferences.pitch_board_enabled}
-              onCheckedChange={(v) => handlePreferenceChange("pitch_board_enabled", v)}
-              disabled={prefsLoading}
+              className="space-y-3"
             />
             <p className="text-xs text-muted-foreground pt-2">
               To fully disable push notifications, go to your device Settings &gt; Notifications &gt; Ignite.
@@ -830,56 +773,13 @@ export default function SettingsPage() {
           <CardDescription>Choose which types of emails you want to receive</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <NotificationToggle
-              icon={Calendar}
-              label="Events & Reminders"
-              description="Event invites, reminders & duty assignments"
-              checked={emailPreferences.email_events_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_events_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-            <NotificationToggle
-              icon={Users}
-              label="Membership"
-              description="Team invites & join confirmations"
-              checked={emailPreferences.email_membership_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_membership_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-            <NotificationToggle
-              icon={Settings}
-              label="Account & Admin"
-              description="Subscription renewals & system alerts"
-              checked={emailPreferences.email_admin_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_admin_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-            <NotificationToggle
-              icon={LayoutGrid}
-              label="Pitch Board"
-              description="Substitution alerts & game updates"
-              checked={emailPreferences.email_pitch_board_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_pitch_board_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-            <NotificationToggle
-              icon={Gift}
-              label="Rewards"
-              description="Reward redemptions & point updates"
-              checked={emailPreferences.email_rewards_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_rewards_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-            <NotificationToggle
-              icon={Trophy}
-              label="Game Stats & Player of Match"
-              description="Player stats reports & POM award notifications"
-              checked={emailPreferences.email_pom_enabled}
-              onCheckedChange={(v) => handleEmailPreferenceChange("email_pom_enabled", v)}
-              disabled={emailPrefsLoading}
-            />
-          </div>
+          <NotificationPreferenceList
+            descriptors={emailPreferenceDescriptors}
+            values={emailPreferences}
+            onChange={handleEmailPreferenceChange}
+            disabled={emailPrefsLoading}
+            className="space-y-3"
+          />
         </CardContent>
       </Card>
 
@@ -931,35 +831,6 @@ export default function SettingsPage() {
 
       {/* Feedback Dialog */}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-    </div>
-  );
-}
-
-function NotificationToggle({
-  icon: Icon,
-  label,
-  description,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  icon: React.ElementType;
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (value: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <div>
-          <Label>{label}</Label>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
     </div>
   );
 }
