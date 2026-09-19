@@ -811,38 +811,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/hooks/useSignedPhotoUrl.ts",
-      "line": 111,
-      "column": 11,
-      "code": "TS2339",
-      "message": "Property 'data' does not exist on type '{}'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/hooks/useSignedPhotoUrl.ts",
-      "line": 111,
-      "column": 17,
-      "code": "TS2339",
-      "message": "Property 'error' does not exist on type '{}'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/hooks/useSignedPhotoUrl.ts",
-      "line": 129,
-      "column": 11,
-      "code": "TS2339",
-      "message": "Property 'data' does not exist on type '{}'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/hooks/useSignedPhotoUrl.ts",
-      "line": 129,
-      "column": 17,
-      "code": "TS2339",
-      "message": "Property 'error' does not exist on type '{}'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/hooks/useTypingIndicator.ts",
       "line": 3,
       "column": 33,
@@ -945,38 +913,6 @@
       "code": "TS2307",
       "message": "Cannot find module '@supabase/supabase-js' or its corresponding type declarations.",
       "category": "missing-reference"
-    },
-    {
-      "file": "src/lib/exportClubRoster.ts",
-      "line": 105,
-      "column": 22,
-      "code": "TS2339",
-      "message": "Property 'name' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/lib/exportClubRoster.ts",
-      "line": 106,
-      "column": 22,
-      "code": "TS2339",
-      "message": "Property 'level_age' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/lib/exportClubRoster.ts",
-      "line": 122,
-      "column": 22,
-      "code": "TS2339",
-      "message": "Property 'name' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/lib/exportClubRoster.ts",
-      "line": 123,
-      "column": 22,
-      "code": "TS2339",
-      "message": "Property 'level_age' does not exist on type 'unknown'.",
-      "category": "source-backed"
     },
     {
       "file": "src/lib/mediaPhotoDeletion.ts",
@@ -1564,7 +1500,7 @@
     }
   ],
   "counts": {
-    "source-backed": 135,
+    "source-backed": 127,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

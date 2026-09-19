@@ -29,7 +29,15 @@ export async function fetchClubRosterRows(clubId: string): Promise<ClubRosterRow
     .eq("club_id", clubId);
   if (teamsError) throw teamsError;
 
-  const activeTeams = (teams || []).filter(
+  const teamRows = (teams || []) as {
+    id: string;
+    name: string | null;
+    level_age: string | null;
+    lifecycle_status: string | null;
+    deleted_at: string | null;
+  }[];
+
+  const activeTeams = teamRows.filter(
     (t) => !t.deleted_at && t.lifecycle_status !== "archived",
   );
   if (activeTeams.length === 0) return [];

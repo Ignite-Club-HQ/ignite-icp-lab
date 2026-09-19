@@ -52,7 +52,15 @@ function schedulePersist() {
   }, 1000);
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+// `T` defaults to `any` because every current caller passes a promise from
+// the fail-closed `supabase: any` client (src/integrations/supabase/client.ts).
+// Without the default, TypeScript's generic inference for an unconstrained
+// type parameter resolves an `any`-typed argument to `{}` here, which erases
+// the `{ data, error }` shape callers destructure and manufactures
+// "Property does not exist" diagnostics unrelated to any real behavior
+// change. A genuinely typed promise argument still infers its own type
+// (the default only applies when there is nothing concrete to infer from).
+function withTimeout<T = any>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
 
