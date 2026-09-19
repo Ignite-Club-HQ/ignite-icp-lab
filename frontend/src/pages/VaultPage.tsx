@@ -58,6 +58,12 @@ import { fetchVaultFolderContents, collectVaultExportContents } from "@/features
 import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
 import { runZipExport, summarizeZipExport, type ZipExportItem } from "@/features/vault/vaultZipExport";
+import {
+  formatVaultFileSize,
+  getVaultExternalLinkInfo,
+  isVaultDocumentFile,
+  isVaultSpreadsheetFile,
+} from "@/features/vault/vaultFilePresentation";
 
 async function createZipArchive() {
   const { default: JSZip } = await import("jszip");
@@ -5055,62 +5061,6 @@ function VaultPhotoItem({
   );
 }
 
-// Helper function to format file sizes
-function formatFileSize(bytes: number | null | undefined): string {
-  if (!bytes) return '';
-  if (bytes >= 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  } else if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  } else if (bytes >= 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${bytes} B`;
-}
-
-// Helper function to check if a file is a spreadsheet
-function isSpreadsheetFile(fileName: string): boolean {
-  const spreadsheetExtensions = ['.xlsx', '.xls', '.csv', '.ods', '.tsv'];
-  const lowerName = fileName.toLowerCase();
-  return spreadsheetExtensions.some(ext => lowerName.endsWith(ext));
-}
-
-// Helper function to check if a file is a document (Word, PDF, etc.)
-function isDocumentFile(fileName: string): boolean {
-  const documentExtensions = ['.doc', '.docx', '.pdf', '.txt', '.rtf', '.odt', '.ppt', '.pptx', '.odp'];
-  const lowerName = fileName.toLowerCase();
-  return documentExtensions.some(ext => lowerName.endsWith(ext));
-}
-
-// Helper function to detect external link type from URL
-function getExternalLinkInfo(url: string): { type: string; icon: string; color: string } | null {
-  const lowerUrl = url.toLowerCase();
-  
-  if (lowerUrl.includes('docs.google.com/document')) {
-    return { type: 'Google Doc', icon: '📄', color: 'text-blue-600' };
-  }
-  if (lowerUrl.includes('docs.google.com/spreadsheets')) {
-    return { type: 'Google Sheet', icon: '📊', color: 'text-green-600' };
-  }
-  if (lowerUrl.includes('docs.google.com/presentation')) {
-    return { type: 'Google Slides', icon: '📽️', color: 'text-yellow-600' };
-  }
-  if (lowerUrl.includes('drive.google.com')) {
-    return { type: 'Google Drive', icon: '📁', color: 'text-blue-500' };
-  }
-  if (lowerUrl.includes('dropbox.com')) {
-    return { type: 'Dropbox', icon: '📦', color: 'text-blue-500' };
-  }
-  if (lowerUrl.includes('notion.so') || lowerUrl.includes('notion.site')) {
-    return { type: 'Notion', icon: '📝', color: 'text-foreground' };
-  }
-  if (lowerUrl.includes('onedrive.live.com') || lowerUrl.includes('sharepoint.com')) {
-    return { type: 'OneDrive', icon: '☁️', color: 'text-blue-600' };
-  }
-  
-  return { type: 'External Link', icon: '🔗', color: 'text-muted-foreground' };
-}
-
 // Helper function to download and open in external service
 function downloadAndOpenExternal(
   fileUrl: string, 
@@ -5278,7 +5228,7 @@ function ContentSection({
           <div className="space-y-2">
             {files.map((file) => {
               const isExternalLink = file.is_external_link;
-              const externalLinkInfo = isExternalLink ? getExternalLinkInfo(file.file_url) : null;
+              const externalLinkInfo = isExternalLink ? getVaultExternalLinkInfo(file.file_url) : null;
               
               return (
               <Card 
@@ -5305,8 +5255,8 @@ function ContentSection({
                       {externalLinkInfo.icon}
                     </div>
                   ) : (
-                    <div className={`p-2 rounded-lg ${isSpreadsheetFile(file.name || '') ? 'bg-green-500/10' : 'bg-primary/10'}`}>
-                      {isSpreadsheetFile(file.name || '') ? (
+                    <div className={`p-2 rounded-lg ${isVaultSpreadsheetFile(file.name || '') ? 'bg-green-500/10' : 'bg-primary/10'}`}>
+                      {isVaultSpreadsheetFile(file.name || '') ? (
                         <FileSpreadsheet className="h-4 w-4 text-green-600" />
                       ) : (
                         <FileText className="h-4 w-4 text-primary" />
@@ -5323,7 +5273,7 @@ function ContentSection({
                       ) : (
                         <>
                           {format(new Date(file.created_at), "MMM d, yyyy")}
-                          {file.file_size ? ` • ${formatFileSize(file.file_size)}` : ''}
+                          {file.file_size ? ` • ${formatVaultFileSize(file.file_size)}` : ''}
                         </>
                       )}
                     </p>
@@ -5387,7 +5337,7 @@ function ContentSection({
           {actionSheetFile && (() => {
             const file = actionSheetFile;
             const isExternalLink = file.is_external_link;
-            const externalLinkInfo = isExternalLink ? getExternalLinkInfo(file.file_url) : null;
+            const externalLinkInfo = isExternalLink ? getVaultExternalLinkInfo(file.file_url) : null;
             const close = () => setActionSheetFile(null);
             const Item = ({ icon: Icon, label, onClick, destructive = false }: { icon: any; label: string; onClick: () => void; destructive?: boolean }) => (
               <button
@@ -5443,14 +5393,14 @@ function ContentSection({
                       />
                     </>
                   )}
-                  {!isExternalLink && isSpreadsheetFile(file.name || '') && (
+                  {!isExternalLink && isVaultSpreadsheetFile(file.name || '') && (
                     <Item
                       icon={Sheet}
                       label="Open in Google Sheets"
                       onClick={() => openInGoogleSheets(file.file_url, file.name || 'spreadsheet', toast)}
                     />
                   )}
-                  {!isExternalLink && isDocumentFile(file.name || '') && (
+                  {!isExternalLink && isVaultDocumentFile(file.name || '') && (
                     <Item
                       icon={HardDrive}
                       label="Open in Google Drive"
@@ -5679,7 +5629,7 @@ function TrashSection({
                     {file.deleted_at && (
                       <p className="text-xs text-muted-foreground">
                         Deleted {format(new Date(file.deleted_at), "MMM d, yyyy")}
-                        {file.file_size ? ` • ${formatFileSize(file.file_size)}` : ''}
+                        {file.file_size ? ` • ${formatVaultFileSize(file.file_size)}` : ''}
                         {(() => {
                           const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(file.deleted_at).getTime()) / (1000 * 60 * 60 * 24)));
                           return ` • Auto-deletes in ${daysLeft}d`;
