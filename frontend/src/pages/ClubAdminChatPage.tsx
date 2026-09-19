@@ -52,6 +52,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically, compareChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import {
   recordRealtimeMutation,
   reconcileMessages,
@@ -400,8 +402,7 @@ function SupabaseClubAdminChatPage() {
           return { messages: [] as ClubAdminMessage[], hasOlderMessages: false };
         }
 
-        const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-        const dataToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+        const { items: dataToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
 
         const messageIds = dataToDisplay.map((m) => m.id);
         const replyToIds = dataToDisplay.filter((m) => m.reply_to_id).map((m) => m.reply_to_id as string);
@@ -484,9 +485,7 @@ function SupabaseClubAdminChatPage() {
         for (const cachedMessage of cached) {
           if (!merged.some((message) => message.id === cachedMessage.id)) merged.push(cachedMessage);
         }
-        merged.sort((a, b) =>
-          (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-        );
+        merged.sort(compareChatMessagesChronologically);
         return Array.isArray(prev) ? merged : { ...prev, messages: merged, fromCache: true };
       }
       if (openedFromNotificationRef.current && isUsableCachedThread(cached as any)) {
@@ -595,9 +594,7 @@ function SupabaseClubAdminChatPage() {
     const msgList = Array.isArray(messagesData)
       ? messagesData
       : (messagesData as any).messages || [];
-    const sorted = [...msgList].sort((a, b) =>
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = sortChatMessagesChronologically(msgList);
     // Re-apply realtime edits/soft-deletes so a stale in-flight fetch cannot
     // restore pre-edit text or resurrect a deleted row.
     return (reconcileMessages(reconcileScope, sorted) ?? []) as ClubAdminMessage[];
@@ -1079,9 +1076,7 @@ function SupabaseClubAdminChatPage() {
               const filtered = dropSupersededOptimisticRow(old.messages, newMsg);
               return {
                 ...old,
-                messages: [...filtered, { ...newMsg, author: null, reactions: [], reply_to: null }].sort(
-                  (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-                ),
+                messages: sortChatMessagesChronologically([...filtered, { ...newMsg, author: null, reactions: [], reply_to: null }]),
               };
             }
           );

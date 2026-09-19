@@ -58,6 +58,8 @@ const BROADCAST_CHAT_ID = "00000000-0000-0000-0000-000000000000";
 
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import {
   recordRealtimeMutation,
   reconcileMessages,
@@ -290,8 +292,7 @@ export default function BroadcastChatPage() {
         return { messages: [] as Message[], hasOlderMessages: false };
       }
 
-      const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-      const messagesToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+      const { items: messagesToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
 
       const messageIds = messagesToDisplay.map((m) => m.id);
       const replyToIds = messagesToDisplay
@@ -386,9 +387,7 @@ export default function BroadcastChatPage() {
       ? messagesData 
       : (messagesData as any).messages || [];
     // Sort by created_at to ensure proper ordering
-    const sorted = [...msgList].sort((a, b) => 
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = sortChatMessagesChronologically(msgList);
     // Re-apply realtime edits/soft-deletes so a stale in-flight fetch cannot
     // restore pre-edit text or resurrect a deleted row.
     return reconcileMessages(reconcileScope, sorted) as Message[];
@@ -500,9 +499,7 @@ export default function BroadcastChatPage() {
           });
       const mergedMessages = (reconcileMessages(
         reconcileScope,
-        [...previousOnly, ...mergedIncomingMessages].sort((a, b) =>
-          (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-        ),
+        sortChatMessagesChronologically([...previousOnly, ...mergedIncomingMessages]),
       ) ?? []) as Message[];
 
       cacheMessages("broadcast", "broadcast", mergedMessages.map((m) => ({
@@ -603,9 +600,8 @@ export default function BroadcastChatPage() {
         return;
       }
 
-      const hasMore = olderData.length > MESSAGES_PER_PAGE;
+      const { items: dataToUse, hasMore } = splitPageWindow(olderData, MESSAGES_PER_PAGE);
       setHasOlderMessages(hasMore);
-      const dataToUse = hasMore ? olderData.slice(0, MESSAGES_PER_PAGE) : olderData;
 
       // Reverse to get chronological order
       const reversedOlder = [...dataToUse].reverse();
@@ -734,9 +730,7 @@ export default function BroadcastChatPage() {
             }
             
             // Add new message (from other user)
-            const updatedMessages = [...existingMessages, messageWithData].sort(
-              (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-            );
+            const updatedMessages = sortChatMessagesChronologically([...existingMessages, messageWithData]);
             return { ...old, messages: updatedMessages };
           });
         }

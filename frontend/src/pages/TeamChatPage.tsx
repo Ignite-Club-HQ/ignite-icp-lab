@@ -8,6 +8,8 @@ import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
 import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically, compareChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { useChatPageReady } from "@/hooks/useChatPageReady";
 import { useSyncActiveClubToChat } from "@/hooks/useSyncActiveClubToChat";
@@ -687,8 +689,7 @@ export default function TeamChatPage() {
         return { messages: [] as Message[], hasOlderMessages: false };
       }
 
-      const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-      const messagesToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+      const { items: messagesToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
 
       // Fetch reactions and reply_to data in parallel (profiles fetched separately for faster initial render)
       const messageIds = messagesToDisplay.map((m) => m.id);
@@ -872,9 +873,7 @@ export default function TeamChatPage() {
     // SECURITY (cross-team bleed): last line of defence before render.
     const scoped = (msgList as any[]).filter((m) => belongsToTeam(m, teamId));
     // Sort by created_at to ensure proper ordering
-    const sorted = [...scoped].sort((a, b) => 
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = sortChatMessagesChronologically(scoped);
     // Re-apply realtime edits/soft-deletes: an older in-flight fetch resolving
     // after a realtime UPDATE must never restore pre-edit text or resurrect a
     // deleted row.
@@ -985,7 +984,7 @@ export default function TeamChatPage() {
       // SECURITY (cross-team bleed): a placeholder object left behind by another
       // team must never seed this thread's render state.
       .filter((m: any) => belongsToTeam(m, teamId))
-      .sort((a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id));
+      .sort(compareChatMessagesChronologically);
 
     const seed = inMemoryMessages.length > 0 ? inMemoryMessages : getCachedTeamMessages(teamId);
     setLocalMessages((reconcileMessages(reconcileScope, seed) ?? []) as Message[]);
@@ -1243,9 +1242,8 @@ export default function TeamChatPage() {
         return;
       }
 
-      const hasMore = olderData.length > MESSAGES_PER_PAGE;
+      const { items: dataToUse, hasMore } = splitPageWindow(olderData, MESSAGES_PER_PAGE);
       setHasOlderMessages(hasMore);
-      const dataToUse = hasMore ? olderData.slice(0, MESSAGES_PER_PAGE) : olderData;
 
       // Reverse to get chronological order
       const reversedOlder = [...dataToUse].reverse();
@@ -1306,11 +1304,7 @@ export default function TeamChatPage() {
         const byId = new Map<string, Message>();
         olderMessages.forEach((m) => byId.set(m.id, m));
         (existing || []).forEach((m) => byId.set(m.id, m)); // current state wins on boundary duplicates
-        const sorted = [...byId.values()].sort(
-          (a, b) =>
-            (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) ||
-            a.id.localeCompare(b.id),
-        );
+        const sorted = sortChatMessagesChronologically([...byId.values()]);
         // An UPDATE received while this page was in flight must survive.
         return (reconcileMessages(reconcileScope, sorted) ?? []) as Message[];
       };
@@ -1376,9 +1370,7 @@ export default function TeamChatPage() {
       );
       const byId = new Map<string, Message>();
       [...windowRows, ...existingNewer].forEach((message: any) => byId.set(message.id, message as Message));
-      const anchoredWindow = [...byId.values()].sort(
-        (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-      );
+      const anchoredWindow = sortChatMessagesChronologically([...byId.values()]);
 
       // Only force a scroller remount when the target row was NOT already
       // rendered. Bumping the nonce unconditionally remounts the virtualized
@@ -1476,9 +1468,7 @@ export default function TeamChatPage() {
             }
             
             // Add new message (from other user)
-            const updatedMessages = [...existingMessages, messageToAdd].sort(
-              (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-            );
+            const updatedMessages = sortChatMessagesChronologically([...existingMessages, messageToAdd]);
             return { ...old, messages: updatedMessages };
           });
           

@@ -5,6 +5,8 @@ import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useChatViewportHeight } from "@/hooks/useChatViewportHeight";
 import { ChatMessagesScroller } from "@/components/chat/ChatMessagesScroller";
@@ -239,9 +241,7 @@ const mergeDirectMessages = (
     };
   });
 
-  const merged = [...previousOnly, ...mergedIncoming].sort((a, b) =>
-    (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-  );
+  const merged = sortChatMessagesChronologically([...previousOnly, ...mergedIncoming]);
   return (reconcileScope
     ? reconcileMessages(reconcileScope, merged) ?? []
     : merged) as DirectMessage[];
@@ -534,8 +534,7 @@ export default function DirectMessagePage() {
         return { messages: [] as DirectMessage[], hasOlderMessages: false };
       }
       
-      const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-      const dataToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+      const { items: dataToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
       
       const messageIds = dataToDisplay.map((m) => m.id);
       const replyToIds = dataToDisplay.filter((m) => m.reply_to_id).map((m) => m.reply_to_id as string);
@@ -663,9 +662,7 @@ export default function DirectMessagePage() {
     const msgList = Array.isArray(messagesData) 
       ? messagesData 
       : (messagesData as any).messages || [];
-    const sorted = [...msgList].sort((a, b) => 
-      (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
+    const sorted = sortChatMessagesChronologically(msgList);
     // Re-apply realtime edits/soft-deletes so a stale in-flight fetch cannot
     // restore pre-edit text or resurrect a deleted row.
     return (reconcileMessages(reconcileScope, sorted) ?? []) as DirectMessage[];
@@ -855,9 +852,8 @@ export default function DirectMessagePage() {
         return;
       }
 
-      const hasMore = olderRaw.length > MESSAGES_PER_PAGE;
+      const { items: dataToUse, hasMore } = splitPageWindow(olderRaw, MESSAGES_PER_PAGE);
       setHasOlderMessages(hasMore);
-      const dataToUse = hasMore ? olderRaw.slice(0, MESSAGES_PER_PAGE) : olderRaw;
       const reversedOlder = [...dataToUse].reverse();
       const messageIds = reversedOlder.map((m) => m.id);
       const replyToIds = reversedOlder.filter((m) => m.reply_to_id).map((m) => m.reply_to_id as string);
@@ -1247,9 +1243,7 @@ export default function DirectMessagePage() {
               };
               return {
                 ...old,
-                messages: [...filtered, messageToAdd].sort(
-                  (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-                ),
+                messages: sortChatMessagesChronologically([...filtered, messageToAdd]),
               };
             }
           );

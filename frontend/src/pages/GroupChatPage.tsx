@@ -11,6 +11,8 @@ import { ChatMessagesScroller } from "@/components/chat/ChatMessagesScroller";
 import { debugLogEvent } from "@/components/chat/chatVirtDebug";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
 import { reconcileFlatReactions, reconcileReactions } from "@/lib/chatReactionReconciliation";
 import {
@@ -693,8 +695,7 @@ export default function GroupChatPage() {
         return { messages: [] as GroupMessage[], hasOlderMessages: false, reactions: [] as MessageReaction[] };
       }
       
-      const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-      const dataToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+      const { items: dataToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
       
       const messageIds = dataToDisplay.map((m) => m.id);
       const replyToIds = dataToDisplay
@@ -1240,9 +1241,7 @@ export default function GroupChatPage() {
         reconcileScope,
         (reconcileMessages(
           reconcileScope,
-          [...previousOnly, ...mergedIncomingMessages].sort((a, b) =>
-            (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-          ),
+          sortChatMessagesChronologically([...previousOnly, ...mergedIncomingMessages]),
         ) ?? []) as GroupMessage[],
       ) ?? []) as GroupMessage[];
       if (prev && mergedMessages.length < prev.length - 5) {
@@ -1431,9 +1430,8 @@ export default function GroupChatPage() {
         return;
       }
 
-      const hasMore = olderData.length > MESSAGES_PER_PAGE;
+      const { items: dataToUse, hasMore } = splitPageWindow(olderData, MESSAGES_PER_PAGE);
       setHasOlderMessages(hasMore);
-      const dataToUse = hasMore ? olderData.slice(0, MESSAGES_PER_PAGE) : olderData;
 
       // Reverse to get chronological order
       const reversedOlder = [...dataToUse].reverse();
@@ -1573,9 +1571,7 @@ export default function GroupChatPage() {
       ];
       const byId = new Map<string, any>();
       rawWindow.forEach((message) => byId.set(message.id, message));
-      const windowRows = [...byId.values()].sort(
-        (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-      );
+      const windowRows = sortChatMessagesChronologically([...byId.values()]);
       const messageIds = windowRows.map((message) => message.id);
       const replyToIds = [...new Set(windowRows.filter((message) => message.reply_to_id).map((message) => message.reply_to_id as string))];
       const authorIds = [...new Set(windowRows.map((message) => message.author_id).filter(Boolean))];
@@ -1707,9 +1703,7 @@ export default function GroupChatPage() {
             }
             
             // Add new message (from other user)
-            const updatedMessages = [...old.messages, messageToAdd].sort(
-              (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-            );
+            const updatedMessages = sortChatMessagesChronologically([...old.messages, messageToAdd]);
             return { ...old, messages: updatedMessages };
           });
           

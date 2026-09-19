@@ -1139,14 +1139,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/pages/ClubChatPage.tsx",
-      "line": 535,
-      "column": 32,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/pages/ClubDetailPage.tsx",
       "line": 1592,
       "column": 41,
@@ -1387,14 +1379,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/pages/DirectMessagePage.tsx",
-      "line": 565,
-      "column": 32,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/pages/EventDetailPage.tsx",
       "line": 2047,
       "column": 70,
@@ -1456,14 +1440,6 @@
       "column": 45,
       "code": "TS2339",
       "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/GroupChatPage.tsx",
-      "line": 726,
-      "column": 32,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
       "category": "source-backed"
     },
     {
@@ -1588,7 +1564,7 @@
     }
   ],
   "counts": {
-    "source-backed": 138,
+    "source-backed": 135,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

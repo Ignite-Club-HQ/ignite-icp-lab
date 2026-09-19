@@ -61,6 +61,8 @@ import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
+import { splitPageWindow } from "@/lib/chatPageWindow";
+import { sortChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import {
   recordRealtimeMutation,
   reconcileMessages,
@@ -502,8 +504,7 @@ export default function ClubChatPage() {
         return { messages: [] as Message[], hasOlderMessages: false };
       }
 
-      const hasMore = rawMessages.length > MESSAGES_PER_PAGE;
-      const messagesToDisplay = hasMore ? rawMessages.slice(0, MESSAGES_PER_PAGE) : rawMessages;
+      const { items: messagesToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
 
       const messageIds = messagesToDisplay.map((m) => m.id);
       const replyToIds = messagesToDisplay
@@ -778,9 +779,7 @@ export default function ClubChatPage() {
           });
       const mergedMessages = (reconcileMessages(
         reconcileScope,
-        [...previousOnly, ...mergedIncomingMessages].sort((a, b) =>
-          (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-        ),
+        sortChatMessagesChronologically([...previousOnly, ...mergedIncomingMessages]),
       ) ?? []) as Message[];
 
       cacheMessages("club", clubId, mergedMessages.map((m) => ({
@@ -914,9 +913,8 @@ export default function ClubChatPage() {
         return;
       }
 
-      const hasMore = olderData.length > MESSAGES_PER_PAGE;
+      const { items: dataToUse, hasMore } = splitPageWindow(olderData, MESSAGES_PER_PAGE);
       setHasOlderMessages(hasMore);
-      const dataToUse = hasMore ? olderData.slice(0, MESSAGES_PER_PAGE) : olderData;
 
       // Reverse to get chronological order
       const reversedOlder = [...dataToUse].reverse();
@@ -1031,9 +1029,7 @@ export default function ClubChatPage() {
       );
       const byId = new Map<string, Message>();
       [...windowRows, ...existingNewer].forEach((message: any) => byId.set(message.id, message as Message));
-      const anchoredWindow = [...byId.values()].sort(
-        (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id),
-      );
+      const anchoredWindow = sortChatMessagesChronologically([...byId.values()]);
 
       // See TeamChatPage: only remount the scroller if the target row wasn't
       // already painted, otherwise the remount flashes blank + skeleton.
@@ -1125,9 +1121,7 @@ export default function ClubChatPage() {
             }
             
             // Add new message (from other user)
-            const updatedMessages = [...existingMessages, messageToAdd].sort(
-              (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-            );
+            const updatedMessages = sortChatMessagesChronologically([...existingMessages, messageToAdd]);
             return { ...old, messages: updatedMessages };
           });
           
