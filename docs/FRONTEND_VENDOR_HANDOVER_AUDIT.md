@@ -126,17 +126,35 @@ Focused validation actually run for this increment:
 - report-message authentication/submission characterization (6 tests);
 - Messages dialog-loading contract (1 Node test).
 
+Broader validation run after the final extraction:
+
+- `npm test`: 1,720 Vitest tests across 153 files passed (in addition to its
+  Node contracts).
+- `npm run test:legacy`: 4,179 tests passed and one skipped across 417 files.
+  The suite retained its known jsdom navigation and dynamic-import diagnostics
+  without a test failure.
+- `npm run typecheck:lab`, `npm run typecheck:strict`, `npm run check:isolation`,
+  `npm run check:quality-ratchet`, and `npm run lint` passed.
+- The isolated lab build and guarded product build passed. The latter measured
+  8,889,808 JavaScript bytes, 172,796 CSS bytes, 497 JavaScript chunks, and a
+  1,112,693-byte largest chunk; `check:product-bundle` passed its review
+  ceilings.
+
 The full product diagnostic ratchet remains blocked by its documented
-reference-product backlog. The check reports the pre-existing page diagnostics
-in chat and fixture-derived query shapes; none were introduced by these
-extractions. The next safe chat slice is a controller for shared pagination,
-reconciliation, draft, composer, and cache lifecycle. It is intentionally not
-merged yet because the six routes still have different optimistic mutation,
-local-ICP, entitlement, and Realtime semantics that need route-by-route
-characterization before centralizing them. Sponsor header strips and mini-league
-join-link cards remain separate for the same reason: their placement,
-permission, analytics, and confirmation flows differ beyond their visible
-markup.
+reference-product backlog: it currently reports 198 diagnostics and fails the
+ratchet with 18 deviations from the checked-in baseline. Those include
+fixture-derived query-shape errors in `MessagesPage`, existing local/event
+union errors in `EventDetailPage`, and permissive query-result errors in the
+chat pages. This bounded pass did not add a diagnostic in any new extraction
+module, but the affected source pages require a separately scoped product
+typing effort before the baseline can be updated. The next safe chat slice is
+a controller for shared pagination, reconciliation, draft, composer, and cache
+lifecycle. It is intentionally not merged yet because the six routes still
+have different optimistic mutation, local-ICP, entitlement, and Realtime
+semantics that need route-by-route characterization before centralizing them.
+Sponsor header strips and mini-league join-link cards remain separate for the
+same reason: their placement, permission, analytics, and confirmation flows
+differ beyond their visible markup.
 
 ### Handover status
 
