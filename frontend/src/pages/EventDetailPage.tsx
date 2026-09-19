@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from "react";
 import { useDeleteEvent } from "@/hooks/useDeleteEvent";
+import { buildEventRsvpBuckets } from "@/features/events/eventRsvpBuckets";
 
 import { abortAllInFlightRestGets } from "@/lib/supabaseAuthRetry";
 import { Share } from "@capacitor/share";
@@ -3758,38 +3759,6 @@ export default function EventDetailPage() {
         );
         const adultsAreTheAudience = attendanceAudience === "parents_only";
 
-        const filterRsvp = (rsvp: any) => {
-          if (effectiveShowAll) return true;
-          if (isMiniLeagueEvent) {
-            // Kids-only by default: hide adult/parent self-RSVPs.
-            return !!rsvp.child_id || !!rsvp.mini_league_player_id;
-          }
-          if (rsvp.mini_league_player_id) return true;
-          if (rsvp.child_id) return true;
-          if (adultsAreTheAudience) return true;
-          return playerUserIds.has(rsvp.user_id);
-        };
-
-        // Dedupe duplicate RSVP rows for the same player/adult (e.g. co-parent
-        // double-RSVPs or accidental duplicate inserts) so the list and the
-        // header count always agree.
-        const dedupeRsvps = (list: any[]) => {
-          const seen = new Set<string>();
-          return list.filter((r: any) => {
-            // Prefer child_id (direct or via linked mini-league player) so the
-            // same underlying child isn't shown twice when both an mlp RSVP
-            // and a child RSVP exist.
-            const linkedChildId = r.child_id || r.mini_league_players?.child_id || null;
-            const key = linkedChildId
-              ? `c:${linkedChildId}`
-              : r.mini_league_player_id
-                ? `m:${r.mini_league_player_id}`
-                : `u:${r.user_id}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-        };
         // Targeted club-wide event: only attendees inside the event audience
         // may appear in any bucket. Also hydrate child names from the scoped
         // roster so authorised managers never see "Unknown".
@@ -3805,22 +3774,17 @@ export default function EventDetailPage() {
           if (cg.guardian_id) scopedAdultIds.add(cg.guardian_id);
         });
         const isTargetedScope = !!targetTeamIdsForFetch;
-        const inTargetScope = (r: any) => {
-          if (!isTargetedScope) return true;
-          const childId = r.child_id || r.mini_league_players?.child_id || null;
-          if (childId) return scopedChildIds.has(childId);
-          return !r.user_id || scopedAdultIds.has(r.user_id);
-        };
-        const hydrateRsvp = (r: any) => {
-          const childId = r.child_id;
-          if (!childId || r.children?.name) return r;
-          const name = scopedChildNames.get(childId);
-          return name ? { ...r, children: { ...(r.children ?? {}), name } } : r;
-        };
-        const prepareRsvps = (list: any[]) => dedupeRsvps(list.filter(inTargetScope)).map(hydrateRsvp);
-        const goingRsvps = prepareRsvps(rsvps?.filter((r) => r.status === "going" && filterRsvp(r)) || []);
-        const maybeRsvps = prepareRsvps(rsvps?.filter((r) => r.status === "maybe" && filterRsvp(r)) || []);
-        const notGoingRsvps = prepareRsvps(rsvps?.filter((r) => r.status === "not_going" && filterRsvp(r)) || []);
+        const { goingRsvps, maybeRsvps, notGoingRsvps } = buildEventRsvpBuckets({
+          rsvps,
+          effectiveShowAll,
+          isMiniLeagueEvent,
+          adultsAreTheAudience,
+          playerUserIds,
+          isTargetedScope,
+          scopedChildIds,
+          scopedAdultIds,
+          scopedChildNames,
+        });
 
 
         const respondedUserIds = new Set(rsvps?.filter(r => !r.child_id).map(r => r.user_id) || []);

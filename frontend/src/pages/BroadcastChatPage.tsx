@@ -71,6 +71,7 @@ import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authorita
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
 
 import { useMessageReads } from "@/hooks/useMessageReads";
+import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { queueMessage, getQueuedMessagesForTarget } from "@/lib/messageQueue";
@@ -1073,23 +1074,11 @@ export default function BroadcastChatPage() {
     "Announcements"
   );
 
-  // Mark messages as read when they become visible
-  // Track messages we've already marked to avoid loops
-  const markedAsReadRef = useRef<Set<string>>(new Set());
-
-  // Mark messages as read when they become visible
-  useEffect(() => {
-    if (!filteredMessages?.length || !user?.id) return;
-    
-    const messagesToMark = filteredMessages
-      .filter(m => m.author_id !== user.id && !m.id.startsWith('temp-') && !markedAsReadRef.current.has(m.id))
-      .map(m => m.id);
-    
-    if (messagesToMark.length > 0) {
-      messagesToMark.forEach(id => markedAsReadRef.current.add(id));
-      markMessagesAsRead(messagesToMark);
-    }
-  }, [filteredMessages, user?.id, markMessagesAsRead]);
+  useMarkVisibleChatMessagesRead({
+    messages: filteredMessages,
+    userId: user?.id,
+    markMessagesAsRead,
+  });
 
   if (showLoading) {
     return <ChatPageSkeleton title="Announcements" subtitle="Official updates & news" />;

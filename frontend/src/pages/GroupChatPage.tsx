@@ -106,6 +106,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format, isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
 import { useMessageReads } from "@/hooks/useMessageReads";
+import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { MessageReadAvatars } from "@/components/chat/MessageReadAvatars";
@@ -2530,22 +2531,11 @@ export default function GroupChatPage() {
     profile?.display_name || undefined
   );
 
-  // Track messages we've already marked to avoid loops
-  const markedAsReadRef = useRef<Set<string>>(new Set());
-
-  // Mark messages as read when they become visible
-  useEffect(() => {
-    if (!filteredMessages?.length || !user?.id) return;
-    
-    const messagesToMark = filteredMessages
-      .filter(m => m.author_id !== user.id && !m.id.startsWith('temp-') && !markedAsReadRef.current.has(m.id))
-      .map(m => m.id);
-    
-    if (messagesToMark.length > 0) {
-      messagesToMark.forEach(id => markedAsReadRef.current.add(id));
-      markMessagesAsRead(messagesToMark);
-    }
-  }, [filteredMessages, user?.id, markMessagesAsRead]);
+  useMarkVisibleChatMessagesRead({
+    messages: filteredMessages,
+    userId: user?.id,
+    markMessagesAsRead,
+  });
 
   const messageReactionsMap = useMemo(() => {
     const map = new Map<string, MessageReaction[]>();

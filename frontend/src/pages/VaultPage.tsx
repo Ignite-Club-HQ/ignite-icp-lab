@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "rea
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
+import { resolveDriveTitlesForClub } from "@/features/vault/driveTitleResolution";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { FolderOpen, FileText, Image, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, ImageIcon, FolderPlus, Plus, Home, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, Share2, FileImage, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
@@ -211,11 +212,10 @@ function SupabaseVaultPage() {
     setResolvingDriveTitles(true);
     const toastId = toast.loading("Fetching real Google Drive titles…");
     try {
-      const { data, error } = await supabase.functions.invoke("resolve-drive-titles", {
-        body: { clubId },
-      });
-      if (error) throw error;
-      const summary = (data as any)?.summary;
+      const summary = await resolveDriveTitlesForClub(
+        clubId,
+        (name, options) => supabase.functions.invoke(name, options),
+      );
       if (!summary || summary.scanned === 0) {
         toast.success("No Google files needed renaming.", { id: toastId });
       } else {

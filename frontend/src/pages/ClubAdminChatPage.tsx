@@ -80,6 +80,10 @@ import {
 } from "@/lib/chatThreadLoadState";
 import { useProfiles } from "@/hooks/useProfiles";
 import { useMessageReads } from "@/hooks/useMessageReads";
+import {
+  CHAT_READ_EXCLUDED_WITH_QUEUED_ID_PREFIXES,
+  useMarkVisibleChatMessagesRead,
+} from "@/hooks/useMarkVisibleChatMessagesRead";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
 import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
@@ -966,17 +970,12 @@ function SupabaseClubAdminChatPage() {
     messageIds,
     user?.id
   );
-  const markedAsReadRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!filteredMessages?.length || !user?.id) return;
-    const toMark = filteredMessages
-      .filter((m) => m.author_id !== user.id && !m.id.startsWith("temp-") && !m.id.startsWith("queued-") && !markedAsReadRef.current.has(m.id))
-      .map((m) => m.id);
-    if (toMark.length > 0) {
-      toMark.forEach((id) => markedAsReadRef.current.add(id));
-      markMessagesAsRead(toMark);
-    }
-  }, [filteredMessages, user?.id, markMessagesAsRead]);
+  useMarkVisibleChatMessagesRead({
+    messages: filteredMessages,
+    userId: user?.id,
+    markMessagesAsRead,
+    excludedIdPrefixes: CHAT_READ_EXCLUDED_WITH_QUEUED_ID_PREFIXES,
+  });
 
   const firstMatchId = searchQuery.trim() ? filteredMessages?.[0]?.id ?? null : null;
   const lastCenteredKeyRef = useRef<string | null>(null);

@@ -158,6 +158,43 @@ Sponsor header strips and mini-league join-link cards remain separate for the
 same reason: their placement, permission, analytics, and confirmation flows
 differ beyond their visible markup.
 
+### Follow-up refactor update — 2026-09-19
+
+The next bounded refactor pass preserved the product/reference routes and did
+not add any product module to `lab-runtime-files.json`, change the lab entry,
+enable a provider fallback, add a dependency, or contact a non-local service:
+
+- All six chat routes now use `useMarkVisibleChatMessagesRead` for the shared
+  visible, non-own, server-message read policy. The route contracts are
+  explicit: Team, Club, Group, and Broadcast deduplicate `temp-` rows;
+  Club Admin additionally excludes `queued-` rows; Direct Messages retain
+  their existing non-deduplicated marking behavior.
+- The investigation deliberately did **not** centralize pagination, composer
+  submission, or Realtime setup. Local ICP read/delivery, offline queues,
+  optimistic mutations, entitlements, and channel reconciliation still differ
+  by route, so merging them now would change behavior rather than remove true
+  duplication.
+- `EventDetailPage` now delegates RSVP audience filtering, target-scope
+  fencing, child-name hydration, and deterministic responder deduplication to
+  `buildEventRsvpBuckets`. The page still resolves event roles and source
+  queries before supplying that pure boundary.
+- `VaultPage` delegates the Drive-title function invocation and untrusted
+  response narrowing to `resolveDriveTitlesForClub`; page-local loading state,
+  toasts, and cache invalidation remain unchanged.
+- `MessagesPage` and `MessagePreview` now share inbox presentation helpers for
+  conversation styling, system-reminder detection, and name formatting.
+
+The product type-error baseline remains at 198 diagnostics. Before refreshing
+it for shifted locations, the current and previous diagnostic sets were
+compared as multisets of file, code, and message: all 198 signatures and their
+counts matched. The refresh therefore records only verified line movement and
+does not hide a new error.
+
+Focused legacy tests cover the six-route read policies plus Event RSVP
+bucketing, Vault response narrowing, and inbox presentation. The isolated lab
+runtime remains limited to its existing allowlist; these are product/reference
+boundaries and are intentionally not evidence of provider or RLS parity.
+
 ### Handover status
 
 | Handover objective | Status | Decision |

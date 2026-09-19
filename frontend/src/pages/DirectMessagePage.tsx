@@ -83,6 +83,7 @@ import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chat
 import { DIRECT_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { IGNITE_SUPPORT_USER_ID, isIgniteSupportUser } from "@/lib/systemUser";
 import { useMessageReads } from "@/hooks/useMessageReads";
+import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { Capacitor } from "@capacitor/core";
@@ -741,16 +742,12 @@ export default function DirectMessagePage() {
   const messageIds = useMemo(() => (localMessages || []).map(m => m.id).filter(id => !id.startsWith("temp-")), [localMessages]);
   const { readCounts, readFrontier, markMessagesAsRead } = useMessageReads("dm", conversationId || "", messageIds, user?.id);
 
-  // Mark visible messages as read when they appear
-  useEffect(() => {
-    if (!localMessages?.length || !user?.id) return;
-    const otherUserMessages = localMessages
-      .filter(m => m.author_id !== user.id && !m.id.startsWith("temp-"))
-      .map(m => m.id);
-    if (otherUserMessages.length > 0) {
-      markMessagesAsRead(otherUserMessages);
-    }
-  }, [localMessages, user?.id, markMessagesAsRead]);
+  useMarkVisibleChatMessagesRead({
+    messages: localMessages,
+    userId: user?.id,
+    markMessagesAsRead,
+    deduplicate: false,
+  });
   useEffect(() => {
     // Only reset from cache if the query hasn't already returned fresh data.
     // This prevents stale cache (missing reactions etc.) from overwriting

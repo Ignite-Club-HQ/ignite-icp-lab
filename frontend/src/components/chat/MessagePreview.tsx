@@ -1,23 +1,10 @@
 import { ImageIcon } from "lucide-react";
 import { formatMessagePreview as stripMentionFormatting } from "@/lib/messagePreview";
-
-function isSystemReminderText(text: string | null | undefined): boolean {
-  if (!text) return false;
-  return /\[galleryprompt:[0-9a-f-]{36}\]/i.test(text);
-}
-
-const getFirstName = (fullName: string | undefined): string => {
-  if (!fullName) return "";
-  return fullName.split(" ")[0];
-};
-
-const abbreviateClubName = (name: string): string => {
-  const words = name.trim().split(/\s+/);
-  if (words.length <= 1) return name;
-  const firstWord = words[0];
-  const initials = words.slice(1).map(w => w.charAt(0).toUpperCase()).join("");
-  return `${firstWord} ${initials}`;
-};
+import {
+  abbreviateClubName,
+  getFirstName,
+  isSystemReminderText,
+} from "@/features/messaging/inbox/inboxPresentation";
 
 interface MessagePreviewProps {
   text?: string;

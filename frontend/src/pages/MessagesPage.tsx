@@ -1,5 +1,10 @@
 import { useStickyList } from "@/hooks/useStickyList";
 import { useStableInboxReadModel } from "@/hooks/useStableInboxReadModel";
+import {
+  conversationTypeAccentStyle,
+  conversationTypeActiveStyle,
+  conversationTypeBadgeStyle,
+} from "@/features/messaging/inbox/inboxPresentation";
 import React, { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
@@ -133,57 +138,6 @@ function MessageSkeleton() {
     </Card>
   );
 }
-
-// Per-conversation-type accent colors. Stronger than the previous neutral
-// type chip but intentionally restrained: a thin left-edge stripe + a tinted
-// type pill, no avatar tinting, no card backgrounds.
-const TYPE_ACCENT_HSL: Record<string, string | undefined> = {
-  team: '142 71% 42%',   // green
-  club: '210 85% 52%',   // blue
-  group: '25 92% 52%',   // orange
-  admin_group: '210 85% 52%',
-  league: '270 60% 55%', // purple
-  dm: undefined,         // neutral
-  broadcast: undefined,
-  support: undefined,
-};
-
-function typeAccentStyle(type: string): React.CSSProperties | undefined {
-  const h = TYPE_ACCENT_HSL[type];
-  if (!h) return undefined;
-  return { borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: `hsl(${h})` };
-}
-
-function typeBadgeStyle(type: string): React.CSSProperties | undefined {
-  const h = TYPE_ACCENT_HSL[type];
-  if (!h) return undefined;
-  return { color: `hsl(${h})`, borderColor: `hsl(${h} / 0.4)`, backgroundColor: `hsl(${h} / 0.08)` };
-}
-
-// Detect automated/system reminder messages so the inbox can de-emphasize
-// them vs real human conversation. Currently keyed off the gallery-prompt
-// token (📸 Reminder: add team photos) — extend here as more system
-// reminder types are added.
-function isSystemReminderText(text: string | null | undefined): boolean {
-  if (!text) return false;
-  return /\[galleryprompt:[0-9a-f-]{36}\]/i.test(text);
-}
-
-
-// Helper to get first name only from a display name
-const getFirstName = (fullName: string | undefined): string => {
-  if (!fullName) return "";
-  return fullName.split(" ")[0];
-};
-
-// Abbreviate club names: "Bridgewater Soccer Club" -> "Bridgewater SC"
-const abbreviateClubName = (name: string): string => {
-  const words = name.trim().split(/\s+/);
-  if (words.length <= 1) return name;
-  const firstWord = words[0];
-  const initials = words.slice(1).map(w => w.charAt(0).toUpperCase()).join("");
-  return `${firstWord} ${initials}`;
-};
 
 // NOTE: Placeholder name generation was removed - it caused confusion by showing
 // fake names like "Casey Walker" when profiles weren't loaded yet.
@@ -3086,8 +3040,8 @@ export default function MessagesPage() {
         item={item}
         currentUserId={user?.id}
         typeLabel={typeLabel}
-        accentStyle={typeAccentStyle(item.type)}
-        badgeStyle={typeBadgeStyle(item.type)}
+        accentStyle={conversationTypeAccentStyle(item.type)}
+        badgeStyle={conversationTypeBadgeStyle(item.type)}
         eventTitleMap={eventTitleMap}
         vaultFolderNameMap={vaultFolderNameMap}
         vaultFileNameMap={vaultFileNameMap}
@@ -3362,10 +3316,10 @@ export default function MessagesPage() {
               <div className="flex items-center gap-2 py-1">
                 {shown.map((chip) => {
                   const active = typeFilter === chip.id;
-                  const accent = chip.type ? TYPE_ACCENT_HSL[chip.type] : undefined;
-                  const activeStyle: React.CSSProperties | undefined = active && accent
-                    ? { backgroundColor: `hsl(${accent} / 0.14)`, color: `hsl(${accent})`, borderColor: `hsl(${accent} / 0.45)` }
+                  const activeStyle = active && chip.type
+                    ? conversationTypeActiveStyle(chip.type)
                     : undefined;
+                  const hasActiveAccent = activeStyle !== undefined;
                   const showCount = chip.unread > 0;
                   return (
                     <button
@@ -3377,7 +3331,7 @@ export default function MessagesPage() {
                       aria-label={showCount ? `${chip.label}, ${chip.unread} unread` : chip.label}
                       className={`shrink-0 inline-flex items-center gap-2 px-4 h-10 min-h-[40px] rounded-full text-sm border transition-colors touch-manipulation ${
                         active
-                          ? `font-semibold ${accent ? '' : 'bg-primary text-primary-foreground border-primary'}`
+                          ? `font-semibold ${hasActiveAccent ? '' : 'bg-primary text-primary-foreground border-primary'}`
                           : `${showCount ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'} bg-background border-border hover:text-foreground`
                       }`}
                     >

@@ -92,6 +92,7 @@ import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
 
 import { useMessageReads } from "@/hooks/useMessageReads";
+import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache, cacheProfiles } from "@/lib/profileCache";
@@ -1972,23 +1973,11 @@ export default function TeamChatPage() {
     profile?.display_name || undefined
   );
 
-  // Track messages we've already marked to avoid loops
-  const markedAsReadRef = useRef<Set<string>>(new Set());
-
-  // Mark messages as read when they become visible
-  useEffect(() => {
-    if (!filteredMessages?.length || !user?.id) return;
-    
-    // Mark all non-own messages as read
-    const messagesToMark = filteredMessages
-      .filter(m => m.author_id !== user.id && !m.id.startsWith('temp-') && !markedAsReadRef.current.has(m.id))
-      .map(m => m.id);
-    
-    if (messagesToMark.length > 0) {
-      messagesToMark.forEach(id => markedAsReadRef.current.add(id));
-      markMessagesAsRead(messagesToMark);
-    }
-  }, [filteredMessages, user?.id, markMessagesAsRead]);
+  useMarkVisibleChatMessagesRead({
+    messages: filteredMessages,
+    userId: user?.id,
+    markMessagesAsRead,
+  });
 
   // Live online count for the team — only shown in the header sublabel when > 0.
   const teamOnlineCount = useChatOnlineCount("team", teamId, { enabled: chatReady });
