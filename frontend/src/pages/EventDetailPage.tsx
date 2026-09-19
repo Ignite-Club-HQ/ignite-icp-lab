@@ -10,7 +10,7 @@ import { defaultMinutesPerHalfForTeamName } from "@/lib/teamAgeDefaults";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, MapPin, Users, CheckCircle2, Circle, Loader2, Plus, Trash2, UserPlus, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Play, Flame, MoreVertical, Eye, ChevronDown, CalendarPlus, Shield, Trophy, Hand, Lock } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Users, CheckCircle2, Circle, Loader2, Plus, Trash2, UserPlus, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Play, Flame, MoreVertical, Eye, ChevronDown, CalendarPlus, Trophy, Lock } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { queueRsvp } from "@/lib/rsvpQueue";
 import { TrainingDefaultControl } from "@/components/event/TrainingDefaultControl";
@@ -85,8 +85,11 @@ import { resolveRsvpAudience, shouldPromptPlayer, shouldPromptSelf, isParentFirs
 import { resolveRsvpChildren, resolveEventChildRoster } from "@/lib/resolveEventChildScope";
 
 
+import {
+  EventAttendeeCard,
+  resolveEventAttendeeRoleLabel,
+} from "@/components/event/EventAttendeeCard";
 import { AdminRsvpChanger } from "@/components/event/AdminRsvpChanger";
-
 import { AttendanceRow } from "@/components/event/AttendanceRow";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
@@ -159,177 +162,6 @@ const rsvpOptions: { value: RsvpStatus; label: string; icon: string }[] = [
 ];
 
 const normalizeDutyName = (name: string | null | undefined) => name?.trim().toLowerCase() ?? "";
-
-// Role labels shown on the attendance list must reflect the role the person
-// holds *for this event's audience*. A parent of a junior who also plays in a
-// senior team must not be badged "Player" on a junior fixture.
-const ROLE_LABEL_PRIORITY = [
-  "club_admin",
-  "association_admin",
-  "committee_member",
-  "team_admin",
-  "coach",
-  "league_admin",
-  "competition_admin",
-  "parent",
-  "player",
-  "basic_user",
-];
-
-const pickRoleByPriority = (roles: string[]): string | undefined => {
-  if (roles.length === 0) return undefined;
-  for (const r of ROLE_LABEL_PRIORITY) if (roles.includes(r)) return r;
-  return roles[0];
-};
-
-const resolveAttendeeRoleLabel = (
-  member: { roles?: string[]; role_team_pairs?: { role: string; team_id: string | null }[] } | undefined,
-  event: any,
-): string | undefined => {
-  if (!member) return undefined;
-  const pairs = member.role_team_pairs ?? [];
-  const scopeTeams: string[] | null = event?.team_id
-    ? [event.team_id as string]
-    : Array.isArray(event?.target_team_ids) && event.target_team_ids.length > 0
-      ? (event.target_team_ids as string[])
-      : null;
-
-  if (scopeTeams) {
-    const scoped = pairs.filter((p) => p.team_id && scopeTeams.includes(p.team_id)).map((p) => p.role);
-    const inScope = pickRoleByPriority(scoped);
-    if (inScope) return inScope;
-    // No team-scoped role — fall back to their club-level role only.
-    const clubLevel = pairs.filter((p) => !p.team_id).map((p) => p.role);
-    const clubRole = pickRoleByPriority(clubLevel);
-    if (clubRole) return clubRole;
-    // Synthetic members (e.g. linked parents with no user_roles rows) carry a
-    // roles array but no pairs — use it rather than showing no badge at all.
-    if (pairs.length === 0) return pickRoleByPriority(member.roles ?? []);
-    return undefined;
-  }
-
-
-  // Untargeted club-wide event: no single team scope, so prefer the most
-  // representative role rather than whichever row came back first.
-  return pickRoleByPriority(member.roles ?? pairs.map((p) => p.role));
-};
-
-
-// Helper component for attendee display with payment status and admin RSVP controls
-const AttendeeCard = ({ 
-  rsvp, 
-  hasPaid, 
-  isAdmin, 
-  showPrice, 
-  onTogglePayment,
-  isPending,
-  isMiniLeague,
-  onChangeStatus,
-  currentStatus,
-  memberRole,
-  isCaptain,
-  isPotm,
-  isGoalkeeper,
-}: {
-  rsvp: any; 
-  hasPaid?: boolean;
-  isAdmin?: boolean;
-  showPrice?: boolean;
-  onTogglePayment?: () => void;
-  isPending?: boolean;
-  isMiniLeague?: boolean;
-  onChangeStatus?: (status: RsvpStatus) => void;
-  currentStatus?: RsvpStatus;
-  memberRole?: string;
-  isCaptain?: boolean;
-  isPotm?: boolean;
-  isGoalkeeper?: boolean;
-}) => {
-  const isChildRsvp = !!rsvp.child_id;
-  const isMiniLeaguePlayerRsvp = !!rsvp.mini_league_player_id;
-  const displayName = isMiniLeaguePlayerRsvp 
-    ? rsvp.mini_league_players?.name 
-    : isChildRsvp 
-      ? rsvp.children?.name 
-      : rsvp.profiles?.display_name;
-  const avatarInitial = displayName?.charAt(0)?.toUpperCase() || "?";
-
-  const matchIcons = (isCaptain || isPotm || isGoalkeeper) ? (
-    <span className="inline-flex items-center gap-1 shrink-0">
-      {isCaptain && (
-        <span title="Captain" className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400">
-          <Shield className="h-3 w-3" />
-        </span>
-      )}
-      {isGoalkeeper && (
-        <span title="Goalkeeper" className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-          <Hand className="h-3 w-3" />
-        </span>
-      )}
-      {isPotm && (
-        <span title="Player of the Match" className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-          <Trophy className="h-3 w-3" />
-        </span>
-      )}
-    </span>
-  ) : null;
-
-  return (
-    <AttendanceRow
-      name={displayName || "Unknown"}
-      avatarUrl={!isChildRsvp && !isMiniLeaguePlayerRsvp ? rsvp.profiles?.avatar_url || null : null}
-      avatarFallback={avatarInitial}
-      roleLabel={
-        isChildRsvp && !isMiniLeague
-          ? "Child"
-          : !isChildRsvp && !isMiniLeaguePlayerRsvp && memberRole
-          ? String(memberRole).replace(/_/g, " ")
-          : null
-      }
-      roleTone={isChildRsvp && !isMiniLeague ? "child" : "neutral"}
-      secondaryLine={rsvp.notes || null}
-      rightSlot={
-        <>
-          {matchIcons}
-          {showPrice && hasPaid && (
-            <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-primary shrink-0">
-              <Check className="h-3 w-3 mr-0.5" />
-              Paid
-            </Badge>
-          )}
-          {isAdmin && onChangeStatus && currentStatus && (
-            <AdminRsvpChanger
-              currentStatus={currentStatus}
-              playerName={displayName || "Unknown"}
-              onChangeStatus={onChangeStatus}
-              isPending={isPending}
-            />
-          )}
-          {isAdmin && showPrice && onTogglePayment && (
-            <Button
-              variant={hasPaid ? "secondary" : "outline"}
-              size="sm"
-              onClick={onTogglePayment}
-              disabled={isPending}
-              className="h-8 px-2 shrink-0"
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : hasPaid ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <>
-                  <DollarSign className="h-4 w-4 mr-1" />
-                  <span className="text-xs">Mark Paid</span>
-                </>
-              )}
-            </Button>
-          )}
-        </>
-      }
-    />
-  );
-};
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -4083,7 +3915,7 @@ export default function EventDetailPage() {
 
 
         const renderAttendee = (rsvp: any, status: RsvpStatus) => (
-          <AttendeeCard
+          <EventAttendeeCard
             key={rsvp.id}
             rsvp={rsvp}
             hasPaid={status !== "not_going" ? paidUserIds.has(rsvp.user_id) : undefined}
@@ -4108,7 +3940,7 @@ export default function EventDetailPage() {
                   const member = membersWithRoles?.find((m: any) => m.id === rsvp.user_id);
                   // Always resolve against the event's team scope — a "player"
                   // role on a different team must never label them here.
-                  return resolveAttendeeRoleLabel(member, event);
+                  return resolveEventAttendeeRoleLabel(member, event);
                 })()
               : undefined}
 
@@ -4335,7 +4167,7 @@ export default function EventDetailPage() {
                   name={member.display_name || "Unknown"}
                   avatarUrl={member.avatar_url}
                   roleLabel={(() => {
-                    const label = resolveAttendeeRoleLabel(member, event);
+                    const label = resolveEventAttendeeRoleLabel(member, event);
                     return label ? String(label).replace(/_/g, " ") : null;
                   })()}
 
