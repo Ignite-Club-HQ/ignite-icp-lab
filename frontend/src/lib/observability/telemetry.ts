@@ -10,6 +10,11 @@ export type TelemetrySink = (event: TelemetryEvent) => void;
 
 const sensitiveKey = /(^|_)(access|authorization|cookie|key|password|secret|token|user_id)(_|$)/i;
 const maxAttributeLength = 128;
+type TelemetryAttribute = TelemetryAttributes[string];
+
+function isTelemetryAttribute(value: unknown): value is TelemetryAttribute {
+  return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
 
 function sanitizeAttributes(attributes: Record<string, unknown>): TelemetryAttributes {
   const sanitized: TelemetryAttributes = {};
@@ -18,7 +23,7 @@ function sanitizeAttributes(attributes: Record<string, unknown>): TelemetryAttri
       sanitized[key] = "[REDACTED]";
     } else if (typeof value === "string") {
       sanitized[key] = value.slice(0, maxAttributeLength);
-    } else if (typeof value === "number" || typeof value === "boolean" || value === null) {
+    } else if (isTelemetryAttribute(value)) {
       sanitized[key] = value;
     }
   }

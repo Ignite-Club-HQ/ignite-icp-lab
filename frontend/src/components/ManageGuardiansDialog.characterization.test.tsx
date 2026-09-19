@@ -40,7 +40,7 @@ function queryFor(table: string) {
   });
   Object.defineProperty(query, "then", {
     value: (resolve: any, reject: any) => {
-      const deletion = mocks.operations.findLast(op => op.kind === "delete" && op.table === table && op.filters === filters);
+      const deletion = [...mocks.operations].reverse().find(op => op.kind === "delete" && op.table === table && op.filters === filters);
       if (deletion) deletion.filters = [...filters];
       const result = deletion
         ? { data: null, error: mocks.deleteError }

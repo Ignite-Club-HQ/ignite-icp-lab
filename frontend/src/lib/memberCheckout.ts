@@ -12,6 +12,14 @@ export interface MemberCheckoutParams {
   success_url?: string;
   cancel_url?: string;
   metadata?: Record<string, string>;
+  platform_fee_cents?: number;
+}
+
+export const IGNITE_PLATFORM_FEE_PERCENT = 0.05;
+export const MEMBER_CHECKOUT_MIN_CENTS = 50;
+
+export function calculateIgnitePlatformFeeCents(amountCents: number): number {
+  return Math.round(amountCents * IGNITE_PLATFORM_FEE_PERCENT);
 }
 
 export interface MemberCheckoutResult {

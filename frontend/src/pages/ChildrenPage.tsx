@@ -124,7 +124,7 @@ function SupabaseChildrenPage() {
       if (error) throw error;
       return data as Child[];
     },
-    enabled: !!user && !useIcpLab,
+    enabled: !!user,
   });
 
   // Fetch children where user is a guardian (not primary parent)
@@ -141,7 +141,7 @@ function SupabaseChildrenPage() {
         .filter(d => d.children)
         .map(d => ({ ...(d.children as unknown as Child), isGuardianOnly: true }));
     },
-    enabled: !!user && !useIcpLab,
+    enabled: !!user,
   });
 
   // Combine and deduplicate children
@@ -165,7 +165,7 @@ function SupabaseChildrenPage() {
       if (error) throw error;
       return data as (ChildAssignment & { child_id: string })[];
     },
-    enabled: !!children?.length && !useIcpLab,
+    enabled: !!children?.length,
   });
 
   // Fetch pending guardian invites for own children
@@ -186,7 +186,7 @@ function SupabaseChildrenPage() {
       // Filter to only guardian invites (those with guardian_child_id in metadata)
       return (data || []).filter(inv => (inv.metadata as any)?.guardian_child_id);
     },
-    enabled: !!ownChildren?.length && !useIcpLab,
+    enabled: !!ownChildren?.length,
   });
 
   // Fetch available teams (teams user is a member of)
@@ -206,7 +206,7 @@ function SupabaseChildrenPage() {
       const uniqueTeams = Array.from(new Map(teams.map(t => [t.id, t])).values());
       return uniqueTeams;
     },
-    enabled: !!user && !useIcpLab,
+    enabled: !!user,
   });
 
   // Derive available clubs from available teams

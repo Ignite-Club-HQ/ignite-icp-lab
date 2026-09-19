@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { createPlacementAdminController, type PlacementAdminController } from "@/lab/placementAdminSettings";
+import { createPlacementAdminController, type PlacementAdminController, type PlacementAdminSettings } from "@/lab/placementAdminSettings";
 import { PlacementAdminSettingsPanel } from "@/lab/PlacementAdminSettingsPanel";
 
-const initialSettings = {
+const initialSettings: PlacementAdminSettings = {
   countries: [
     {
       country: "AU",
@@ -26,7 +26,7 @@ const initialSettings = {
     },
   ],
   clubs: [],
-} as const;
+};
 
 export function PlacementAdminSettingsPage({
   controller = createPlacementAdminController(initialSettings),

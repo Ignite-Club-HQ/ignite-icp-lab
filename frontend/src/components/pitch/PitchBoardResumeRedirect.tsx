@@ -192,7 +192,7 @@ export default function PitchBoardResumeRedirect() {
     // catch the case where the URL is still /auth or the Suspense fallback
     // when the first attempt runs, and only resolves to "/" a few hundred
     // milliseconds later once the AuthProvider hydrates.
-    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    const timers: number[] = [];
     const scheduleAttempt = (delayMs: number) => {
       const timer = window.setTimeout(() => {
         if (!cancelled) attempt();
