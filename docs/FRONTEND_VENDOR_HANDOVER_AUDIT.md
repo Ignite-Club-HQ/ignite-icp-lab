@@ -280,6 +280,37 @@ run typecheck:strict`, `npm run typecheck:product` (187 diagnostics,
 unchanged), `npm run lint`, `npm run check:quality-ratchet`, and `npm run
 check:isolation`, all passing.
 
+### Event capability and diagnostic ratchet update — 2026-09-19
+
+`EventDetailPage` now reuses the existing typed `resolveEventCapabilities`
+helper for the repeated `isAdmin`/`isAppAdmin`/event Subs Manager boolean
+composition. The page still owns the role queries, source-provider branches,
+query enablement policy, mutations, and rendering; the helper is pure and an
+exhaustive `undefined`/`null`/`false`/`true` truth-table test preserves the
+previous formulas. No lab runtime file or provider boundary changed.
+
+The six chat composer submissions remain route-local by design. Team and Club
+retain their local ICP delivery branches and missing-contract failures; Group
+and Direct Message retain their offline queues; Club Admin and Broadcast do
+not gain those behaviors; and entitlement, optimistic-cache, and conversation
+scope differences remain explicit. No composer or route-local mutation
+behavior was centralized in this slice.
+
+Three narrow product diagnostics were removed by typing the already-selected
+child and team-request rows before extracting profile IDs in
+`AddMiniLeagueMemberSheet`, `AddTeamMemberSheet`, and `PendingTeamRequests`.
+The product ratchet moved from 187 to 184 diagnostics (source-backed 127 to
+124; missing-reference 49; inert-edge-function-reference 11). Before the
+baseline refresh, normalized `(file, code, message)` multisets had no added
+signatures and exactly those three removed signatures; the refresh records
+verified line movement from the EventDetail extraction and does not hide a new
+diagnostic.
+
+Focused validation for this update: `eventCapabilities.test.ts` (7 tests),
+`npm run typecheck:lab`, `npm run typecheck:strict`,
+`npm run typecheck:product`, and `check-isolation`, all passing. Broader
+frontend gates remain required before handover.
+
 ### Handover status
 
 | Handover objective | Status | Decision |

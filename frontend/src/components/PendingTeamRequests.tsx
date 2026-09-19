@@ -41,11 +41,12 @@ export function PendingTeamRequests({ clubId }: PendingTeamRequestsProps) {
 
       // Fetch requester profiles
       if (!data || data.length === 0) return [];
-      const userIds = [...new Set(data.map(r => r.requested_by))];
+      const requestRows = data as Database["public"]["Tables"]["team_creation_requests"]["Row"][];
+      const userIds = [...new Set(requestRows.map(r => r.requested_by))];
       const { data: profiles } = await selectCachedProfilesByIds(userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      return data.map(r => ({
+      return requestRows.map(r => ({
         ...r,
         requester: profileMap.get(r.requested_by),
       }));

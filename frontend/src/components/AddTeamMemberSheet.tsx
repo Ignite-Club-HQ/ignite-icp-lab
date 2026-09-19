@@ -69,6 +69,13 @@ interface PendingInviteChildMatch {
   inviteId: string;
 }
 
+type ExistingTeamChildRow = {
+  id: string;
+  name: string;
+  year_of_birth: number | null;
+  parent_id: string | null;
+};
+
 interface BulkMember {
   id: string;
   name: string;
@@ -449,13 +456,14 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
         .in("id", allChildIds);
       
       if (!children?.length) return [];
-      const parentIds = [...new Set(children.map(c => c.parent_id))];
+      const childRows = children as ExistingTeamChildRow[];
+      const parentIds = [...new Set(childRows.map(c => c.parent_id))];
       const { data: parents } = await selectCachedProfilesByIds(parentIds);
       const parentMap = new Map(parents?.map(p => [p.id, p.display_name]) || []);
       
-      return children.map(c => ({
+      return childRows.map(c => ({
         ...c,
-        parent_name: parentMap.get(c.parent_id) || "Unknown",
+        parent_name: c.parent_id ? parentMap.get(c.parent_id) || "Unknown" : "Unknown",
       }));
     },
     enabled: open && !!clubId && (selectedRole === "parent" || bulkMembers.some(m => m.role === "parent")),

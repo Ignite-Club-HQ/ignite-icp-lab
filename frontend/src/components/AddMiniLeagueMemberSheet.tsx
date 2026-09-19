@@ -50,6 +50,12 @@ interface AddMiniLeagueMemberSheetProps {
   onExternalOpenChange?: (open: boolean) => void;
 }
 
+type ExistingChildRow = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+};
+
 const abilityOptions = [
   { value: "", label: "Not specified" },
   { value: "1", label: "1 - Beginner" },
@@ -196,15 +202,20 @@ export function AddMiniLeagueMemberSheet({ miniLeagueId, miniLeagueName, clubId,
         .in("id", [...childIds]);
       if (!children?.length) return [];
 
-      const parentIds = [...new Set(children.map(c => c.parent_id).filter(Boolean))];
+      const childRows = children as ExistingChildRow[];
+      const parentIds = [...new Set(
+        childRows
+          .map(c => c.parent_id)
+          .filter((parentId): parentId is string => Boolean(parentId)),
+      )];
       const { data: parents } = await selectCachedProfilesByIds(parentIds);
       const parentMap = new Map(parents?.map(p => [p.id, p.display_name]) || []);
 
-      return children.map(c => ({
+      return childRows.map(c => ({
         id: c.id,
         name: c.name,
         parent_id: c.parent_id,
-        parent_name: parentMap.get(c.parent_id) || "",
+        parent_name: c.parent_id ? parentMap.get(c.parent_id) || "" : "",
       }));
     },
     enabled: open && inviteByNameExpanded && !!clubId,
@@ -846,4 +857,3 @@ export function AddMiniLeagueMemberSheet({ miniLeagueId, miniLeagueName, clubId,
     </>
   );
 }
-
