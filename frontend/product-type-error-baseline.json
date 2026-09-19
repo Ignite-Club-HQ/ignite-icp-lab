@@ -1140,7 +1140,7 @@
     },
     {
       "file": "src/pages/ClubChatPage.tsx",
-      "line": 535,
+      "line": 534,
       "column": 32,
       "code": "TS2345",
       "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
@@ -1364,7 +1364,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 407,
       "column": 21,
       "code": "TS2339",
       "message": "Property 'participant_1' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1372,7 +1372,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 407,
       "column": 63,
       "code": "TS2339",
       "message": "Property 'participant_2' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1380,7 +1380,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 407,
       "column": 92,
       "code": "TS2339",
       "message": "Property 'participant_1' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1388,7 +1388,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 565,
+      "line": 564,
       "column": 32,
       "code": "TS2345",
       "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
@@ -1396,15 +1396,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 1137,
-      "column": 45,
-      "code": "TS2339",
-      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 2214,
+      "line": 2046,
       "column": 70,
       "code": "TS2345",
       "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'.",
@@ -1412,7 +1404,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 2426,
+      "line": 2258,
       "column": 62,
       "code": "TS2345",
       "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'.",
@@ -1420,7 +1412,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 3838,
+      "line": 3670,
       "column": 57,
       "code": "TS2339",
       "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
@@ -1428,7 +1420,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 3997,
+      "line": 3829,
       "column": 32,
       "code": "TS2339",
       "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
@@ -1436,7 +1428,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 3997,
+      "line": 3829,
       "column": 66,
       "code": "TS2339",
       "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
@@ -1444,7 +1436,7 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 4642,
+      "line": 4474,
       "column": 54,
       "code": "TS2322",
       "message": "Type 'unknown' is not assignable to type 'ReactNode'.",
@@ -1452,15 +1444,23 @@
     },
     {
       "file": "src/pages/EventDetailPage.tsx",
-      "line": 4749,
+      "line": 4581,
       "column": 9,
       "code": "TS2322",
       "message": "Type 'unknown' is not assignable to type 'string'.",
       "category": "source-backed"
     },
     {
+      "file": "src/pages/EventDetailPage.tsx",
+      "line": 969,
+      "column": 45,
+      "code": "TS2339",
+      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
+      "category": "source-backed"
+    },
+    {
       "file": "src/pages/GroupChatPage.tsx",
-      "line": 725,
+      "line": 724,
       "column": 32,
       "code": "TS2345",
       "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
@@ -1484,7 +1484,7 @@
     },
     {
       "file": "src/pages/MessagesPage.tsx",
-      "line": 1431,
+      "line": 1418,
       "column": 7,
       "code": "TS2322",
       "message": "Type 'Record<string, InboxPreviewLike>' is not assignable to type 'Record<string, LatestMessage>'.",
@@ -1492,15 +1492,7 @@
     },
     {
       "file": "src/pages/MessagesPage.tsx",
-      "line": 2835,
-      "column": 9,
-      "code": "TS2739",
-      "message": "Type 'InboxPreviewLike' is missing the following properties from type '{ text: string; author: string; created_at: string; image_url?: string; is_announcement?: boolean; }': text, author",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/MessagesPage.tsx",
-      "line": 557,
+      "line": 544,
       "column": 48,
       "code": "TS2339",
       "message": "Property 'clubs' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
@@ -1508,7 +1500,7 @@
     },
     {
       "file": "src/pages/MessagesPage.tsx",
-      "line": 560,
+      "line": 547,
       "column": 30,
       "code": "TS2339",
       "message": "Property 'latestMessages' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
@@ -1516,7 +1508,7 @@
     },
     {
       "file": "src/pages/MessagesPage.tsx",
-      "line": 912,
+      "line": 899,
       "column": 44,
       "code": "TS2339",
       "message": "Property 'clubs' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
@@ -1596,7 +1588,7 @@
     }
   ],
   "counts": {
-    "source-backed": 139,
+    "source-backed": 138,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }
