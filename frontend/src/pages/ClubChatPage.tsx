@@ -107,8 +107,8 @@ import { queueMessage, getQueuedMessagesForTarget } from "@/lib/messageQueue";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { useChatStuckWatchdog } from "@/lib/chatStuckWatchdog";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
@@ -1244,17 +1244,13 @@ export default function ClubChatPage() {
           if (!deleted?.id) return;
           applyRealtimeReactionDelete(deleted.club_message_id ?? null, deleted.id);
         }
-      )
-      .subscribe();
-    noteChannelSubscribed(`club-messages-${clubId}`);
-    const unregister = user?.id
-      ? registerChannel({ key: `club-messages-${clubId}`, channel, userId: user.id, scope: { kind: "club", id: clubId } })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved(`club-messages-${clubId}`);
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: `club-messages-${clubId}`,
+      userId: user?.id,
+      scope: { kind: "club", id: clubId },
+    });
   }, [clubId, queryClient, clubRealtimeMode, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete, useIcpLab]);
 
   const handleReply = useCallback((m: { id: string; text: string; authorName: string | null }) => {

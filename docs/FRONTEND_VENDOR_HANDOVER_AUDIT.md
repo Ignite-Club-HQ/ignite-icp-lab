@@ -195,6 +195,65 @@ bucketing, Vault response narrowing, and inbox presentation. The isolated lab
 runtime remains limited to its existing allowlist; these are product/reference
 boundaries and are intentionally not evidence of provider or RLS parity.
 
+### Realtime channel lifecycle extraction — 2026-09-19 (continued)
+
+This pass characterized composer submission and Realtime channel setup across
+all six chat routes before extracting anything, per the prior update's
+decision record:
+
+- **Composer submission remains route-local.** Team lab-mode delivery calls
+  `sendLocalTeamMessage`/`deliveredSend` and throws for a missing ICP contract;
+  Club instead throws `"Club messaging is not available in the local ICP
+  contract."` for the same condition; Group, Direct Message, Club Admin, and
+  Broadcast have no local-ICP branch at all. Offline queuing
+  (`queueMessage`/`navigator.onLine`) is present on Team, Club, Group, and
+  Direct Message but absent from Club Admin and Broadcast. Optimistic cache
+  shapes differ (a flat `{ messages }` envelope on most routes vs. a
+  `{ messages, reactions }` envelope on Group). Entitlement checks
+  (`useIsAppAdmin` on Broadcast, DM support-conversation restrictions,
+  Club-admin conversation scoping) are route-specific. Centralizing composer
+  submission now would either erase these differences or reintroduce them
+  behind a leaky abstraction, so it stays exactly where it was.
+- **Realtime channel setup (the `.on(...)` handler registration) also remains
+  route-local.** Each route filters different tables/columns, merges
+  different reply/profile-cache shapes, and Group's reaction merge is
+  deliberately different (flat top-level array vs. embedded
+  `message.reactions`). That part of each `useEffect` is unchanged.
+- **The trailing subscribe → diagnostics → registry-registration → cleanup
+  lifecycle *was* extracted**, because it was byte-for-byte identical across
+  all six routes once each route's own channel was fully configured: the same
+  `channel.subscribe()`, the same `noteChannelSubscribed`/`noteChannelRemoved`
+  diagnostics calls, the same `registerChannel`-or-`supabase.removeChannel`
+  fallback, and the same effect-cleanup shape. This now lives in
+  `startChatRealtimeChannel`
+  (`src/features/messaging/thread/chatRealtimeChannelLifecycle.ts`), covered
+  by its own unit test. Each route still builds its own channel, attaches its
+  own handlers, and supplies its own scope/cache-key arguments; only the
+  identical tail is shared. `realtimeChannelRegistry.ts` now re-exports its
+  `RealtimeChannel` type so the new helper does not add a second, separately
+  inventoried instance of the pre-existing "missing `@supabase/supabase-js`
+  type declarations" product diagnostic.
+- The existing `chat-page-orchestration.characterization.test.tsx` ordering
+  assertion (handler registration before the channel starts) was updated to
+  probe for the new `startChatRealtimeChannel(` call site instead of the
+  now-relocated literal `.subscribe(` call; the behavioral guarantee itself
+  (every `.on(...)` handler is registered before the channel starts) is
+  unchanged and still enforced.
+
+The product type-error baseline remains at 187 diagnostics; the new file
+reuses the already-inventoried `realtimeChannelRegistry.ts` diagnostic instead
+of introducing a new one, so no diagnostic count or baseline edit was needed.
+
+Validation actually run for this slice: the new
+`chatRealtimeChannelLifecycle.test.ts` (3 tests); the updated
+`chat-page-orchestration.characterization.test.tsx` (54 tests, all passing);
+`npm test` (279 Node tests, 1,720 Vitest tests, all passing); `npm run
+test:legacy` (4,215 tests passed, 1 pre-existing skip, across 426 files, with
+the same documented jsdom navigation/dynamic-import diagnostics and no test
+failure); `npm run typecheck:lab`, `npm run typecheck:strict`, `npm run
+typecheck:product` (187 diagnostics, unchanged), `npm run lint`, `npm run
+check:quality-ratchet`, and `npm run check:isolation`, all passing.
+
 ### Handover status
 
 | Handover objective | Status | Decision |

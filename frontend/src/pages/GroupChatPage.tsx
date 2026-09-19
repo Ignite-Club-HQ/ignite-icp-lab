@@ -130,8 +130,8 @@ import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
 const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMiniLeagueMemberSheet").then(m => ({ default: m.AddMiniLeagueMemberSheet })));
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { useChatStuckWatchdog } from "@/lib/chatStuckWatchdog";
 import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
@@ -1814,17 +1814,13 @@ export default function GroupChatPage() {
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "message_reactions" },
         (payload) => applyGroupReactionDelete(payload.old as any),
-      )
-      .subscribe();
-    noteChannelSubscribed(`group-messages-${groupId}`);
-    const unregister = user?.id
-      ? registerChannel({ key: `group-messages-${groupId}`, channel, userId: user.id, scope: { kind: "group", id: groupId } })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved(`group-messages-${groupId}`);
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: `group-messages-${groupId}`,
+      userId: user?.id,
+      scope: { kind: "group", id: groupId },
+    });
   }, [groupId, queryClient, groupRealtimeMode, user?.id, reconcileScope, applyGroupReaction, applyGroupReactionDelete, useIcpLab]);
 
 

@@ -82,8 +82,8 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { useChatStuckWatchdog } from "@/lib/chatStuckWatchdog";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
@@ -812,17 +812,13 @@ export default function BroadcastChatPage() {
           if (!deleted?.id) return;
           applyRealtimeReactionDelete(deleted.broadcast_message_id ?? null, deleted.id);
         }
-      )
-      .subscribe();
-    noteChannelSubscribed("broadcast-messages-realtime");
-    const unregister = user?.id
-      ? registerChannel({ key: "broadcast-messages-realtime", channel, userId: user.id, scope: { kind: "global", id: "" } })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved("broadcast-messages-realtime");
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: "broadcast-messages-realtime",
+      userId: user?.id,
+      scope: { kind: "global", id: "" },
+    });
   }, [queryClient, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete]);
 
   const handleReply = useCallback((m: { id: string; text: string; authorName: string | null }) => {

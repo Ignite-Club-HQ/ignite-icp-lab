@@ -23,6 +23,12 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Re-exported so callers (e.g. the shared chat channel lifecycle) can type
+// against this module instead of adding another direct import of the
+// `@supabase/supabase-js` type declarations, which are intentionally absent
+// from this lab's dependencies.
+export type { RealtimeChannel };
+
 /**
  * `club_admin` covers member↔club-admin conversations. Its scope id is the
  * CLUB id (not the conversation id) so that losing club membership revokes

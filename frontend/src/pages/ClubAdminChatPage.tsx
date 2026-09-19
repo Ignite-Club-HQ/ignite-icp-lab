@@ -94,8 +94,8 @@ import { Capacitor } from "@capacitor/core";
 
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 
 const MESSAGES_PER_PAGE = 15;
 
@@ -1147,24 +1147,15 @@ function SupabaseClubAdminChatPage() {
           if (!deleted?.id) return;
           applyRealtimeReactionDelete(deleted.club_admin_message_id ?? null, deleted.id);
         }
-      )
-      .subscribe();
-    noteChannelSubscribed(`club-admin-chat-${conversationId}`);
-    const unregister = user?.id
-      ? registerChannel({
-          key: `club-admin-chat-${conversationId}`,
-          channel,
-          userId: user.id,
-          // Scoped by CLUB id: losing club membership must revoke this channel.
-          scope: { kind: "club_admin", id: conversation?.club_id ?? conversationId },
-          cacheKeys: [["club-admin-messages", conversationId]],
-        })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved(`club-admin-chat-${conversationId}`);
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: `club-admin-chat-${conversationId}`,
+      userId: user?.id,
+      // Scoped by CLUB id: losing club membership must revoke this channel.
+      scope: { kind: "club_admin", id: conversation?.club_id ?? conversationId },
+      cacheKeys: [["club-admin-messages", conversationId]],
+    });
   }, [conversationId, conversation?.club_id, queryClient, queryKey, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete]);
 
   // Visibility change handler

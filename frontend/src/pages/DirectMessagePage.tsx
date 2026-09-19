@@ -91,8 +91,8 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { useChatStuckWatchdog } from "@/lib/chatStuckWatchdog";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
@@ -1369,17 +1369,13 @@ export default function DirectMessagePage() {
           if (!deleted?.id) return;
           applyRealtimeReactionDelete(deleted.direct_message_id ?? null, deleted.id);
         }
-      )
-      .subscribe();
-    noteChannelSubscribed(`dm-${conversationId}`);
-    const unregister = user?.id
-      ? registerChannel({ key: `dm-${conversationId}`, channel, userId: user.id, scope: { kind: "dm", id: conversationId } })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved(`dm-${conversationId}`);
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: `dm-${conversationId}`,
+      userId: user?.id,
+      scope: { kind: "dm", id: conversationId },
+    });
   }, [conversationId, queryClient, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete]);
 
   const { isSearching: isSearchFetching, canShowEmpty: searchCanShowEmpty } = useChatHistorySearch<DirectMessage>({

@@ -121,8 +121,8 @@ import { getCachedTeam, getCachedClub, cacheTeam, cacheClub } from "@/lib/clubTe
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
-import { noteChatMount, noteChatUnmount, noteChannelSubscribed, noteChannelRemoved } from "@/lib/chatPerfDiagnostics";
-import { registerChannel } from "@/lib/realtimeChannelRegistry";
+import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
+import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
@@ -1597,17 +1597,13 @@ export default function TeamChatPage() {
           if (!deleted?.id) return;
           applyRealtimeReactionDelete(deleted.team_message_id ?? null, deleted.id);
         }
-      )
-      .subscribe();
-    noteChannelSubscribed(`team-messages-${teamId}`);
-    const unregister = user?.id
-      ? registerChannel({ key: `team-messages-${teamId}`, channel, userId: user.id, scope: { kind: "team", id: teamId } })
-      : null;
-
-    return () => {
-      if (unregister) unregister(); else supabase.removeChannel(channel);
-      noteChannelRemoved(`team-messages-${teamId}`);
-    };
+      );
+    return startChatRealtimeChannel({
+      channel,
+      channelKey: `team-messages-${teamId}`,
+      userId: user?.id,
+      scope: { kind: "team", id: teamId },
+    });
   }, [teamId, queryClient, teamRealtimeMode, user?.id, reconcileScope, applyRealtimeReaction, applyRealtimeReactionDelete]);
 
   const handleReply = useCallback((m: { id: string; text: string; authorName: string | null }) => {

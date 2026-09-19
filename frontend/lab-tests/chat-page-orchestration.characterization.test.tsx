@@ -39,7 +39,12 @@ describe("six-surface messaging refactor contracts", () => {
       const text = page(name);
       for (const event of ["INSERT", "UPDATE", "DELETE"]) expect(text).toContain(`event: "${event}"`);
       expect(text).toContain(`table: "${table}"`);
-      expect(text.indexOf(`table: "${table}"`)).toBeLessThan(text.indexOf(".subscribe("));
+      // The subscribe/registry/cleanup lifecycle itself is shared across all
+      // six routes via `startChatRealtimeChannel`; each route still finishes
+      // registering every `.on(...)` handler on its own channel before
+      // handing it to that shared lifecycle.
+      expect(text).toContain("startChatRealtimeChannel(");
+      expect(text.indexOf(`table: "${table}"`)).toBeLessThan(text.indexOf("startChatRealtimeChannel("));
     });
 
     it(`${name} reconciles all reaction lifecycle events`, () => {
