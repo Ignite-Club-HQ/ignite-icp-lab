@@ -1,6 +1,6 @@
 # Frontend Vendor Handover Audit
 
-Audit date: 2026-09-18
+Audit date: 2026-09-19
 
 ## Executive decision
 
@@ -75,6 +75,69 @@ Those errors are intentionally not hidden by this handover work; the strict
 sidecar remains limited to newly governed provider-neutral modules until each
 product domain is migrated and its source dependencies are available.
 
+### Incremental refactor update — 2026-09-19
+
+The following bounded extractions were completed without adding any product
+module to the lab runtime allowlist, changing the lab entry, enabling a
+fallback provider, or contacting a production service:
+
+- All six chat pages now obtain remote history search table, scope filter, and
+  reaction foreign-key metadata from the typed chat scope adapters through
+  `chatHistorySearchFetcher`. Each page retains its existing message select
+  shape and its local-ICP search branch.
+- `MessagesPage` delegates unified inbox row construction, Pro locking, mute
+  state, realtime unread precedence, support deduplication, and draft ordering
+  to `buildUnifiedInboxConversations`; the page remains responsible for
+  authorization-scoped source queries, filters, realtime, and rendering.
+- `EventDetailPage` delegates attendee role-scope resolution and attendee row
+  presentation to `EventAttendeeCard`; RSVP, payment, attendance, and event
+  mutation orchestration remain in the page.
+- `VaultPage` delegates pure file-size, file-kind, and external-link display
+  classification to `vaultFilePresentation`. Download/open behavior remains
+  page-local, preserving the guarded `safeOpenUrl` path and the inert
+  `reference.invalid` destinations.
+- Photo, comment, and chat-message reports now share one typed report-dialog
+  shell. Their endpoints, immutable IDs, subject-specific reason lists,
+  accessible radio IDs, authentication messaging, and request payloads remain
+  supplied by thin wrappers.
+- The team, club, group, and direct-message chat pages now use one
+  `ChatAttachmentPickers` boundary. It dynamically imports and mounts the
+  Event, News, and Board pickers only after the matching composer action; its
+  typed props preserve each page's team/club/league/competition scope.
+- `MessagesPage` now defers the inbox action sheet, recap sheet, direct-message
+  dialog, custom-group dialog, and create-group dialog until interaction.
+
+This pass reduced the directly touched page sources by 190 lines in
+`MessagesPage`, 168 in `EventDetailPage`, and 50 in `VaultPage` compared with
+the previous audit snapshot. It also replaced approximately 400 repeated
+report-dialog lines with one shared, tested shell. These line counts are
+maintainability evidence only, not a bundle-size or user-perceived-performance
+claim.
+
+Focused validation actually run for this increment:
+
+- chat history characterization (54 tests), scope search tests, attachment
+  lazy-loading contract (2 Node tests), and imported chat behavior contracts;
+- inbox-composition unit tests (7 tests);
+- event-attendee role tests (3 tests) plus event-detail characterization (8
+  tests);
+- Vault presentation unit tests (7 tests) plus Vault characterization (9
+  tests);
+- report-message authentication/submission characterization (6 tests);
+- Messages dialog-loading contract (1 Node test).
+
+The full product diagnostic ratchet remains blocked by its documented
+reference-product backlog. The check reports the pre-existing page diagnostics
+in chat and fixture-derived query shapes; none were introduced by these
+extractions. The next safe chat slice is a controller for shared pagination,
+reconciliation, draft, composer, and cache lifecycle. It is intentionally not
+merged yet because the six routes still have different optimistic mutation,
+local-ICP, entitlement, and Realtime semantics that need route-by-route
+characterization before centralizing them. Sponsor header strips and mini-league
+join-link cards remain separate for the same reason: their placement,
+permission, analytics, and confirmation flows differ beyond their visible
+markup.
+
 ### Handover status
 
 | Handover objective | Status | Decision |
@@ -83,7 +146,7 @@ product domain is migrated and its source dependencies are available.
 | Refactor and port the remaining frontend domains under controlled milestones | Amber | Ready only with the scope, boundaries, and acceptance gates in this document |
 | Take responsibility for a production hybrid frontend release | Red | Not ready for production sign-off |
 
-The repository is suitable for a capable vendor to continue engineering work, but it is not yet a complete production frontend delivery package. The isolated lab has strong safeguards and regression coverage. The full product frontend remains reference/porting source: it has no active production build target in this repository, most product modules still access Supabase directly, strict TypeScript is disabled, and no lint gate is configured.
+The repository is suitable for a capable vendor to continue engineering work, but it is not yet a complete production frontend delivery package. The isolated lab has strong safeguards and regression coverage, and a guarded product/staging build now provides a reproducible baseline. The full product frontend remains reference/porting source: most product modules still access Supabase directly, the global TypeScript configuration remains permissive, and the product typecheck still has an explicitly inventoried backlog.
 
 The recommended commercial handover is therefore a staged engineering engagement, not a fixed-price production launch based on the current source alone.
 
@@ -285,7 +348,10 @@ More than 1,200 runtime console calls make diagnostics discoverable, but they cr
 
 1. `PinVaultSheet`, `ScheduleMessageDialog`, and `CreatePollDialog` are now deferred on the chat routes that use them.
 2. `JSZip` is no longer part of the initial Vault route evaluation path; it is loaded only when an export begins.
-3. Existing behavior was preserved with local `Suspense` boundaries and unchanged component contracts.
+3. CSV parsing/email validation and cancellation-recipient lookup now use shared primitives without changing component contracts.
+4. Team and club role dialogs now share the same accessible role-selection renderer, including state exposed through `aria-pressed`.
+5. The product TypeScript backlog is inventoried and ratcheted: the current baseline is 199 diagnostics (139 source-backed, 49 missing-reference, and 11 inert Edge Function references), and new diagnostics fail the product check.
+6. Existing behavior was preserved with local `Suspense` boundaries, unchanged data-access contracts, and the legacy suite passing with 4,168 tests passed and one skipped.
 
 These changes reduce route parse/evaluation work without changing data access, permissions, caching, or backend selection.
 
