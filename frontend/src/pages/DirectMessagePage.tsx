@@ -44,10 +44,8 @@ import { ReplyPreview } from "@/components/chat/ReplyPreview";
 import { EditingBanner } from "@/components/chat/EditingBanner";
 import { ChatSendButton } from "@/components/chat/ChatSendButton";
 import { ChatImageInput } from "@/components/chat/ChatImageInput";
-import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
-import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
+import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
-import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
@@ -1743,28 +1741,23 @@ export default function DirectMessagePage() {
               )}
               {!isIgniteSupportConversation && (
                 <>
-                  <EventPickerSheet
-                    open={eventPickerOpen}
-                    onOpenChange={setEventPickerOpen}
+                  <ChatAttachmentPickers
+                    eventPickerOpen={eventPickerOpen}
+                    onEventPickerOpenChange={setEventPickerOpen}
                     onSelectEvent={(eventId) => {
                       const token = `[event:${eventId}]`;
                       setMessage(message ? `${message} ${token}` : token);
                     }}
-                    clubId={sharedClubId || undefined}
-                  />
-                  <NewsPickerSheet
-                    open={newsPickerOpen}
-                    onOpenChange={setNewsPickerOpen}
-                    clubId={sharedClubId || undefined}
-                    onSelectNews={(newsId) => setPendingNewsId(newsId)}
-                  />
-                  <BoardPickerSheet
-                    open={boardPickerOpen}
-                    onOpenChange={setBoardPickerOpen}
+                    newsPickerOpen={newsPickerOpen}
+                    onNewsPickerOpenChange={setNewsPickerOpen}
+                    onSelectNews={setPendingNewsId}
+                    boardPickerOpen={boardPickerOpen}
+                    onBoardPickerOpenChange={setBoardPickerOpen}
                     onSelectBoard={(gameId) => {
                       const token = `[board:${gameId}]`;
                       setMessage(message ? `${message} ${token}` : token);
                     }}
+                    clubId={sharedClubId || undefined}
                   />
                 </>
               )}

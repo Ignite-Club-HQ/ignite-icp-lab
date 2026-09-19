@@ -54,9 +54,7 @@ import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
 import { ChatImageInput } from "@/components/chat/ChatImageInput";
 import { ReplyPreview } from "@/components/chat/ReplyPreview";
 import { EditingBanner } from "@/components/chat/EditingBanner";
-import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
-import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
-import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
+import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 
@@ -1969,28 +1967,23 @@ export default function ClubChatPage() {
             />
             </Suspense>
           )}
-          <EventPickerSheet
-            open={eventPickerOpen}
-            onOpenChange={setEventPickerOpen}
+          <ChatAttachmentPickers
+            eventPickerOpen={eventPickerOpen}
+            onEventPickerOpenChange={setEventPickerOpen}
             onSelectEvent={(eventId) => {
               const token = `[event:${eventId}]`;
               setMessage(message ? `${message} ${token}` : token);
             }}
-            clubId={clubId}
-          />
-          <NewsPickerSheet
-            open={newsPickerOpen}
-            onOpenChange={setNewsPickerOpen}
-            clubId={clubId}
-            onSelectNews={(newsId) => setPendingNewsId(newsId)}
-          />
-          <BoardPickerSheet
-            open={boardPickerOpen}
-            onOpenChange={setBoardPickerOpen}
+            newsPickerOpen={newsPickerOpen}
+            onNewsPickerOpenChange={setNewsPickerOpen}
+            onSelectNews={setPendingNewsId}
+            boardPickerOpen={boardPickerOpen}
+            onBoardPickerOpenChange={setBoardPickerOpen}
             onSelectBoard={(gameId) => {
               const token = `[board:${gameId}]`;
               setMessage(message ? `${message} ${token}` : token);
             }}
+            clubId={clubId}
           />
           {clubId && (
             <Suspense fallback={null}>

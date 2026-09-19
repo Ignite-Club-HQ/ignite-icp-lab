@@ -78,9 +78,7 @@ import { toast } from "sonner";
 import { ChatImageInput } from "@/components/chat/ChatImageInput";
 // EmojiPicker is built into MentionInput
 import { ReplyPreview } from "@/components/chat/ReplyPreview";
-import { EventPickerSheet } from "@/components/chat/EventPickerSheet";
-import { NewsPickerSheet } from "@/components/chat/NewsPickerSheet";
-import { BoardPickerSheet } from "@/components/chat/BoardPickerSheet";
+import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 import { GroupChatMessageRow } from "@/components/chat/GroupChatMessageRow";
@@ -3130,32 +3128,26 @@ export default function GroupChatPage() {
           />
           </Suspense>
         )}
-        <EventPickerSheet
-          open={eventPickerOpen}
-          onOpenChange={setEventPickerOpen}
+        <ChatAttachmentPickers
+          eventPickerOpen={eventPickerOpen}
+          onEventPickerOpenChange={setEventPickerOpen}
           onSelectEvent={(eventId) => {
             const token = `[event:${eventId}]`;
+            setMessage(message ? `${message} ${token}` : token);
+          }}
+          newsPickerOpen={newsPickerOpen}
+          onNewsPickerOpenChange={setNewsPickerOpen}
+          onSelectNews={setPendingNewsId}
+          boardPickerOpen={boardPickerOpen}
+          onBoardPickerOpenChange={setBoardPickerOpen}
+          onSelectBoard={(gameId) => {
+            const token = `[board:${gameId}]`;
             setMessage(message ? `${message} ${token}` : token);
           }}
           teamId={group?.team_id || undefined}
           clubId={group?.club_id || undefined}
           miniLeagueId={group?.mini_league_id ?? null}
           competitionId={(group as any)?.competition_id ?? null}
-
-        />
-        <NewsPickerSheet
-          open={newsPickerOpen}
-          onOpenChange={setNewsPickerOpen}
-          clubId={group?.club_id || undefined}
-          onSelectNews={(newsId) => setPendingNewsId(newsId)}
-        />
-        <BoardPickerSheet
-          open={boardPickerOpen}
-          onOpenChange={setBoardPickerOpen}
-          onSelectBoard={(gameId) => {
-            const token = `[board:${gameId}]`;
-            setMessage(message ? `${message} ${token}` : token);
-          }}
         />
         {groupId && (
           <Suspense fallback={null}>
