@@ -82,7 +82,8 @@ import { useProfiles } from "@/hooks/useProfiles";
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { CLUB_ADMIN_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { Capacitor } from "@capacitor/core";
 
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
@@ -941,13 +942,11 @@ function SupabaseClubAdminChatPage() {
     enabled: !!conversationId,
     cacheKey: `club_admin:${conversationId ?? ""}`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "club_admin_messages",
-        scope: { conversation_id: conversationId! },
-        query: q,
-        signal,
+      createChatHistorySearchFetcher<ClubAdminMessage>({
+        scope: CLUB_ADMIN_CHAT_SCOPE,
+        scopeId: conversationId,
         selectColumns: "id, text, image_url, created_at, edited_at, author_id, conversation_id, reply_to_id",
-      })) as ClubAdminMessage[],
+      })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {

@@ -81,7 +81,8 @@ import { useChatPerfMarks, markChatFetch } from "@/hooks/useChatPerfMarks";
 import { queueMessage } from "@/lib/messageQueue";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { DIRECT_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { IGNITE_SUPPORT_USER_ID, isIgniteSupportUser } from "@/lib/systemUser";
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
@@ -1399,13 +1400,11 @@ export default function DirectMessagePage() {
     enabled: !!conversationId,
     cacheKey: `dm:${conversationId ?? ""}`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "direct_messages",
-        scope: { conversation_id: conversationId! },
-        query: q,
-        signal,
+      createChatHistorySearchFetcher<DirectMessage>({
+        scope: DIRECT_CHAT_SCOPE,
+        scopeId: conversationId,
         selectColumns: "id, text, image_url, created_at, edited_at, author_id, conversation_id, reply_to_id",
-      })) as DirectMessage[],
+      })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {

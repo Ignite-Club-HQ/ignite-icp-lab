@@ -3,17 +3,22 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const surfaces = [
-  ["TeamChatPage.tsx", "team_messages"],
-  ["ClubChatPage.tsx", "club_messages"],
-  ["GroupChatPage.tsx", "group_messages"],
-  ["DirectMessagePage.tsx", "direct_messages"],
-  ["BroadcastChatPage.tsx", "broadcast_messages"],
-  ["ClubAdminChatPage.tsx", "club_admin_messages"],
+  ["TeamChatPage.tsx", "team_messages", "TEAM_CHAT_SCOPE"],
+  ["ClubChatPage.tsx", "club_messages", "CLUB_CHAT_SCOPE"],
+  ["GroupChatPage.tsx", "group_messages", "GROUP_CHAT_SCOPE"],
+  ["DirectMessagePage.tsx", "direct_messages", "DIRECT_CHAT_SCOPE"],
+  ["BroadcastChatPage.tsx", "broadcast_messages", "BROADCAST_CHAT_SCOPE"],
+  ["ClubAdminChatPage.tsx", "club_admin_messages", "CLUB_ADMIN_CHAT_SCOPE"],
 ] as const;
 const page = (name: string) => readFileSync(resolve(process.cwd(), "src/pages", name), "utf8");
+const historyFetcher = () =>
+  readFileSync(
+    resolve(process.cwd(), "src/features/messaging/thread/chatHistorySearchFetcher.ts"),
+    "utf8",
+  );
 
 describe("six-surface messaging refactor contracts", () => {
-  for (const [name, table] of surfaces) {
+  for (const [name, table, scope] of surfaces) {
     it(`${name} retains fetch, soft-delete filtering and stable chronological ordering`, () => {
       const text = page(name);
       expect(text).toContain(`from("${table}")`);
@@ -45,10 +50,19 @@ describe("six-surface messaging refactor contracts", () => {
 
     it(`${name} keeps remote history search, abort support and exact-message jumping`, () => {
       const text = page(name);
-      expect(text).toContain("searchChatHistory({");
+      expect(text).toContain("createChatHistorySearchFetcher");
+      expect(text).toContain(`scope: ${scope}`);
       expect(text).toContain("signal");
       expect(text).toContain("jumpToMessageInVirtualizedChat");
       expect(text).toContain("tryLoadOlder");
+    });
+
+    it("uses one typed history-search orchestrator for scope filters and table selection", () => {
+      const text = historyFetcher();
+      expect(text).toContain("buildChatScopeFilter");
+      expect(text).toContain("scope.messageTable");
+      expect(text).toContain("searchChatHistory({");
+      expect(text).toContain("signal");
     });
 
     it(`${name} isolates its query cache scope`, () => {

@@ -54,7 +54,8 @@ import { useChatOnlineCount } from "@/hooks/useChatOnlineCount";
 import { useChatPageReady } from "@/hooks/useChatPageReady";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { GROUP_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 
 import { PageLoading } from "@/components/ui/page-loading";
@@ -2445,13 +2446,11 @@ export default function GroupChatPage() {
     fetcher: async (q, signal) =>
       useIcpLab
         ? (localMessagesRef.current ?? []).filter((row) => fuzzyMatchesQuery(row.text, q))
-        : (await searchChatHistory({
-            table: "group_messages",
-            scope: { group_id: groupId! },
-            query: q,
-            signal,
+        : createChatHistorySearchFetcher<GroupMessage>({
+            scope: GROUP_CHAT_SCOPE,
+            scopeId: groupId,
             selectColumns: "id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
-          })) as GroupMessage[],
+          })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {

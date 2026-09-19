@@ -21,7 +21,8 @@ import { ChatHeaderMenu } from "@/components/chat/ChatHeaderMenu";
 import { jumpToMessageInVirtualizedChat } from "@/lib/jumpToMessage";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { BROADCAST_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { ChatHeaderShell } from "@/components/chat/ChatHeaderShell";
 import { ChatDetailsSheet } from "@/components/chat/ChatDetailsSheet";
 import { Button } from "@/components/ui/button";
@@ -1023,13 +1024,10 @@ export default function BroadcastChatPage() {
     enabled: true,
     cacheKey: `broadcast`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "broadcast_messages",
-        scope: {},
-        query: q,
-        signal,
+      createChatHistorySearchFetcher<Message>({
+        scope: BROADCAST_CHAT_SCOPE,
         selectColumns: "id, text, image_url, created_at, edited_at, author_id, reply_to_id",
-      })) as Message[],
+      })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {

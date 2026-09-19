@@ -35,7 +35,8 @@ import { useUnreadMessageCounts } from "@/hooks/useUnreadMessageCounts";
 import { useChatOnlineCount } from "@/hooks/useChatOnlineCount";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { TEAM_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 
 import { PageLoading } from "@/components/ui/page-loading";
@@ -1920,15 +1921,13 @@ export default function TeamChatPage() {
     fetcher: async (q, signal) =>
       useIcpLab
         ? (localMessagesRef.current ?? []).filter((row) => fuzzyMatchesQuery(row.text, q))
-        : ((await searchChatHistory({
-            table: "team_messages",
-            scope: { team_id: teamId! },
-            query: q,
-            signal,
+        : createChatHistorySearchFetcher<Message>({
+            scope: TEAM_CHAT_SCOPE,
+            scopeId: teamId,
             selectColumns:
               "id, text, image_url, created_at, edited_at, author_id, team_id, reply_to_id, is_club_announcement, club_announcement_name, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label",
             hasAnnouncements: true,
-          })) as Message[]),
+          })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {

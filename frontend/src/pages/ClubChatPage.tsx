@@ -30,7 +30,8 @@ import { useChatOnlineCount } from "@/hooks/useChatOnlineCount";
 import { useChatPageReady } from "@/hooks/useChatPageReady";
 import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
-import { searchChatHistory } from "@/lib/searchChatHistory";
+import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
+import { CLUB_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
 import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 
 import { PageLoading } from "@/components/ui/page-loading";
@@ -1537,13 +1538,11 @@ export default function ClubChatPage() {
     enabled: !!clubId,
     cacheKey: `club:${clubId ?? ""}`,
     fetcher: async (q, signal) =>
-      (await searchChatHistory({
-        table: "club_messages",
-        scope: { club_id: clubId! },
-        query: q,
-        signal,
+      createChatHistorySearchFetcher<Message>({
+        scope: CLUB_CHAT_SCOPE,
+        scopeId: clubId,
         selectColumns: "id, text, image_url, created_at, edited_at, author_id, club_id, reply_to_id, forwarded_from_user_id, forwarded_at, forwarded_source_label",
-      })) as Message[],
+      })(q, signal),
   });
 
   const filteredMessages = useMemo(() => {
