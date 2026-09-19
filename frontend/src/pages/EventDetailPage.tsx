@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } from "react";
 import { useDeleteEvent } from "@/hooks/useDeleteEvent";
 import { buildEventRsvpBuckets } from "@/features/events/eventRsvpBuckets";
+import { resolveEventCapabilities } from "@/features/events/eventCapabilities";
 
 import { abortAllInFlightRestGets } from "@/lib/supabaseAuthRetry";
 import { Share } from "@capacitor/share";
@@ -676,7 +677,13 @@ export default function EventDetailPage() {
     refetchOnWindowFocus: true,
   });
   const isSubsManagerForEvent = localSubsManagerForEvent || directSubsManagerForEvent;
-  const canManagePitchBoard = !!(isAdmin || isAppAdmin || isSubsManagerForEvent);
+  // Centralizes the isAdmin/isAppAdmin/isSubsManagerForEvent boolean composition that
+  // this page previously repeated inline in ~20 places (see eventCapabilities.ts).
+  const { canManageEvent, canOperateMatch: canManagePitchBoard } = resolveEventCapabilities({
+    isEventManager: isAdmin,
+    isAppAdmin,
+    isSubsManagerForEvent,
+  });
   const isPitchBoardAccessLoading = isLoadingTeamPro || isDirectSubsManagerLoading || isDutiesLoading;
 
   // Check if user can access pitch board (coach/admin/Subs Manager) - requires Pro Football for soccer.
@@ -1162,7 +1169,7 @@ export default function EventDetailPage() {
   // SECURITY DEFINER RPC returns the minimum roster for THIS event only.
   const scopedRosterQuery = useQuery({
     queryKey: ["targeted-event-roster", id],
-    enabled: !!id && !!targetTeamIdsForFetch && !!(isAdmin || isAppAdmin) && !useIcpLab,
+    enabled: !!id && !!targetTeamIdsForFetch && !!canManageEvent && !useIcpLab,
     staleTime: 60_000,
     queryFn: async () => {
       const provider: TargetedAttendanceProvider = {
@@ -1330,7 +1337,7 @@ export default function EventDetailPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!id && !!(isAdmin || isAppAdmin) && !useIcpLab,
+    enabled: !!id && !!canManageEvent && !useIcpLab,
   });
 
   // Create set of paid user IDs for quick lookup
@@ -2904,7 +2911,7 @@ export default function EventDetailPage() {
         </Button>
 
         {/* Admin actions dropdown */}
-        {(isAdmin || isAppAdmin) && (
+        {canManageEvent && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="shrink-0">
@@ -3320,8 +3327,8 @@ export default function EventDetailPage() {
       </Card>
 
       {/* Match Score — viewable by team members; editable by team admins/coaches/club admins, app admins, and the Subs Manager assigned to the event */}
-      {event.type === "game" && event.team_id && (isTeamMember || isAdmin || isAppAdmin) && (() => {
-        const canEditScore = !!(isAdmin || isAppAdmin || isSubsManagerForEvent);
+      {event.type === "game" && event.team_id && (isTeamMember || canManageEvent) && (() => {
+        const canEditScore = canManagePitchBoard;
         // Fallback: derive opponent from title (e.g. "Round 4: Wolves v Stirling District")
         const derivedOpponent = (() => {
           if (event.opponent) return event.opponent;
@@ -3364,7 +3371,7 @@ export default function EventDetailPage() {
             <EventGroupsManager
               eventId={id!}
               miniLeagueId={event.mini_league_id}
-              isAdmin={isAdmin || isAppAdmin || false}
+              isAdmin={canManageEvent}
               playerOverrides={playerOverrides}
             />
           </section>
@@ -3389,7 +3396,7 @@ export default function EventDetailPage() {
         note={(event as any).coach_note}
         noteUpdatedAt={(event as any).coach_note_updated_at}
         noteAuthor={(event as any).coach_note_author}
-        canEdit={!!(isAdmin || isAppAdmin)}
+        canEdit={canManageEvent}
       />
 
 
@@ -3718,7 +3725,7 @@ export default function EventDetailPage() {
           eventId={event.id}
           clubId={event.club_id}
           maxGuestsPerMember={event.max_guests_per_member || 2}
-          isAdmin={isAdmin || isAppAdmin}
+          isAdmin={canManageEvent}
         />
       )}
 
@@ -3883,7 +3890,7 @@ export default function EventDetailPage() {
             key={rsvp.id}
             rsvp={rsvp}
             hasPaid={status !== "not_going" ? paidUserIds.has(rsvp.user_id) : undefined}
-            isAdmin={isAdmin || isAppAdmin}
+            isAdmin={canManageEvent}
             showPrice={status !== "not_going" && !!showPaymentStatus}
             onTogglePayment={status !== "not_going" ? () => togglePaymentMutation.mutate({
               userId: rsvp.user_id,
@@ -4006,7 +4013,7 @@ export default function EventDetailPage() {
               const recipientKey = remindParentId || remindChildId || child.id;
               // No one to remind if the child is pending (no parent has accepted the app yet).
               const canRemind = !isPendingChild && !!(remindParentId || remindChildId);
-              const remindBtn = (isAdmin || isAppAdmin) && canRemind ? (() => {
+              const remindBtn = canManageEvent && canRemind ? (() => {
                 const isLoadingThis = individualRemindMutation.isPending && individualRemindMutation.variables?.userId === remindParentId && individualRemindMutation.variables?.childId === remindChildId;
                 const lastRemindedAt = recentlyReminded.get(recipientKey) || (remindParentId ? recentReminderMap?.get(remindParentId) : null) || null;
                 const wasReminded = !!lastRemindedAt;
@@ -4039,7 +4046,7 @@ export default function EventDetailPage() {
               })() : null;
 
 
-              const editBtn = (isAdmin || isAppAdmin) ? (
+              const editBtn = canManageEvent ? (
                 <AdminRsvpChanger
                   currentStatus={null}
                   playerName={child.name || "Unknown"}
@@ -4082,7 +4089,7 @@ export default function EventDetailPage() {
         };
 
         const renderNotRespondedAdult = (member: any) => {
-              const remindBtn = (isAdmin || isAppAdmin) ? (() => {
+              const remindBtn = canManageEvent ? (() => {
                 const isLoadingThis = individualRemindMutation.isPending && individualRemindMutation.variables?.userId === member.id;
                 const lastRemindedAt = recentlyReminded.get(member.id) || recentReminderMap?.get(member.id) || null;
                 const wasReminded = !!lastRemindedAt;
@@ -4113,7 +4120,7 @@ export default function EventDetailPage() {
                   </Button>
                 );
               })() : null;
-              const editBtn = (isAdmin || isAppAdmin) ? (
+              const editBtn = canManageEvent ? (
                 <AdminRsvpChanger
                   currentStatus={null}
                   playerName={member.display_name || "Unknown"}
@@ -4216,7 +4223,7 @@ export default function EventDetailPage() {
               </div>
             )}
             {/* Phase 2: Confirmed vs Auto split for coaches on trainings */}
-            {(isAdmin || isAppAdmin) && event.type === "training" && goingRsvps.length > 0 && (() => {
+            {canManageEvent && event.type === "training" && goingRsvps.length > 0 && (() => {
               const auto = goingRsvps.filter((r: any) => r.source === "default").length;
               const confirmed = goingRsvps.length - auto;
               return (
@@ -4260,7 +4267,7 @@ export default function EventDetailPage() {
 
             <AttendanceSection
               eventId={id!}
-              isAdmin={isAdmin || isAppAdmin}
+              isAdmin={canManageEvent}
               hasMembers={trackableMembers > 0 || (allChildrenOnTeam?.length || 0) > 0}
               counts={{
                 going: goingTotal,
@@ -4304,7 +4311,7 @@ export default function EventDetailPage() {
           <MatchCaptainSelector
             eventId={id!}
             teamId={event.team_id}
-            isAdmin={isAdmin || isAppAdmin || false}
+            isAdmin={canManageEvent}
             rsvps={rsvps || []}
           />
           {(() => {
@@ -4315,17 +4322,17 @@ export default function EventDetailPage() {
               <MatchGoalkeepersSelector
                 eventId={id!}
                 teamId={event.team_id}
-                isAdmin={isAdmin || isAppAdmin || false}
+                isAdmin={canManageEvent}
                 rsvps={rsvps || []}
               />
             );
           })()}
-          {(isAppAdmin || hasTeamPro === true) && (
+          {canAwardDutyPoints && (
             <PlayerOfMatchSelector
               eventId={id!}
               clubId={event.club_id}
               teamId={event.team_id}
-              isAdmin={isAdmin || isAppAdmin || false}
+              isAdmin={canManageEvent}
               rsvps={rsvps || []}
               childrenOnTeam={allChildrenOnTeam || childrenOnTeam}
             />
@@ -4395,7 +4402,7 @@ export default function EventDetailPage() {
       )}
 
       {/* Duties Section (only for non-mini-league games — mini league duties are auto-created via Generate Matches) */}
-      {event.type === "game" && !isMiniLeagueEvent && (isAppAdmin || hasTeamPro === true) && (
+      {event.type === "game" && !isMiniLeagueEvent && canAwardDutyPoints && (
 
         <>
           <section className="space-y-3">
