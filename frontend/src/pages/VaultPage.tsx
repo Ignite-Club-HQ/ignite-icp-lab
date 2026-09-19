@@ -60,6 +60,12 @@ import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
 import { runZipExport, summarizeZipExport, type ZipExportItem } from "@/features/vault/vaultZipExport";
 import {
+  createVaultFolder,
+  deleteVaultFolder,
+  renameVaultFolder,
+  renameVaultItem,
+} from "@/features/vault/vaultMutationRepository";
+import {
   formatVaultFileSize,
   getVaultExternalLinkInfo,
   isVaultDocumentFile,
@@ -1669,21 +1675,12 @@ function SupabaseVaultPage() {
 
   const createFolderMutation = useMutation({
     mutationFn: async (name: string) => {
-      const insertData: any = {
+      await createVaultFolder({
         name,
-        created_by: user!.id,
-        parent_id: getCurrentFolderId(),
-      };
-
-      if (currentView.type === "club") {
-        insertData.club_id = currentView.clubId;
-      } else if (currentView.type === "team") {
-        insertData.club_id = currentView.clubId;
-        insertData.team_id = currentView.teamId;
-      }
-
-      const { error } = await supabase.from("vault_folders").insert(insertData);
-      if (error) throw error;
+        userId: user!.id,
+        parentFolderId: getCurrentFolderId(),
+        view: currentView,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
@@ -1698,8 +1695,7 @@ function SupabaseVaultPage() {
 
   const deleteFolderMutation = useMutation({
     mutationFn: async (folderId: string) => {
-      const { error } = await supabase.from("vault_folders").delete().eq("id", folderId);
-      if (error) throw error;
+      await deleteVaultFolder(folderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
@@ -1713,8 +1709,7 @@ function SupabaseVaultPage() {
 
   const renameFolderMutation = useMutation({
     mutationFn: async ({ folderId, newName }: { folderId: string; newName: string }) => {
-      const { error } = await supabase.from("vault_folders").update({ name: newName }).eq("id", folderId);
-      if (error) throw error;
+      await renameVaultFolder(folderId, newName);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
@@ -1731,8 +1726,7 @@ function SupabaseVaultPage() {
 
   const renameFileMutation = useMutation({
     mutationFn: async ({ fileId, newName }: { fileId: string; newName: string }) => {
-      const { error } = await supabase.from("vault_files").update({ name: newName }).eq("id", fileId);
-      if (error) throw error;
+      await renameVaultItem(fileId, newName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vault-files"] });
@@ -1748,8 +1742,7 @@ function SupabaseVaultPage() {
   // Vault photos are stored in vault_files, so rename updates vault_files.name
   const renamePhotoMutation = useMutation({
     mutationFn: async ({ photoId, newName }: { photoId: string; newName: string }) => {
-      const { error } = await supabase.from("vault_files").update({ name: newName }).eq("id", photoId);
-      if (error) throw error;
+      await renameVaultItem(photoId, newName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vault-files"] });

@@ -254,6 +254,32 @@ failure); `npm run typecheck:lab`, `npm run typecheck:strict`, `npm run
 typecheck:product` (187 diagnostics, unchanged), `npm run lint`, `npm run
 check:quality-ratchet`, and `npm run check:isolation`, all passing.
 
+### VaultPage folder/file mutation repository wiring — 2026-09-19
+
+`VaultPage.tsx` duplicated raw Supabase calls for folder create/delete/rename
+and file/photo rename inline, even though the typed
+`vaultMutationRepository.ts` (`createVaultFolder`, `deleteVaultFolder`,
+`renameVaultFolder`, `renameVaultItem`) already implemented the identical
+contracts and already had focused tests for exact payload shape, scope, and
+failure propagation. The five inline `useMutation` bodies now call that
+repository directly; every `onSuccess`/`onError` side effect (toasts, query
+invalidation, local dialog/input state resets, folder-path renaming) is
+byte-for-byte unchanged, and the page still owns all of its UI state and
+cache-invalidation policy. This removed 22 duplicated lines from the page
+(5,642 → 5,635 direct lines) without adding a new module, since the target
+repository and its tests already existed.
+
+Validation for this slice: the existing
+`src/features/vault/vaultMutationRepository.test.ts` (17 tests, all still
+passing against the unmodified repository); the existing Vault
+characterization suites (`vaultDeletionAuthority.local.test.tsx`,
+`vaultCacheContract.guard.test.tsx`, `vaultMutationSafety.local.test.tsx`, and
+`vaultPageCharacterization.local.test.mjs`, 53 tests total); `npm test` (279
+Node tests, 1,720 Vitest tests, all passing); `npm run typecheck:lab`, `npm
+run typecheck:strict`, `npm run typecheck:product` (187 diagnostics,
+unchanged), `npm run lint`, `npm run check:quality-ratchet`, and `npm run
+check:isolation`, all passing.
+
 ### Handover status
 
 | Handover objective | Status | Decision |
