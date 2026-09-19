@@ -1460,7 +1460,7 @@
     },
     {
       "file": "src/pages/GroupChatPage.tsx",
-      "line": 724,
+      "line": 725,
       "column": 32,
       "code": "TS2345",
       "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",

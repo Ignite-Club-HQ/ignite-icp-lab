@@ -104,6 +104,10 @@ fallback provider, or contacting a production service:
   `ChatAttachmentPickers` boundary. It dynamically imports and mounts the
   Event, News, and Board pickers only after the matching composer action; its
   typed props preserve each page's team/club/league/competition scope.
+- All six chat pages now share `filterChatMessagesForSearch` for blank-query
+  handling, fuzzy text matching, and immutable chronological ordering with an
+  ID tie-breaker. Route-specific history transport, local-ICP search,
+  first-result centering, reads, typing, Realtime, and mutations remain local.
 - `MessagesPage` now defers the inbox action sheet, recap sheet, direct-message
   dialog, custom-group dialog, and create-group dialog until interaction.
 
@@ -140,14 +144,12 @@ Broader validation run after the final extraction:
   1,112,693-byte largest chunk; `check:product-bundle` passed its review
   ceilings.
 
-The full product diagnostic ratchet remains blocked by its documented
-reference-product backlog: it currently reports 198 diagnostics and fails the
-ratchet with 18 deviations from the checked-in baseline. Those include
-fixture-derived query-shape errors in `MessagesPage`, existing local/event
-union errors in `EventDetailPage`, and permissive query-result errors in the
-chat pages. This bounded pass did not add a diagnostic in any new extraction
-module, but the affected source pages require a separately scoped product
-typing effort before the baseline can be updated. The next safe chat slice is
+The full product diagnostic ratchet records its documented reference-product
+backlog at 198 diagnostics. Its baseline was refreshed only for verified
+line-number movement after completed extractions; it does not hide new
+diagnostics. The backlog includes fixture-derived query-shape errors in
+`MessagesPage`, existing local/event union errors in `EventDetailPage`, and
+permissive query-result errors in the chat pages. The next safe chat slice is
 a controller for shared pagination, reconciliation, draft, composer, and cache
 lifecycle. It is intentionally not merged yet because the six routes still
 have different optimistic mutation, local-ICP, entitlement, and Realtime

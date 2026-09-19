@@ -5,6 +5,7 @@ import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
+import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
@@ -1928,17 +1929,10 @@ export default function TeamChatPage() {
           })(q, signal),
   });
 
-  const filteredMessages = useMemo(() => {
-    if (!localMessages) return localMessages;
-    const base = !searchQuery.trim()
-      ? localMessages
-      : localMessages.filter((msg) =>
-          fuzzyMatchesQuery(msg.text, searchQuery)
-        );
-    return [...base].sort(
-      (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
-  }, [localMessages, searchQuery]);
+  const filteredMessages = useMemo(
+    () => filterChatMessagesForSearch(localMessages, searchQuery),
+    [localMessages, searchQuery],
+  );
 
   const firstMatchId = searchQuery.trim() ? filteredMessages?.[0]?.id ?? null : null;
   const lastCenteredKeyRef = useRef<string | null>(null);

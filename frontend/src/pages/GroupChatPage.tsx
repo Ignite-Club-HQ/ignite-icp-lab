@@ -3,6 +3,7 @@ import { useChatLoadingLatch } from "@/hooks/useChatLoadingLatch";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
+import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { useSyncActiveClubToChat } from "@/hooks/useSyncActiveClubToChat";
 import { useChatViewportHeight } from "@/hooks/useChatViewportHeight";
@@ -2451,17 +2452,10 @@ export default function GroupChatPage() {
           })(q, signal),
   });
 
-  const filteredMessages = useMemo(() => {
-    if (!localMessages) return localMessages;
-    const base = !searchQuery.trim()
-      ? localMessages
-      : localMessages.filter((m) =>
-          fuzzyMatchesQuery(m.text, searchQuery)
-        );
-    return [...base].sort(
-      (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
-  }, [localMessages, searchQuery]);
+  const filteredMessages = useMemo(
+    () => filterChatMessagesForSearch(localMessages, searchQuery),
+    [localMessages, searchQuery],
+  );
 
   const firstMatchId = searchQuery.trim() ? filteredMessages?.[0]?.id ?? null : null;
   const lastCenteredKeyRef = useRef<string | null>(null);

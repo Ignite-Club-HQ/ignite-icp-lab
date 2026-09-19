@@ -2,7 +2,7 @@ import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
 import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
-import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
+import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { useSyncActiveClubToChat } from "@/hooks/useSyncActiveClubToChat";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -949,17 +949,10 @@ function SupabaseClubAdminChatPage() {
       })(q, signal),
   });
 
-  const filteredMessages = useMemo(() => {
-    if (!localMessages) return localMessages;
-    const base = !searchQuery.trim()
-      ? localMessages
-      : localMessages.filter((msg) =>
-          fuzzyMatchesQuery(msg.text, searchQuery)
-        );
-    return [...base].sort(
-      (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
-  }, [localMessages, searchQuery]);
+  const filteredMessages = useMemo(
+    () => filterChatMessagesForSearch(localMessages, searchQuery),
+    [localMessages, searchQuery],
+  );
 
   // Read receipts: mirror Club/Team chat wiring so admins can see which other
   // admins have opened a member's Contact Club message.

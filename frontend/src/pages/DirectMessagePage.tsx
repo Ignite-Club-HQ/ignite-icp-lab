@@ -2,7 +2,7 @@ import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
 import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
-import { fuzzyMatchesQuery } from "@/lib/fuzzySearch";
+import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -1405,17 +1405,10 @@ export default function DirectMessagePage() {
       })(q, signal),
   });
 
-  const filteredMessages = useMemo(() => {
-    if (!localMessages) return localMessages;
-    const base = !searchQuery.trim()
-      ? localMessages
-      : localMessages.filter((msg) =>
-          fuzzyMatchesQuery(msg.text, searchQuery)
-        );
-    return [...base].sort(
-      (a, b) => (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || a.id.localeCompare(b.id)
-    );
-  }, [localMessages, searchQuery]);
+  const filteredMessages = useMemo(
+    () => filterChatMessagesForSearch(localMessages, searchQuery),
+    [localMessages, searchQuery],
+  );
 
   const firstMatchId = searchQuery.trim() ? filteredMessages?.[0]?.id ?? null : null;
   const lastCenteredKeyRef = useRef<string | null>(null);
