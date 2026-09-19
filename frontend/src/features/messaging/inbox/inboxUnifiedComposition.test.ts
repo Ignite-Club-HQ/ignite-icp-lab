@@ -81,4 +81,26 @@ describe("buildUnifiedInboxConversations", () => {
     const rows = buildUnifiedInboxConversations({ ...base, drafts: { team: { text: "Unsent", updatedAt: "2099-01-01" } } });
     expect(rows.find((row) => row.id === "team")).toMatchObject({ draftText: "Unsent", lastActivity: "2099-01-01" });
   });
+
+  it("normalizes realtime preview records before they reach inbox rendering", () => {
+    const rows = buildUnifiedInboxConversations({
+      ...base,
+      showBroadcast: false,
+      teams: [],
+      leagueChats: [],
+      chatGroups: [],
+      directMessages: [],
+      adminConversations: [],
+      latestClubMessages: {
+        club: { text: "Latest update", created_at: "2026-09-19", image_url: "preview.jpg" },
+      },
+    });
+
+    expect(rows[0]?.lastMessage).toEqual({
+      text: "Latest update",
+      author: "",
+      created_at: "2026-09-19",
+      image_url: "preview.jpg",
+    });
+  });
 });

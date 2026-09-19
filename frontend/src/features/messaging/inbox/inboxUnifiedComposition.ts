@@ -16,6 +16,31 @@ import {
   type InboxPreviewMessage,
 } from "./inboxReadModel";
 
+interface InboxPreviewSource {
+  text?: unknown;
+  author?: unknown;
+  created_at?: unknown;
+  image_url?: unknown;
+  is_announcement?: unknown;
+}
+
+function normalizeInboxPreview(
+  preview: InboxPreviewSource | undefined,
+): InboxPreviewMessage | undefined {
+  if (!preview) return undefined;
+
+  const normalized: InboxPreviewMessage = {
+    text: typeof preview.text === "string" ? preview.text : "",
+    author: typeof preview.author === "string" ? preview.author : "",
+    created_at: typeof preview.created_at === "string" ? preview.created_at : "",
+  };
+  if (typeof preview.image_url === "string") normalized.image_url = preview.image_url;
+  if (typeof preview.is_announcement === "boolean") {
+    normalized.is_announcement = preview.is_announcement;
+  }
+  return normalized;
+}
+
 interface NamedRow {
   id: string;
   name: string;
@@ -77,9 +102,9 @@ export function buildUnifiedInboxConversations(options: {
   chatGroups: readonly GroupRow[];
   directMessages: readonly DirectMessageRow[];
   adminConversations: readonly AdminConversationRow[];
-  latestClubMessages?: Record<string, InboxPreviewMessage | undefined> | null;
-  latestTeamMessages?: Record<string, InboxPreviewMessage | undefined> | null;
-  latestGroupMessages?: Record<string, InboxPreviewMessage | undefined> | null;
+  latestClubMessages?: Record<string, InboxPreviewSource | undefined> | null;
+  latestTeamMessages?: Record<string, InboxPreviewSource | undefined> | null;
+  latestGroupMessages?: Record<string, InboxPreviewSource | undefined> | null;
   unreadCounts?: UnreadCounts | null;
   realtimeGroupUnread?: Record<string, number | undefined> | null;
   muted?: MutedScopes | null;
@@ -112,7 +137,7 @@ export function buildUnifiedInboxConversations(options: {
     });
     rows.push(buildClubInboxConversation({
       club,
-      lastMessage: options.latestClubMessages?.[club.id],
+      lastMessage: normalizeInboxPreview(options.latestClubMessages?.[club.id]),
       unreadCount: options.unreadCounts?.clubs[club.id] || 0,
       isMuted: options.muted?.clubs.has(club.id) || false,
       proStatusKnown: entitlement.known,
@@ -122,7 +147,7 @@ export function buildUnifiedInboxConversations(options: {
 
   options.teams.forEach((team) => rows.push(buildTeamInboxConversation({
     team,
-    lastMessage: options.latestTeamMessages?.[team.id],
+    lastMessage: normalizeInboxPreview(options.latestTeamMessages?.[team.id]),
     unreadCount: options.unreadCounts?.teams[team.id] || 0,
     isMuted: options.muted?.teams.has(team.id) || false,
   })));
@@ -131,7 +156,7 @@ export function buildUnifiedInboxConversations(options: {
     type: "league",
     group,
     avatarUrl: group.clubs?.logo_url ?? null,
-    lastMessage: options.latestGroupMessages?.[group.id],
+    lastMessage: normalizeInboxPreview(options.latestGroupMessages?.[group.id]),
     unreadCount: resolveGroupUnreadCount(options.realtimeGroupUnread?.[group.id], options.unreadCounts?.groups[group.id]),
     isMuted: options.muted?.groups.has(group.id) || false,
   })));
@@ -152,7 +177,7 @@ export function buildUnifiedInboxConversations(options: {
     rows.push(buildGroupInboxConversation({
       type: "group",
       group,
-      lastMessage: options.latestGroupMessages?.[group.id],
+      lastMessage: normalizeInboxPreview(options.latestGroupMessages?.[group.id]),
       unreadCount: resolveGroupUnreadCount(options.realtimeGroupUnread?.[group.id], options.unreadCounts?.groups[group.id]),
       isMuted: options.muted?.groups.has(group.id) || false,
       canHide: isPersonal,
