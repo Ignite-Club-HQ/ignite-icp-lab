@@ -5,6 +5,7 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
 const StartDMDialog = lazyWithRetry(() => import("@/components/chat/StartDMDialog").then(m => ({ default: m.StartDMDialog })));
 const CreateGroupDialog = lazyWithRetry(() => import("@/components/chat/CreateGroupDialog"));
+const NewMessageSheet = lazyWithRetry(() => import("@/components/chat/NewMessageSheet").then(m => ({ default: m.NewMessageSheet })));
 import { Virtuoso } from "react-virtuoso";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAllChatDrafts } from "@/hooks/useChatDraft";
@@ -56,7 +57,6 @@ import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview, extractEventIds, extractVaultFolderIds, extractVaultFileIds } from "@/lib/messagePreview";
-import { NewMessageSheet } from "@/components/chat/NewMessageSheet";
 import { ContactClubButton } from "@/components/ContactClubButton";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
 import DiscoverGroupsList from "@/components/chat/DiscoverGroupsList";
@@ -3184,32 +3184,34 @@ export default function MessagesPage() {
         message="Couldn't load chats. Tap to retry."
       />
 
-      <Suspense fallback={null}>
-      <GlobalChatRecapSheet
-        open={showGlobalRecap}
-        onOpenChange={setShowGlobalRecap}
-        scopes={(unifiedConversations
-          .filter((c) =>
-            c.unreadCount > 0 &&
-            !c.isLocked &&
-            (c.type === "team" || c.type === "club" || c.type === "group" || c.type === "league" || c.type === "dm")
-          )
-          .map((c): RecapScopeRef => ({
-            scope_type: (c.type === "team"
-              ? "team"
-              : c.type === "club"
-              ? "club"
-              : c.type === "dm"
-              ? "direct"
-              : "group") as RecapScopeRef["scope_type"],
-            scope_id: c.id,
-            name: c.name,
-            link: c.link,
-            unreadCount: c.unreadCount,
-            typeLabel: c.type,
-          })))}
-      />
-      </Suspense>
+      {showGlobalRecap && (
+        <Suspense fallback={null}>
+          <GlobalChatRecapSheet
+            open={showGlobalRecap}
+            onOpenChange={setShowGlobalRecap}
+            scopes={(unifiedConversations
+              .filter((c) =>
+                c.unreadCount > 0 &&
+                !c.isLocked &&
+                (c.type === "team" || c.type === "club" || c.type === "group" || c.type === "league" || c.type === "dm")
+              )
+              .map((c): RecapScopeRef => ({
+                scope_type: (c.type === "team"
+                  ? "team"
+                  : c.type === "club"
+                    ? "club"
+                    : c.type === "dm"
+                      ? "direct"
+                      : "group") as RecapScopeRef["scope_type"],
+                scope_id: c.id,
+                name: c.name,
+                link: c.link,
+                unreadCount: c.unreadCount,
+                typeLabel: c.type,
+              })))}
+          />
+        </Suspense>
+      )}
 
 
 
@@ -3217,50 +3219,54 @@ export default function MessagesPage() {
 
 
       {/* New message bottom sheet (flat: DM + group types) */}
-      <NewMessageSheet
-        open={showNewMessageSheet}
-        onOpenChange={setShowNewMessageSheet}
-        canCreateGroups={!!canCreateGroups}
-        canCreateCustomGroup={!!(hasAnyProAccess || isAppAdmin)}
-        hasPro={effectiveClubFilter ? scopedClubIsPro === true : !!hasAnyProAccess}
-        isAppAdmin={!!isAppAdmin}
-        upgradeClubId={upgradeClubId}
-        onPickDM={() => setShowDMDialog(true)}
-        onPickCustom={() => setShowCustomGroupDialog(true)}
-        onPickTeam={() => {
-          setGroupDialogType("team");
-          setShowGroupDialog(true);
-        }}
-        onPickRole={() => {
-          setGroupDialogType("role");
-          setShowGroupDialog(true);
-        }}
-      />
+      {showNewMessageSheet && (
+        <Suspense fallback={null}>
+          <NewMessageSheet
+            open={showNewMessageSheet}
+            onOpenChange={setShowNewMessageSheet}
+            canCreateGroups={!!canCreateGroups}
+            canCreateCustomGroup={!!(hasAnyProAccess || isAppAdmin)}
+            hasPro={effectiveClubFilter ? scopedClubIsPro === true : !!hasAnyProAccess}
+            isAppAdmin={!!isAppAdmin}
+            upgradeClubId={upgradeClubId}
+            onPickDM={() => setShowDMDialog(true)}
+            onPickCustom={() => setShowCustomGroupDialog(true)}
+            onPickTeam={() => {
+              setGroupDialogType("team");
+              setShowGroupDialog(true);
+            }}
+            onPickRole={() => {
+              setGroupDialogType("role");
+              setShowGroupDialog(true);
+            }}
+          />
+        </Suspense>
+      )}
 
 
       {/* DM and Group dialogs — DM creation is Pro-gated */}
-      {(!!hasAnyProAccess || !!isAppAdmin) && (
+      {(!!hasAnyProAccess || !!isAppAdmin) && showDMDialog && (
         <Suspense fallback={null}>
-        <StartDMDialog open={showDMDialog} onOpenChange={setShowDMDialog} mode="dm" />
+          <StartDMDialog open={showDMDialog} onOpenChange={setShowDMDialog} mode="dm" />
         </Suspense>
       )}
-      {(!!hasAnyProAccess || !!isAppAdmin) && (
+      {(!!hasAnyProAccess || !!isAppAdmin) && showCustomGroupDialog && (
         <Suspense fallback={null}>
-        <StartDMDialog
-          open={showCustomGroupDialog}
-          onOpenChange={setShowCustomGroupDialog}
-          mode="custom-group"
-          allowCategory={!!canCreateGroups}
-        />
+          <StartDMDialog
+            open={showCustomGroupDialog}
+            onOpenChange={setShowCustomGroupDialog}
+            mode="custom-group"
+            allowCategory={!!canCreateGroups}
+          />
         </Suspense>
       )}
-      {canCreateGroups && (
+      {canCreateGroups && showGroupDialog && (
         <Suspense fallback={null}>
-        <CreateGroupDialog
-          open={showGroupDialog}
-          onOpenChange={setShowGroupDialog}
-          groupType={groupDialogType}
-        />
+          <CreateGroupDialog
+            open={showGroupDialog}
+            onOpenChange={setShowGroupDialog}
+            groupType={groupDialogType}
+          />
         </Suspense>
       )}
 
