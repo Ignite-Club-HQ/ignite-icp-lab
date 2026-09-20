@@ -25,11 +25,13 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AddClubRoleToMemberDialog from "@/components/AddClubRoleToMemberDialog";
+import { RoleRequestsList } from "@/components/members/RoleRequestsList";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabRoleRoster } from "@/lab/fixtureDataLayer";
 import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
 import { IcpLabRoleRosterView } from "@/features/membership/IcpLabRoleRosterView";
+import { groupRoleRowsByUser } from "@/features/membership/roleRoster";
 
 const roleColors: Record<AppRole, string> = {
   app_admin: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -46,7 +48,6 @@ const roleColors: Record<AppRole, string> = {
 };
 
 const MEMBERS_PER_PAGE = 10;
-type UserRoleGroup = { profile: any; roles: any[] };
 
 export default function ManageRolesPage() {
   const useIcpLab = resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true);
@@ -240,19 +241,7 @@ function SupabaseManageRolesPage() {
     return <div className="py-6 text-center text-muted-foreground">Club not found</div>;
   }
 
-  // Group roles by user
-  const userRoles: Record<string, UserRoleGroup> = roles?.reduce((acc, role) => {
-    const userId = role.profiles?.id;
-    if (!userId) return acc;
-    if (!acc[userId]) {
-      acc[userId] = {
-        profile: role.profiles,
-        roles: [],
-      };
-    }
-    acc[userId].roles.push(role);
-    return acc;
-  }, {} as Record<string, UserRoleGroup>) ?? {};
+  const userRoles = groupRoleRowsByUser(roles ?? []);
 
   const q = searchQuery.trim().toLowerCase();
   const filteredUserEntries = Object.entries(userRoles).filter(([, { profile }]) =>
@@ -394,62 +383,12 @@ function SupabaseManageRolesPage() {
         </TabsContent>
 
         <TabsContent value="requests" className="mt-4 space-y-4">
-          {requests?.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <UserPlus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No pending requests</p>
-              </CardContent>
-            </Card>
-          ) : (
-            requests?.map((request) => (
-              <Card key={request.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={request.requester?.avatar_url || undefined} />
-                      <AvatarFallback>
-                        {request.requester?.display_name?.charAt(0) || "?"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{request.requester?.display_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Wants to be: {roleLabels[request.role as AppRole]}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleRequestMutation.mutate({ 
-                        requestId: request.id, 
-                        approved: true,
-                        request 
-                      })}
-                      disabled={handleRequestMutation.isPending}
-                    >
-                      <Check className="h-4 w-4 mr-1" /> Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleRequestMutation.mutate({ 
-                        requestId: request.id, 
-                        approved: false,
-                        request 
-                      })}
-                      disabled={handleRequestMutation.isPending}
-                    >
-                      <X className="h-4 w-4 mr-1" /> Deny
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+          <RoleRequestsList
+            requests={requests}
+            isProcessing={handleRequestMutation.isPending}
+            onApprove={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: true, request })}
+            onDeny={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: false, request })}
+          />
         </TabsContent>
       </Tabs>
     </div>

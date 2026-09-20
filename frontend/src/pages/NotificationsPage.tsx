@@ -4,10 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { 
   Bell,
-  Check, 
   CheckCheck, 
-  CheckCircle,
-  XCircle,
   RefreshCw,
   Trash2,
   ArrowLeft,
@@ -15,15 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SwipeableNotificationCard } from "@/components/SwipeableNotificationCard";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfileById } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDistanceToNow, parseISO } from "date-fns";
 import { playNotificationSound, showBrowserNotification } from "@/lib/notifications";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
-import { useNotificationIcon } from "@/components/NotificationIcon";
+import { NotificationListCard } from "@/components/notifications/NotificationListCard";
 import { resolveTeamInviteRoute } from "@/lib/resolveNotificationRoute";
 import { filterClubScopedNotifications } from "@/lib/filterClubScopedNotifications";
 import { setPendingChatJump, withChatJumpNonce, type ChatJumpKind } from "@/lib/pendingChatJump";
@@ -176,25 +171,6 @@ const navigateToChatTarget = (navigate: (to: string) => void, target: ChatTarget
 };
 
 // Helper component for rendering notification icons with read state
-function NotificationIconWrapper({ type, isRead, message }: { type: string; isRead: boolean; message?: string | null }) {
-  const { Icon, reactionEmoji, colorClass } = useNotificationIcon(type, message);
-  return (
-    <div className={`p-2 rounded-lg ${isRead ? "bg-muted" : "bg-primary/10"}`}>
-      {reactionEmoji ? (
-        <span
-          className="inline-flex items-center justify-center h-4 w-4 text-base leading-none"
-          role="img"
-          aria-label={type.replace(/_/g, " ")}
-        >
-          {reactionEmoji}
-        </span>
-      ) : (
-        <Icon className={`h-4 w-4 ${isRead ? "text-muted-foreground" : colorClass}`} />
-      )}
-    </div>
-  );
-}
-
 const NOTIFICATIONS_PER_PAGE = 30;
 
 export default function NotificationsPage() {
@@ -1202,89 +1178,23 @@ export default function NotificationsPage() {
                 Unread · {unreadNotifications.length}
               </h2>
               {unreadNotifications.map((notification) => (
-                <SwipeableNotificationCard
+                <NotificationListCard
                   key={notification.id}
-                  className="border-primary/30"
+                  notification={notification}
+                  variant="unread"
                   onClick={() => handleNotificationClick(notification)}
                   onDelete={() => deleteNotification.mutate(notification.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <NotificationIconWrapper type={notification.type} isRead={notification.read} message={notification.message} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">
-                        {notification.message}
-                        {["event_invite", "event_cancelled", "event_updated", "event_reminder", "event_view_reminder", "duty_assigned", "duty_completed"].includes(notification.type) && notification.related_id && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 ml-1 text-primary font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!notification.read) {
-                                markAsRead.mutate(notification.id);
-                              }
-                              navigate(`/events/${notification.related_id}`);
-                            }}
-                          >
-                            View event →
-                          </Button>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(parseISO(notification.created_at), { addSuffix: true })}
-                      </p>
-                      {notification.type === "join_request" && notification.related_id && (
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              approveRequest.mutate(notification.related_id!);
-                            }}
-                            disabled={approveRequest.isPending || denyRequest.isPending}
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              denyRequest.mutate(notification.related_id!);
-                            }}
-                            disabled={approveRequest.isPending || denyRequest.isPending}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Deny
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onTouchEnd={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        markAsRead.mutate(notification.id);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        markAsRead.mutate(notification.id);
-                      }}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </SwipeableNotificationCard>
+                  onViewEvent={() => {
+                    if (!notification.read) {
+                      markAsRead.mutate(notification.id);
+                    }
+                    navigate(`/events/${notification.related_id}`);
+                  }}
+                  onMarkAsRead={() => markAsRead.mutate(notification.id)}
+                  onApproveJoinRequest={() => approveRequest.mutate(notification.related_id!)}
+                  onDenyJoinRequest={() => denyRequest.mutate(notification.related_id!)}
+                  joinRequestActionsDisabled={approveRequest.isPending || denyRequest.isPending}
+                />
               ))}
             </section>
           )}
@@ -1296,70 +1206,23 @@ export default function NotificationsPage() {
                 Earlier
               </h2>
               {earlierNotifications.map((notification) => (
-                <SwipeableNotificationCard
+                <NotificationListCard
                   key={notification.id}
-                  className="opacity-60"
+                  notification={notification}
+                  variant="earlier"
                   onClick={() => handleNotificationClick(notification)}
                   onDelete={() => deleteNotification.mutate(notification.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <NotificationIconWrapper type={notification.type} isRead={notification.read} message={notification.message} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-muted-foreground">
-                        {notification.message}
-                        {["event_invite", "event_cancelled", "event_updated", "event_reminder", "event_view_reminder", "duty_assigned", "duty_completed"].includes(notification.type) && notification.related_id && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 ml-1 text-primary font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!notification.read) {
-                                markAsRead.mutate(notification.id);
-                              }
-                              navigate(`/events/${notification.related_id}`);
-                            }}
-                          >
-                            View event →
-                          </Button>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(parseISO(notification.created_at), { addSuffix: true })}
-                      </p>
-                      {notification.type === "join_request" && notification.related_id && (
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              approveRequest.mutate(notification.related_id!);
-                            }}
-                            disabled={approveRequest.isPending || denyRequest.isPending}
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              denyRequest.mutate(notification.related_id!);
-                            }}
-                            disabled={approveRequest.isPending || denyRequest.isPending}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Deny
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </SwipeableNotificationCard>
+                  onViewEvent={() => {
+                    if (!notification.read) {
+                      markAsRead.mutate(notification.id);
+                    }
+                    navigate(`/events/${notification.related_id}`);
+                  }}
+                  onMarkAsRead={() => markAsRead.mutate(notification.id)}
+                  onApproveJoinRequest={() => approveRequest.mutate(notification.related_id!)}
+                  onDenyJoinRequest={() => denyRequest.mutate(notification.related_id!)}
+                  joinRequestActionsDisabled={approveRequest.isPending || denyRequest.isPending}
+                />
               ))}
             </section>
           )}
