@@ -4,6 +4,61 @@ Audit date: 2026-09-19
 
 ## Executive decision
 
+### Responsibility extraction follow-up — 2026-09-20
+
+This follow-up retained the guarded product/reference architecture and made no
+change to the isolated lab entry, `lab-runtime-files.json`, provider selection,
+or the fail-closed Supabase boundary.
+
+- `VaultPage` now delegates the exact purchased-storage and storage-breakdown
+  reads to `vaultStorageRepository`. The existing query keys, disabled-without-
+  club behavior, empty fallback values, rendering, and cache policy remain in
+  the page; the repository remains responsible for club scoping and excluding
+  deleted rows. Its seven focused storage-accounting/repository tests cover
+  the fallback and all source scopes.
+- `EventDetailPage` now delegates only the non-lab event detail read to
+  `eventDetailRepository`. The ICP fixture/canister branch, retry telemetry,
+  watchdog, query key, and all RSVP/payment/duty mutations remain route-local.
+  The repository deliberately propagates transport/RLS failures and returns
+  `null` only for a successful missing/hidden row (four focused tests).
+- `MessagesPage` now uses `collectInboxPreviewReferences` for the existing
+  one-pass event, Vault-folder, and Vault-file preview token collection.
+  Its three independently cached title/name queries, authorization-scoped
+  sources, message composition, Realtime reconciliation, filters, and
+  rendering are intentionally unchanged. The helper's six tests retain
+  deduplication, first-seen ordering, UUID normalization, and malformed-token
+  behavior.
+- The exactly matching ICP/local read-only roster presentation in
+  `ManageRolesPage` and `ManageTeamRolesPage` now uses
+  `IcpLabRoleRosterView` (seven focused tests). Club/team identifiers,
+  fixture roster filtering, query keys, titles, fallback error copy, badge
+  palettes, and all Supabase role-management controllers stay route-local.
+  The shared component does not make either unported role route part of the
+  lab runtime.
+
+No further chat composer, optimistic/offline, local-ICP transport,
+entitlement, or Realtime handler convergence was attempted: their route
+contracts still differ. Sponsor and join-link flows also remain separate
+because their authorization, lifecycle, and confirmation semantics differ.
+No additional interaction-only dependency had an independently safe boundary
+in this pass, so no speculative dynamic import was added.
+
+Validation actually run from `frontend/`:
+
+- focused legacy-config extraction tests: 17 storage/event/inbox tests and 18
+  role-roster/cache/presentation tests passed;
+- `npm test`, `npm run test:legacy`, `npm run typecheck:lab`,
+  `npm run typecheck:strict`, `npm run typecheck:product`, `npm run lint`,
+  `npm run check:quality-ratchet`, and `npm run check:isolation` passed;
+- both `npm run build` and `npm run build:product` passed. The subsequent
+  product bundle check measured 8,886,962 JavaScript bytes, 172,904 CSS
+  bytes, 499 JavaScript chunks, and a 1,112,746-byte largest JavaScript
+  chunk, all within the 9,800,000/500,000/1,500,000 review ceilings;
+- the normalized product diagnostic multiset was checked before any baseline
+  action. It remains 172 diagnostics (112 source-backed, 49 missing-reference,
+  11 inert Edge Function references), with no new signature; the baseline was
+  not rewritten.
+
 ## Baseline implementation update — 2026-09-18
 
 The first reproducible-baseline work package is now implemented without

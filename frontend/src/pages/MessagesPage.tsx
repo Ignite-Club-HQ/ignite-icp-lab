@@ -65,7 +65,8 @@ import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
-import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview, extractEventIds, extractVaultFolderIds, extractVaultFileIds } from "@/lib/messagePreview";
+import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview } from "@/lib/messagePreview";
+import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
 import { ContactClubButton } from "@/components/ContactClubButton";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
 import DiscoverGroupsList from "@/components/chat/DiscoverGroupsList";
@@ -2799,29 +2800,14 @@ export default function MessagesPage() {
 
   // Resolve event titles referenced in any conversation preview so they
   // display the actual event name instead of a generic "Event" placeholder.
-  const referencedEventIds = useMemo(() => {
-    const set = new Set<string>();
-    unifiedConversations.forEach((c) => {
-      extractEventIds(c.lastMessage?.text).forEach((id) => set.add(id));
-    });
-    return Array.from(set);
-  }, [unifiedConversations]);
-
-  const referencedVaultFolderIds = useMemo(() => {
-    const set = new Set<string>();
-    unifiedConversations.forEach((c) => {
-      extractVaultFolderIds(c.lastMessage?.text).forEach((id) => set.add(id));
-    });
-    return Array.from(set);
-  }, [unifiedConversations]);
-
-  const referencedVaultFileIds = useMemo(() => {
-    const set = new Set<string>();
-    unifiedConversations.forEach((c) => {
-      extractVaultFileIds(c.lastMessage?.text).forEach((id) => set.add(id));
-    });
-    return Array.from(set);
-  }, [unifiedConversations]);
+  const {
+    eventIds: referencedEventIds,
+    vaultFolderIds: referencedVaultFolderIds,
+    vaultFileIds: referencedVaultFileIds,
+  } = useMemo(
+    () => collectInboxPreviewReferences(unifiedConversations),
+    [unifiedConversations],
+  );
 
   const { data: eventTitleMap = {} } = useQuery({
     queryKey: ["messages-page-event-titles", referencedEventIds.join(",")],

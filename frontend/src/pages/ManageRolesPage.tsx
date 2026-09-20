@@ -29,6 +29,7 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabRoleRoster } from "@/lab/fixtureDataLayer";
 import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
+import { IcpLabRoleRosterView } from "@/features/membership/IcpLabRoleRosterView";
 
 const roleColors: Record<AppRole, string> = {
   app_admin: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -59,7 +60,6 @@ export default function ManageRolesPage() {
 
 /** Read-only role roster backed by synthetic fixtures; mutations remain unavailable until identity_access role-projection is wired here. */
 function IcpLabManageRolesPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { clubId } = useParams<{ clubId: string }>();
   const persona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
@@ -86,42 +86,15 @@ function IcpLabManageRolesPage() {
     : fallbackRoster;
 
   return (
-    <div className="container max-w-3xl mx-auto px-4 py-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-bold">Club Roles</h1>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        {state?.source === "icp"
-          ? "Loaded from the local identity_access canister. Inviting members and changing roles are disabled."
-          : "The local identity_access canister is not configured. Showing a synthetic read-only preview; no Supabase request was made."}
-      </p>
-      {isLoading && <Skeleton className="h-10 w-full" />}
-      {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Unable to load role data."}</p>}
-      <div className="space-y-2">
-        {roster.map((entry) => (
-          <Card key={entry.profile.id}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Avatar>
-                <AvatarFallback>{entry.profile.display_name.slice(0, 1)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{entry.profile.display_name}</p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {entry.roles.map((role) => (
-                    <Badge key={role.id} variant="outline" className={roleColors[role.role as AppRole]}>
-                      {roleLabels[role.role as AppRole]}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+    <IcpLabRoleRosterView
+      title="Club Roles"
+      source={state?.source}
+      isLoading={isLoading}
+      error={error}
+      errorFallbackMessage="Unable to load role data."
+      roster={roster}
+      roleBadgeClassName={(role) => roleColors[role as AppRole]}
+    />
   );
 }
 

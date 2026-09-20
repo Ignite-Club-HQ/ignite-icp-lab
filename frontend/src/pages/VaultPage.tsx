@@ -72,12 +72,10 @@ import {
   isVaultSpreadsheetFile,
 } from "@/features/vault/vaultFilePresentation";
 import {
-  calculateVaultStorageBreakdown,
-  type VaultStorageFile,
-  type VaultStorageMiniLeague,
-  type VaultStoragePhoto,
-  type VaultStorageTeam,
-} from "@/features/vault/vaultStorageBreakdown";
+  emptyVaultStorageBreakdown,
+  fetchVaultStorageBreakdown,
+  fetchVaultStorageSubscription,
+} from "@/features/vault/vaultStorageRepository";
 
 async function createZipArchive() {
   const { default: JSZip } = await import("jszip");
@@ -1357,15 +1355,13 @@ function SupabaseVaultPage() {
   // Query for purchased storage and scheduled downgrade info for current club
   const { data: storageSubscriptionData } = useQuery({
     queryKey: ["purchased-storage", currentClub?.id],
-    queryFn: async () => {
-      if (!currentClub?.id) return { storage_purchased_gb: 0, scheduled_storage_downgrade_gb: null, storage_downgrade_at: null };
-      const { data } = await supabase
-        .from("club_subscriptions")
-        .select("storage_purchased_gb, scheduled_storage_downgrade_gb, storage_downgrade_at")
-        .eq("club_id", currentClub.id)
-        .maybeSingle();
-      return data || { storage_purchased_gb: 0, scheduled_storage_downgrade_gb: null, storage_downgrade_at: null };
-    },
+    queryFn: () => currentClub?.id
+      ? fetchVaultStorageSubscription(currentClub.id)
+      : Promise.resolve({
+        storage_purchased_gb: 0,
+        scheduled_storage_downgrade_gb: null,
+        storage_downgrade_at: null,
+      }),
     enabled: !!currentClub?.id,
   });
 
@@ -1379,45 +1375,9 @@ function SupabaseVaultPage() {
   // Query for storage breakdown by file type, team, and mini-league
   const { data: storageBreakdown } = useQuery({
     queryKey: ["storage-breakdown", currentClub?.id],
-    queryFn: async () => {
-      if (!currentClub?.id) return { 
-        photos: 0, 
-        documents: 0, 
-        total: 0, 
-        byTeam: [] as { teamId: string | null; teamName: string; size: number; photosSize: number; documentsSize: number }[],
-        byMiniLeague: [] as { miniLeagueId: string; miniLeagueName: string; size: number; photosSize: number; documentsSize: number }[]
-      };
-
-      const { data: photosData } = await supabase
-        .from("photos")
-        .select("file_size, team_id, mini_league_id")
-        .eq("club_id", currentClub.id)
-        .is("deleted_at", null);
-
-      const { data: rawFilesData } = await supabase
-        .from("vault_files")
-        .select("*")
-        .eq("club_id", currentClub.id)
-        .is("deleted_at", null);
-
-      const { data: teamsData } = await supabase
-        .from("teams")
-        .select("id, name")
-        .eq("club_id", currentClub.id)
-        .is("deleted_at", null);
-
-      const { data: miniLeaguesData } = await supabase
-        .from("mini_leagues")
-        .select("id, name")
-        .eq("club_id", currentClub.id);
-
-      return calculateVaultStorageBreakdown({
-        photos: (photosData ?? []) as VaultStoragePhoto[],
-        files: (rawFilesData ?? []) as VaultStorageFile[],
-        teams: (teamsData ?? []) as VaultStorageTeam[],
-        miniLeagues: (miniLeaguesData ?? []) as VaultStorageMiniLeague[],
-      });
-    },
+    queryFn: () => currentClub?.id
+      ? fetchVaultStorageBreakdown(currentClub.id)
+      : Promise.resolve(emptyVaultStorageBreakdown()),
     enabled: !!currentClub?.id,
   });
 

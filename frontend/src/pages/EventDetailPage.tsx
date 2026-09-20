@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense, useRef, useCallback } fro
 import { useDeleteEvent } from "@/hooks/useDeleteEvent";
 import { buildEventRsvpBuckets } from "@/features/events/eventRsvpBuckets";
 import { resolveEventCapabilities } from "@/features/events/eventCapabilities";
+import { fetchEventDetail } from "@/features/events/eventDetailRepository";
 
 import { abortAllInFlightRestGets } from "@/lib/supabaseAuthRetry";
 import { Share } from "@capacitor/share";
@@ -248,13 +249,7 @@ export default function EventDetailPage() {
         }
       }
 
-      const { data, error } = await supabase
-        .from("events")
-        .select(`*, teams (name, default_match_arrival_minutes, default_rsvp_audience), clubs!club_id (name, is_pro, sport)`)
-        .eq("id", id!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      return fetchEventDetail(supabase, id!);
     },
     enabled: !!id,
     retry: (failureCount, err: any) => {
