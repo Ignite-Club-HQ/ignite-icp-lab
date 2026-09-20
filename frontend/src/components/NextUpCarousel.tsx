@@ -342,13 +342,12 @@ function useRsvpSummary(eventId: string, eventType?: string) {
       if (error) throw error;
       if (!rsvps || rsvps.length === 0) return { avatars: [], totalCount: 0 };
 
-      const guardianUserIds = [
-        ...new Set(
-          rsvps
-            .filter(r => !r.child_id && !r.mini_league_player_id && r.user_id)
-            .map(r => r.user_id)
-        ),
-      ];
+      const guardianUserIds: string[] = [];
+      for (const rsvp of rsvps) {
+        if (!rsvp.child_id && !rsvp.mini_league_player_id && typeof rsvp.user_id === "string") {
+          if (!guardianUserIds.includes(rsvp.user_id)) guardianUserIds.push(rsvp.user_id);
+        }
+      }
 
       const profileMap = guardianUserIds.length > 0
         ? Object.fromEntries(

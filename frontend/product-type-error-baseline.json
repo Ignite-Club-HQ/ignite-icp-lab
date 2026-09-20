@@ -171,14 +171,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/components/NextUpCarousel.tsx",
-      "line": 355,
-      "column": 47,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown[]' is not assignable to parameter of type 'readonly string[]'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/components/PendingInvitesList.tsx",
       "line": 105,
       "column": 20,
@@ -1380,7 +1372,7 @@
     }
   ],
   "counts": {
-    "source-backed": 112,
+    "source-backed": 111,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

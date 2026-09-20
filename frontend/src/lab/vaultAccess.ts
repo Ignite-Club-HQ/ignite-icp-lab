@@ -80,6 +80,38 @@ export function getVaultTeamIds(
   return roles?.flatMap((record) => record.team_id ? [record.team_id] : []) ?? [];
 }
 
+// Merges club ids reached through team membership into an already-resolved
+// list of directly-assigned club ids, skipping falsy entries and any club id
+// already present so the result stays deduplicated and keeps its original
+// (direct-roles-first) ordering.
+export function mergeVaultTeamClubIds(
+  clubIds: readonly string[],
+  teamClubIds: readonly (string | null | undefined)[] | null | undefined,
+): string[] {
+  const merged = [...clubIds];
+  for (const clubId of teamClubIds ?? []) {
+    if (clubId && !merged.includes(clubId)) merged.push(clubId);
+  }
+  return merged;
+}
+
+// Resolves the club ids visible to a non-app-admin Vault user: direct
+// `user_roles.club_id` rows (deduplicated) unioned with any club ids reached
+// through team membership. `teamClubIds` is the result of the caller's own
+// `teams.club_id` lookup for `getVaultTeamIds(roles)` - this stays a pure
+// merge step so the Supabase-specific team lookup itself is left untouched
+// in the page. An app admin never reaches this path (the page short-circuits
+// to an unfiltered club fetch before calling it), so there is no admin
+// branch here.
+export function resolveVaultVisibleClubIds(
+  roles: readonly VaultRoleRecord[] | null | undefined,
+  teamClubIds?: readonly (string | null | undefined)[] | null,
+): string[] {
+  if (!roles || roles.length === 0) return [];
+  const directClubIds = [...new Set(roles.map((record) => record.club_id).filter(Boolean))] as string[];
+  return mergeVaultTeamClubIds(directClubIds, teamClubIds);
+}
+
 export function hasVaultProEntitlement(
   subscription: VaultSubscriptionRecord | null | undefined,
 ): boolean {

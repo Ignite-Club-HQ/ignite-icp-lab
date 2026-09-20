@@ -133,6 +133,7 @@ import {
   hasVaultRoleAccess as resolveVaultRoleAccess,
   isVaultClubAdminOrCommittee,
   isVaultCoachOrTeamAdmin,
+  resolveVaultVisibleClubIds,
 } from "@/lab/vaultAccess";
 
 export default function VaultPage() {
@@ -353,28 +354,21 @@ function SupabaseVaultPage() {
 
       if (!roles || roles.length === 0) return [];
 
-      // Get clubs from direct club roles
-      const clubIds = [...new Set(roles.map((r) => r.club_id).filter(Boolean))] as string[];
-      
-      // Also get clubs from team memberships
-      const teamIds = roles.map((r) => r.team_id).filter(Boolean) as string[];
+      // Resolve visible club ids: direct club roles plus any club reached
+      // through team membership (only looked up when a team role exists).
+      const teamIds = getVaultTeamIds(roles);
+      let teamClubIds: (string | null)[] | undefined;
       if (teamIds.length > 0) {
         const { data: teams } = await supabase
           .from("teams")
           .select("club_id")
           .in("id", teamIds);
-        
-        if (teams) {
-          teams.forEach(t => {
-            if (t.club_id && !clubIds.includes(t.club_id)) {
-              clubIds.push(t.club_id);
-            }
-          });
-        }
+        teamClubIds = teams?.map((t) => t.club_id);
       }
-      
+
+      const clubIds = resolveVaultVisibleClubIds(roles, teamClubIds);
       if (clubIds.length === 0) return [];
-      
+
       const { data: clubs } = await supabase
         .from("clubs")
         .select("id, name, is_pro, storage_used_bytes")

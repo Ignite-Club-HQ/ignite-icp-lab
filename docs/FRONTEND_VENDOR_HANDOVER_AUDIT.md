@@ -1,6 +1,6 @@
 # Frontend Vendor Handover Audit
 
-Audit date: 2026-09-19
+Audit date: 2026-09-20
 
 ## Executive decision
 
@@ -51,13 +51,118 @@ Validation actually run from `frontend/`:
   `npm run typecheck:strict`, `npm run typecheck:product`, `npm run lint`,
   `npm run check:quality-ratchet`, and `npm run check:isolation` passed;
 - both `npm run build` and `npm run build:product` passed. The subsequent
-  product bundle check measured 8,886,962 JavaScript bytes, 172,904 CSS
+  product bundle check measured 8,887,105 JavaScript bytes, 172,904 CSS
   bytes, 499 JavaScript chunks, and a 1,112,746-byte largest JavaScript
   chunk, all within the 9,800,000/500,000/1,500,000 review ceilings;
 - the normalized product diagnostic multiset was checked before any baseline
-  action. It remains 172 diagnostics (112 source-backed, 49 missing-reference,
-  11 inert Edge Function references), with no new signature; the baseline was
-  not rewritten.
+  action. It now contains 171 diagnostics (111 source-backed, 49
+  missing-reference, 11 inert Edge Function references), with the one
+  verified `NextUpCarousel` resolution recorded in the baseline and no new
+  signature.
+
+### VaultPage visible-club-id resolution extraction — 2026-09-20
+
+`VaultPage.tsx`'s `vault-clubs` query (the non-admin branch computing which
+clubs a user may see) inlined the same direct-club-role/team-membership union
+and deduplication that a parallel, still-unwired Supabase repository
+(`features/vault/vaultAccessRepository.ts`'s `fetchVaultAccessibleClubs`) also
+implements. Only the pure decision math was extracted, not that repository's
+network calls: `lab/vaultAccess.ts` gained `resolveVaultVisibleClubIds`
+(direct `club_id` dedup unioned with team-derived club ids) and
+`mergeVaultTeamClubIds` (the underlying merge/dedup step), both provider-
+neutral with no Supabase/ICP import. The page still owns, unchanged: the
+`isAppAdmin` short-circuit that fetches every club directly (ordered by name)
+without ever calling the new helper or touching `user_roles`; the `roles`
+Supabase fetch and its literal `if (!roles || roles.length === 0) return [];`
+fast path; the conditional `teams` lookup gated on `getVaultTeamIds(roles).length
+> 0`; the final `clubIds.length === 0` empty check; the `["vault-clubs",
+user?.id, isAppAdmin]` query key; and the `enabled: !!user && isAppAdmin !==
+undefined` gate. No mutation, cache-invalidation, authorization decision (who
+*may* see Vault at all — `hasVaultRoleAccess`/`resolveVaultRoleAccess`,
+already extracted previously), or ICP/`IcpUnavailablePage` branch changed.
+
+Explicit non-unifications: `features/vault/vaultAccessRepository.ts`'s
+`fetchVaultAccessibleClubs` (and its sibling fetchers) remain untouched and
+still unused by any page — they perform their own live Supabase calls for the
+identical decision and were deliberately left alone rather than folded into
+the new pure helper or wired into `VaultPage`, since doing either would be a
+provider-specific behavior change outside this slice's scope. The admin
+"fetch every club" branch was not given a corresponding entry in the new
+helper (e.g. an `"all"` sentinel) because the page never calls the helper on
+that path; adding one would be untested, unused indirection.
+
+`lab/vaultAccess.ts` had no prior test coverage at all. The new
+`frontend/src/lab/vaultAccess.test.ts` (6 tests) covers: an app admin
+bypassing role checks entirely regardless of roles content (`hasVaultRoleAccess`,
+app-admin); a direct club role unioned with a club reached only through team
+membership; a team-derived id that duplicates an already-present direct id
+requiring no extra entry; the empty/`null`/`undefined` roles fast path
+short-circuiting before any team-derived ids are considered; deduplication of
+repeated direct and repeated/`null`/`undefined` team-derived ids in one pass;
+and `mergeVaultTeamClubIds` leaving an already-empty club id list unchanged
+when there is nothing to merge.
+
+Validation actually run from `frontend/`:
+
+- `npx vitest run --config vitest.legacy.config.mjs src/lab/vaultAccess.test.ts
+  src/features/vault/vaultAccess.test.ts
+  src/features/vault/vaultAccessRepository.test.ts` — 3 files, 29 tests,
+  all passing (the two `features/vault` files are the pre-existing,
+  untouched parallel module, run to confirm they were unaffected);
+- `npx vitest run --config vitest.lab.config.mjs --configLoader runner
+  lab-tests/imported-non-edge-page-candidates-baseline.test.tsx
+  lab-tests/vaultMutationSafety.local.test.tsx` — 2 files, 55 tests, all
+  passing;
+- `npx tsc -p tsconfig.lab.json` (covers `src/lab/vaultAccess.ts`, which is
+  listed in that config's `files`) — clean, no diagnostics;
+- `npm run typecheck:product` (covers `src/pages/VaultPage.tsx`) — 172
+  diagnostics, unchanged from baseline (0 new, 0 resolved since baseline);
+- `node scripts/check-isolation.mjs` — passed; `lab-runtime-files.json` was
+  not changed, and neither `VaultPage.tsx` nor `lab/vaultAccess.ts` are (or
+  became) part of the running lab bundle by this change.
+
+Broader `npm test`, `npm run test:legacy`, `npm run lint`,
+`npm run check:quality-ratchet`, and full build gates were not re-run for
+this narrowly scoped extraction and remain required before handover.
+
+### NextUpCarousel query-result narrowing — 2026-09-20
+
+`NextUpCarousel` already filtered RSVP rows to adult guardians before looking
+up cached profiles, but the generated nested Supabase relationship left
+`user_id` as `unknown`. The profile-cache call now receives a deduplicated
+`string[]` built by an explicit `typeof rsvp.user_id === "string"` guard.
+This is a type-only narrowing of the existing read result: the same rows,
+filters, deduplication, profile lookup, avatar mapping, and rendering remain
+unchanged. No query shape, authorization scope, cache key/lifecycle, or
+mutation changed.
+
+The normalized product diagnostic multiset was compared before changing the
+baseline. The `NextUpCarousel.tsx` `TS2345` source-backed diagnostic was
+genuinely resolved, with no replacement signature: diagnostics decreased from
+172 to 171 (112 to 111 source-backed; 49 missing-reference and 11 inert Edge
+Function-reference diagnostics remain). `product-type-error-baseline.json`
+was then regenerated to record that one verified resolution; no missing
+reference or inert Edge Function entry was removed.
+
+Focused validation passed:
+
+- `npx vitest run --config vitest.legacy.config.mjs
+  src/pages/HomePage.legacyWorkflows.guard.test.ts
+  src/test/pitchBoardSportGating.guard.test.ts` — 2 files, 27 tests;
+- `npm run typecheck:product` before baseline refresh — 171 diagnostics, one
+  resolved since baseline, no new diagnostic;
+- `npm run typecheck:product` after baseline refresh — 171 diagnostics, no
+  new diagnostic.
+
+The final frontend gates were then rerun: `npm test` passed with 153 files and
+1,720 tests; `npm run test:legacy` passed with 432 files and 4,237 tests plus
+one pre-existing skip; lab, strict, and product typechecks, lint, quality
+ratchet, and isolation all passed. `npm run build` and
+`npm run build:product` passed, and `npm run check:product-bundle` measured
+8,887,105 JavaScript bytes, 172,904 CSS bytes, 499 JavaScript chunks, and a
+1,112,746-byte largest JavaScript chunk within the existing review ceilings.
+The known jsdom/dynamic-import and bundler warning output remained
+non-blocking.
 
 ## Baseline implementation update — 2026-09-18
 
