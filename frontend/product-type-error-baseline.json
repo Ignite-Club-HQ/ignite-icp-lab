@@ -1291,70 +1291,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 2054,
-      "column": 70,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 2266,
-      "column": 62,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 3678,
-      "column": 57,
-      "code": "TS2339",
-      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 3800,
-      "column": 32,
-      "code": "TS2339",
-      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 3800,
-      "column": 66,
-      "code": "TS2339",
-      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 4445,
-      "column": 54,
-      "code": "TS2322",
-      "message": "Type 'unknown' is not assignable to type 'ReactNode'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 4552,
-      "column": 9,
-      "code": "TS2322",
-      "message": "Type 'unknown' is not assignable to type 'string'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/EventDetailPage.tsx",
-      "line": 977,
-      "column": 45,
-      "code": "TS2339",
-      "message": "Property 'mini_league_player_id' does not exist on type 'LocalEventRsvp | EventRsvpRow'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/pages/HomePage.tsx",
       "line": 607,
       "column": 9,
@@ -1368,38 +1304,6 @@
       "column": 36,
       "code": "TS2345",
       "message": "Argument of type '{ type: \"game\"; title: string; club_id: string; team_id: string; event_date: string; teams: { name: string; default_match_arrival_minutes: number; }; clubs: { name: string; sport: string; }; is_cancelled: boolean; ... 15 more ...; status: \"active\" | ... 2 more ... | \"cancelled\"; }[] | Event[]' is not assignable to parameter of type 'Event[]'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/MessagesPage.tsx",
-      "line": 1372,
-      "column": 7,
-      "code": "TS2322",
-      "message": "Type 'Record<string, InboxPreviewLike>' is not assignable to type 'Record<string, LatestMessage>'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/MessagesPage.tsx",
-      "line": 498,
-      "column": 48,
-      "code": "TS2339",
-      "message": "Property 'clubs' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/MessagesPage.tsx",
-      "line": 501,
-      "column": 30,
-      "code": "TS2339",
-      "message": "Property 'latestMessages' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/MessagesPage.tsx",
-      "line": 853,
-      "column": 44,
-      "code": "TS2339",
-      "message": "Property 'clubs' does not exist on type '{ userId: string; adminClubs: FixtureClub[]; memberClubs: { logo_url: any; description: string; id: string; name: string; sport: string; is_pro: boolean; created_by: string; deleted_at: string; }[]; latestClubMessages: { ...; }; teams: { ...; }[]; latestTeamMessages: { ...; }; } | { ...; }'.",
       "category": "source-backed"
     },
     {
@@ -1476,7 +1380,7 @@
     }
   ],
   "counts": {
-    "source-backed": 124,
+    "source-backed": 112,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

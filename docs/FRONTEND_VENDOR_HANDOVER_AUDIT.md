@@ -311,6 +311,54 @@ Focused validation for this update: `eventCapabilities.test.ts` (7 tests),
 `npm run typecheck:product`, and `check-isolation`, all passing. Broader
 frontend gates remain required before handover.
 
+### Pure page boundaries and diagnostic ratchet update — 2026-09-19
+
+The next page-local responsibility slices were extracted without changing the
+lab entry, runtime allowlist, provider selection, authorization queries, or
+mutation behavior:
+
+- `VaultPage` now delegates storage-size aggregation and team/mini-league
+  bucket construction to the pure `calculateVaultStorageBreakdown` helper.
+  The page still owns all source queries, entitlement checks, loading state,
+  and presentation. The helper preserves the existing 500 KiB photo estimate,
+  image-extension classification, club-level buckets, and descending order.
+- `EventDetailPage` now uses a typed event-member roster projection for role
+  grouping, bot exclusion, restricted-role filtering, and targeted-team
+  attendance scoping. The page still owns the source query and all event
+  authorization, RSVP, duty, payment, and mutation orchestration.
+- `MessagesPage` now builds bounded inbox prefetch jobs through one typed
+  descriptor helper. It preserves the broadcast-first order, per-scope cap,
+  exact table/select/query-key shapes, idle scheduling, cancellation, and
+  one-minute cache lifetime. Realtime reconciliation, optimistic mutation,
+  offline queue, local-ICP delivery, and entitlement behavior remain
+  route-local.
+- Club and team role pages now share only the exact role-label catalog.
+  Their color palettes, role scope, read-only ICP previews, mutations, and
+  notification behavior remain separate because those semantics differ.
+
+The chat composer divergence is intentional and remains a handover boundary:
+Team and Club have distinct local-ICP delivery contracts; Team, Club, Group,
+and Direct Message have different offline/optimistic behavior; Club Admin
+and Broadcast do not have those local/offline paths; and entitlement and
+conversation-scope checks differ by route. A shared composer submission
+controller would therefore change behavior rather than remove duplication.
+
+The product TypeScript ratchet moved from 184 to 172 diagnostics:
+source-backed diagnostics decreased from 124 to 112, while the 49
+missing-reference and 11 inert Edge Function/reference diagnostics remain.
+The resolved source-backed signatures came from narrowing the local RSVP
+union, typed event duty fields, normalizing the ICP inbox fixture snapshot,
+and preserving the inbox preview message type. Current and baseline
+diagnostics were compared as normalized `(file, code, message)` multisets
+before refreshing line locations; no new signature was added.
+
+Focused validation for this increment includes four new pure-boundary test
+files (8 tests total), the existing event supporting-read tests, and the
+existing inbox composition tests. Lab and strict typechecks pass, and the
+product ratchet passes at 172 inventoried diagnostics. The broader lab test,
+legacy suite, lint, isolation, quality-ratchet, and build gates remain
+required before handover.
+
 ### Handover status
 
 | Handover objective | Status | Decision |
