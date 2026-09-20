@@ -40,6 +40,7 @@ export interface LocalEventRsvp {
   event_id: string;
   user_id: string;
   child_id: null;
+  mini_league_player_id?: string | null;
   status: string;
   notes: string | null;
   source: 'icp';

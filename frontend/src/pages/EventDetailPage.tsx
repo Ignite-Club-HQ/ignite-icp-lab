@@ -144,6 +144,12 @@ import {
   fetchEventRsvps,
   type EventRsvpProvider,
 } from "@/lab/hybridEventRsvpRepository";
+import {
+  buildEventMemberRoster,
+  filterEventMemberRoles,
+  scopeEventAttendanceMembers,
+  type EventMemberRoleRow,
+} from "@/features/events/eventMemberRoster";
 
 type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
@@ -861,35 +867,10 @@ export default function EventDetailPage() {
       const botUserId = clubRow?.bot_user_id ?? null;
 
       
-      // Group roles by user_id, keeping track of every team_id we've seen for them.
-      // `role_team_pairs` preserves WHICH team each role was held on, so targeted
-      // club-wide events can scope role labels/filters to the invited teams only.
-      const userRolesMap = new Map<
-        string,
-        { profile: any; roles: string[]; teamIds: Set<string>; pairs: { role: string; team_id: string | null }[] }
-      >();
-      data.filter(m => m.profiles && m.user_id !== botUserId).forEach(m => {
-        const existing = userRolesMap.get(m.user_id);
-        if (existing) {
-          if (!existing.roles.includes(m.role)) existing.roles.push(m.role);
-          if (m.team_id) existing.teamIds.add(m.team_id);
-          existing.pairs.push({ role: m.role, team_id: m.team_id ?? null });
-        } else {
-          userRolesMap.set(m.user_id, {
-            profile: m.profiles,
-            roles: [m.role],
-            teamIds: new Set(m.team_id ? [m.team_id] : []),
-            pairs: [{ role: m.role, team_id: m.team_id ?? null }],
-          });
-        }
-      });
-      
-      return Array.from(userRolesMap.entries()).map(([, data]) => ({
-        ...data.profile,
-        roles: data.roles,
-        team_ids: Array.from(data.teamIds),
-        role_team_pairs: data.pairs,
-      }));
+      return buildEventMemberRoster(
+        (data ?? []) as EventMemberRoleRow[],
+        botUserId,
+      );
 
     },
     enabled: !!event && !useIcpLab,
@@ -1012,45 +993,31 @@ export default function EventDetailPage() {
     ? ((event as any).restricted_to_roles as string[])
     : [];
   const hasRestrictedEventRoles = restrictedEventRoles.length > 0;
-  const roleRestrictedMembers = membersWithRoles?.filter((m: any) => {
-    if (!hasRestrictedEventRoles) return true;
-    return (m.roles ?? []).some((role: string) =>
-      restrictedEventRoles.includes(role) || role === "club_admin" || role === "app_admin",
-    );
-  }) || [];
+  const roleRestrictedMembers = filterEventMemberRoles(
+    membersWithRoles ?? [],
+    hasRestrictedEventRoles ? restrictedEventRoles : [],
+  );
 
   // Filter members based on showAllRoles toggle / event role restrictions
   const members = hasRestrictedEventRoles ? roleRestrictedMembers : membersWithRoles;
-  const playerMembers = members?.filter((m: any) => m.roles?.includes("player")) || [];
+  const playerMembers = members?.filter((member) => member.roles.includes("player")) || [];
 
   // For club-wide events with target_team_ids, narrow the attendance roster
   // to users tied to one of the targeted teams (via user_roles.team_id) OR
   // club-level admins/committee (who can access every targeted event). Other
   // consumers (duty roster, admin queries) keep using the full `members` list.
-  const attendanceMembers = useMemo(() => {
-    const targeted = ((event as any)?.target_team_ids ?? null) as string[] | null;
-    if (event?.team_id || !targeted || targeted.length === 0) return members;
-    const targetSet = new Set(targeted);
-    const CLUB_LEVEL = new Set(["club_admin", "app_admin", "committee_member"]);
-    return (members ?? [])
-      .map((m: any) => {
-        const pairs: { role: string; team_id: string | null }[] = m.role_team_pairs ?? [];
-        // Only roles held on a targeted team (or club-level roles with no team)
-        // count for this event — a player role on an uninvited team must not
-        // make the member show up as a player here.
-        const scopedRoles = Array.from(
-          new Set(
-            pairs
-              .filter((p) => (p.team_id ? targetSet.has(p.team_id) : CLUB_LEVEL.has(p.role)))
-              .map((p) => p.role),
-          ),
-        );
-        return scopedRoles.length ? { ...m, roles: scopedRoles } : null;
-      })
-      .filter(Boolean) as any[];
-  }, [members, event?.team_id, (event as any)?.target_team_ids]);
+  const attendanceMembers = useMemo(
+    () =>
+      scopeEventAttendanceMembers(members ?? [], {
+        eventTeamId: event?.team_id,
+        targetTeamIds: ((event as any)?.target_team_ids ?? null) as string[] | null,
+      }),
+    [members, event?.team_id, (event as any)?.target_team_ids],
+  );
 
-  const attendancePlayerMembers = attendanceMembers?.filter((m: any) => m.roles?.includes("player")) || [];
+  const attendancePlayerMembers = attendanceMembers.filter((member) =>
+    member.roles.includes("player"),
+  );
 
 
   // Fetch mini league duty assignees (RSVP'd parents + club admins + league admins, excluding players)

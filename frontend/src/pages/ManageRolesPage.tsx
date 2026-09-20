@@ -28,22 +28,7 @@ import AddClubRoleToMemberDialog from "@/components/AddClubRoleToMemberDialog";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabRoleRoster } from "@/lab/fixtureDataLayer";
 import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
-
-type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin" | "committee_member" | "league_admin" | "association_admin" | "competition_admin";
-
-const roleLabels: Record<AppRole, string> = {
-  basic_user: "Member",
-  club_admin: "Club Admin",
-  team_admin: "Team Admin",
-  coach: "Coach",
-  player: "Player",
-  parent: "Parent",
-  app_admin: "App Admin",
-  committee_member: "Committee Member",
-  league_admin: "League Admin",
-  association_admin: "Association Admin",
-  competition_admin: "Competition Admin",
-};
+import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
 
 const roleColors: Record<AppRole, string> = {
   app_admin: "bg-red-500/20 text-red-400 border-red-500/30",

@@ -25,6 +25,10 @@ export type EventGuestProfileLoader = (userIds: string[]) => Promise<EventGuestP
 export type EventDutyRow = {
   id: string;
   event_id?: string;
+  name?: string | null;
+  status?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   assigned_to?: string | null;
   profiles?: { display_name: string | null; avatar_url: string | null } | null;
   [key: string]: unknown;

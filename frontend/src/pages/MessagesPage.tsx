@@ -55,7 +55,11 @@ import {
 import {
   buildUnifiedInboxConversations,
 } from "@/features/messaging/inbox/inboxUnifiedComposition";
-import type { InboxConversation } from "@/features/messaging/inbox/inboxReadModel";
+import { buildInboxPrefetchJobs } from "@/features/messaging/inbox/inboxPrefetch";
+import type {
+  InboxConversation,
+  InboxPreviewMessage,
+} from "@/features/messaging/inbox/inboxReadModel";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
@@ -396,7 +400,11 @@ export default function MessagesPage() {
     refetchOnReconnect: "always",
     queryFn: async () => {
       if (useIcpLab && user?.id) {
-        return fixtureData.getLocalLabMessagesSnapshot(user.id);
+        const snapshot = fixtureData.getLocalLabMessagesSnapshot(user.id);
+        return {
+          clubs: snapshot.memberClubs,
+          latestMessages: snapshot.latestClubMessages,
+        };
       }
 
       const { data: roles, error: rolesError } = await supabase
@@ -498,7 +506,9 @@ export default function MessagesPage() {
   const memberClubs = memberClubsWithMessages?.clubs ?? [];
   const latestClubMessages = previewWatermarks.reconcile(
     "club",
-    memberClubsWithMessages?.latestMessages,
+    memberClubsWithMessages?.latestMessages as
+      | Record<string, InboxPreviewMessage>
+      | undefined,
   );
 
   // Get latest broadcast message
@@ -1393,80 +1403,27 @@ export default function MessagesPage() {
     let idleHandle: number | null = null;
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
-    const cappedTeams = (teams ?? []).slice(0, PREFETCH_THREAD_CAP);
-    const cappedClubs = (memberClubs ?? []).slice(0, PREFETCH_THREAD_CAP);
-    const cappedGroups = (chatGroups ?? []).slice(0, PREFETCH_THREAD_CAP);
-
     const prefetchAll = () => {
       if (cancelled) return;
-      queryClient.prefetchQuery({
-        queryKey: ["broadcast-messages"],
-        queryFn: async () => {
-          const { data: messagesData } = await supabase
-            .from("broadcast_messages")
-            .select("id, text, created_at, author_id, image_url, reply_to_id")
-            .order("created_at", { ascending: false })
-            .limit(MESSAGES_PER_PAGE + 1);
-          
-          if (!messagesData?.length) return { messages: [], hasOlderMessages: false };
-          const hasMore = messagesData.length > MESSAGES_PER_PAGE;
-          const messagesToDisplay = hasMore ? messagesData.slice(0, MESSAGES_PER_PAGE) : messagesData;
-          return { messages: [...messagesToDisplay].reverse(), hasOlderMessages: hasMore };
-        },
-        staleTime: 1000 * 60,
+      const jobs = buildInboxPrefetchJobs({
+        teamIds: (teams ?? []).map((team) => team.id),
+        clubIds: (memberClubs ?? []).map((club) => club.id),
+        groupIds: (chatGroups ?? []).map((group) => group.id),
+        cap: PREFETCH_THREAD_CAP,
       });
 
-      cappedTeams.forEach((team) => {
+      jobs.forEach((job) => {
         if (cancelled) return;
         queryClient.prefetchQuery({
-          queryKey: ["team-messages", team.id],
+          queryKey: job.queryKey,
           queryFn: async () => {
-            const { data: messagesData } = await supabase
-              .from("team_messages")
-              .select("id, text, created_at, author_id, image_url, reply_to_id, team_id")
-              .eq("team_id", team.id)
-              .order("created_at", { ascending: false })
-              .limit(MESSAGES_PER_PAGE + 1);
-            
-            if (!messagesData?.length) return { messages: [], hasOlderMessages: false };
-            const hasMore = messagesData.length > MESSAGES_PER_PAGE;
-            const messagesToDisplay = hasMore ? messagesData.slice(0, MESSAGES_PER_PAGE) : messagesData;
-            return { messages: [...messagesToDisplay].reverse(), hasOlderMessages: hasMore };
-          },
-          staleTime: 1000 * 60,
-        });
-      });
-
-      cappedClubs.forEach((club) => {
-        if (cancelled) return;
-        queryClient.prefetchQuery({
-          queryKey: ["club-messages", club.id],
-          queryFn: async () => {
-            const { data: messagesData } = await supabase
-              .from("club_messages")
-              .select("id, text, created_at, author_id, image_url, reply_to_id, club_id")
-              .eq("club_id", club.id)
-              .order("created_at", { ascending: false })
-              .limit(MESSAGES_PER_PAGE + 1);
-            
-            if (!messagesData?.length) return { messages: [], hasOlderMessages: false };
-            const hasMore = messagesData.length > MESSAGES_PER_PAGE;
-            const messagesToDisplay = hasMore ? messagesData.slice(0, MESSAGES_PER_PAGE) : messagesData;
-            return { messages: [...messagesToDisplay].reverse(), hasOlderMessages: hasMore };
-          },
-          staleTime: 1000 * 60,
-        });
-      });
-
-      cappedGroups.forEach((group) => {
-        if (cancelled) return;
-        queryClient.prefetchQuery({
-          queryKey: ["group-messages", group.id],
-          queryFn: async () => {
-            const { data: messagesData } = await supabase
-              .from("group_messages")
-              .select("id, text, created_at, author_id, image_url, reply_to_id, group_id")
-              .eq("group_id", group.id)
+            let query = supabase
+              .from(job.table)
+              .select(job.select);
+            if (job.scope) {
+              query = query.eq(job.scope.column, job.scope.value);
+            }
+            const { data: messagesData } = await query
               .order("created_at", { ascending: false })
               .limit(MESSAGES_PER_PAGE + 1);
             

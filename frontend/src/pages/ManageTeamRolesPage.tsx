@@ -28,20 +28,14 @@ import { getLocalLabTeamRoleRoster } from "@/lab/fixtureDataLayer";
 import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 import { membershipKeys } from "@/lab/membershipQueryKeys";
 import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
+import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
 
-type AppRole = "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin";
+type TeamRole = Extract<
+  AppRole,
+  "basic_user" | "club_admin" | "team_admin" | "coach" | "player" | "parent" | "app_admin"
+>;
 
-const roleLabels: Record<AppRole, string> = {
-  basic_user: "Member",
-  club_admin: "Club Admin",
-  team_admin: "Team Admin",
-  coach: "Coach",
-  player: "Player",
-  parent: "Parent",
-  app_admin: "App Admin",
-};
-
-const roleColors: Record<AppRole, string> = {
+const roleColors: Record<TeamRole, string> = {
   basic_user: "bg-muted text-muted-foreground",
   club_admin: "bg-primary/20 text-primary",
   team_admin: "bg-primary/20 text-primary",
