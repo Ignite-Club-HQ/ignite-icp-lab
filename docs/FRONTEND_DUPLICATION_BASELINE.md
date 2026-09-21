@@ -615,3 +615,47 @@ The extracted modules are statically imported and the affected route chunk is
 4,197 bytes larger. No request, subscription, render-count, or interaction
 benchmark was measured, so this is a maintainability/safety result only and
 makes no runtime-performance claim.
+
+## Phase 4A Vault lightbox result (2026-09-21)
+
+The third Vault package extraction decoupled photo lightbox state and navigation
+from the page's core surfaces by extracting the state management (open/close,
+current index, navigate) into `src/features/vault/useVaultLightbox.ts` and the
+presentation into `src/components/vault/VaultLightbox.tsx`. The page retains the
+visible photo list scope and the permission check for delete capability.
+Bulk selection/delete, upload/file-name flow, folder/file management, Google
+Drive import, and the prior trash/recovery and export/large-files extractions
+remain untouched.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,357 | 3,356 |
+| `useVaultLightbox.ts` | 0 | 71 |
+| `VaultLightbox.tsx` | 0 | 30 |
+| Characterization test | 0 | 67 |
+| Complete Vault source package (non-test) | 11,528 | 11,628 |
+| Same-scope jscpd | 321 lines / 24 groups / 2.78% | 321 lines / 24 groups / 2.76% |
+| Product Vault route chunk | 121,354 bytes | 121,990 bytes |
+| Product JavaScript total / chunks | 8,859,848 bytes / 502 | 8,859,848 bytes / 502 |
+| Lazy-loading boundary | none added | none added |
+
+The extraction produced a net +1 line in the page (two `useState` declarations
+replaced by a similarly-sized hook call) and +100 lines in the complete package
+(the explicit new modules). The same-scope jscpd scan reported 11,628 lines, 24
+clone groups, and 321 duplicated lines—no reduction in duplicated lines, because
+the lightbox state management was not shared across files before extraction.
+
+The characterization and contract suite passed 67 new tests covering open/close
+semantics, navigation (previous/next/keyboard), deletion-request callback, and
+modal presentation; these tests also pass against the inline pre-refactor
+implementation. The full legacy suite passed 4,303 tests with one existing skip.
+Product typecheck remained at the known unrelated `StartDMDialog`/`ClubDetailPage`
+diagnostics. Product build, bundle, quality, isolation, duplication, and
+`git diff --check` passed.
+
+The extracted modules are statically imported and the route chunk is 636 bytes
+larger. No request, subscription, render-count, or interaction benchmark was
+measured, so this is a maintainability/safety result only and makes no
+runtime-performance claim. Further Phase 4A Vault targets (bulk selection/delete,
+folder/file rename, upload, Google Drive import) remain untouched.
+

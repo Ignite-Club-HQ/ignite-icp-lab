@@ -828,6 +828,46 @@ diagnostics. Product build/bundle, quality, isolation, duplication, targeted
 legacy characterization, and diff checks pass. Phase 4A stops here for
 Messages; no other Phase 4A target is started.
 
+### Phase 4A Vault lightbox result (2026-09-21)
+
+The lightbox/photo-viewer feature cluster in `VaultPage.tsx` was extracted to
+decouple modal state, navigation, and delete-request handling from the page's
+core upload/folder/export/large-file surfaces.
+
+The extracted boundary is the typed `src/features/vault/useVaultLightbox.ts`
+hook (71 lines) and the typed `src/components/vault/VaultLightbox.tsx`
+component (30 lines), plus the characterization contract test (67 lines).
+The hook owns lightbox open/close state, current photo index, navigation
+(previous/next), keyboard navigation preservation, and the delete-request
+callback. The component owns the modal presentation using the inherited
+`PhotoLightbox` presentational component. The page adapter retains the
+visible photo list scope and the permission check for delete capability.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,357 | 3,356 |
+| `useVaultLightbox.ts` | 0 | 71 |
+| `VaultLightbox.tsx` | 0 | 30 |
+| New characterization test | 0 | 67 |
+| Complete Vault package (all `features/vault`, `VaultPage.tsx`, `components/vault`) | 11,528 | 11,628 |
+| Same-scope jscpd | 321 lines / 24 groups / 2.78% | 321 lines / 24 groups / 2.76% |
+| Product Vault route chunk | 117,157 bytes | 121,354 bytes (lightbox round) → 121,99 kB (post-lightbox) |
+| Product JavaScript total / chunks | 8,854,720 bytes / 502 | 8,859,848 bytes / 502 |
+
+The lightbox extraction produced a net +1 line in the page file (because the
+two removed `useState` declarations were replaced by a similarly-sized hook
+import/call), and +100 lines in the complete package (the explicit responsibility
+modules). The target scope's jscpd showed no duplicate-line reduction (321 → 321),
+because the lightbox state management was not shared across files; its extraction
+is a structure/maintainability win, not a duplication reduction. The route chunk
+increased by ~4.8 kB (due to static import of the new hook), with no measured
+request, subscription, render-count, or interaction-latency change. This is a
+maintainability/safety extraction only, with an explicit no-runtime-performance claim.
+The existing characterization and web realtime guards pass before and after the
+refactoring. Vault remains as a test case for further Phase 4A extractions (bulk
+selection/delete, upload/file-name flow, folder/file rename, Google Drive import
+remain untouched). Phase 4A Vault lightbox is complete.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
