@@ -598,6 +598,35 @@ largest or highest-risk files identified by the baseline:
 - `src/components/pitch/AutoSubPlanDialog.tsx`;
 - `src/components/chat/VirtualizedChatMessageList.tsx`.
 
+### Phase 4A Vault responsibility map (pre-refactor)
+
+`VaultPage.tsx` is the first Phase 4A target. At 4,597 raw lines, it owns:
+
+- the explicit provider guard (`resolveLocalAuthMode` to
+  `IcpUnavailablePage`) and the Supabase-only route implementation;
+- local navigation, selection, upload, search, lightbox, confirmation,
+  export, Drive, large-file, and storage-purchase state;
+- role, entitlement, scope, folder, file, recursive-search, trash, and
+  storage React Query reads, including their inline key dimensions;
+- folder/file/photo/upload/delete/restore/permanent-delete/move/bulk-delete
+  mutations, optimistic photo rollback, cache invalidation, quota
+  compensation, and error/toast reporting;
+- current-view and item-level permission decisions for club, team, and
+  mini-league content; and
+- the page toolbar, content renderer inputs, and dialog orchestration.
+
+Its trash/recovery slice has no realtime subscription or polling lifecycle:
+it queries `["vault-trash", clubId]` only while a non-root view has trash
+open, partitions deleted items by image type in descending deletion order, and
+keeps destructive callbacks gated by `isClubAdmin`. It also contains restore,
+permanent-delete, and empty-trash commands; the latter must retain
+item-level truthful success/failure reporting and refresh failed rows. The
+Phase 4A Vault extraction begins with this bounded slice. The page retains
+route/provider selection, dialog open/close state, and rendering ownership;
+the new boundary must keep the Supabase repository, authorization gate,
+optimistic/cache behavior, and error paths explicit. No runtime-performance
+claim is implied by this static decomposition.
+
 Work must be incremental, one route or component at a time. For each target:
 
 1. map current responsibilities, state ownership, query keys, mutation
@@ -628,6 +657,51 @@ cohesive responsibility boundaries and has no behavior regression. Any claimed
 runtime improvement must have measured evidence of lower route bytes, requests,
 subscriptions, renders, or interaction latency. Pure file organization is
 reported as maintainability and safety progress only.
+
+### Phase 4A Vault result (2026-09-21)
+
+The initial Vault extraction is complete and is limited to the deleted-item
+read and recovery lifecycle:
+
+- `src/features/vault/vaultTrashRepository.ts` (47 lines) is the explicit
+  Supabase read adapter. It preserves club-scoped deleted-item ordering and
+  reuses the existing typed Vault-image partition helper instead of creating a
+  second classifier. Provider read errors now reject rather than becoming an
+  empty success-shaped trash result.
+- `src/features/vault/useVaultTrashWorkflow.ts` (205 lines) owns that query,
+  photo optimistic rollback, soft-delete, restore, permanent-delete, empty
+  trash, cache invalidation, and user feedback. It reuses the existing
+  provider mutation repository and permanent-delete adapter.
+- `src/pages/VaultPage.tsx` retains its explicit
+  `resolveLocalAuthMode`/`IcpUnavailablePage` provider boundary, local dialog
+  state, rendering, and `isClubAdmin` gates for permanent-delete and
+  empty-trash callbacks. It has no Vault realtime subscription lifecycle
+  before or after this work.
+
+The characterization/contract suite covers the provider boundary; exact trash
+scope and enabled state; deleted-item ordering and image partitioning; admin
+callback gating; optimistic rollback; restore and permanent-delete cache
+scopes; provider failure propagation; and truthful empty-trash feedback.
+Targeted legacy and lab regression tests, product build/bundle/quality/
+isolation/duplication gates, and `git diff --check` passed. Product typecheck
+introduced no Vault diagnostic; its non-zero result remains limited to the
+known unrelated `StartDMDialog` and `ClubDetailPage` diagnostics.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 4,597 | 4,363 |
+| Vault source package lines (`VaultPage.tsx`, `components/vault`, `features/vault`; tests excluded) | 11,522 | 11,540 |
+| Trash responsibility modules | 0 | 252 (47 repository + 205 workflow) |
+| Same-scope jscpd | 362 lines / 26 clone groups / 3.1418157% | 362 lines / 26 clone groups / 3.1369151% |
+| Product Vault route chunk | 116,689 bytes | 117,157 bytes |
+| Product JavaScript total / chunks | 8,854,252 bytes / 502 | 8,854,720 bytes / 502 |
+| Vault realtime subscriptions (static inspection) | 0 | 0 |
+
+No runtime-performance claim is made. No safe synthetic product-route probe
+or render instrumentation was configured for this legacy Supabase surface, so
+live request counts, render counts, and interaction latency were not measured.
+The one trash query remains scoped to a non-root open-trash view; the 468-byte
+route-chunk increase is static organization overhead, not an optimization.
 
 ## Phase 5 - runtime efficiency and redundant data work
 

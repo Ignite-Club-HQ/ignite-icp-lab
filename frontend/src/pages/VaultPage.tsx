@@ -37,7 +37,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { getFolderColorClass } from "@/components/TeamFoldersManager";
 import { VaultStorageBarRow } from "@/components/vault/VaultStorageBarRow";
-import { resolveEmptyTrashOutcome } from "@/lib/vaultTrashOutcome";
 import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
@@ -63,6 +62,7 @@ import {
   renameVaultItem,
 } from "@/features/vault/vaultMutationRepository";
 import { formatVaultFileSize } from "@/features/vault/vaultFilePresentation";
+import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -985,50 +985,6 @@ function SupabaseVaultPage() {
     return fuzzyFilter(searchSourceFiles as any[], normalizedSearch, (f: any) => f.name || "");
   }, [searchSourceFiles, normalizedSearch]);
 
-  // Trash query - fetches ALL deleted items from vault_files for the current club
-  const { data: trashItems, isLoading: isLoadingTrash } = useQuery({
-    queryKey: ["vault-trash", currentView.type !== "root" ? (currentView.type === "club" ? currentView.clubId : currentView.clubId) : null],
-    queryFn: async () => {
-      const clubId = currentView.type === "club" ? currentView.clubId : currentView.type === "team" ? currentView.clubId : currentView.type === "mini-league" ? currentView.clubId : null;
-      if (!clubId) return { photos: [], files: [] };
-      
-      // Fetch all deleted items from vault_files for this club
-      const { data: allData } = await supabase
-        .from("vault_files")
-        .select(`
-          *,
-          folder:vault_folders(id, name),
-          team:teams(id, name)
-        `)
-        .eq("club_id", clubId)
-        .not("deleted_at", "is", null)
-        .order("deleted_at", { ascending: false });
-      
-      // Separate into photos and files based on file type
-      const items = allData || [];
-      const photosData = items.filter(item => 
-        item.file_type?.startsWith('image/') || 
-        /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif|tiff|tif)$/i.test(item.name || item.file_url || '')
-      ).map(item => ({
-        ...item,
-        image_url: item.file_url,
-        uploader_id: item.uploaded_by,
-        title: item.name,
-      }));
-      
-      const filesData = items.filter(item => 
-        !item.file_type?.startsWith('image/') && 
-        !/\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif|tiff|tif)$/i.test(item.name || item.file_url || '')
-      );
-      
-      return {
-        photos: photosData,
-        files: filesData,
-      };
-    },
-    enabled: showTrash && currentView.type !== "root",
-  });
-
   // Check for Pro subscription and get plan details
   // Logic: Club Pro → all teams inherit Pro; Free club → check team subscription
   const { data: proAccessInfo, isLoading: isLoadingProClub } = useQuery({
@@ -1799,219 +1755,29 @@ function SupabaseVaultPage() {
     },
   });
 
-  // Vault photos are now stored in vault_files
-  const deletePhotoMutation = useMutation({
-    mutationFn: async (photoId: string) => {
-      // Soft delete - set deleted_at and deleted_by in vault_files
-      const { error } = await supabase.from("vault_files")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id })
-        .eq("id", photoId);
-      if (error) throw error;
-      return photoId;
-    },
-    onMutate: async (photoId: string) => {
-      // Close dialogs immediately
+  const {
+    trashItems,
+    isLoadingTrash,
+    isEmptyingTrash,
+    deletePhotoMutation,
+    deleteFileMutation,
+    restorePhotoMutation,
+    restoreFileMutation,
+    permanentDeletePhotoMutation,
+    permanentDeleteFileMutation,
+    emptyTrash,
+  } = useVaultTrashWorkflow({
+    currentView,
+    showTrash,
+    userId: user?.id,
+    isClubAdmin,
+    isCoachOrTeamAdmin,
+    onPhotoSoftDeleteStart: () => {
       setDeletePhotoId(null);
       setLightboxOpen(false);
-      
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["vault-files"] });
-      
-      // Snapshot the previous value
-      const previousItems = queryClient.getQueryData(["vault-files", currentView, isClubAdmin, isCoachOrTeamAdmin]);
-      
-      // Optimistically remove the photo from the cache
-      queryClient.setQueryData(["vault-files", currentView, isClubAdmin, isCoachOrTeamAdmin], (old: any[] | undefined) => {
-        if (!old) return old;
-        return old.filter((item: any) => item.id !== photoId);
-      });
-      
-      return { previousItems, photoId };
     },
-    onSuccess: (photoId) => {
-      // Remove from local storage cache
-      removePhotoFromCache(photoId);
-      // Silent success - no toast
-    },
-    onError: (error: any, _, context) => {
-      // Rollback on error
-      if (context?.previousItems) {
-        queryClient.setQueryData(["vault-files", currentView, isClubAdmin, isCoachOrTeamAdmin], context.previousItems);
-      }
-      toast.error(error.message || "Failed to delete photo");
-    },
-    onSettled: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      invalidateVaultCache(queryClient, ["storageBreakdown"]);
-    },
+    onFileSoftDeleteSuccess: () => setDeleteFileId(null),
   });
-
-  const deleteFileMutation = useMutation({
-    mutationFn: async (fileId: string) => {
-      // Soft delete - set deleted_at and deleted_by
-      const { error } = await supabase.from("vault_files")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id })
-        .eq("id", fileId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      invalidateVaultCache(queryClient, ["storageBreakdown"]);
-      setDeleteFileId(null);
-      // Silent success - no toast
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to delete file");
-    },
-  });
-
-  // Restore photo from trash (vault photos are in vault_files)
-  const restorePhotoMutation = useMutation({
-    mutationFn: async (photoId: string) => {
-      const { error } = await supabase.from("vault_files")
-        .update({ deleted_at: null, deleted_by: null })
-        .eq("id", photoId);
-      if (error) throw error;
-      return photoId;
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["trash", "files"]);
-      toast.success("Photo restored to original location");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to restore photo");
-    },
-  });
-
-  // Restore file from trash
-  const restoreFileMutation = useMutation({
-    mutationFn: async (fileId: string) => {
-      const { error } = await supabase.from("vault_files")
-        .update({ deleted_at: null, deleted_by: null })
-        .eq("id", fileId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["trash", "files"]);
-      toast.success("File restored to original location");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to restore file");
-    },
-  });
-
-  // Permanently delete photo via edge function (handles storage + DB + audit log)
-  const permanentDeletePhotoMutation = useMutation({
-    mutationFn: async (photoId: string) => {
-      // Find the corresponding photos table record via file_url match
-      const { data: vaultFile } = await supabase
-        .from("vault_files")
-        .select("file_url")
-        .eq("id", photoId)
-        .maybeSingle();
-      
-      const photoIds: string[] = [];
-      const fileIds: string[] = [photoId];
-      
-      if (vaultFile?.file_url) {
-        const { data: photoRecord } = await supabase
-          .from("photos")
-          .select("id")
-          .eq("image_url", vaultFile.file_url)
-          .maybeSingle();
-        if (photoRecord) photoIds.push(photoRecord.id);
-      }
-      
-      const response = await supabase.functions.invoke("permanent-delete-photos", {
-        body: { photoIds, fileIds, deletionType: "permanent" },
-      });
-      
-      if (response.error) throw new Error(response.error.message);
-      return photoId;
-    },
-    onSuccess: (photoId) => {
-      removePhotoFromCache(photoId);
-      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);
-      toast.success("Photo permanently deleted");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to permanently delete photo");
-    },
-  });
-
-  // Permanently delete file via edge function (handles storage + DB + audit log)
-  const permanentDeleteFileMutation = useMutation({
-    mutationFn: async (fileId: string) => {
-      const response = await supabase.functions.invoke("permanent-delete-photos", {
-        body: { fileIds: [fileId], deletionType: "permanent" },
-      });
-      if (response.error) throw new Error(response.error.message);
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown"]);
-      toast.success("File permanently deleted");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to permanently delete file");
-    },
-  });
-
-  // Empty all trash
-  const [isEmptyingTrash, setIsEmptyingTrash] = useState(false);
-  const emptyTrash = async () => {
-    if (!trashItems) return;
-    if (isEmptyingTrash) return;
-    setIsEmptyingTrash(true);
-    try {
-      const allPhotoIds = (trashItems.photos || []).map((p: any) => p.id);
-      const allFileIds = (trashItems.files || []).map((f: any) => f.id);
-      
-      // Find corresponding photos table records for vault_files photos
-      const photoTableIds: string[] = [];
-      for (const photo of trashItems.photos || []) {
-        if (photo.file_url) {
-          const { data: photoRecord } = await supabase
-            .from("photos")
-            .select("id")
-            .eq("image_url", photo.file_url)
-            .maybeSingle();
-          if (photoRecord) photoTableIds.push(photoRecord.id);
-        }
-      }
-      
-      const result = await permanentlyDeleteVaultItems({
-        photoIds: photoTableIds,
-        fileIds: [...allPhotoIds, ...allFileIds],
-      });
-
-      // Item-level acknowledgements only; aggregate counts never imply success.
-      const requestedKeys = new Set<string>([
-        ...photoTableIds.map((id) => `photo:${id}`),
-        ...[...allPhotoIds, ...allFileIds].map((id: string) => `file:${id}`),
-      ]);
-      const failedKeys = new Set(result.failed.map((f) => `${f.kind}:${f.id}`));
-      const succeededKeys = new Set(
-        result.succeeded
-          .map((s) => `${s.kind}:${s.id}`)
-          .filter((k) => requestedKeys.has(k) && !failedKeys.has(k)),
-      );
-      const succeededCount = succeededKeys.size;
-      const failedCount = requestedKeys.size - succeededCount;
-
-
-      // Always refresh so remaining (failed) items stay visible and counts are accurate
-      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);
-
-      // Exactly one toast; never a success message when any item failed
-      const outcome = resolveEmptyTrashOutcome({ succeededCount, failedCount });
-      toast[outcome.kind](outcome.message);
-
-    } catch (error: any) {
-      toast.error(error.message || "Failed to empty trash");
-    } finally {
-      setIsEmptyingTrash(false);
-    }
-  };
 
 
   // Move file to a different folder or team

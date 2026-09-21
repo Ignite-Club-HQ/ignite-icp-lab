@@ -8,7 +8,16 @@ const vaultPageSource = readFileSync(join(pagesDirectory, "VaultPage.tsx"), "utf
 const rendererSource = existsSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"))
   ? readFileSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"), "utf8")
   : "";
-const source = `${vaultPageSource}\n${rendererSource}`;
+const trashWorkflowSource = existsSync(join(pagesDirectory, "../features/vault/useVaultTrashWorkflow.ts"))
+  ? readFileSync(join(pagesDirectory, "../features/vault/useVaultTrashWorkflow.ts"), "utf8")
+  : "";
+const trashRepositorySource = existsSync(join(pagesDirectory, "../features/vault/vaultTrashRepository.ts"))
+  ? readFileSync(join(pagesDirectory, "../features/vault/vaultTrashRepository.ts"), "utf8")
+  : "";
+const vaultReadRepositorySource = existsSync(join(pagesDirectory, "../features/vault/vaultReadRepository.ts"))
+  ? readFileSync(join(pagesDirectory, "../features/vault/vaultReadRepository.ts"), "utf8")
+  : "";
+const source = `${vaultPageSource}\n${rendererSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}`;
 
 describe("VaultPage rendering and provider-boundary characterization", () => {
   it("keeps club, team, and mini-league scope branches distinct", () => {
@@ -39,9 +48,9 @@ describe("VaultPage rendering and provider-boundary characterization", () => {
     expect(source).toContain('label="Delete" destructive');
     expect(vaultPageSource).toContain('showTrash ? permanentDeletePhotoMutation.mutate');
     expect(vaultPageSource).toContain('showTrash ? permanentDeleteFileMutation.mutate');
-    expect(vaultPageSource).toContain('invalidateVaultCache(queryClient, ["trash", "files"]);');
+    expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files"]);');
     expect(vaultPageSource).toContain('invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);');
-    expect(vaultPageSource).toContain('invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);');
+    expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);');
   });
 
   it("preserves storage projection and the provider-specific page boundary", () => {
@@ -53,5 +62,19 @@ describe("VaultPage rendering and provider-boundary characterization", () => {
     expect(vaultPageSource).toContain("resolveLocalAuthMode");
     expect(vaultPageSource).toContain("IcpUnavailablePage");
     expect(vaultPageSource).not.toContain("SupabaseVaultPage = Icp");
+  });
+
+  it("keeps the trash workflow scoped, ordered, authorized, and failure-visible", () => {
+    expect(source).toMatch(/queryKey: (?:\["vault-trash"|vaultKeys\.trashForClub)/);
+    expect(source).toContain('enabled: showTrash && currentView.type !== "root"');
+    expect(source).toContain('order("deleted_at", { ascending: false })');
+    expect(source).toContain("isVaultImage");
+    expect(source).toContain("onPermanentDeletePhoto: isClubAdmin ? setDeletePhotoId : undefined");
+    expect(source).toContain("onPermanentDeleteFile: isClubAdmin ? setDeleteFileId : undefined");
+    expect(source).toContain("onEmptyTrash: isClubAdmin ? emptyTrash : undefined");
+    expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files"]);');
+    expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);');
+    expect(source).toContain("resolveEmptyTrashOutcome");
+    expect(source).toContain("Failed to empty trash");
   });
 });

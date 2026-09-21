@@ -80,3 +80,36 @@ Only the allowlisted lab screen is expected to build and run. Other pages must b
 ### Follow-up POC status
 
 The synthetic account/principal boundary and planned full-canister snapshot recovery are implemented and tested separately from the original stopped demo. Full snapshots preserve links, ACLs, account bindings and retry receipts across new-canister restore and two managed-network recreations. The original link-only checkpoint cannot recover its missing ACL/receipt state. See `CLUB_LINKS_POC.md` and `VALIDATION.md` for the current runbook and evidence. Production account import, verified provider linking, lost-key recovery and broader domain RLS parity remain future work; no new feature domain is enabled.
+
+## Frontend Phase 4A Vault result
+
+On 2026-09-21, the dormant product `VaultPage` was decomposed only at its
+deleted-item/recovery boundary. The page remains outside the allowlisted lab
+runtime and keeps its fail-closed ICP-mode `IcpUnavailablePage` boundary; this
+does not enable Vault on ICP or add any provider fallback.
+
+The responsibility map found that the page owns provider selection; navigation,
+dialog, selection, upload, export, Drive, and storage state; inline React
+Query reads; mutation/cache/error orchestration; permission decisions; and
+rendering. The extracted Supabase trash repository (47 lines) and typed
+workflow (205 lines) now own the club-scoped deleted-item read, image
+partitioning, optimistic photo rollback, recovery mutations, truthful
+empty-trash feedback, and cache policy. The page still supplies the
+`isClubAdmin` destructive-action gate and dialog state.
+
+`VaultPage.tsx` decreased from 4,597 to 4,363 lines. The defined Vault source
+package (`VaultPage.tsx`, `components/vault`, and `features/vault`, excluding
+tests) changed from 11,522 to 11,540 lines; its same-scope jscpd result held
+at 362 duplicated lines across 26 clone groups (3.1418157% to 3.1369151%).
+The product Vault route chunk changed from 116,689 to 117,157 bytes and total
+product JavaScript from 8,854,252 to 8,854,720 bytes (502 chunks both times).
+Static inspection found zero Vault realtime subscriptions before and after.
+
+The characterization and direct repository/workflow contracts, relevant
+legacy and lab tests, product build/bundle/quality/isolation/duplication gates,
+and whitespace check passed. Product typecheck introduced no Vault diagnostic;
+its non-zero result contains only the known unrelated `StartDMDialog` and
+`ClubDetailPage` diagnostics. No safe synthetic product-route probe or render
+instrumentation was configured, so live request/render counts and interaction
+latency are unmeasured. This is a maintainability and safety result only; no
+runtime-performance or production/RLS-parity claim is made.
