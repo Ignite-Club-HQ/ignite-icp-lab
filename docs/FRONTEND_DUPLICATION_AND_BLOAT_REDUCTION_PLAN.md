@@ -703,6 +703,69 @@ live request counts, render counts, and interaction latency were not measured.
 The one trash query remains scoped to a non-root open-trash view; the 468-byte
 route-chunk increase is static organization overhead, not an optimization.
 
+### Phase 4A Vault export and large-files result (2026-09-21)
+
+The second bounded Vault dispatch extracted only the export/ZIP and large-files
+management clusters. The pre-refactor map was characterized from
+`VaultPage.tsx`: export owned `isExporting`, progress and abort state, preview
+and folder-exclusion state, confirmation/pending-action state, folder export
+selection state, the individual-download and ZIP flows, recursive export reads,
+and the preview/confirmation/folder-selection dialogs. Large-files owned the
+club-scoped teams/photos/vault-files reads, size/date/type sorting, selection,
+permanent-delete reporting, cache invalidation, and the large-files dialog.
+The export scope is derived from the current club/team/folder view; the hook
+has no provider fallback and the page still owns provider selection, current
+view, query client, storage formatter, and photo-download adapter.
+
+The cohesive typed boundaries are:
+
+- `src/features/vault/useVaultExport.ts` (519 lines): export state, abort and
+  progress lifecycle, confirmation routing, folder preview/exclusion, folder
+  item selection, individual downloads, ZIP generation, recursive repository
+  reads, and exact existing toast/error behavior.
+- `src/features/vault/useVaultLargeFiles.ts` (108 lines): club-scoped read,
+  sort/select/delete state, permanent-delete adapter, truthful reporting,
+  cache invalidation, retry refresh, and failure/success feedback.
+- `src/components/vault/VaultExportDialogs.tsx` (158 lines) and
+  `src/components/vault/VaultLargeFilesDialog.tsx` (112 lines): typed dialog
+  presentation only. The existing `vaultExportRepository`, `vaultZipExport`,
+  `vaultExportSelection`, `vaultLargeFileRepository`, and
+  `vaultLargeFileManagement` contracts are reused rather than copied.
+
+Characterization coverage was added and passed against the inline page before
+editing, then updated to assert the extracted contracts and passed again. The
+post-extraction targeted suite passed 56 tests, including abort-before-fetch,
+abort-during-fetch, progress, partial ZIP failure, no-empty-ZIP behavior,
+folder exclusion/current-folder semantics, exact club/team repository scope,
+large-file sorting/selection, truthful acknowledged-ID deletion reporting, and
+provider-boundary/trash regressions. The full legacy suite passed 450 files and
+4,303 tests (one existing skip). Bulk selection/delete (`selectionMode`,
+`selectedPhotos`, `selectedFiles`, and `bulkDeleteDialogOpen`) remains in the
+page because its toolbar and mutation flow are shared with upload/content
+controls; upload/file-name flow, lightbox, folder management, Drive import, and
+trash/recovery remain intentionally untouched in this dispatch.
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `VaultPage.tsx` raw lines | 4,363 | 3,357 | -1,006 |
+| `useState` calls in `VaultPage.tsx` | 30 | 23 | -7 |
+| Complete Vault source package (`VaultPage`, `components/vault`, `features/vault`; tests excluded) | 11,540 | 11,431 | -109 |
+| New export/large-file modules | 0 | 897 (519 + 108 + 158 + 112) | +898 |
+| Same-scope jscpd | 362 lines / 26 groups / 3.1369151% | 321 lines / 24 groups / 2.8081533% | -41 lines / -2 groups / -0.3287618 pp |
+| Product Vault route chunk | 117,157 bytes | 121,354 bytes | +4,197 |
+| Product JavaScript total / chunks | 8,854,720 bytes / 502 | 8,859,848 bytes / 502 | +5,128 bytes / 0 |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | 0 |
+
+The new hooks and dialog components are statically imported. No new lazy-loading
+boundary was added; the existing lazy boundaries for unrelated Vault dialogs
+remain unchanged. The route chunk increased by 4,197 bytes, so this is a
+maintainability and safer-change extraction only. No request, subscription,
+render-count, or interaction-latency evidence was collected, and no runtime
+performance improvement is claimed. Product typecheck has exactly the known
+unrelated `StartDMDialog`/`ClubDetailPage` diagnostics; product build, bundle,
+quality ratchet, isolation, duplication ratchet, lab typecheck, targeted
+characterization, legacy tests, same-scope jscpd, and `git diff --check` pass.
+
 ### Phase 4A Messages result (2026-09-21)
 
 The Messages responsibility map before extraction was intentionally kept

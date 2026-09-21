@@ -579,3 +579,39 @@ typecheck added no Messages diagnostics; the known unrelated
 `StartDMDialog`/`ClubDetailPage` diagnostics remain. Product build, bundle,
 quality, isolation, duplication, targeted legacy tests, and `git diff --check`
 passed. Phase 4A stops after Messages as requested.
+
+## Phase 4A Vault export and large-files result (2026-09-21)
+
+The second Vault package extraction moved only the export/ZIP and large-files
+management clusters into the typed `useVaultExport`, `useVaultLargeFiles`,
+`VaultExportDialogs`, and `VaultLargeFilesDialog` modules. The page retains the
+provider boundary, current-view and scope ownership, query client, storage
+formatter, photo-download adapter, and page-local bulk selection/delete. Upload
+and file-name state, lightbox, folder management, Drive import, and the prior
+trash/recovery extraction were intentionally left untouched.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 4,363 | 3,357 |
+| `VaultPage.tsx` `useState` calls | 30 | 23 |
+| Complete Vault source package (non-test) | 11,540 | 11,431 |
+| New module lines | 0 | 897 |
+| Same-scope jscpd | 362 lines / 26 groups / 3.1369151% | 321 lines / 24 groups / 2.8081533% |
+| Product Vault route chunk | 117,157 bytes | 121,354 bytes |
+| Product JavaScript total / chunks | 8,854,720 bytes / 502 | 8,859,848 bytes / 502 |
+| Lazy-loading boundary | none added | none added |
+
+The same-scope scan used jscpd 5.3.0 with 50-token/5-line thresholds and the
+standard test/generated-type exclusions. The post-refactor scan reported 11,431
+scanned source lines, 24 clone groups, and 321 duplicated lines. The targeted
+characterization and contract suite passed 56 tests after also passing against
+the inline pre-refactor implementation; the full legacy suite passed 4,303
+tests across 450 files with one existing skip. Product typecheck remained at
+exactly the known unrelated `StartDMDialog`/`ClubDetailPage` diagnostics.
+Product build, bundle, quality, isolation, duplication, lab typecheck, and
+`git diff --check` passed.
+
+The extracted modules are statically imported and the affected route chunk is
+4,197 bytes larger. No request, subscription, render-count, or interaction
+benchmark was measured, so this is a maintainability/safety result only and
+makes no runtime-performance claim.

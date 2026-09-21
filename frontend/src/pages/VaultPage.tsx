@@ -51,31 +51,24 @@ import {
   settleVaultStorage,
 } from "@/lib/vaultUpload";
 import { permanentlyDeleteVaultItems } from "@/lib/vaultDelete";
-import { fetchVaultFolderContents, collectVaultExportContents } from "@/features/vault/vaultExportRepository";
 import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
-import { runZipExport, summarizeZipExport, type ZipExportItem } from "@/features/vault/vaultZipExport";
 import {
   createVaultFolder,
   deleteVaultFolder,
   renameVaultFolder,
   renameVaultItem,
 } from "@/features/vault/vaultMutationRepository";
-import { formatVaultFileSize } from "@/features/vault/vaultFilePresentation";
 import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
+import { useVaultExport, type FolderView } from "@/features/vault/useVaultExport";
+import { useVaultLargeFiles } from "@/features/vault/useVaultLargeFiles";
+import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
+import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
   fetchVaultStorageSubscription,
 } from "@/features/vault/vaultStorageRepository";
-
-async function createZipArchive() {
-  const { default: JSZip } = await import("jszip");
-  return new JSZip();
-}
-
-
-
 
 import {
   Breadcrumb,
@@ -98,12 +91,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
 } from "@/components/ui/sheet";
-
-type FolderView = 
-  | { type: "root" }
-  | { type: "club"; clubId: string; clubName: string; folderId?: string; folderName?: string }
-  | { type: "team"; clubId: string; clubName: string; teamId: string; teamName: string; folderId?: string; folderName?: string }
-  | { type: "mini-league"; clubId: string; clubName: string; miniLeagueId: string; miniLeagueName: string; folderId?: string; folderName?: string };
 
 // Clubs allowed to use Google Drive import / sync features.
 const DRIVE_IMPORT_ALLOWED_CLUB_IDS = new Set<string>([
@@ -173,30 +160,9 @@ function SupabaseVaultPage() {
   const [renameFileName, setRenameFileName] = useState("");
   const [renamePhotoId, setRenamePhotoId] = useState<string | null>(null);
   const [renamePhotoName, setRenamePhotoName] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
-  const exportAbortController = useRef<AbortController | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
-  const [exportPreviewData, setExportPreviewData] = useState<{
-    photos: any[];
-    files: any[];
-    folderBreakdown: { path: string; photoCount: number; fileCount: number }[];
-    loading: boolean;
-  }>({ photos: [], files: [], folderBreakdown: [], loading: false });
-  const [excludedFolders, setExcludedFolders] = useState<Set<string>>(new Set());
-  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
-  const [pendingExportAction, setPendingExportAction] = useState<{ type: 'zip' | 'download' | 'zipAll'; includeSubfolders?: boolean } | null>(null);
-  const [largeFilesDialogOpen, setLargeFilesDialogOpen] = useState(false);
-  const [largeFilesData, setLargeFilesData] = useState<{
-    loading: boolean;
-    items: Array<{ id: string; type: 'photo' | 'file'; name: string; size: number; url: string; teamName?: string; createdAt: string }>;
-  }>({ loading: false, items: [] });
-  const [selectedLargeFiles, setSelectedLargeFiles] = useState<Set<string>>(new Set());
-  const [deletingLargeFiles, setDeletingLargeFiles] = useState(false);
-  const [largeFilesSortBy, setLargeFilesSortBy] = useState<'size' | 'date' | 'type'>('size');
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [storagePurchaseDialogOpen, setStoragePurchaseDialogOpen] = useState(false);
@@ -240,16 +206,6 @@ function SupabaseVaultPage() {
       setResolvingDriveTitles(false);
     }
   };
-  const [folderExportDialogOpen, setFolderExportDialogOpen] = useState(false);
-  const [folderExportData, setFolderExportData] = useState<{
-    folderId: string;
-    folderName: string;
-    photos: any[];
-    files: any[];
-    selectedPhotos: Set<string>;
-    selectedFiles: Set<string>;
-    loading: boolean;
-  } | null>(null);
 
   const togglePhotoSelection = (photoId: string) => {
     setSelectedPhotos(prev => {
@@ -1384,6 +1340,66 @@ function SupabaseVaultPage() {
     return `${bytes} B`;
   };
 
+  const downloadPhotoFile = async (url: string, filename?: string) => {
+    const friendlyName = (filename || "ignite-photo").replace(/\.[^.]+$/, "") || "ignite-photo";
+    await downloadImage(url, friendlyName);
+  };
+
+  const {
+    isExporting,
+    exportProgress,
+    exportPreviewOpen,
+    setExportPreviewOpen,
+    exportPreviewData,
+    excludedFolders,
+    exportConfirmOpen,
+    setExportConfirmOpen,
+    pendingExportAction,
+    setPendingExportAction,
+    folderExportDialogOpen,
+    setFolderExportDialogOpen,
+    folderExportData,
+    setFolderExportData,
+    filteredExportData,
+    exportSummary,
+    cancelExport,
+    initiateExport,
+    handleExportConfirm,
+    openExportPreview,
+    openFolderExportDialog,
+    toggleFolderExclusion,
+    confirmExportWithSubfolders,
+    toggleFolderExportPhotoSelection,
+    toggleFolderExportFileSelection,
+    selectAllFolderExportItems,
+    deselectAllFolderExportItems,
+    exportSelectedFolderItems,
+  } = useVaultExport({
+    currentView,
+    photos,
+    files,
+    selectionMode,
+    selectedPhotos,
+    selectedFiles,
+    exitSelectionMode,
+    downloadPhotoFile,
+  });
+
+  const {
+    largeFilesDialogOpen,
+    largeFilesData,
+    selectedLargeFiles,
+    deletingLargeFiles,
+    largeFilesSortBy,
+    setLargeFilesSortBy,
+    sortedLargeFiles,
+    selectedBytes,
+    openLargeFiles,
+    handleLargeFilesDialogChange,
+    toggleLargeFileSelection,
+    deleteSelectedLargeFiles,
+  } = useVaultLargeFiles({ currentClubId: currentClub?.id, queryClient, formatStorageSize });
+
   const canUpload = useMemo(() => {
     if (isStorageLimitReached) return false;
     if (!currentClub) return false;
@@ -1861,139 +1877,6 @@ function SupabaseVaultPage() {
     }
   };
 
-  // Fetch large files for the current club
-  const fetchLargeFiles = useCallback(async () => {
-    if (!currentClub?.id) return;
-    
-    setLargeFilesData({ loading: true, items: [] });
-    setSelectedLargeFiles(new Set());
-    
-    try {
-      // Get teams for the club
-      const { data: teamsData } = await supabase
-        .from("teams")
-        .select("id, name")
-        .eq("club_id", currentClub.id)
-        .is("deleted_at", null);
-      
-      const teamsMap = new Map<string | null, string>();
-      (teamsData || []).forEach(t => teamsMap.set(t.id, t.name));
-      teamsMap.set(null, "Club-level");
-      
-      // Get photos with size
-      const { data: photosData } = await supabase
-        .from("photos")
-        .select("id, file_url, file_size, team_id, title, created_at")
-        .eq("club_id", currentClub.id)
-        .not("file_size", "is", null)
-        .order("file_size", { ascending: false })
-        .limit(50);
-      
-      // Get files with size
-      const { data: filesData } = await supabase
-        .from("vault_files")
-        .select("id, file_url, file_size, team_id, name, created_at")
-        .eq("club_id", currentClub.id)
-        .not("file_size", "is", null)
-        .order("file_size", { ascending: false })
-        .limit(50);
-      
-      const items: Array<{ id: string; type: 'photo' | 'file'; name: string; size: number; url: string; teamName?: string; createdAt: string }> = [];
-      
-      (photosData || []).forEach(p => {
-        items.push({
-          id: p.id,
-          type: 'photo',
-          name: p.title || 'Photo',
-          size: p.file_size || 0,
-          url: p.file_url,
-          teamName: teamsMap.get(p.team_id),
-          createdAt: p.created_at
-        });
-      });
-      
-      (filesData || []).forEach(f => {
-        items.push({
-          id: f.id,
-          type: 'file',
-          name: f.name || 'File',
-          size: f.file_size || 0,
-          url: f.file_url,
-          teamName: teamsMap.get(f.team_id),
-          createdAt: f.created_at
-        });
-      });
-      
-      // Sort by size descending
-      items.sort((a, b) => b.size - a.size);
-      
-      setLargeFilesData({ loading: false, items: items.slice(0, 50) });
-    } catch (error) {
-      console.error("Failed to fetch large files:", error);
-      setLargeFilesData({ loading: false, items: [] });
-      toast.error("Failed to load large files");
-    }
-  }, [currentClub?.id]);
-  
-  const toggleLargeFileSelection = (id: string) => {
-    setSelectedLargeFiles(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-  
-  const deleteSelectedLargeFiles = async () => {
-    if (selectedLargeFiles.size === 0) return;
-    
-    setDeletingLargeFiles(true);
-    
-    try {
-      const itemsToDelete = largeFilesData.items.filter(item => selectedLargeFiles.has(item.id));
-      const photoItems = itemsToDelete.filter(i => i.type === 'photo');
-      const fileItems = itemsToDelete.filter(i => i.type === 'file');
-      
-      // Use the permanent delete edge function to handle storage cleanup + audit
-      const result = await permanentlyDeleteVaultItems({
-        photoIds: photoItems.map(p => p.id),
-        fileIds: fileItems.map(f => f.id),
-      });
-
-      // Truthful reporting: only server-acknowledged deletions count, and
-      // freed bytes are summed over successful items only.
-      const summary = summarizeVaultDeletion(
-        itemsToDelete.map(i => ({ id: i.id, type: i.type, size: i.size })),
-        result,
-      );
-      const { outcome, message } = buildVaultDeleteMessage(summary, formatStorageSize);
-
-      if (summary.deletedCount > 0) {
-        invalidateVaultCache(queryClient, ["files"]);
-        invalidateVaultCache(queryClient, ["storageBreakdown"]);
-        invalidateVaultCache(queryClient, ["photos"]);
-      }
-
-      // Failed items stay selected so the user can retry; successes are cleared.
-      const deletedIds = new Set(summary.deletedIds);
-      setSelectedLargeFiles(prev => new Set([...prev].filter(id => !deletedIds.has(id))));
-
-      if (outcome === "failure") toast.error(message);
-      else toast.success(message);
-      
-      // Refresh the list
-      fetchLargeFiles();
-
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete files");
-    } finally {
-      setDeletingLargeFiles(false);
-    }
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2211,553 +2094,6 @@ function SupabaseVaultPage() {
     // Close lightbox first, then show confirmation dialog
     setLightboxOpen(false);
     setDeletePhotoId(photoId);
-  };
-
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch file (${response.status})`);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      toast.error("Failed to download file");
-    }
-  };
-
-  const downloadPhotoFile = async (url: string, filename?: string) => {
-    const friendlyName = (filename || "ignite-photo").replace(/\.[^.]+$/, "") || "ignite-photo";
-    await downloadImage(url, friendlyName);
-  };
-
-  const exportCurrentFolder = async () => {
-    const { photos: photosToExport, files: filesToExport } = selectionMode 
-      ? getSelectedItems() 
-      : { photos: photos || [], files: files || [] };
-
-    if (!photosToExport.length && !filesToExport.length) {
-      toast.error(selectionMode ? "No files selected" : "No files to export");
-      return;
-    }
-
-    exportAbortController.current = new AbortController();
-    const signal = exportAbortController.current.signal;
-    
-    const totalFiles = photosToExport.length + filesToExport.length;
-    setExportProgress({ current: 0, total: totalFiles });
-    setIsExporting(true);
-
-    try {
-      let downloadCount = 0;
-      
-      // Download photos
-      for (const photo of photosToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        const filename = photo.title || `photo-${photo.id}.jpg`;
-        await downloadPhotoFile(photo.file_url, filename);
-        downloadCount++;
-        setExportProgress({ current: downloadCount, total: totalFiles });
-        // Small delay between downloads to avoid browser blocking
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // Download files
-      for (const file of filesToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        await downloadFile(file.file_url, file.name);
-        downloadCount++;
-        setExportProgress({ current: downloadCount, total: totalFiles });
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      toast.success(`Exported ${downloadCount} files`);
-      if (selectionMode) exitSelectionMode();
-    } catch (error: any) {
-      if (error.message === "Export cancelled") {
-        toast.info("Export cancelled");
-      } else {
-        toast.error("Export failed");
-      }
-    } finally {
-      setIsExporting(false);
-      setExportProgress({ current: 0, total: 0 });
-      exportAbortController.current = null;
-    }
-  };
-
-  const cancelExport = () => {
-    if (exportAbortController.current) {
-      exportAbortController.current.abort();
-    }
-  };
-
-  // Recursive export sources come from `vault_files` only (see
-  // src/features/vault/vaultExportRepository.ts). Never query public.photos here.
-  const fetchFolderContents = async (
-    folderId: string | null,
-    clubId: string | null,
-    teamId: string | null,
-    path: string = ""
-  ) => fetchVaultFolderContents({ folderId, clubId, teamId }, path);
-
-  const collectAllFolderContents = async (
-    folderId: string | null,
-    clubId: string | null,
-    teamId: string | null,
-    path: string = "",
-    folderBreakdown: { path: string; photoCount: number; fileCount: number }[] = []
-  ) => collectVaultExportContents({ folderId, clubId, teamId }, path, folderBreakdown);
-
-
-  // Open preview dialog and fetch all subfolder contents
-  const openExportPreview = async () => {
-    const clubId = getCurrentClubId();
-    const teamId = getCurrentTeamId();
-    const folderId = getCurrentFolderId();
-
-    setExportPreviewData({ photos: [], files: [], folderBreakdown: [], loading: true });
-    setExcludedFolders(new Set());
-    setExportPreviewOpen(true);
-
-    try {
-      const allContents = await collectAllFolderContents(folderId, clubId, teamId, "", []);
-      setExportPreviewData({
-        photos: allContents.photos,
-        files: allContents.files,
-        folderBreakdown: allContents.folderBreakdown,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Failed to fetch folder contents:", error);
-      toast.error("Failed to scan folders");
-      setExportPreviewOpen(false);
-    }
-  };
-
-  // Open folder export dialog - fetches folder contents and opens selection dialog
-  const openFolderExportDialog = async (folder: { id: string; name: string }) => {
-    const clubId = getCurrentClubId();
-    const teamId = getCurrentTeamId();
-
-    setFolderExportData({
-      folderId: folder.id,
-      folderName: folder.name,
-      photos: [],
-      files: [],
-      selectedPhotos: new Set(),
-      selectedFiles: new Set(),
-      loading: true,
-    });
-    setFolderExportDialogOpen(true);
-
-    try {
-      const contents = await fetchFolderContents(folder.id, clubId, teamId, "");
-      setFolderExportData({
-        folderId: folder.id,
-        folderName: folder.name,
-        photos: contents.photos,
-        files: contents.files,
-        selectedPhotos: new Set(contents.photos.map((p: any) => p.id)),
-        selectedFiles: new Set(contents.files.map((f: any) => f.id)),
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Failed to fetch folder contents for export:", error);
-      toast.error("Failed to load folder contents");
-      setFolderExportDialogOpen(false);
-    }
-  };
-
-  const toggleFolderExportPhotoSelection = (photoId: string) => {
-    if (!folderExportData) return;
-    const newSelected = new Set(folderExportData.selectedPhotos);
-    if (newSelected.has(photoId)) {
-      newSelected.delete(photoId);
-    } else {
-      newSelected.add(photoId);
-    }
-    setFolderExportData({ ...folderExportData, selectedPhotos: newSelected });
-  };
-
-  const toggleFolderExportFileSelection = (fileId: string) => {
-    if (!folderExportData) return;
-    const newSelected = new Set(folderExportData.selectedFiles);
-    if (newSelected.has(fileId)) {
-      newSelected.delete(fileId);
-    } else {
-      newSelected.add(fileId);
-    }
-    setFolderExportData({ ...folderExportData, selectedFiles: newSelected });
-  };
-
-  const selectAllFolderExportItems = () => {
-    if (!folderExportData) return;
-    setFolderExportData({
-      ...folderExportData,
-      selectedPhotos: new Set(folderExportData.photos.map((p: any) => p.id)),
-      selectedFiles: new Set(folderExportData.files.map((f: any) => f.id)),
-    });
-  };
-
-  const deselectAllFolderExportItems = () => {
-    if (!folderExportData) return;
-    setFolderExportData({
-      ...folderExportData,
-      selectedPhotos: new Set(),
-      selectedFiles: new Set(),
-    });
-  };
-
-  const exportSelectedFolderItems = async () => {
-    if (!folderExportData) return;
-    
-    const photosToExport = folderExportData.photos.filter((p: any) => folderExportData.selectedPhotos.has(p.id));
-    const filesToExport = folderExportData.files.filter((f: any) => folderExportData.selectedFiles.has(f.id));
-    
-    if (photosToExport.length === 0 && filesToExport.length === 0) {
-      toast.error("No items selected for export");
-      return;
-    }
-    
-    setFolderExportDialogOpen(false);
-    
-    // Use ZIP export for multiple files
-    const totalItems = photosToExport.length + filesToExport.length;
-    if (totalItems > 1) {
-      // Create ZIP
-      exportAbortController.current = new AbortController();
-      const signal = exportAbortController.current.signal;
-      
-      setExportProgress({ current: 0, total: totalItems });
-      setIsExporting(true);
-      
-      try {
-        const zip = await createZipArchive();
-        const items: ZipExportItem[] = [
-          ...photosToExport.map((photo: any) => ({
-            id: photo.id,
-            kind: "photo" as const,
-            url: photo.file_url,
-            filename: photo.title || `photo-${photo.id}.jpg`,
-          })),
-          ...filesToExport.map((file: any) => ({
-            id: file.id,
-            kind: "file" as const,
-            url: file.file_url,
-            filename: file.name,
-          })),
-        ];
-
-        const result = await runZipExport(items, {
-          signal,
-          isAborted: () => signal.aborted,
-          fetchBlob: async (url, sig) => {
-            const response = await fetch(url, { signal: sig });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.blob();
-          },
-          addToZip: (filename, blob) => zip.file(filename, blob),
-          onProgress: (processed) => setExportProgress({ current: processed, total: totalItems }),
-        });
-
-        const { outcome, message, shouldDownload } = summarizeZipExport(result);
-
-        if (shouldDownload) {
-          const zipBlob = await zip.generateAsync({ type: "blob" });
-          const blobUrl = window.URL.createObjectURL(zipBlob);
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = `${folderExportData.folderName}.zip`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(blobUrl);
-        }
-
-        if (outcome === "cancelled") toast.info(message);
-        else if (outcome === "failure") toast.error(message);
-        else if (outcome === "partial") toast.warning(message);
-        else toast.success(message);
-      } catch (error: any) {
-        if (signal.aborted || error?.message === "Export cancelled") {
-          toast.info("Export cancelled");
-        } else {
-          toast.error("Export failed");
-        }
-      } finally {
-        setIsExporting(false);
-        setExportProgress({ current: 0, total: 0 });
-        exportAbortController.current = null;
-      }
-
-    } else {
-      // Single file - just download
-      const item = photosToExport[0] || filesToExport[0];
-      if (item) {
-        if (photosToExport[0]) {
-          await downloadPhotoFile(item.file_url, item.title || `photo-${item.id}.jpg`);
-        } else {
-          await downloadFile(item.file_url, item.name || 'file');
-        }
-        toast.success("Downloaded file");
-      }
-    }
-    
-    setFolderExportData(null);
-  };
-
-  const toggleFolderExclusion = (folderPath: string) => {
-    setExcludedFolders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(folderPath)) {
-        newSet.delete(folderPath);
-      } else {
-        newSet.add(folderPath);
-      }
-      return newSet;
-    });
-  };
-
-  const getFilteredExportData = () => {
-    const filteredPhotos = exportPreviewData.photos.filter(photo => {
-      const folderPath = photo.path || "(current folder)";
-      return !excludedFolders.has(folderPath);
-    });
-    const filteredFiles = exportPreviewData.files.filter(file => {
-      const folderPath = file.path || "(current folder)";
-      return !excludedFolders.has(folderPath);
-    });
-    return { photos: filteredPhotos, files: filteredFiles };
-  };
-
-  const getExportSummary = () => {
-    if (selectionMode) {
-      return { photoCount: selectedPhotos.size, fileCount: selectedFiles.size, isSelection: true };
-    }
-    return { photoCount: photos?.length || 0, fileCount: files?.length || 0, isSelection: false };
-  };
-
-  const handleExportConfirm = () => {
-    if (!pendingExportAction) return;
-    setExportConfirmOpen(false);
-    
-    if (pendingExportAction.type === 'zip') {
-      exportAsZip(false);
-    } else if (pendingExportAction.type === 'download') {
-      exportCurrentFolder();
-    } else if (pendingExportAction.type === 'zipAll') {
-      openExportPreview();
-    }
-    setPendingExportAction(null);
-  };
-
-  const initiateExport = (type: 'zip' | 'download' | 'zipAll') => {
-    setPendingExportAction({ type });
-    setExportConfirmOpen(true);
-  };
-
-  const confirmExportWithSubfolders = async () => {
-    setExportPreviewOpen(false);
-    
-    const { photos: photosToExport, files: filesToExport } = getFilteredExportData();
-    
-    if (!photosToExport.length && !filesToExport.length) {
-      toast.error("No files to export");
-      return;
-    }
-
-    exportAbortController.current = new AbortController();
-    const signal = exportAbortController.current.signal;
-
-    const totalFiles = photosToExport.length + filesToExport.length;
-    setExportProgress({ current: 0, total: totalFiles });
-    setIsExporting(true);
-
-    try {
-      const zip = await createZipArchive();
-      let fileCount = 0;
-
-      // Add photos to ZIP with path
-      for (const photo of photosToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        try {
-          const response = await fetch(photo.file_url, { signal });
-          const blob = await response.blob();
-          const filename = photo.title || `photo-${photo.id}.jpg`;
-          const fullPath = photo.path ? `${photo.path}/${filename}` : filename;
-          zip.file(fullPath, blob);
-          fileCount++;
-          setExportProgress({ current: fileCount, total: totalFiles });
-        } catch (error: any) {
-          if (error.name === 'AbortError' || signal.aborted) throw new Error("Export cancelled");
-          console.error(`Failed to fetch photo: ${photo.id}`, error);
-        }
-      }
-
-      // Add files to ZIP with path
-      for (const file of filesToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        try {
-          const response = await fetch(file.file_url, { signal });
-          const blob = await response.blob();
-          const fullPath = file.path ? `${file.path}/${file.name}` : file.name;
-          zip.file(fullPath, blob);
-          fileCount++;
-          setExportProgress({ current: fileCount, total: totalFiles });
-        } catch (error: any) {
-          if (error.name === 'AbortError' || signal.aborted) throw new Error("Export cancelled");
-          console.error(`Failed to fetch file: ${file.id}`, error);
-        }
-      }
-
-      if (fileCount === 0) {
-        toast.error("No files could be added to ZIP");
-        return;
-      }
-
-      // Generate ZIP and download
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const folderName = currentView.type === "root" 
-        ? "vault" 
-        : currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.clubName) || "export";
-      
-      const blobUrl = window.URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${folderName}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
-      toast.success(`Exported ${fileCount} files as ZIP`);
-    } catch (error: any) {
-      if (error.message === "Export cancelled") {
-        toast.info("Export cancelled");
-      } else {
-        console.error("ZIP export failed:", error);
-        toast.error("Failed to create ZIP file");
-      }
-    } finally {
-      setIsExporting(false);
-      setExportProgress({ current: 0, total: 0 });
-      exportAbortController.current = null;
-    }
-  };
-
-  const exportAsZip = async (includeSubfolders: boolean = false) => {
-    const clubId = getCurrentClubId();
-    const teamId = getCurrentTeamId();
-    const folderId = getCurrentFolderId();
-
-    let photosToExport: any[] = [];
-    let filesToExport: any[] = [];
-
-    if (selectionMode) {
-      const selected = getSelectedItems();
-      photosToExport = selected.photos.map(p => ({ ...p, path: "" }));
-      filesToExport = selected.files.map(f => ({ ...f, path: "" }));
-    } else if (includeSubfolders && currentView.type !== "root") {
-      toast.info("Scanning folders...");
-      const allContents = await collectAllFolderContents(folderId, clubId, teamId, "");
-      photosToExport = allContents.photos;
-      filesToExport = allContents.files;
-    } else {
-      photosToExport = (photos || []).map(p => ({ ...p, path: "" }));
-      filesToExport = (files || []).map(f => ({ ...f, path: "" }));
-    }
-
-    if (!photosToExport.length && !filesToExport.length) {
-      toast.error(selectionMode ? "No files selected" : "No files to export");
-      return;
-    }
-
-    exportAbortController.current = new AbortController();
-    const signal = exportAbortController.current.signal;
-
-    const totalFiles = photosToExport.length + filesToExport.length;
-    setExportProgress({ current: 0, total: totalFiles });
-    setIsExporting(true);
-
-    try {
-      const zip = await createZipArchive();
-      let fileCount = 0;
-
-      // Add photos to ZIP with path
-      for (const photo of photosToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        try {
-          const response = await fetch(photo.file_url, { signal });
-          const blob = await response.blob();
-          const filename = photo.title || `photo-${photo.id}.jpg`;
-          const fullPath = photo.path ? `${photo.path}/${filename}` : filename;
-          zip.file(fullPath, blob);
-          fileCount++;
-          setExportProgress({ current: fileCount, total: totalFiles });
-        } catch (error: any) {
-          if (error.name === 'AbortError' || signal.aborted) throw new Error("Export cancelled");
-          console.error(`Failed to fetch photo: ${photo.id}`, error);
-        }
-      }
-
-      // Add files to ZIP with path
-      for (const file of filesToExport) {
-        if (signal.aborted) throw new Error("Export cancelled");
-        try {
-          const response = await fetch(file.file_url, { signal });
-          const blob = await response.blob();
-          const fullPath = file.path ? `${file.path}/${file.name}` : file.name;
-          zip.file(fullPath, blob);
-          fileCount++;
-          setExportProgress({ current: fileCount, total: totalFiles });
-        } catch (error: any) {
-          if (error.name === 'AbortError' || signal.aborted) throw new Error("Export cancelled");
-          console.error(`Failed to fetch file: ${file.id}`, error);
-        }
-      }
-
-      if (fileCount === 0) {
-        toast.error("No files could be added to ZIP");
-        return;
-      }
-
-      // Generate ZIP and download
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const folderName = selectionMode 
-        ? "selected-files"
-        : currentView.type === "root" 
-          ? "vault" 
-          : currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.clubName) || "export";
-      
-      const blobUrl = window.URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `${folderName}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
-      toast.success(`Exported ${fileCount} files as ZIP`);
-      if (selectionMode) exitSelectionMode();
-    } catch (error: any) {
-      if (error.message === "Export cancelled") {
-        toast.info("Export cancelled");
-      } else {
-        console.error("ZIP export failed:", error);
-        toast.error("Failed to create ZIP file");
-      }
-    } finally {
-      setIsExporting(false);
-      setExportProgress({ current: 0, total: 0 });
-      exportAbortController.current = null;
-    }
   };
 
   if (isLoadingAccess) {
@@ -3069,10 +2405,7 @@ function SupabaseVaultPage() {
                                   variant="outline" 
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => {
-                                    setLargeFilesDialogOpen(true);
-                                    fetchLargeFiles();
-                                  }}
+                                  onClick={openLargeFiles}
                                 >
                                   <HardDrive className="h-4 w-4" />
                                 </Button>
@@ -3855,119 +3188,21 @@ function SupabaseVaultPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Large Files Manager Dialog */}
-      <Dialog open={largeFilesDialogOpen} onOpenChange={(open) => {
-        setLargeFilesDialogOpen(open);
-        if (!open) {
-          setSelectedLargeFiles(new Set());
-        }
-      }}>
-        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HardDrive className="h-5 w-5" />
-              Manage Large Files
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {largeFilesData.loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : largeFilesData.items.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <HardDrive className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p>No files with size data found</p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Sort:</span>
-                    <Select value={largeFilesSortBy} onValueChange={(v) => setLargeFilesSortBy(v as 'size' | 'date' | 'type')}>
-                      <SelectTrigger className="w-[110px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="size">Size</SelectItem>
-                        <SelectItem value="date">Date</SelectItem>
-                        <SelectItem value="type">Type</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {selectedLargeFiles.size > 0 
-                      ? `${selectedLargeFiles.size} selected (${formatStorageSize(
-                          largeFilesData.items
-                            .filter(i => selectedLargeFiles.has(i.id))
-                            .reduce((sum, i) => sum + i.size, 0)
-                        )})`
-                      : `${largeFilesData.items.length} files`
-                    }
-                  </span>
-                  {selectedLargeFiles.size > 0 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={deleteSelectedLargeFiles}
-                      disabled={deletingLargeFiles}
-                    >
-                      {deletingLargeFiles ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-1" />
-                      )}
-                      Delete
-                    </Button>
-                  )}
-                </div>
-                <div className="overflow-y-auto flex-1 space-y-2 pr-1">
-                  {[...largeFilesData.items]
-                    .sort((a, b) => {
-                      if (largeFilesSortBy === 'size') return b.size - a.size;
-                      if (largeFilesSortBy === 'date') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                      if (largeFilesSortBy === 'type') return a.type.localeCompare(b.type);
-                      return 0;
-                    })
-                    .map((item) => (
-                    <div 
-                      key={item.id}
-                      className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        selectedLargeFiles.has(item.id) 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                      onClick={() => toggleLargeFileSelection(item.id)}
-                    >
-                      <Checkbox 
-                        checked={selectedLargeFiles.has(item.id)}
-                        onCheckedChange={() => toggleLargeFileSelection(item.id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <div className={`p-1.5 rounded ${item.type === 'photo' ? 'bg-primary/10' : 'bg-muted'}`}>
-                        {item.type === 'photo' ? (
-                          <FileImage className="h-4 w-4 text-primary" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {item.teamName ? `${item.teamName} • ` : ''}{format(new Date(item.createdAt), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-foreground shrink-0">
-                        {formatStorageSize(item.size)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <VaultLargeFilesDialog
+        open={largeFilesDialogOpen}
+        onOpenChange={handleLargeFilesDialogChange}
+        loading={largeFilesData.loading}
+        items={largeFilesData.items}
+        sortedItems={sortedLargeFiles}
+        selectedIds={selectedLargeFiles}
+        selectedBytes={selectedBytes}
+        deleting={deletingLargeFiles}
+        sortBy={largeFilesSortBy}
+        onSortChange={setLargeFilesSortBy}
+        onToggle={toggleLargeFileSelection}
+        onDelete={deleteSelectedLargeFiles}
+        formatStorageSize={formatStorageSize}
+      />
 
       {/* Rename Folder Dialog */}
       <Dialog open={!!renameFolderId} onOpenChange={(open) => {
@@ -4062,273 +3297,32 @@ function SupabaseVaultPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Export Preview Dialog */}
-      <Dialog open={exportPreviewOpen} onOpenChange={setExportPreviewOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Export All Folders</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {exportPreviewData.loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Scanning folders...</span>
-              </div>
-            ) : (
-              <>
-                {(() => {
-                  const filtered = getFilteredExportData();
-                  return (
-                    <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Photos to export:</span>
-                        <span className="font-medium">{filtered.photos.length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Files to export:</span>
-                        <span className="font-medium">{filtered.files.length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm border-t pt-2 mt-2">
-                        <span className="font-medium">Total:</span>
-                        <span className="font-medium">{filtered.photos.length + filtered.files.length} items</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {exportPreviewData.folderBreakdown.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Select folders to include</h4>
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {exportPreviewData.folderBreakdown.map((folder, index) => {
-                        const isExcluded = excludedFolders.has(folder.path);
-                        return (
-                          <div 
-                            key={index} 
-                            className={`flex items-center justify-between text-sm py-1.5 px-2 rounded cursor-pointer transition-colors ${
-                              isExcluded ? 'bg-muted/20 opacity-60' : 'bg-muted/30 hover:bg-muted/50'
-                            }`}
-                            onClick={() => toggleFolderExclusion(folder.path)}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <Checkbox 
-                                checked={!isExcluded}
-                                onCheckedChange={() => toggleFolderExclusion(folder.path)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className={`truncate ${isExcluded ? 'line-through' : ''}`}>{folder.path}</span>
-                            </div>
-                            <span className="text-muted-foreground shrink-0 ml-2">
-                              {folder.photoCount + folder.fileCount} items
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setExportPreviewOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    className="flex-1"
-                    onClick={confirmExportWithSubfolders}
-                    disabled={(() => {
-                      const filtered = getFilteredExportData();
-                      return filtered.photos.length + filtered.files.length === 0;
-                    })()}
-                  >
-                    <FileArchive className="h-4 w-4 mr-1" />
-                    Export ZIP
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Export Confirmation Dialog */}
-      <AlertDialog open={exportConfirmOpen} onOpenChange={setExportConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Export</AlertDialogTitle>
-            <AlertDialogDescription>
-              {(() => {
-                const summary = getExportSummary();
-                const exportType = pendingExportAction?.type;
-                
-                if (summary.isSelection) {
-                  return `You are about to export ${summary.photoCount + summary.fileCount} selected item${summary.photoCount + summary.fileCount !== 1 ? 's' : ''}.`;
-                }
-                
-                if (exportType === 'zipAll') {
-                  return `This will export all files in the current folder and its subfolders as a ZIP file.`;
-                }
-                
-                return `You are about to export ${summary.photoCount} photo${summary.photoCount !== 1 ? 's' : ''} and ${summary.fileCount} file${summary.fileCount !== 1 ? 's' : ''} from the current folder.`;
-              })()}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
-            {(() => {
-              const summary = getExportSummary();
-              return (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Photos:</span>
-                    <span className="font-medium">{summary.photoCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Files:</span>
-                    <span className="font-medium">{summary.fileCount}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-1 mt-1">
-                    <span className="font-medium">Total:</span>
-                    <span className="font-medium">{summary.photoCount + summary.fileCount} items</span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingExportAction(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleExportConfirm}>
-              <FileArchive className="h-4 w-4 mr-1" />
-              Export
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Folder Export Selection Dialog */}
-      <Dialog open={folderExportDialogOpen} onOpenChange={(open) => {
-        setFolderExportDialogOpen(open);
-        if (!open) setFolderExportData(null);
-      }}>
-        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Export: {folderExportData?.folderName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {folderExportData?.loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading folder contents...</span>
-              </div>
-            ) : folderExportData ? (
-              <>
-                {/* Selection controls */}
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={selectAllFolderExportItems}
-                    >
-                      <CheckSquare className="h-4 w-4 mr-1" />
-                      Select All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={deselectAllFolderExportItems}
-                    >
-                      <Square className="h-4 w-4 mr-1" />
-                      Deselect All
-                    </Button>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {folderExportData.selectedPhotos.size + folderExportData.selectedFiles.size} selected
-                  </span>
-                </div>
-
-                {/* Items list */}
-                <div className="flex-1 overflow-y-auto space-y-3">
-                  {folderExportData.photos.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Photos ({folderExportData.photos.length})</h3>
-                      {folderExportData.photos.map((photo: any) => (
-                        <div
-                          key={photo.id}
-                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent/50 ${
-                            folderExportData.selectedPhotos.has(photo.id) ? 'bg-accent/50' : ''
-                          }`}
-                          onClick={() => toggleFolderExportPhotoSelection(photo.id)}
-                        >
-                          <Checkbox
-                            checked={folderExportData.selectedPhotos.has(photo.id)}
-                            onCheckedChange={() => toggleFolderExportPhotoSelection(photo.id)}
-                          />
-                          <img
-                            src={photo.file_url}
-                            alt={photo.title || "Photo"}
-                            className="h-10 w-10 object-cover rounded"
-                          />
-                          <span className="text-sm truncate flex-1">{photo.title || "Untitled photo"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {folderExportData.files.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Files ({folderExportData.files.length})</h3>
-                      {folderExportData.files.map((file: any) => (
-                        <div
-                          key={file.id}
-                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent/50 ${
-                            folderExportData.selectedFiles.has(file.id) ? 'bg-accent/50' : ''
-                          }`}
-                          onClick={() => toggleFolderExportFileSelection(file.id)}
-                        >
-                          <Checkbox
-                            checked={folderExportData.selectedFiles.has(file.id)}
-                            onCheckedChange={() => toggleFolderExportFileSelection(file.id)}
-                          />
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <FileText className="h-4 w-4 text-primary" />
-                          </div>
-                          <span className="text-sm truncate flex-1">{file.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {folderExportData.photos.length === 0 && folderExportData.files.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                      <p>This folder is empty</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Export button */}
-                <div className="pt-4 border-t mt-4">
-                  <Button
-                    className="w-full"
-                    onClick={exportSelectedFolderItems}
-                    disabled={folderExportData.selectedPhotos.size + folderExportData.selectedFiles.size === 0}
-                  >
-                    <FileArchive className="h-4 w-4 mr-1" />
-                    Export {folderExportData.selectedPhotos.size + folderExportData.selectedFiles.size} Items as ZIP
-                  </Button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <VaultExportDialogs
+        previewOpen={exportPreviewOpen}
+        onPreviewOpenChange={setExportPreviewOpen}
+        previewData={exportPreviewData}
+        excludedFolders={excludedFolders}
+        filteredData={filteredExportData}
+        onToggleFolderExclusion={toggleFolderExclusion}
+        onConfirmWithSubfolders={confirmExportWithSubfolders}
+        confirmOpen={exportConfirmOpen}
+        onConfirmOpenChange={setExportConfirmOpen}
+        pendingAction={pendingExportAction}
+        summary={exportSummary}
+        onClearPendingAction={() => setPendingExportAction(null)}
+        onConfirm={handleExportConfirm}
+        folderOpen={folderExportDialogOpen}
+        onFolderOpenChange={(open) => {
+          setFolderExportDialogOpen(open);
+          if (!open) setFolderExportData(null);
+        }}
+        folderData={folderExportData}
+        onTogglePhoto={toggleFolderExportPhotoSelection}
+        onToggleFile={toggleFolderExportFileSelection}
+        onSelectAll={selectAllFolderExportItems}
+        onDeselectAll={deselectAllFolderExportItems}
+        onExportSelected={exportSelectedFolderItems}
+      />
 
       {/* Storage Purchase Dialog */}
       {currentClub && (
