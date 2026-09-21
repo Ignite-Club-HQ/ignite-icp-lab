@@ -108,7 +108,10 @@ describe("Vault bulk selection/delete behavior contract", () => {
     expect(vaultPageSource).toContain("useVaultTrashWorkflow({");
     expect(vaultPageSource).toContain("useVaultLightbox(");
     expect(vaultPageSource).toContain("GoogleDriveImportDialog");
-    expect(vaultPageSource).toContain("renameVaultItem");
+    // Phase 4A subsequently moved folder/file rename-move into
+    // useVaultFolderManagement (see VaultPage.folder-management.characterization.test.ts);
+    // the page only consumes that hook's outputs now.
+    expect(vaultPageSource).toContain("useVaultFolderManagement");
     expect(vaultPageSource).toContain("moveFileMutation");
   });
 });

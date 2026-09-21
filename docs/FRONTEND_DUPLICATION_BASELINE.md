@@ -725,3 +725,85 @@ benchmark was measured, so this is a maintainability/safety result only and
 makes no runtime-performance claim. The remaining untouched Vault clusters are
 upload/file-name flow, folder/file rename/move, and Google Drive import.
 
+## Phase 4A Vault folder/file management result (2026-09-21)
+
+The fifth Vault package extraction moved the folder/file management cluster
+(`folderPath`, `deleteFolderId`, `renameFolderId`/`renameFolderName`,
+`renameFileId`/`renameFileName`, `renamePhotoId`/`renamePhotoName`,
+`moveFileDialogOpen`, `fileToMove`, the create/delete/rename/move mutations,
+and the `folderPath`-owning navigation helpers) into
+`src/features/vault/useVaultFolderManagement.ts`, plus the presentational
+`src/components/vault/VaultFolderManagementDialogs.tsx` for the
+create/delete/rename/move dialogs. The hook reuses the already-tested
+`moveVaultFile` from `vaultMutationRepository.ts` (present in the ported
+source but previously unused — the page had its own duplicate inline Supabase
+update) instead of re-inlining the update, and reuses the already-tested
+`abbreviateVaultOrganisationName` from `vaultScope.ts` for breadcrumb club-name
+abbreviation instead of re-declaring the same regex table. Upload/file-name
+flow, Google Drive import/link/title resolution, storage purchase,
+export/large-files, trash/recovery, and bulk selection/delete remain
+untouched; `VaultContentRenderer`'s `onRenamePhoto`/`onRenameFile`/
+`onMoveFile`/`onRenameFolder`/`onDeleteFolder` callback contract is unchanged.
+
+All figures below were captured directly against this repository's commit
+`049332b3b` (the "before" state) using the same reproduction command as the
+baseline scan, scoped to `src/pages/VaultPage.tsx src/components/vault
+src/features/vault`:
+
+```sh
+npx --no-install jscpd src/pages/VaultPage.tsx src/components/vault src/features/vault   --min-tokens 50 --min-lines 5   --ignore '**/*.test.ts,**/*.test.tsx'   --reporters json --output "$(mktemp -d)" --silent
+```
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,255 | 2,883 |
+| `VaultPage.tsx` `useState` calls | 18 | 12 |
+| `useVaultFolderManagement.ts` | 0 | 463 |
+| `VaultFolderManagementDialogs.tsx` | 0 | 233 |
+| Complete Vault source package (non-test) | 11,619 | 11,943 |
+| Same-scope jscpd | 321 lines / 24 groups / 2.7627162406403305% | 318 lines / 24 groups / 2.6626475759859334% |
+| Product Vault route chunk | 123,060 bytes | 126,670 bytes |
+| Product JavaScript total / chunks | 8,861,554 bytes / 502 | 8,865,164 bytes / 502 |
+| Lazy-loading boundary | none added | none added (`MoveFileDialog`'s existing lazy boundary relocated unchanged) |
+
+The same-scope jscpd duplicated-line count decreased slightly (321 → 318, same
+24 clone groups); this was incidental — an initial draft of the hook briefly
+re-declared the club-name abbreviator inline, jscpd caught the resulting
+duplicate against `vaultScope.ts`, and it was replaced with a direct import of
+the existing `abbreviateVaultOrganisationName` before this round's final
+measurements. Net of that fix, this cluster's state/mutations/navigation were
+not otherwise duplicated elsewhere in the Vault package.
+
+`src/pages/VaultPage.folder-management.characterization.test.ts` (15 tests)
+was added and proven to pass against the original inline `VaultPage.tsx`
+before extraction, then kept green against the extracted hook/dialogs. It
+covers create/delete/rename-folder mutation inputs and exact toasts,
+rename-file/rename-photo sharing `renameVaultItem`, move-file's conditional
+`team_id` update (reusing `moveVaultFile`) and dialog-state clearing,
+folder-open/back/breadcrumb-jump navigation semantics, hierarchy breadcrumb
+node construction (including the abbreviator reuse), each dialog's exact copy
+and blank-name disabled state, `MoveFileDialog`'s lazy import and team/club
+scope wiring, a boundary-narrowness check, and that upload, Drive import,
+export/large-files, trash/recovery, and bulk-delete call sites are untouched.
+The existing `VaultPage.bulk-delete.characterization.test.ts` assertion that
+this cluster remained page-owned was updated to assert the new hook boundary.
+One transient product-typecheck diagnostic (`onMoveFile`'s callback parameter
+type not structurally matching `ContentSectionProps`'s expected
+`(file: VaultFile) => void`, because the hook's `VaultFileToMove` required a
+non-optional `folder_id` that `VaultFile` only exposes through an index
+signature) was fixed by introducing a looser `VaultMoveFileSource` parameter
+type for the callback boundary, keeping `VaultFileToMove` for the hook's own
+dialog state. The full legacy suite passed 4,331 tests across 453 files with
+one pre-existing skip and zero failures. Product typecheck remained at exactly
+the known unrelated 14 `StartDMDialog`/`ClubDetailPage` diagnostics;
+`typecheck:lab` was clean. Product build, bundle budget, quality ratchet
+(`asAny` and `consoleCalls` both decreased), duplication ratchet (1,573
+duplicated lines removed repo-wide since baseline), isolation, and
+`git diff --check` all passed.
+
+The extracted modules are statically imported and the route chunk is 3,610
+bytes larger. No request, subscription, render-count, or interaction
+benchmark was measured, so this is a maintainability/safety result only and
+makes no runtime-performance claim. The only remaining untouched Vault cluster
+is upload/file-name flow and Google Drive import/link/title resolution.
+

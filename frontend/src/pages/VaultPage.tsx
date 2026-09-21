@@ -12,13 +12,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CreateFolderDialog } from "@/components/vault/CreateFolderDialog";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GoogleDriveImportDialog = lazyWithRetry(() => import("@/components/vault/GoogleDriveImportDialog").then(m => ({ default: m.GoogleDriveImportDialog })));
 const LinkDriveFolderDialog = lazyWithRetry(() => import("@/components/vault/LinkDriveFolderDialog").then(m => ({ default: m.LinkDriveFolderDialog })));
 const UploadFilesDialog = lazyWithRetry(() => import("@/components/vault/UploadFilesDialog").then(m => ({ default: m.UploadFilesDialog })));
 const AddLinkDialog = lazyWithRetry(() => import("@/components/vault/AddLinkDialog").then(m => ({ default: m.AddLinkDialog })));
-const MoveFileDialog = lazyWithRetry(() => import("@/components/vault/MoveFileDialog").then(m => ({ default: m.MoveFileDialog })));
 const VaultStorageBreakdown = lazyWithRetry(() => import("@/components/vault/VaultStorageBreakdown").then(m => ({ default: m.VaultStorageBreakdown })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,8 +25,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,20 +48,16 @@ import {
 import { permanentlyDeleteVaultItems } from "@/lib/vaultDelete";
 import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
-import {
-  createVaultFolder,
-  deleteVaultFolder,
-  renameVaultFolder,
-  renameVaultItem,
-} from "@/features/vault/vaultMutationRepository";
 import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
 import { useVaultExport, type FolderView } from "@/features/vault/useVaultExport";
 import { useVaultLargeFiles } from "@/features/vault/useVaultLargeFiles";
 import { useVaultLightbox } from "@/features/vault/useVaultLightbox";
 import { useVaultBulkDeleteWorkflow } from "@/features/vault/useVaultBulkDeleteWorkflow";
+import { useVaultFolderManagement } from "@/features/vault/useVaultFolderManagement";
 import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
 import { VaultBulkDeleteDialog } from "@/components/vault/VaultBulkDeleteDialog";
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
+import { VaultFolderManagementDialogs } from "@/components/vault/VaultFolderManagementDialogs";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -150,21 +142,9 @@ function SupabaseVaultPage() {
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
   const [restoreItemType, setRestoreItemType] = useState<"photo" | "file">("photo");
-  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
-  const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [folderPath, setFolderPath] = useState<{ id: string; name: string }[]>([]);
-  const [renameFolderId, setRenameFolderId] = useState<string | null>(null);
-  const [renameFolderName, setRenameFolderName] = useState("");
-  const [renameFileId, setRenameFileId] = useState<string | null>(null);
-  const [renameFileName, setRenameFileName] = useState("");
-  const [renamePhotoId, setRenamePhotoId] = useState<string | null>(null);
-  const [renamePhotoName, setRenamePhotoName] = useState("");
   const [storagePurchaseDialogOpen, setStoragePurchaseDialogOpen] = useState(false);
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
-  const [moveFileDialogOpen, setMoveFileDialogOpen] = useState(false);
-  const [fileToMove, setFileToMove] = useState<{ id: string; name: string; folder_id: string | null; team_id?: string | null } | null>(null);
   const [googleDriveImportOpen, setGoogleDriveImportOpen] = useState(false);
   const [linkDriveFolderOpen, setLinkDriveFolderOpen] = useState(false);
   const [resolvingDriveTitles, setResolvingDriveTitles] = useState(false);
@@ -595,6 +575,62 @@ function SupabaseVaultPage() {
     if (currentView.type === "mini-league") return currentView.miniLeagueId;
     return null;
   };
+
+  const {
+    folderPath,
+    setFolderPath,
+    newFolderDialogOpen,
+    setNewFolderDialogOpen,
+    deleteFolderId,
+    requestDeleteFolder,
+    cancelDeleteFolder,
+    confirmDeleteFolder,
+    renameFolderId,
+    renameFolderName,
+    setRenameFolderName,
+    startRenameFolder,
+    cancelRenameFolder,
+    confirmRenameFolder,
+    renameFileId,
+    renameFileName,
+    setRenameFileName,
+    startRenameFile,
+    cancelRenameFile,
+    confirmRenameFile,
+    renamePhotoId,
+    renamePhotoName,
+    setRenamePhotoName,
+    startRenamePhoto,
+    cancelRenamePhoto,
+    confirmRenamePhoto,
+    moveFileDialogOpen,
+    setMoveFileDialogOpen,
+    fileToMove,
+    startMoveFile,
+    confirmMoveFile,
+    createFolderMutation,
+    deleteFolderMutation,
+    renameFolderMutation,
+    renameFileMutation,
+    renamePhotoMutation,
+    moveFileMutation,
+    navigateToFolder,
+    goBack,
+    navigateToRoot,
+    navigateToClub,
+    navigateToMiniLeague,
+    navigateToTeam,
+    navigateToFolderAtIndex,
+    getHierarchyNodes,
+  } = useVaultFolderManagement({
+    currentView,
+    setCurrentView,
+    fromChat,
+    navigate,
+    getCurrentFolderId,
+    userId: user?.id,
+    queryClient,
+  });
 
   const CHAT_FOLDER_NAMES = ["Chat Images", "Chat Links"];
 
@@ -1480,88 +1516,6 @@ function SupabaseVaultPage() {
     onDeletePhotoRequested: setDeletePhotoId,
   });
 
-  const createFolderMutation = useMutation({
-    mutationFn: async (name: string) => {
-      await createVaultFolder({
-        name,
-        userId: user!.id,
-        parentFolderId: getCurrentFolderId(),
-        view: currentView,
-      });
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["subfolders"]);
-      setNewFolderDialogOpen(false);
-      setNewFolderName("");
-      toast.success("Folder created!");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to create folder");
-    },
-  });
-
-  const deleteFolderMutation = useMutation({
-    mutationFn: async (folderId: string) => {
-      await deleteVaultFolder(folderId);
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["subfolders"]);
-      setDeleteFolderId(null);
-      toast.success("Folder deleted");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to delete folder");
-    },
-  });
-
-  const renameFolderMutation = useMutation({
-    mutationFn: async ({ folderId, newName }: { folderId: string; newName: string }) => {
-      await renameVaultFolder(folderId, newName);
-    },
-    onSuccess: (_, variables) => {
-      invalidateVaultCache(queryClient, ["subfolders"]);
-      // Update folder path if renamed folder is in the path
-      setFolderPath(prev => prev.map(f => f.id === variables.folderId ? { ...f, name: variables.newName } : f));
-      setRenameFolderId(null);
-      setRenameFolderName("");
-      toast.success("Folder renamed");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to rename folder");
-    },
-  });
-
-  const renameFileMutation = useMutation({
-    mutationFn: async ({ fileId, newName }: { fileId: string; newName: string }) => {
-      await renameVaultItem(fileId, newName);
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      setRenameFileId(null);
-      setRenameFileName("");
-      toast.success("File renamed");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to rename file");
-    },
-  });
-
-  // Vault photos are stored in vault_files, so rename updates vault_files.name
-  const renamePhotoMutation = useMutation({
-    mutationFn: async ({ photoId, newName }: { photoId: string; newName: string }) => {
-      await renameVaultItem(photoId, newName);
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      setRenamePhotoId(null);
-      setRenamePhotoName("");
-      toast.success("Photo renamed");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to rename photo");
-    },
-  });
-
   // Vault photo uploads go to vault_files ONLY (not photos table)
   // This keeps vault photos separate from the media gallery
   const uploadPhotoMutation = useMutation({
@@ -1781,34 +1735,6 @@ function SupabaseVaultPage() {
   });
 
 
-  // Move file to a different folder or team
-  const moveFileMutation = useMutation({
-    mutationFn: async ({ fileId, targetFolderId, targetTeamId }: { fileId: string; targetFolderId: string | null; targetTeamId?: string | null }) => {
-      const updateData: { folder_id: string | null; team_id?: string | null } = { 
-        folder_id: targetFolderId 
-      };
-      
-      // If moving to a team (or to root), update team_id as well
-      if (targetTeamId !== undefined) {
-        updateData.team_id = targetTeamId;
-      }
-      
-      const { error } = await supabase.from("vault_files")
-        .update(updateData)
-        .eq("id", fileId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      setMoveFileDialogOpen(false);
-      setFileToMove(null);
-      toast.success("File moved successfully");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to move file");
-    },
-  });
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1834,188 +1760,6 @@ function SupabaseVaultPage() {
       setUploading(false);
     }
   };
-
-  const navigateToFolder = (folder: { id: string; name: string }) => {
-    if (currentView.type === "club") {
-      setFolderPath([...folderPath, folder]);
-      setCurrentView({
-        ...currentView,
-        folderId: folder.id,
-        folderName: folder.name,
-      });
-    } else if (currentView.type === "team") {
-      setFolderPath([...folderPath, folder]);
-      setCurrentView({
-        ...currentView,
-        folderId: folder.id,
-        folderName: folder.name,
-      });
-    }
-  };
-
-  const goBack = () => {
-    if (fromChat) {
-      navigate(-1);
-      return;
-    }
-    if (folderPath.length > 0) {
-      const newPath = [...folderPath];
-      newPath.pop();
-      setFolderPath(newPath);
-      const parentFolder = newPath[newPath.length - 1];
-      
-      if (currentView.type === "club") {
-        setCurrentView({
-          ...currentView,
-          folderId: parentFolder?.id,
-          folderName: parentFolder?.name,
-        });
-      } else if (currentView.type === "team") {
-        setCurrentView({
-          ...currentView,
-          folderId: parentFolder?.id,
-          folderName: parentFolder?.name,
-        });
-      } else if (currentView.type === "mini-league") {
-        setCurrentView({
-          ...currentView,
-          folderId: parentFolder?.id,
-          folderName: parentFolder?.name,
-        });
-      }
-    } else if (currentView.type === "team") {
-      setCurrentView({ type: "club", clubId: currentView.clubId, clubName: currentView.clubName });
-    } else if (currentView.type === "mini-league") {
-      setCurrentView({ type: "club", clubId: currentView.clubId, clubName: currentView.clubName });
-    } else {
-      setCurrentView({ type: "root" });
-    }
-  };
-
-  const navigateToRoot = () => {
-    setFolderPath([]);
-    setCurrentView({ type: "root" });
-  };
-
-  const navigateToClub = () => {
-    if (currentView.type === "club" || currentView.type === "team" || currentView.type === "mini-league") {
-      setFolderPath([]);
-      setCurrentView({ 
-        type: "club", 
-        clubId: currentView.clubId, 
-        clubName: currentView.clubName 
-      });
-    }
-  };
-
-  const navigateToMiniLeague = () => {
-    if (currentView.type === "mini-league") {
-      setFolderPath([]);
-      setCurrentView({
-        type: "mini-league",
-        clubId: currentView.clubId,
-        clubName: currentView.clubName,
-        miniLeagueId: currentView.miniLeagueId,
-        miniLeagueName: currentView.miniLeagueName,
-      });
-    }
-  };
-
-  const navigateToTeam = () => {
-    if (currentView.type === "team") {
-      setFolderPath([]);
-      setCurrentView({
-        type: "team",
-        clubId: currentView.clubId,
-        clubName: currentView.clubName,
-        teamId: currentView.teamId,
-        teamName: currentView.teamName,
-      });
-    }
-  };
-
-  const navigateToFolderAtIndex = (index: number) => {
-    const newPath = folderPath.slice(0, index + 1);
-    const targetFolder = newPath[index];
-    setFolderPath(newPath);
-    
-    if (currentView.type === "club") {
-      setCurrentView({
-        ...currentView,
-        folderId: targetFolder.id,
-        folderName: targetFolder.name,
-      });
-    } else if (currentView.type === "team") {
-      setCurrentView({
-        ...currentView,
-        folderId: targetFolder.id,
-        folderName: targetFolder.name,
-      });
-    }
-  };
-
-  // Mobile-first hierarchy: returns an ordered list of nodes that represent
-  // the current vault location. The last node is the "current" page (rendered
-  // as a large title); the rest become clickable chips in the secondary path.
-  type CrumbNode = { key: string; label: string; onClick?: () => void };
-
-  const abbreviateOrgName = (name: string): string => {
-    if (!name) return name;
-    return name
-      .replace(/\bSoccer Club\b/gi, "SC")
-      .replace(/\bFootball Club\b/gi, "FC")
-      .replace(/\bBasketball Club\b/gi, "BC")
-      .replace(/\bNetball Club\b/gi, "NC")
-      .replace(/\bRugby Club\b/gi, "RC")
-      .replace(/\bCricket Club\b/gi, "CC")
-      .replace(/\bTennis Club\b/gi, "TC")
-      .replace(/\bHockey Club\b/gi, "HC")
-      .replace(/\bAthletic Club\b/gi, "AC")
-      .replace(/\bSports Club\b/gi, "SC")
-      .trim();
-  };
-
-  const getHierarchyNodes = (): CrumbNode[] => {
-    const nodes: CrumbNode[] = [];
-
-    // Vault root chip — only shown when we're past it.
-    nodes.push({ key: "vault", label: "Vault", onClick: navigateToRoot });
-
-    if (currentView.type === "club" || currentView.type === "team") {
-      nodes.push({
-        key: "club",
-        label: abbreviateOrgName(currentView.clubName || "Club"),
-        onClick: navigateToClub,
-      });
-    }
-
-    if (currentView.type === "team") {
-      nodes.push({
-        key: "team",
-        label: currentView.teamName || "Team",
-        onClick: navigateToTeam,
-      });
-    }
-
-    if (currentView.type === "mini-league") {
-      nodes.push({
-        key: "mini-league",
-        label: currentView.miniLeagueName || "League",
-        onClick: navigateToMiniLeague,
-      });
-    }
-
-    folderPath.forEach((folder, index) => {
-      nodes.push({
-        key: `folder-${folder.id}`,
-        label: folder.name,
-        onClick: () => navigateToFolderAtIndex(index),
-      });
-    });
-
-    return nodes;
-  };
-
 
   if (isLoadingAccess) {
     return (
@@ -2087,18 +1831,9 @@ function SupabaseVaultPage() {
     canMoveFile: canRenameFile,
     onDeletePhoto: setDeletePhotoId,
     onDeleteFile: setDeleteFileId,
-    onRenamePhoto: (photo) => {
-      setRenamePhotoId(photo.id);
-      setRenamePhotoName(photo.title || "");
-    },
-    onRenameFile: (file) => {
-      setRenameFileId(file.id);
-      setRenameFileName(file.name);
-    },
-    onMoveFile: (file) => {
-      setFileToMove({ id: file.id, name: file.name, folder_id: file.folder_id, team_id: file.team_id });
-      setMoveFileDialogOpen(true);
-    },
+    onRenamePhoto: startRenamePhoto,
+    onRenameFile: startRenameFile,
+    onMoveFile: startMoveFile,
     onDownloadPhoto: downloadPhotoFile,
     selectionMode,
     selectedPhotos,
@@ -2610,13 +2345,6 @@ function SupabaseVaultPage() {
             </TooltipProvider>
 
             {/* Dialogs - always rendered */}
-            <CreateFolderDialog
-              open={newFolderDialogOpen}
-              onOpenChange={setNewFolderDialogOpen}
-              onCreateFolder={(name) => createFolderMutation.mutate(name)}
-              isCreating={createFolderMutation.isPending}
-            />
-            
             <Suspense fallback={null}>
             <UploadFilesDialog
               open={uploadDialogOpen}
@@ -2926,11 +2654,8 @@ function SupabaseVaultPage() {
             onNavigateToFolder={(folder) => navigateToFolder(folder)}
             onShareFolder={(folder) => shareFolder(folder.id)}
             onExportFolder={(folder) => openFolderExportDialog(folder)}
-            onRenameFolder={(folder) => {
-              setRenameFolderId(folder.id);
-              setRenameFolderName(folder.name);
-            }}
-            onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+            onRenameFolder={startRenameFolder}
+            onDeleteFolder={requestDeleteFolder}
             canEditFolder={canDeleteFolder}
             {...contentRendererView}
           />
@@ -2945,11 +2670,8 @@ function SupabaseVaultPage() {
             onNavigateToFolder={(folder) => navigateToFolder(folder)}
             onShareFolder={(folder) => shareFolder(folder.id)}
             onExportFolder={(folder) => openFolderExportDialog(folder)}
-            onRenameFolder={(folder) => {
-              setRenameFolderId(folder.id);
-              setRenameFolderName(folder.name);
-            }}
-            onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+            onRenameFolder={startRenameFolder}
+            onDeleteFolder={requestDeleteFolder}
             canEditFolder={canDeleteFolder}
             {...contentRendererView}
           />
@@ -3066,26 +2788,6 @@ function SupabaseVaultPage() {
         isDeleting={isDeletingSelected}
         onConfirm={deleteSelectedItems}
       />
-      <AlertDialog open={!!deleteFolderId} onOpenChange={() => setDeleteFolderId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Folder</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this folder? Files inside will be moved to the parent folder.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteFolderId && deleteFolderMutation.mutate(deleteFolderId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <VaultLargeFilesDialog
         open={largeFilesDialogOpen}
         onOpenChange={handleLargeFilesDialogChange}
@@ -3101,99 +2803,6 @@ function SupabaseVaultPage() {
         onDelete={deleteSelectedLargeFiles}
         formatStorageSize={formatStorageSize}
       />
-
-      {/* Rename Folder Dialog */}
-      <Dialog open={!!renameFolderId} onOpenChange={(open) => {
-        if (!open) {
-          setRenameFolderId(null);
-          setRenameFolderName("");
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename Folder</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Folder Name</Label>
-              <Input
-                value={renameFolderName}
-                onChange={(e) => setRenameFolderName(e.target.value)}
-                placeholder="Enter new folder name"
-              />
-            </div>
-            <Button 
-              onClick={() => renameFolderId && renameFolderMutation.mutate({ folderId: renameFolderId, newName: renameFolderName })}
-              disabled={!renameFolderName.trim()}
-              className="w-full"
-            >
-              Rename Folder
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename File Dialog */}
-      <Dialog open={!!renameFileId} onOpenChange={(open) => {
-        if (!open) {
-          setRenameFileId(null);
-          setRenameFileName("");
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename File</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>File Name</Label>
-              <Input
-                value={renameFileName}
-                onChange={(e) => setRenameFileName(e.target.value)}
-                placeholder="Enter new file name"
-              />
-            </div>
-            <Button 
-              onClick={() => renameFileId && renameFileMutation.mutate({ fileId: renameFileId, newName: renameFileName })}
-              disabled={!renameFileName.trim()}
-              className="w-full"
-            >
-              Rename File
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Photo Dialog */}
-      <Dialog open={!!renamePhotoId} onOpenChange={(open) => {
-        if (!open) {
-          setRenamePhotoId(null);
-          setRenamePhotoName("");
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename Photo</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Photo Title</Label>
-              <Input
-                value={renamePhotoName}
-                onChange={(e) => setRenamePhotoName(e.target.value)}
-                placeholder="Enter new photo title"
-              />
-            </div>
-            <Button 
-              onClick={() => renamePhotoId && renamePhotoMutation.mutate({ photoId: renamePhotoId, newName: renamePhotoName })}
-              disabled={!renamePhotoName.trim()}
-              className="w-full"
-            >
-              Rename Photo
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <VaultExportDialogs
         previewOpen={exportPreviewOpen}
@@ -3238,18 +2847,37 @@ function SupabaseVaultPage() {
         </Suspense>
       )}
 
-      {/* Move File Dialog */}
-      <Suspense fallback={null}>
-      <MoveFileDialog
-        open={moveFileDialogOpen}
-        onOpenChange={setMoveFileDialogOpen}
-        file={fileToMove}
-        teamId={currentView.type === "team" ? currentView.teamId : null}
-        clubId={currentView.type === "club" || currentView.type === "team" ? currentView.clubId : null}
-        onMove={(fileId, targetFolderId, targetTeamId) => moveFileMutation.mutate({ fileId, targetFolderId, targetTeamId })}
-        isMoving={moveFileMutation.isPending}
+      <VaultFolderManagementDialogs
+        newFolderDialogOpen={newFolderDialogOpen}
+        onNewFolderDialogOpenChange={setNewFolderDialogOpen}
+        onCreateFolder={(name) => createFolderMutation.mutate(name)}
+        isCreatingFolder={createFolderMutation.isPending}
+        deleteFolderId={deleteFolderId}
+        onCancelDeleteFolder={cancelDeleteFolder}
+        onConfirmDeleteFolder={confirmDeleteFolder}
+        renameFolderId={renameFolderId}
+        renameFolderName={renameFolderName}
+        onRenameFolderNameChange={setRenameFolderName}
+        onCancelRenameFolder={cancelRenameFolder}
+        onConfirmRenameFolder={confirmRenameFolder}
+        renameFileId={renameFileId}
+        renameFileName={renameFileName}
+        onRenameFileNameChange={setRenameFileName}
+        onCancelRenameFile={cancelRenameFile}
+        onConfirmRenameFile={confirmRenameFile}
+        renamePhotoId={renamePhotoId}
+        renamePhotoName={renamePhotoName}
+        onRenamePhotoNameChange={setRenamePhotoName}
+        onCancelRenamePhoto={cancelRenamePhoto}
+        onConfirmRenamePhoto={confirmRenamePhoto}
+        moveFileDialogOpen={moveFileDialogOpen}
+        onMoveFileDialogOpenChange={setMoveFileDialogOpen}
+        fileToMove={fileToMove}
+        moveTeamId={currentView.type === "team" ? currentView.teamId : null}
+        moveClubId={currentView.type === "club" || currentView.type === "team" ? currentView.clubId : null}
+        onMoveFile={confirmMoveFile}
+        isMovingFile={moveFileMutation.isPending}
       />
-      </Suspense>
     </div>
   );
 }

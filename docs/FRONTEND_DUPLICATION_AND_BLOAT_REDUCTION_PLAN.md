@@ -950,6 +950,124 @@ consumed. Phase 4A Vault bulk selection/delete is complete; remaining
 untouched Vault clusters are upload/file-name flow, folder/file rename/move,
 and Google Drive import.
 
+### Phase 4A Vault folder/file management result (2026-09-21)
+
+The folder/file management and navigation feature cluster in `VaultPage.tsx`
+was extracted next. The pre-refactor map covered: `folderPath`,
+`newFolderDialogOpen`, `deleteFolderId`, `renameFolderId`/`renameFolderName`,
+`renameFileId`/`renameFileName`, `renamePhotoId`/`renamePhotoName`,
+`moveFileDialogOpen`, and `fileToMove` state (the already-dead
+`newFolderName`/`setNewFolderName` pair — only ever set to `""` and never
+read, since `CreateFolderDialog` owns its own internal name field — was
+deleted rather than relocated); the `createFolderMutation`,
+`deleteFolderMutation`, `renameFolderMutation`, `renameFileMutation`,
+`renamePhotoMutation`, and `moveFileMutation` mutations and their request/
+cancel/confirm/start dialog wrapper callbacks; the navigation helpers that own
+`folderPath` (`navigateToFolder`, `goBack`, `navigateToRoot`, `navigateToClub`,
+`navigateToMiniLeague`, `navigateToTeam`, `navigateToFolderAtIndex`, and the
+`getHierarchyNodes` breadcrumb builder); and the create-folder, delete-folder
+confirmation, three rename, and `MoveFileDialog` JSX blocks. Shared
+dependencies kept page-owned: `currentView`/`setCurrentView` (also driven by
+URL deep-linking and the root club/team/mini-league picker in ~200+ other call
+sites), `fromChat`, `navigate`, `getCurrentFolderId`, `queryClient`, and
+`user?.id` — the new hook receives these as a stable input/output contract
+instead of owning `currentView` itself.
+
+The cohesive typed boundary is `src/features/vault/useVaultFolderManagement.ts`
+(463 lines) plus the presentational
+`src/components/vault/VaultFolderManagementDialogs.tsx` (233 lines). The
+hook's `moveFileMutation` now reuses the existing, already-tested
+`moveVaultFile` from `vaultMutationRepository.ts` (present in the ported
+source but previously unused by the page — it had its own duplicate inline
+Supabase `.update()` call) instead of re-inlining the Supabase call; its
+`targetTeamId`-conditional update is covered by
+`vaultMutationRepository.test.ts`. The `getHierarchyNodes` breadcrumb label
+helper likewise reuses the existing, already-tested
+`abbreviateVaultOrganisationName` from `vaultScope.ts` instead of
+re-declaring the same club-suffix abbreviation table a second time in the new
+hook (an initial draft copied the helper inline; same-scope jscpd caught the
+resulting duplicate against `vaultScope.ts` and it was replaced with a direct
+import before this round's final measurements). The dialogs component owns
+only the create/delete/rename/move dialog copy, disabled-while-blank and
+pending states, and cancel/confirm wiring, exposed through a narrow
+callback-based prop contract (`onCreateFolder`, `onConfirmDeleteFolder`,
+`onRenameFolderNameChange`, etc.) rather than raw setters; it preserves
+`MoveFileDialog`'s pre-existing `lazyWithRetry` + `Suspense` lazy-loading
+boundary internally (relocated, not newly added) and keeps
+`CreateFolderDialog` statically imported, matching every prior Phase 4A Vault
+round's precedent of only lazy-loading dialogs that were already lazy.
+
+`src/pages/VaultPage.folder-management.characterization.test.ts` (15 tests)
+was added and proven green against the original inline implementation before
+the extraction, then kept green after the hook/dialogs existed. It covers:
+create-folder's exact `parentFolderId`/`view` mutation inputs, cache
+invalidation, and success/failure toasts; delete-folder's exact mutation
+scope and toasts; rename-folder's `folderPath` breadcrumb-entry update and
+toasts; rename-file/rename-photo sharing `renameVaultItem` with distinct
+toasts; move-file's conditional `team_id` update (reusing `moveVaultFile`),
+toasts, and dialog-state clearing; folder-open, back, and breadcrumb-jump
+navigation semantics (including the `fromChat`-first priority order and
+`folderPath` push/pop/slice behavior); hierarchy breadcrumb node construction
+for root/club/team/mini-league/folder segments and the club-name abbreviator
+reuse; each dialog's exact copy and blank-name disabled state;
+`MoveFileDialog`'s lazy import and team/club scope wiring; a boundary-narrowness
+check; and that upload, Drive import/link/title resolution, storage purchase,
+export/large-files, trash/recovery, and bulk-delete call sites are untouched.
+The existing `VaultPage.bulk-delete.characterization.test.ts` assertion that
+this cluster stayed page-owned was updated to assert the new hook boundary
+instead (mirroring the same update made in the prior two rounds).
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,255 | 2,883 | -372 |
+| `useState` calls in `VaultPage.tsx` | 18 | 12 | -6 |
+| New folder/file management modules (`useVaultFolderManagement.ts` + `VaultFolderManagementDialogs.tsx`) | 0 | 696 (463 + 233) | +696 |
+| Complete Vault package (`VaultPage.tsx`, `components/vault`, `features/vault`; tests excluded) | 11,619 | 11,943 | +324 |
+| Same-scope jscpd (`jscpd 5.3.0`, 50-token/5-line, same three directories) | 321 lines / 24 groups / 2.7627162406403305% | 318 lines / 24 groups / 2.6626475759859334% | -3 lines / 0 groups / -0.10 pp |
+| Product Vault route chunk | 123,060 bytes | 126,670 bytes | +3,610 |
+| Product JavaScript total / chunks | 8,861,554 bytes / 502 | 8,865,164 bytes / 502 | +3,610 bytes / 0 |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | 0 |
+
+The same-scope jscpd duplicated-line count decreased slightly (321 → 318, same
+24 clone groups) because reusing `abbreviateVaultOrganisationName` from
+`vaultScope.ts` instead of re-declaring it avoided adding a new clone pair
+that an initial draft of the hook briefly introduced; net of that fix, this
+cluster's state/mutations/navigation were not otherwise duplicated elsewhere
+in the Vault package, so the reduction is incidental rather than the primary
+goal of this round. `VaultFolderManagementDialogs.tsx` and
+`useVaultFolderManagement.ts` are both statically imported (matching every
+prior Phase 4A Vault round except lightbox/export, which already had lazy
+sub-dialogs), so the +3,610-byte route-chunk increase is organization
+overhead (extra type/interface surface and doc comments not present in the
+inline version), not a loading regression; no new lazy-loading boundary was
+added or is claimed — `MoveFileDialog`'s existing lazy boundary was relocated
+into the new dialogs component unchanged. No request, subscription,
+render-count, or interaction-latency evidence was collected for this legacy
+Supabase route, and no runtime-performance claim is made — this is a
+maintainability/safety extraction only.
+
+Product typecheck introduced no Vault diagnostic (one transient diagnostic —
+`onMoveFile`'s callback parameter type not structurally matching
+`ContentSectionProps`'s `(file: VaultFile) => void` because the hook's
+`VaultFileToMove` required a non-optional `folder_id` that `VaultFile` only
+exposes through an index signature — was fixed by introducing a looser
+`VaultMoveFileSource` parameter type for the callback boundary while keeping
+`VaultFileToMove` for the hook's own dialog state); its ratchet failure
+remains limited to the known unrelated 14 `StartDMDialog`/`ClubDetailPage`
+diagnostics. `typecheck:lab` is clean. Product build, bundle budget, quality
+ratchet (`asAny` and `consoleCalls` both decreased; `directSupabaseImports`
+unchanged), duplication ratchet (1,573 duplicated lines removed repo-wide
+since baseline), isolation, the full legacy suite (453 files / 4,331 tests
+passed, 1 pre-existing skip, zero failures), and `git diff --check` all pass.
+Upload/file-name flow, Google Drive import/link/title resolution, storage
+purchase, content renderer internals, export/large-files, trash/recovery, and
+bulk selection/delete were not modified beyond the stable
+`onRenamePhoto`/`onRenameFile`/`onMoveFile`/`onRenameFolder`/`onDeleteFolder`
+callback contract they already consumed through `VaultContentRenderer`. Phase
+4A Vault folder/file management is complete; the only remaining untouched
+Vault cluster is upload/file-name flow and Google Drive import/link/title
+resolution.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
