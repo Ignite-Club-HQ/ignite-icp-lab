@@ -150,3 +150,35 @@ pitch composition, sizing, coordinates, gesture handling, timer placement,
 sheet behavior, or native status-bar/orientation behavior.
 For the targeted pair alone, the same scan decreased pitch-pair clone groups
 from 41 to 34 and duplicated lines from 884 to 753.
+
+## Phase 1.2 result
+
+The mini-league join-link cards had no direct card characterization tests
+before this package. The adjacent invite and acceptance coverage consisted of
+7 suites and 39 tests across the parent acceptance guard, invite acceptance
+policy, and parent-invite sheet characterization tests.
+
+The targeted cards started at 758 combined lines
+(406 admin + 352 parent), 17 target clone groups, and 322 duplicated lines
+(42.48%) using the identical 50-token/5-line pair scan. The cards now contain
+486 combined lines (276 admin + 210 parent), a reduction of 272 lines. The
+target pair now has 11 clone groups and 170 duplicated lines (34.98%).
+
+The shared typed presentation and narrow role contract are:
+
+- `src/components/mini-league/MiniLeagueJoinLinkCard.tsx`
+- `src/components/mini-league/miniLeagueJoinLinkCardContract.ts`
+
+Characterization coverage was added in:
+
+- `src/components/mini-league/MiniLeagueJoinLinkCard.test.tsx`
+- `src/components/mini-league/miniLeagueJoinLinkCardContract.test.ts`
+
+The identical authored scan scope now reports 330,412 scanned lines, 1,294
+counted clone groups, 17,227 counted duplicated lines, and 5.2138% counted
+duplication. This is a reduction of 188 duplicated lines and 0.0572
+percentage points from the Phase 1.1 checkpoint. Role-specific Supabase
+queries, authorization checks, invite metadata, confirmation warning, share
+copy/actions, and QR generation remain in the admin and parent adapters; the
+shared component owns presentation and forwards those actions through typed
+callbacks.

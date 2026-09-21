@@ -24,6 +24,12 @@ Passing builds or extracting a helper does not count as success unless the agree
 - The intentionally separate orientation-specific pitch composition, sizing,
   coordinate, gesture, timer, sheet, native status-bar, and orientation
   behavior remains local to each layout.
+- **Phase 1.2 complete:** mini-league admin/parent join-link card presentation
+  is consolidated and verified. The target cards decreased from 758 to 486
+  combined lines, and target duplicated lines decreased from 322 to 170 across
+  17 to 11 clone groups. Aggregate authored duplication decreased from 17,415
+  to 17,227 lines (5.2710% to 5.2138%). Role-specific authorization, queries,
+  invite metadata, warnings, copy, and action adapters remain local.
 
 ## Architectural boundaries
 
