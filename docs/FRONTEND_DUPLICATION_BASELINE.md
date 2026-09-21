@@ -326,3 +326,83 @@ This is a maintainability-only result. The product build measured
 chunks, and 172,904 CSS bytes, within the existing budgets. The extraction
 adds no measured request, subscription, render, cache-invalidation, loading, or
 interaction evidence, so it does not qualify as a runtime-performance win.
+
+
+## Phase 2.2 result
+
+The Club/Pro upgrade-page cluster consists of
+`src/pages/ClubUpgradePage.tsx` and `src/pages/UpgradeProPage.tsx`. The exact
+pinned `jscpd 5.3.0` scan used the standard 50-token/5-line thresholds and
+ignore set from the reproduction command above. Before edits, the pages were
+1,439 and 1,066 lines (2,505 combined), with 29 clone groups and 420 duplicated
+lines (16.7665%). The complete pre-refactor clone report was:
+
+| ClubUpgradePage range | UpgradeProPage range | Duplicated lines |
+| --- | --- | ---: |
+| 6-16 | 5-15 | 11 |
+| 83-92 | 67-76 | 10 |
+| 110-115 | 110-115 | 6 |
+| 333-352 | 243-262 | 20 |
+| 357-370 | 267-280 | 14 |
+| 375-385 | 276-287 | 11 |
+| 416-422 | 498-504 (Club self-clone) | 7 |
+| 429-436 | 319-326 | 8 |
+| 509-519 | 369-379 | 11 |
+| 525-546 | 383-404 | 22 |
+| 564-584 | 419-439 | 21 |
+| 593-614 | 445-465 | 22 |
+| 625-637 | 475-487 | 13 |
+| 662-669 | 706-713 (Club self-clone) | 8 |
+| 662-669 | 529-536 | 8 |
+| 708-713 | 531-536 | 6 |
+| 713-721 | 536-544 | 9 |
+| 723-754 | 546-577 | 32 |
+| 756-777 | 579-600 | 22 |
+| 904-931 | 619-647 | 28 |
+| 943-952 | 660-669 | 10 |
+| 985-992 | 671-678 | 8 |
+| 1024-1038 | 693-707 | 15 |
+| 1040-1060 | 709-729 | 21 |
+| 1069-1088 | 738-757 | 20 |
+| 1097-1106 | 766-775 | 10 |
+| 1108-1121 | 777-790 | 14 |
+| 1172-1216 | 824-868 | 45 |
+| 1255-1271 | 904-919 | 17 |
+
+The extracted `src/components/subscription/UpgradePlanPresentation.tsx` owns
+only equivalent presentation: loading skeleton, not-found and access-denied
+states, trial cancellation presentation, billing toggle, feature comparison,
+price summary, subscription loading state, legal links, and promo-code UI.
+The Club page retains its plan selector and club/team presentation; both pages
+retain their own checkout callbacks and promo mutations.
+
+After extraction, `ClubUpgradePage.tsx` is 1,294 lines and
+`UpgradeProPage.tsx` is 920 lines. The shared module is 280 lines, making the
+complete package 2,494 lines, down 11 lines from the original two-page pair.
+The identical target scan reports 21 clone groups and 286 duplicated lines
+(11.4675%), a decrease of 8 groups, 134 duplicated lines, and 5.2990
+percentage points. The aggregate scan reports 329,833 scanned lines, 1,321
+clone groups, 16,169 duplicated lines, and 4.9021778% duplication, compared
+with the Phase 2.1 checkpoint of 329,844 lines, 1,331 groups, 16,336 duplicated
+lines, and 4.9526443%.
+
+Characterization coverage was added in
+`src/pages/UpgradePages.characterization.test.ts`; its five tests passed before
+and after refactoring. They preserve the distinct club/team route and admin
+contracts, promo scopes and checkout payloads, club team-limit plan selection,
+and explicit club-fixture versus team-billing ICP behavior, while checking that
+both variants retain the shared presentation states.
+
+The guarded product build and bundle check passed at 8,856,603 JavaScript
+bytes, a 1,112,832-byte largest chunk, 501 JavaScript chunks, and 172,904 CSS
+bytes. The static imports changed the measured bundle from the Phase 2.1
+checkpoint but did not add a lazy boundary, request, subscription, render, or
+interaction measurement. This package is therefore a maintainability-only
+improvement and makes no runtime-performance claim.
+
+The product type ratchet reports exactly the 14 pre-existing unrelated
+`StartDMDialog` and `ClubDetailPage` diagnostics; no upgrade-page diagnostic was
+introduced. The dedicated lab suite, legacy suite, quality ratchet,
+duplication ratchet, isolation check, and `git diff --check` pass. Vault and
+Messages self-duplication remain intentionally untouched for Phases 2.3 and
+2.4.

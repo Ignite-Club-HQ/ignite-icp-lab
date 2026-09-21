@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isNativePlatform } from "@/lib/nativePush";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Loader2, Ticket, Target, ArrowDown, Calendar, AlertCircle, Building2, Users, CreditCard, Heart, ExternalLink, Flame } from "lucide-react";
+import { ArrowLeft, Crown, Loader2, Target, ArrowDown, Calendar, AlertCircle, Building2, Users, Heart, ExternalLink, Flame } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { isPast, parseISO, format, addMonths, addYears } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -37,7 +35,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { SubscriptionLegalLinks } from "@/components/SubscriptionLegalLinks";
+import {
+  UpgradeAccessDeniedState,
+  UpgradeLoadingState,
+  UpgradeNotFoundState,
+  UpgradeOfferCard,
+  UpgradeTrialBanner,
+} from "@/components/subscription/UpgradePlanPresentation";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { invalidateProAccessQueries } from "@/lib/invalidateProAccess";
 import { useDesktopUpgradeGate } from "@/hooks/useDesktopUpgradeGate";
@@ -687,91 +691,22 @@ export default function ClubUpgradePage() {
   }
 
   if (clubLoading || loadingAdminCheck) {
-    return (
-      <div className="py-6 space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <UpgradeLoadingState />;
   }
 
   if (!club) {
-    return (
-      <div className="py-6 text-center">
-        <p className="text-muted-foreground">Club not found</p>
-      </div>
-    );
+    return <UpgradeNotFoundState product="club" />;
   }
 
   if (!isClubAdmin) {
     return (
-      <div className="py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">Club Pro Plans</h1>
-        </div>
-        <Card className="border-destructive/20 bg-destructive/5 max-w-lg mx-auto">
-          <CardContent className="p-8 text-center">
-            <div className="p-4 rounded-full bg-destructive/10 w-fit mx-auto mb-4">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Admin Access Required</h3>
-            <p className="text-muted-foreground text-sm">
-              Only club administrators can purchase club subscriptions.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <UpgradeAccessDeniedState
+        title="Club Pro Plans"
+        description="Only club administrators can purchase club subscriptions."
+        onBack={() => navigate(-1)}
+      />
     );
   }
-
-  const renderTrialBanner = () => {
-    if (!isOnTrial || !trialEndsAt) return null;
-    return (
-      <Card className="border-amber-500/50 bg-amber-500/10 mb-4">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <Flame className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-semibold text-amber-700 dark:text-amber-400">Free Trial Active</p>
-              <p className="text-sm text-muted-foreground">
-                Your trial ends on <strong>{format(trialEndsAt, "dd MMMM yyyy")}</strong>. 
-                After the trial, your subscription will begin and you'll be charged.
-              </p>
-            </div>
-          </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10">
-                Cancel Subscription
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Your trial will remain active until the expiry date. After that, Pro features will be removed from all teams and no payment will be taken.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => cancelTrialMutation.mutate()}
-                  disabled={cancelTrialMutation.isPending}
-                >
-                  {cancelTrialMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Cancel Subscription
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
-    );
-  };
 
   const renderExpiryBanner = () => {
     if (!expiresAt || isOnTrial) return null;
@@ -895,31 +830,6 @@ export default function ClubUpgradePage() {
               </button>
             );
           })}
-        </div>
-      </div>
-    );
-  };
-
-  const renderPricingToggle = (isAnnual: boolean, setIsAnnual: (val: boolean) => void, hideToggle?: boolean) => {
-    if (hideToggle) return null;
-    return (
-      <div className="space-y-3 mb-4">
-        <div className="flex items-center justify-center gap-3">
-          <span className={`text-sm ${!isAnnual ? "font-semibold" : "text-muted-foreground"}`}>
-            Monthly
-          </span>
-          <Switch
-            checked={isAnnual}
-            onCheckedChange={setIsAnnual}
-          />
-          <span className={`text-sm ${isAnnual ? "font-semibold" : "text-muted-foreground"}`}>
-            Annual
-          </span>
-          {isAnnual && (
-            <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
-              Save 20%
-            </Badge>
-          )}
         </div>
       </div>
     );
@@ -1126,136 +1036,74 @@ export default function ClubUpgradePage() {
     const setIsAnnual = isPro ? setIsAnnualPro : setIsAnnualProFootball;
     const code = isPro ? promoCode : promoCodeFootball;
     const setCode = isPro ? setPromoCode : setPromoCodeFootball;
-    const badgeClass = isPro ? "bg-yellow-500 text-yellow-950" : "bg-emerald-500 text-emerald-950";
-    const checkClass = isPro ? "bg-primary/20 text-primary" : "bg-emerald-500/20 text-emerald-500";
-
-    // Annual billing not available for Pro Unlimited or any Pro Football plan
-    const annualDisabled = (!isPro) || (isPro && plan === "unlimited");
+    const annualDisabled = !isPro || plan === "unlimited";
     const effectiveIsAnnual = annualDisabled ? false : isAnnual;
-
     const monthlyPrice = pricing[plan].monthly;
     const annualPrice = pricing[plan].annual;
-    const annualSavings = annualPrice ? Math.round(monthlyPrice * 12 - annualPrice) : 0;
+    const annualSavings = annualPrice ? Math.round(monthlyPrice * 12 - annualPrice) : undefined;
 
     return (
-      <>
-        <Card className={isPro ? "border-primary/30" : "border-emerald-500/30"}>
-          <CardHeader className="text-center pb-2">
+      <UpgradeOfferCard
+        header={
+          <>
             <div className="flex items-center justify-center gap-2 mb-2">
               <Building2 className="h-5 w-5 text-muted-foreground" />
-              <Badge className={badgeClass}>
+              <Badge className={isPro ? "bg-yellow-500 text-yellow-950" : "bg-emerald-500 text-emerald-950"}>
                 CLUB {isPro ? "PRO" : "PRO FOOTBALL"}
               </Badge>
             </div>
-            
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
               <Users className="h-4 w-4" />
               <span>Your club: {teamCount} teams</span>
             </div>
-
             {renderPlanSelector(plan, setPlan, isPro ? "pro" : "proFootball")}
-            {renderPricingToggle(effectiveIsAnnual, setIsAnnual, annualDisabled)}
-            
-            <CardTitle className="text-3xl">
-              ${effectiveIsAnnual ? annualPrice : monthlyPrice}{" "}
-              <span className="text-lg font-normal text-muted-foreground">
-                AUD/{effectiveIsAnnual ? "year" : "month"}
-              </span>
-            </CardTitle>
-            {effectiveIsAnnual && (
-              <p className="text-sm text-green-600 font-medium">
-                Save ${annualSavings} per year
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              All teams get Pro{!isPro && " Football"} access
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {features.map((feature) => (
-                <div key={feature} className="flex items-center gap-3">
-                  <div className={`h-5 w-5 rounded-full ${checkClass.split(" ")[0]} flex items-center justify-center shrink-0`}>
-                    <Check className={`h-3 w-3 ${checkClass.split(" ")[1]}`} />
-                  </div>
-                  <span className="text-sm">{feature}</span>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <Button 
-                className={`w-full ${!isPro ? "bg-emerald-600 hover:bg-emerald-700" : ""}`} 
-                size="lg" 
-                onClick={() => {
-                  if (showIfDesktop()) return;
-                  if (isNativePlatform()) {
-                    handleNativeIAP(tier);
-                    return;
-                  }
-                  if (!hasStripeConfig) {
-                    toast({
-                      title: "Payment Not Configured",
-                      description: "Contact your club administrator to set up payment processing.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  handleStripeCheckout(tier, true);
-                }}
-
-                disabled={isCheckingOut}
-              >
-                {isCheckingOut ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CreditCard className="h-4 w-4 mr-2" />
-                )}
-                Subscribe Now
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                ${effectiveIsAnnual ? annualPrice : monthlyPrice}/{effectiveIsAnnual ? 'year' : 'month'} AUD • Cancel anytime
-              </p>
-              <SubscriptionLegalLinks />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Promo codes are available on every platform, including native apps:
-            redeeming a code grants access directly and never charges the user,
-            so it does not conflict with store billing rules. */}
-        <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Ticket className="h-5 w-5" />
-                Have a Promo Code?
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor={`promo-club-${tier}`}>Enter promo code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id={`promo-club-${tier}`}
-                    placeholder={isPro ? "CLUBPRO2024" : "CLUBFOOTBALL2024"}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    className="uppercase"
-                  />
-                  <Button 
-                    onClick={() => handleApplyPromo(tier)} 
-                    disabled={!code.trim() || isValidating || applyPromoMutation.isPending}
-                  >
-                    {(isValidating || applyPromoMutation.isPending) && (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    )}
-                    Apply
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-        </Card>
-      </>
-
+          </>
+        }
+        appearance={{
+          cardClassName: isPro ? "border-primary/30" : "border-emerald-500/30",
+          checkBackgroundClassName: isPro ? "bg-primary/20" : "bg-emerald-500/20",
+          checkTextClassName: isPro ? "text-primary" : "text-emerald-500",
+          subscribeClassName: isPro ? undefined : "bg-emerald-600 hover:bg-emerald-700",
+        }}
+        pricing={{
+          price: effectiveIsAnnual ? annualPrice : monthlyPrice,
+          period: effectiveIsAnnual ? "year" : "month",
+          isAnnual: effectiveIsAnnual,
+          onAnnualChange: setIsAnnual,
+          annualDisabled,
+          annualSavings,
+          summary: `All teams get Pro${!isPro ? " Football" : ""} access`,
+          checkoutSummary: `${effectiveIsAnnual ? annualPrice : monthlyPrice}/${effectiveIsAnnual ? "year" : "month"}`,
+        }}
+        features={features}
+        checkout={{
+          isPending: isCheckingOut,
+          onSubscribe: () => {
+            if (showIfDesktop()) return;
+            if (isNativePlatform()) {
+              handleNativeIAP(tier);
+              return;
+            }
+            if (!hasStripeConfig) {
+              toast({
+                title: "Payment Not Configured",
+                description: "Contact your club administrator to set up payment processing.",
+                variant: "destructive",
+              });
+              return;
+            }
+            handleStripeCheckout(tier, true);
+          },
+        }}
+        promo={{
+          id: `promo-club-${tier}`,
+          placeholder: isPro ? "CLUBPRO2024" : "CLUBFOOTBALL2024",
+          value: code,
+          onChange: setCode,
+          onApply: () => handleApplyPromo(tier),
+          isBusy: isValidating || applyPromoMutation.isPending,
+        }}
+      />
     );
   };
 
@@ -1279,7 +1127,14 @@ export default function ClubUpgradePage() {
       {renderTeamCountBanner()}
 
       {/* Trial Banner */}
-      {isOnTrial && renderTrialBanner()}
+      {isOnTrial && trialEndsAt && (
+        <UpgradeTrialBanner
+          trialEndsAt={trialEndsAt}
+          cancelDescription="Your trial will remain active until the expiry date. After that, Pro features will be removed from all teams and no payment will be taken."
+          onCancel={() => cancelTrialMutation.mutate()}
+          isCancelling={cancelTrialMutation.isPending}
+        />
+      )}
 
       {/* Expiry Banner for active subscriptions */}
       {(isProActive || isProFootballActive) && !isOnTrial && renderExpiryBanner()}

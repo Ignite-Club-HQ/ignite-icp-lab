@@ -62,7 +62,24 @@ Passing builds or extracting a helper does not count as success unless the agree
   headers, recurring-event controls, duty fields, and location fields. This
   static extraction has no request/render/subscription benchmark and therefore
   makes no runtime-performance claim; the product bundle remained within the
-  existing measured budget. Phase 2.2, 2.3, and 2.4 remain untouched.
+  existing measured budget.
+- **Phase 2.2 complete:** Club and team Pro upgrade pages now share the typed
+  `src/components/subscription/UpgradePlanPresentation.tsx` presentation
+  module for plan pricing, feature comparison, checkout loading state, promo
+  presentation, trial state, and loading/not-found/access-denied states. The
+  exact two-page cluster decreased from 2,505 lines, 29 clone groups, and 420
+  duplicated lines (16.7665%) to 2,214 page lines plus 280 shared lines (2,494
+  total), 21 clone groups, and 286 duplicated lines (11.4675%). Aggregate
+  authored duplication decreased from 16,336 / 4.9526443% (329,844 scanned
+  lines; 1,331 groups) to 16,169 / 4.9021778% (329,833 lines; 1,321 groups).
+  Product type/route, entitlement and eligibility queries, promo validation,
+  Supabase versus ICP behavior, checkout initiation, subscription mutations,
+  expiry/active-entitlement details, navigation, and cache invalidation remain
+  in typed page adapters. Characterization coverage in
+  `src/pages/UpgradePages.characterization.test.ts` passed before and after
+  extraction. This static presentation extraction has no request/render/
+  subscription benchmark and therefore makes no runtime-performance claim;
+  Phase 2.3 and 2.4 remain untouched.
 
 ## Architectural boundaries
 

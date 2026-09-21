@@ -2,16 +2,12 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isNativePlatform } from "@/lib/nativePush";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, Crown, Loader2, Ticket, Target, ArrowDown, Calendar, AlertCircle, Building2, CreditCard, Flame } from "lucide-react";
+import { ArrowLeft, Crown, Loader2, Target, ArrowDown, Calendar, Building2, Flame } from "lucide-react";
 import { isPast, parseISO, format, addMonths, addYears } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +22,13 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { SubscriptionLegalLinks } from "@/components/SubscriptionLegalLinks";
+import {
+  UpgradeAccessDeniedState,
+  UpgradeLoadingState,
+  UpgradeNotFoundState,
+  UpgradeOfferCard,
+  UpgradeTrialBanner,
+} from "@/components/subscription/UpgradePlanPresentation";
 import { invalidateProAccessQueries } from "@/lib/invalidateProAccess";
 import { useDesktopUpgradeGate } from "@/hooks/useDesktopUpgradeGate";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
@@ -510,91 +512,22 @@ function SupabaseUpgradeProPage() {
   });
 
   if (teamLoading || loadingAdminCheck || (teamFetchStatus === "paused" && !team)) {
-    return (
-      <div className="py-6 space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <UpgradeLoadingState />;
   }
 
   if (!team) {
-    return (
-      <div className="py-6 text-center">
-        <p className="text-muted-foreground">Team not found</p>
-      </div>
-    );
+    return <UpgradeNotFoundState product="team" />;
   }
 
   if (!isTeamAdmin) {
     return (
-      <div className="py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">Upgrade to Pro</h1>
-        </div>
-        <Card className="border-destructive/20 bg-destructive/5 max-w-lg mx-auto">
-          <CardContent className="p-8 text-center">
-            <div className="p-4 rounded-full bg-destructive/10 w-fit mx-auto mb-4">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Admin Access Required</h3>
-            <p className="text-muted-foreground text-sm">
-              Only team administrators, coaches, or club administrators can purchase team subscriptions.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <UpgradeAccessDeniedState
+        title="Upgrade to Pro"
+        description="Only team administrators, coaches, or club administrators can purchase team subscriptions."
+        onBack={() => navigate(-1)}
+      />
     );
   }
-
-  const renderTrialBanner = () => {
-    if (!isOnTrial || !trialEndsAt) return null;
-    return (
-      <Card className="border-amber-500/50 bg-amber-500/10 mb-4">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <Flame className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-semibold text-amber-700 dark:text-amber-400">Free Trial Active</p>
-              <p className="text-sm text-muted-foreground">
-                Your trial ends on <strong>{format(trialEndsAt, "dd MMMM yyyy")}</strong>. 
-                After the trial, your subscription will begin and you'll be charged.
-              </p>
-            </div>
-          </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10">
-                Cancel Subscription
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Your trial will remain active until the expiry date. After that, Pro features will be removed and no payment will be taken.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => cancelTrialMutation.mutate()}
-                  disabled={cancelTrialMutation.isPending}
-                >
-                  {cancelTrialMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Cancel Subscription
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
-    );
-  };
 
   const renderExpiryBanner = () => {
     if (!expiresAt || isOnTrial) return null;
@@ -611,33 +544,6 @@ function SupabaseUpgradeProPage() {
           </div>
         </CardContent>
       </Card>
-    );
-  };
-
-  const renderPricingToggle = (isAnnual: boolean, setIsAnnual: (val: boolean) => void, tier: "pro" | "proFootball") => {
-    const pricing = tier === "pro" ? PRICING.pro : PRICING.proFootball;
-    const annualSavings = tier === "pro" ? 60 : 96;
-
-    return (
-      <div className="space-y-3 mb-4">
-        <div className="flex items-center justify-center gap-3">
-          <span className={`text-sm ${!isAnnual ? "font-semibold" : "text-muted-foreground"}`}>
-            Monthly
-          </span>
-          <Switch
-            checked={isAnnual}
-            onCheckedChange={setIsAnnual}
-          />
-          <span className={`text-sm ${isAnnual ? "font-semibold" : "text-muted-foreground"}`}>
-            Annual
-          </span>
-          {isAnnual && (
-            <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
-              Save 20%
-            </Badge>
-          )}
-        </div>
-      </div>
     );
   };
 
@@ -793,117 +699,58 @@ function SupabaseUpgradeProPage() {
     const setIsAnnual = isPro ? setIsAnnualPro : setIsAnnualProFootball;
     const code = isPro ? promoCode : promoCodeFootball;
     const setCode = isPro ? setPromoCode : setPromoCodeFootball;
-    const colorClass = isPro ? "primary" : "emerald";
-    const badgeClass = isPro ? "bg-yellow-500 text-yellow-950" : "bg-emerald-500 text-emerald-950";
-    const checkClass = isPro ? "bg-primary/20 text-primary" : "bg-emerald-500/20 text-emerald-500";
-    const annualSavings = isPro ? 60 : 96;
 
     return (
-      <>
-        <Card className={isPro ? "border-primary/30" : "border-emerald-500/30"}>
-          <CardHeader className="text-center pb-2">
-            <Badge className={`w-fit mx-auto mb-2 ${badgeClass}`}>
-              {isPro ? "PRO" : "PRO FOOTBALL"}
-            </Badge>
-            
-            {renderPricingToggle(isAnnual, setIsAnnual, isPro ? "pro" : "proFootball")}
-            
-            <CardTitle className="text-3xl">
-              ${isAnnual ? pricing.annual : pricing.monthly}{" "}
-              <span className="text-lg font-normal text-muted-foreground">
-                AUD/{isAnnual ? "year" : "month"}
-              </span>
-            </CardTitle>
-            {isAnnual && (
-              <p className="text-sm text-green-600 font-medium">
-                Save ${annualSavings} per year
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              per team{!isPro && " • includes all Pro features"}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {features.map((feature) => (
-                <div key={feature} className="flex items-center gap-3">
-                  <div className={`h-5 w-5 rounded-full ${checkClass.split(" ")[0]} flex items-center justify-center shrink-0`}>
-                    <Check className={`h-3 w-3 ${checkClass.split(" ")[1]}`} />
-                  </div>
-                  <span className="text-sm">{feature}</span>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <Button 
-                className={`w-full ${!isPro ? "bg-emerald-600 hover:bg-emerald-700" : ""}`} 
-                size="lg" 
-                onClick={() => {
-                  if (showIfDesktop()) return;
-                  if (isNativePlatform()) {
-                    handleNativeIAP(tier);
-                    return;
-                  }
-                  if (!hasStripeConfig) {
-                    toast({
-                      title: "Payment Not Configured",
-                      description: "Contact your club administrator to set up payment processing.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  handleStripeCheckout(tier, true);
-                }}
-
-                disabled={isCheckingOut}
-              >
-                {isCheckingOut ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CreditCard className="h-4 w-4 mr-2" />
-                )}
-                Subscribe Now
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                ${isAnnual ? `${isPro ? 239 : 379.99}/year` : `${isPro ? 24.99 : 39.99}/month`} AUD • Cancel anytime
-              </p>
-              <SubscriptionLegalLinks />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Ticket className="h-5 w-5" />
-              Have a Promo Code?
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor={`promo-${tier}`}>Enter promo code</Label>
-              <div className="flex gap-2">
-                <Input
-                  id={`promo-${tier}`}
-                  placeholder={isPro ? "PROMO2024" : "FOOTBALL2024"}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  className="uppercase"
-                />
-                <Button
-                  onClick={() => handleApplyPromo(tier)}
-                  disabled={!code.trim() || isValidating || applyPromoMutation.isPending}
-                >
-                  {(isValidating || applyPromoMutation.isPending) && (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  )}
-                  Apply
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </>
+      <UpgradeOfferCard
+        header={
+          <Badge className={`w-fit mx-auto mb-2 ${isPro ? "bg-yellow-500 text-yellow-950" : "bg-emerald-500 text-emerald-950"}`}>
+            {isPro ? "PRO" : "PRO FOOTBALL"}
+          </Badge>
+        }
+        appearance={{
+          cardClassName: isPro ? "border-primary/30" : "border-emerald-500/30",
+          checkBackgroundClassName: isPro ? "bg-primary/20" : "bg-emerald-500/20",
+          checkTextClassName: isPro ? "text-primary" : "text-emerald-500",
+          subscribeClassName: isPro ? undefined : "bg-emerald-600 hover:bg-emerald-700",
+        }}
+        pricing={{
+          price: isAnnual ? pricing.annual : pricing.monthly,
+          period: isAnnual ? "year" : "month",
+          isAnnual,
+          onAnnualChange: setIsAnnual,
+          annualSavings: isPro ? 60 : 96,
+          summary: `per team${!isPro ? " • includes all Pro features" : ""}`,
+          checkoutSummary: `${isAnnual ? pricing.annual : pricing.monthly}/${isAnnual ? "year" : "month"}`,
+        }}
+        features={features}
+        checkout={{
+          isPending: isCheckingOut,
+          onSubscribe: () => {
+            if (showIfDesktop()) return;
+            if (isNativePlatform()) {
+              handleNativeIAP(tier);
+              return;
+            }
+            if (!hasStripeConfig) {
+              toast({
+                title: "Payment Not Configured",
+                description: "Contact your club administrator to set up payment processing.",
+                variant: "destructive",
+              });
+              return;
+            }
+            handleStripeCheckout(tier, true);
+          },
+        }}
+        promo={{
+          id: `promo-${tier}`,
+          placeholder: isPro ? "PROMO2024" : "FOOTBALL2024",
+          value: code,
+          onChange: setCode,
+          onApply: () => handleApplyPromo(tier),
+          isBusy: isValidating || applyPromoMutation.isPending,
+        }}
+      />
     );
   };
 
@@ -946,7 +793,14 @@ function SupabaseUpgradeProPage() {
       )}
 
       {/* Trial Banner */}
-      {isOnTrial && !hasClubProAccess && !hasClubProFootballAccess && renderTrialBanner()}
+      {isOnTrial && !hasClubProAccess && !hasClubProFootballAccess && trialEndsAt && (
+        <UpgradeTrialBanner
+          trialEndsAt={trialEndsAt}
+          cancelDescription="Your trial will remain active until the expiry date. After that, Pro features will be removed and no payment will be taken."
+          onCancel={() => cancelTrialMutation.mutate()}
+          isCancelling={cancelTrialMutation.isPending}
+        />
+      )}
 
       {/* Expiry Banner for active subscriptions */}
       {(isProActive || isProFootballActive) && !hasClubProAccess && !hasClubProFootballAccess && !isOnTrial && renderExpiryBanner()}
