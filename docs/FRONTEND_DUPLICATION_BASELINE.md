@@ -182,3 +182,9 @@ queries, authorization checks, invite metadata, confirmation warning, share
 copy/actions, and QR generation remain in the admin and parent adapters; the
 shared component owns presentation and forwards those actions through typed
 callbacks.
+
+The final guarded product bundle passed its budget check at 8,873,630
+JavaScript bytes, 1,112,736-byte largest chunk, 500 JavaScript chunks, and
+172,904 CSS bytes. JavaScript bytes decreased from the Phase 1.1 checkpoint
+(8,875,459 bytes) and the largest chunk and CSS totals were unchanged; the
+shared presentation introduced one additional small common chunk.
