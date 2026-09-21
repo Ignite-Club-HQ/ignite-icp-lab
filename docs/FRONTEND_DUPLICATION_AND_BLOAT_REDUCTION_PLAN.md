@@ -18,8 +18,8 @@ Passing builds or extracting a helper does not count as success unless the agree
   [`docs/FRONTEND_DUPLICATION_BASELINE.md`](./FRONTEND_DUPLICATION_BASELINE.md).
 - **Phase 1.1 complete:** pitch-board shared typed presentation extraction is
   implemented and verified. The two target layouts decreased from 3,891 to
-  3,701 combined lines; counted authored duplication decreased from 17,582 to
-  17,415 lines (5.3248% to 5.2711%). The targeted pair decreased from 41 to 34
+  3,703 combined lines; counted authored duplication decreased from 17,582 to
+  17,415 lines (5.3248% to 5.2710%). The targeted pair decreased from 41 to 34
   clone groups and from 884 to 753 duplicated lines.
 - The intentionally separate orientation-specific pitch composition, sizing,
   coordinate, gesture, timer, sheet, native status-bar, and orientation

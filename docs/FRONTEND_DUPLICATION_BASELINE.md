@@ -130,17 +130,17 @@ remain disconnected and excluded from the ratchet.
 ## Phase 1.1 result
 
 The two targeted layout files decreased from 3,891 combined lines
-(2,040 landscape + 1,851 portrait) to 3,701 combined lines
-(1,945 landscape + 1,756 portrait), a reduction of 190 lines. The shared
+(2,040 landscape + 1,851 portrait) to 3,703 combined lines
+(1,946 landscape + 1,757 portrait), a reduction of 188 lines. The shared
 typed presentation files are:
 
 - `src/components/pitch/PitchBoardSharedPresentation.tsx`
 - `src/components/pitch/PitchBoardBenchPlayers.tsx`
 - `src/components/pitch/PitchBoardPositionDialogs.tsx`
 
-On the identical authored scan scope, the post-change result is 330,384
+On the identical authored scan scope, the post-change result is 330,392
 scanned lines, 1,302 counted clone groups, 17,415 counted duplicated lines,
-and 5.2711% counted duplication. The increase in total scanned lines is the
+and 5.2710% counted duplication. The increase in total scanned lines is the
 small typed presentation/adaptor surface required to remove the larger
 orientation-local copies; the targeted combined layout source and both
 duplication measures decreased.
