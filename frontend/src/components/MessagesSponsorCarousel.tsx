@@ -1,25 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { PrimarySponsorDisplay } from "@/components/PrimarySponsorDisplay";
-import useEmblaCarousel from "embla-carousel-react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  MESSAGES_SPONSOR_CAROUSEL_PLACEMENT,
+  SponsorCarouselPresentation,
+  type SponsorCarouselItem,
+} from "@/components/sponsor/SponsorCarouselPresentation";
 
 interface MessagesSponsorCarouselProps {
   activeClubFilter: string | null;
 }
 
-interface SponsorItem {
-  id: string;
-  sponsorId: string;
-  entityName: string; // Club name or "Club Name Team Name"
-}
-
 export function MessagesSponsorCarousel({ activeClubFilter }: MessagesSponsorCarouselProps) {
   const { user } = useAuth();
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   // Fetch ALL active sponsors, showing team-allocated ones under team names
   const { data: sponsors = [] } = useQuery({
@@ -59,7 +52,7 @@ export function MessagesSponsorCarousel({ activeClubFilter }: MessagesSponsorCar
           }
         });
 
-        const result: SponsorItem[] = [];
+        const result: SponsorCarouselItem[] = [];
         clubSponsors.forEach((sponsor) => {
           const teamNames = sponsorTeamMap.get(sponsor.id);
           if (teamNames && teamNames.length > 0) {
@@ -136,7 +129,7 @@ export function MessagesSponsorCarousel({ activeClubFilter }: MessagesSponsorCar
           }
         });
 
-        const result: SponsorItem[] = [];
+        const result: SponsorCarouselItem[] = [];
         allSponsors.forEach((sponsor) => {
           const teamNames = sponsorTeamMap.get(sponsor.id);
           const clubName = clubNameMap.get(sponsor.club_id) || "";
@@ -165,103 +158,11 @@ export function MessagesSponsorCarousel({ activeClubFilter }: MessagesSponsorCar
     staleTime: 300000,
   });
 
-  const [emblaRef, emblaApi] = useEmblaCarousel({ 
-    loop: true,
-    dragFree: false,
-    watchDrag: true,
-  });
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return;
-    setCurrentIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    emblaApi.on("select", onSelect);
-    return () => {
-      emblaApi.off("select", onSelect);
-    };
-  }, [emblaApi, onSelect]);
-
-  // Auto-advance every 8 seconds
-  useEffect(() => {
-    if (sponsors.length <= 1 || !emblaApi) return;
-
-    const interval = setInterval(() => {
-      emblaApi.scrollNext();
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, [sponsors.length, emblaApi]);
-
-  if (sponsors.length === 0) {
-    return null;
-  }
-
-  // Single sponsor - no navigation needed
-  if (sponsors.length === 1) {
-    return (
-      <section className="space-y-3 mt-6">
-        <PrimarySponsorDisplay
-          sponsorId={sponsors[0].sponsorId}
-          variant="full"
-          context="messages_page"
-          entityName={sponsors[0].entityName}
-        />
-      </section>
-    );
-  }
-
   return (
-    <section className="space-y-3 mt-6">
-      <div className="relative group">
-        <div className="overflow-hidden cursor-grab active:cursor-grabbing touch-pan-y" ref={emblaRef}>
-          <div className="flex">
-            {sponsors.map((sponsor) => (
-              <div key={sponsor.id} className="flex-[0_0_100%] min-w-0">
-                <PrimarySponsorDisplay
-                  sponsorId={sponsor.sponsorId}
-                  variant="full"
-                  context="messages_page"
-                  entityName={sponsor.entityName}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Navigation arrows */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => emblaApi?.scrollPrev()}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => emblaApi?.scrollNext()}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="flex justify-center gap-1.5">
-        {sponsors.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => emblaApi?.scrollTo(index)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
-              index === currentIndex
-                ? "w-4 bg-primary"
-                : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-            }`}
-            aria-label={`View sponsor ${index + 1}`}
-          />
-        ))}
-      </div>
-    </section>
+    <SponsorCarouselPresentation
+      sponsors={sponsors}
+      context="messages_page"
+      placement={MESSAGES_SPONSOR_CAROUSEL_PLACEMENT}
+    />
   );
 }

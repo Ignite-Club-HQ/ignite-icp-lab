@@ -17,10 +17,19 @@ interface Sponsor {
   tier: SponsorTier | null;
 }
 
+export type PrimarySponsorContext =
+  | "club_page"
+  | "team_page"
+  | "club_card"
+  | "event_page"
+  | "event_card"
+  | "home_page"
+  | "messages_page";
+
 interface PrimarySponsorDisplayProps {
   sponsorId: string | null;
   variant?: "compact" | "full";
-  context?: "club_page" | "team_page" | "club_card" | "event_page" | "event_card" | "home_page" | "messages_page";
+  context?: PrimarySponsorContext;
   entityName?: string;
 }
 

@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdAnalytics } from "@/hooks/useAdAnalytics";
 import { useSponsorAnalytics } from "@/hooks/useSponsorAnalytics";
 import { safeOpenUrl } from "@/lib/safeOpenUrl";
 import { openAdLink } from "@/lib/adLinkNavigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { readStripHint, writeStripHint } from "@/lib/stripContentHint";
+import {
+  CARD_SPONSOR_SLOT_PLACEMENT,
+  SponsorSlotPresentation,
+  useRotatingSponsorSlotIndex,
+  useTieredSponsorSlot,
+  type SponsorTier,
+} from "@/components/sponsor/SponsorSlotPresentation";
 
 const STRIP_KEY = "media_header";
 const RESERVED_CLASS = "min-h-[44px]";
@@ -21,8 +26,6 @@ const RESERVED_CLASS = "min-h-[44px]";
 const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 const dismissKey = (userId: string | undefined, clubId: string) =>
   `ignite_media_header_sponsor_dismissed_${userId || "anon"}_${clubId}`;
-
-type SponsorTier = "platinum" | "gold" | "silver" | "bronze" | null;
 
 interface SponsorLite {
   id: string;
@@ -42,15 +45,6 @@ interface AppAdLite {
   headline: string | null;
 }
 
-const TIER_WEIGHT: Record<Exclude<SponsorTier, null> | "default", number> = {
-  platinum: 6, gold: 4, silver: 2, bronze: 1, default: 2,
-};
-const TIER_DURATION_MS: Record<Exclude<SponsorTier, null> | "default", number> = {
-  platinum: 20_000, gold: 18_000, silver: 12_000, bronze: 8_000, default: 12_000,
-};
-const tierKey = (t: SponsorTier): keyof typeof TIER_WEIGHT =>
-  t && t in TIER_WEIGHT ? (t as keyof typeof TIER_WEIGHT) : "default";
-
 /**
  * Slim sponsor / ad strip rendered above the Media feed.
  *
@@ -67,8 +61,6 @@ export function MediaHeaderSponsorStrip({ clubId }: { clubId: string | null | un
   const { trackView: trackSponsorView, trackClick: trackSponsorClick } = useSponsorAnalytics();
   const { trackView: trackAdView, trackClick: trackAdClick } = useAdAnalytics();
   const [dismissed, setDismissed] = useState(false);
-  const [adIndex, setAdIndex] = useState(0);
-  const [playlistPos, setPlaylistPos] = useState(0);
 
   // Dismiss state (Pro Riverside only)
   useEffect(() => {
@@ -86,8 +78,7 @@ export function MediaHeaderSponsorStrip({ clubId }: { clubId: string | null | un
     } catch { setDismissed(false); }
   }, [clubId, user?.id]);
 
-  const handleDismiss = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDismiss = () => {
     if (!clubId) return;
     try { localStorage.setItem(dismissKey(user?.id, clubId), String(Date.now())); } catch {}
     setDismissed(true);
@@ -179,36 +170,8 @@ export function MediaHeaderSponsorStrip({ clubId }: { clubId: string | null | un
   });
 
   // Tier-weighted Pro playlist
-  const sponsorPlaylist = useMemo(() => {
-    const out: number[] = [];
-    sponsors.forEach((s, i) => {
-      const w = TIER_WEIGHT[tierKey(s.tier)];
-      for (let k = 0; k < w; k++) out.push(i);
-    });
-    return out;
-  }, [sponsors]);
-
-  useEffect(() => { setPlaylistPos(0); }, [sponsorPlaylist.length]);
-
-  const sponsorIndex = sponsorPlaylist.length > 0 ? sponsorPlaylist[playlistPos % sponsorPlaylist.length] : 0;
-  const activeSponsor = useMemo(
-    () => (proEnabled && sponsors.length > 0 ? sponsors[sponsorIndex] : null),
-    [proEnabled, sponsors, sponsorIndex],
-  );
-
-  useEffect(() => {
-    if (!activeSponsor || sponsorPlaylist.length <= 1) return;
-    const duration = TIER_DURATION_MS[tierKey(activeSponsor.tier)];
-    const id = setTimeout(() => setPlaylistPos((p) => (p + 1) % sponsorPlaylist.length), duration);
-    return () => clearTimeout(id);
-  }, [activeSponsor, sponsorPlaylist.length, playlistPos]);
-
-  // Free ad rotation
-  useEffect(() => {
-    if (isProClub !== false || appAds.length <= 1) return;
-    const id = setInterval(() => setAdIndex((i) => (i + 1) % appAds.length), 12_000);
-    return () => clearInterval(id);
-  }, [isProClub, appAds.length]);
+  const activeSponsor = useTieredSponsorSlot(sponsors, proEnabled);
+  const adIndex = useRotatingSponsorSlotIndex(appAds.length, isProClub === false);
 
   const activeAd = useMemo(
     () => (isProClub === false && appAds.length > 0 ? appAds[adIndex % appAds.length] : null),
@@ -255,75 +218,43 @@ export function MediaHeaderSponsorStrip({ clubId }: { clubId: string | null | un
 
   // Pro Riverside: dismissible club-sponsor row
   if (activeSponsor) {
-    const clickable = !!activeSponsor.website_url;
     return (
-      <div className="rounded-lg border bg-card flex items-center">
-        <button
-          type="button"
-          onClick={() => {
-            if (!clickable) return;
+      <SponsorSlotPresentation
+        placement={CARD_SPONSOR_SLOT_PLACEMENT}
+        item={{
+          kind: "sponsor",
+          id: activeSponsor.id,
+          name: activeSponsor.name,
+          logoUrl: activeSponsor.logo_url,
+          websiteUrl: activeSponsor.website_url,
+          onActivate: () => {
             trackSponsorClick(activeSponsor.id, "messages_page");
             safeOpenUrl(activeSponsor.website_url!);
-          }}
-          disabled={!clickable}
-          className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left ${
-            clickable ? "hover:bg-muted/50 transition-colors cursor-pointer" : "cursor-default"
-          }`}
-        >
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium shrink-0">
-            Club Sponsor
-          </span>
-          <Avatar className="h-6 w-6 shrink-0">
-            <AvatarImage src={activeSponsor.logo_url || undefined} />
-            <AvatarFallback className="text-[10px] bg-secondary">
-              {activeSponsor.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium truncate flex-1 min-w-0">{activeSponsor.name}</span>
-          {clickable && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        </button>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          aria-label="Dismiss club sponsor"
-          className="shrink-0 p-2 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+          },
+          onDismiss: handleDismiss,
+        }}
+      />
     );
   }
 
   // Free: app ad row (always on)
   if (activeAd) {
-    const clickable = !!activeAd.link_url;
     return (
-      <div className="rounded-lg border bg-card">
-        <button
-          type="button"
-          onClick={() => {
-            if (!clickable) return;
+      <SponsorSlotPresentation
+        placement={CARD_SPONSOR_SLOT_PLACEMENT}
+        item={{
+          kind: "ad",
+          id: activeAd.id,
+          name: activeAd.name,
+          imageUrl: activeAd.logo_url || activeAd.image_url,
+          linkUrl: activeAd.link_url,
+          headline: activeAd.headline,
+          onActivate: () => {
             trackAdClick(activeAd.id, "messages_page");
             openAdLink(activeAd.link_url, navigate, { clubId });
-          }}
-          disabled={!clickable}
-          className={`w-full flex items-center gap-2 px-3 py-2 text-left ${
-            clickable ? "hover:bg-muted/50 transition-colors cursor-pointer" : "cursor-default"
-          }`}
-        >
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium shrink-0">
-            Sponsor
-          </span>
-          <Avatar className="h-6 w-6 rounded-md shrink-0">
-            <AvatarImage src={activeAd.logo_url || activeAd.image_url || undefined} className="object-cover" />
-            <AvatarFallback className="text-[10px] bg-secondary rounded-md">
-              {(activeAd.headline || activeAd.name).charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium truncate flex-1 min-w-0">{activeAd.headline || activeAd.name}</span>
-          {clickable && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        </button>
-      </div>
+          },
+        }}
+      />
     );
   }
 

@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdAnalytics } from "@/hooks/useAdAnalytics";
 import { useSponsorAnalytics } from "@/hooks/useSponsorAnalytics";
 import { safeOpenUrl } from "@/lib/safeOpenUrl";
 import { openAdLink } from "@/lib/adLinkNavigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  CHAT_THREAD_SPONSOR_SLOT_PLACEMENT,
+  SponsorSlotPresentation,
+  useRotatingSponsorSlotIndex,
+  useTieredSponsorSlot,
+  type SponsorTier,
+} from "@/components/sponsor/SponsorSlotPresentation";
 
 // Pro club sponsor strip dismissal — 24h hide, user+club scoped.
 // Free clubs (app ads) cannot dismiss.
@@ -21,8 +26,6 @@ interface ChatThreadSponsorStripProps {
   clubId: string | null | undefined;
 }
 
-type SponsorTier = "platinum" | "gold" | "silver" | "bronze" | null;
-
 interface SponsorLite {
   id: string;
   name: string;
@@ -30,25 +33,6 @@ interface SponsorLite {
   website_url: string | null;
   tier: SponsorTier;
 }
-
-// Tier-based rotation weights & on-screen durations.
-// Higher tier = appears more often AND stays visible longer.
-const TIER_WEIGHT: Record<Exclude<SponsorTier, null> | "default", number> = {
-  platinum: 6,
-  gold: 4,
-  silver: 2,
-  bronze: 1,
-  default: 2, // untiered sponsors behave like silver
-};
-const TIER_DURATION_MS: Record<Exclude<SponsorTier, null> | "default", number> = {
-  platinum: 20_000,
-  gold: 18_000,
-  silver: 12_000,
-  bronze: 8_000,
-  default: 12_000,
-};
-const tierKey = (t: SponsorTier): keyof typeof TIER_WEIGHT =>
-  t && t in TIER_WEIGHT ? (t as keyof typeof TIER_WEIGHT) : "default";
 
 interface AppAdLite {
   id: string;
@@ -81,7 +65,6 @@ export function ChatThreadSponsorStrip({ clubId }: ChatThreadSponsorStripProps) 
   const navigate = useNavigate();
   const { trackView: trackSponsorView, trackClick: trackSponsorClick } = useSponsorAnalytics();
   const { trackView: trackAdView, trackClick: trackAdClick } = useAdAnalytics();
-  const [adIndex, setAdIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
 
   // Load dismissal state (Pro-only feature, but we read it whenever clubId/user changes)
@@ -105,8 +88,7 @@ export function ChatThreadSponsorStrip({ clubId }: ChatThreadSponsorStripProps) 
     }
   }, [clubId, user?.id]);
 
-  const handleDismiss = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDismiss = () => {
     if (!clubId) return;
     try {
       localStorage.setItem(dismissKey(user?.id, clubId), String(Date.now()));
@@ -203,48 +185,8 @@ export function ChatThreadSponsorStrip({ clubId }: ChatThreadSponsorStripProps) 
     },
   });
 
-  // Build a tier-weighted playlist of sponsor indices (higher tier appears more times).
-  // Example: 1 gold + 1 bronze → [0,0,0,0,1] → gold shows 4× as often as bronze.
-  const sponsorPlaylist = useMemo(() => {
-    const out: number[] = [];
-    sponsors.forEach((s, i) => {
-      const w = TIER_WEIGHT[tierKey(s.tier)];
-      for (let k = 0; k < w; k++) out.push(i);
-    });
-    return out;
-  }, [sponsors]);
-
-  // Pro rotation: weighted playlist + per-tier duration
-  const [playlistPos, setPlaylistPos] = useState(0);
-  useEffect(() => {
-    setPlaylistPos(0);
-  }, [sponsorPlaylist.length]);
-
-  const sponsorIndex = sponsorPlaylist.length > 0
-    ? sponsorPlaylist[playlistPos % sponsorPlaylist.length]
-    : 0;
-  const activeSponsor = useMemo(
-    () => (isProClub && sponsors.length > 0 ? sponsors[sponsorIndex] : null),
-    [isProClub, sponsors, sponsorIndex],
-  );
-
-  useEffect(() => {
-    if (!isProClub || sponsorPlaylist.length <= 1 || !activeSponsor) return;
-    const duration = TIER_DURATION_MS[tierKey(activeSponsor.tier)];
-    const id = setTimeout(() => {
-      setPlaylistPos((p) => (p + 1) % sponsorPlaylist.length);
-    }, duration);
-    return () => clearTimeout(id);
-  }, [isProClub, sponsorPlaylist.length, playlistPos, activeSponsor]);
-
-  // Free app-ad rotation: simple 12s
-  useEffect(() => {
-    if (isProClub !== false || appAds.length <= 1) return;
-    const id = setInterval(() => {
-      setAdIndex((i) => (i + 1) % appAds.length);
-    }, 12_000);
-    return () => clearInterval(id);
-  }, [isProClub, appAds.length]);
+  const activeSponsor = useTieredSponsorSlot(sponsors, isProClub === true);
+  const adIndex = useRotatingSponsorSlotIndex(appAds.length, isProClub === false);
 
   const activeAd = useMemo(
     () => (isProClub === false && appAds.length > 0 ? appAds[adIndex % appAds.length] : null),
@@ -273,77 +215,43 @@ export function ChatThreadSponsorStrip({ clubId }: ChatThreadSponsorStripProps) 
 
   // Pro club: sponsor row
   if (activeSponsor) {
-    const clickable = !!activeSponsor.website_url;
-    const onClick = () => {
-      if (!clickable) return;
-      trackSponsorClick(activeSponsor.id, "messages_page");
-      safeOpenUrl(activeSponsor.website_url!);
-    };
     return (
-      <div className="shrink-0 border-b bg-card flex items-center">
-        <button
-          type="button"
-          onClick={onClick}
-          disabled={!clickable}
-          className={`flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left ${
-            clickable ? "hover:bg-muted/50 transition-colors cursor-pointer" : "cursor-default"
-          }`}
-        >
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium shrink-0">
-            Club Sponsor
-          </span>
-          <Avatar className="h-6 w-6 shrink-0">
-            <AvatarImage src={activeSponsor.logo_url || undefined} />
-            <AvatarFallback className="text-[10px] bg-secondary">
-              {activeSponsor.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium truncate flex-1 min-w-0">{activeSponsor.name}</span>
-          {clickable && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        </button>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          aria-label="Dismiss club sponsor"
-          className="shrink-0 p-2 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <SponsorSlotPresentation
+        placement={CHAT_THREAD_SPONSOR_SLOT_PLACEMENT}
+        item={{
+          kind: "sponsor",
+          id: activeSponsor.id,
+          name: activeSponsor.name,
+          logoUrl: activeSponsor.logo_url,
+          websiteUrl: activeSponsor.website_url,
+          onActivate: () => {
+            trackSponsorClick(activeSponsor.id, "messages_page");
+            safeOpenUrl(activeSponsor.website_url!);
+          },
+          onDismiss: handleDismiss,
+        }}
+      />
     );
   }
 
   // Free club: app ad row
   if (activeAd) {
-    const clickable = !!activeAd.link_url;
-    const onClick = () => {
-      if (!clickable) return;
-      trackAdClick(activeAd.id, "messages_page");
-      openAdLink(activeAd.link_url, navigate, { clubId });
-    };
     return (
-      <div className="shrink-0 border-b bg-card">
-        <button
-          type="button"
-          onClick={onClick}
-          disabled={!clickable}
-          className={`w-full flex items-center gap-2 px-3 py-2 text-left ${
-            clickable ? "hover:bg-muted/50 transition-colors cursor-pointer" : "cursor-default"
-          }`}
-        >
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium shrink-0">
-            Sponsor
-          </span>
-          <Avatar className="h-6 w-6 rounded-md shrink-0">
-            <AvatarImage src={activeAd.logo_url || activeAd.image_url || undefined} className="object-cover" />
-            <AvatarFallback className="text-[10px] bg-secondary rounded-md">
-              {(activeAd.headline || activeAd.name).charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium truncate flex-1 min-w-0">{activeAd.headline || activeAd.name}</span>
-          {clickable && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        </button>
-      </div>
+      <SponsorSlotPresentation
+        placement={CHAT_THREAD_SPONSOR_SLOT_PLACEMENT}
+        item={{
+          kind: "ad",
+          id: activeAd.id,
+          name: activeAd.name,
+          imageUrl: activeAd.logo_url || activeAd.image_url,
+          linkUrl: activeAd.link_url,
+          headline: activeAd.headline,
+          onActivate: () => {
+            trackAdClick(activeAd.id, "messages_page");
+            openAdLink(activeAd.link_url, navigate, { clubId });
+          },
+        }}
+      />
     );
   }
 

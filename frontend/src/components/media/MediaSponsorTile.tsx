@@ -7,8 +7,10 @@ import { useSponsorAnalytics } from "@/hooks/useSponsorAnalytics";
 import { safeOpenUrl } from "@/lib/safeOpenUrl";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-
-type SponsorTier = "platinum" | "gold" | "silver" | "bronze" | null;
+import {
+  createTierWeightedPlaylist,
+  type SponsorTier,
+} from "@/components/sponsor/sponsorTier";
 
 interface SponsorLite {
   id: string;
@@ -17,16 +19,6 @@ interface SponsorLite {
   website_url: string | null;
   tier: SponsorTier;
 }
-
-const TIER_WEIGHT: Record<Exclude<SponsorTier, null> | "default", number> = {
-  platinum: 6,
-  gold: 4,
-  silver: 2,
-  bronze: 1,
-  default: 2,
-};
-const tierKey = (t: SponsorTier): keyof typeof TIER_WEIGHT =>
-  t && t in TIER_WEIGHT ? (t as keyof typeof TIER_WEIGHT) : "default";
 
 /**
  * A photo-card-shaped sponsor tile injected into the Media feed.
@@ -114,11 +106,7 @@ export function MediaSponsorTile({ seed, clubId }: { seed: number; clubId?: stri
   // Weighted random pick, stable per seed.
   const sponsor = useMemo<SponsorLite | null>(() => {
     if (sponsors.length === 0) return null;
-    const playlist: number[] = [];
-    sponsors.forEach((s, i) => {
-      const w = TIER_WEIGHT[tierKey(s.tier)];
-      for (let k = 0; k < w; k++) playlist.push(i);
-    });
+    const playlist = createTierWeightedPlaylist(sponsors);
     if (playlist.length === 0) return sponsors[0];
     return sponsors[playlist[seed % playlist.length]];
   }, [sponsors, seed]);
