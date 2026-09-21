@@ -254,3 +254,75 @@ measurement, but the worktree contains unrelated changes and this package did
 not add a request, subscription, or render benchmark. It therefore makes no
 claim of lower request counts, fewer renders, faster interaction, or a
 Phase-1.4-attributable runtime improvement.
+
+
+## Phase 2.1 result
+
+The exact pre-refactor pinned `jscpd 5.3.0` scan for the Create/Edit Event
+page pair reported 27 clone groups and 521 duplicated lines. The pages were
+1,946 and 1,723 lines respectively (3,669 combined). The report-linked
+non-pair groups were deliberately classified as unrelated:
+`MoveFileDialog`/`CreateEventPage` (9 lines),
+`ClassEnrolmentPage`/`EditEventPage` (12 lines),
+`CreateEventPage`/`ImportFixturesPage` (8 lines), and
+`EditEventPage`/`EventDetailPage` (27 lines). No event-form subcomponent was
+linked by the pre-refactor report.
+
+The 27 exact Create/Edit page clone groups before edits were:
+
+| First range | Second range | Duplicated lines |
+| --- | --- | ---: |
+| `pages/CreateEventPage.tsx:14-21` | `pages/EditEventPage.tsx:5-12` | 8 |
+| `pages/CreateEventPage.tsx:38-53` | `pages/EditEventPage.tsx:34-49` | 16 |
+| `pages/CreateEventPage.tsx:68-89` | `pages/EditEventPage.tsx:60-79` | 22 |
+| `pages/CreateEventPage.tsx:136-147` | `pages/EditEventPage.tsx:142-153` | 12 |
+| `pages/CreateEventPage.tsx:154-168` | `pages/EditEventPage.tsx:160-174` | 15 |
+| `pages/CreateEventPage.tsx:268-275` | `pages/EditEventPage.tsx:270-277` | 8 |
+| `pages/CreateEventPage.tsx:272-287` | `pages/EditEventPage.tsx:255-270` | 16 |
+| `pages/CreateEventPage.tsx:294-309` | `pages/EditEventPage.tsx:289-303` | 16 |
+| `pages/CreateEventPage.tsx:336-342` | `pages/CreateEventPage.tsx:365-371` | 7 |
+| `pages/CreateEventPage.tsx:384-399` | `pages/EditEventPage.tsx:317-332` | 16 |
+| `pages/CreateEventPage.tsx:401-409` | `pages/EditEventPage.tsx:337-345` | 9 |
+| `pages/CreateEventPage.tsx:619-635` | `pages/EditEventPage.tsx:513-529` | 17 |
+| `pages/CreateEventPage.tsx:645-657` | `pages/EditEventPage.tsx:539-551` | 13 |
+| `pages/CreateEventPage.tsx:723-769` | `pages/EditEventPage.tsx:343-387` | 47 |
+| `pages/CreateEventPage.tsx:908-924` | `pages/EditEventPage.tsx:806-822` | 17 |
+| `pages/CreateEventPage.tsx:966-972` | `pages/EditEventPage.tsx:852-858` | 7 |
+| `pages/CreateEventPage.tsx:1096-1136` | `pages/EditEventPage.tsx:1013-1053` | 41 |
+| `pages/CreateEventPage.tsx:1367-1387` | `pages/EditEventPage.tsx:1196-1216` | 21 |
+| `pages/CreateEventPage.tsx:1403-1409` | `pages/EditEventPage.tsx:1233-1239` | 7 |
+| `pages/CreateEventPage.tsx:1423-1434` | `pages/EditEventPage.tsx:1600-1611` | 12 |
+| `pages/CreateEventPage.tsx:1517-1542` | `pages/EditEventPage.tsx:1301-1326` | 26 |
+| `pages/CreateEventPage.tsx:1648-1659` | `pages/EditEventPage.tsx:1363-1374` | 12 |
+| `pages/CreateEventPage.tsx:1698-1759` | `pages/EditEventPage.tsx:1428-1489` | 62 |
+| `pages/CreateEventPage.tsx:1759-1769` | `pages/EditEventPage.tsx:1489-1499` | 11 |
+| `pages/CreateEventPage.tsx:1769-1822` | `pages/EditEventPage.tsx:1499-1552` | 54 |
+| `pages/CreateEventPage.tsx:1825-1840` | `pages/EditEventPage.tsx:1555-1570` | 16 |
+| `pages/CreateEventPage.tsx:1842-1854` | `pages/EditEventPage.tsx:1570-1582` | 13 |
+
+The refactor extracted the controlled shared presentation module
+`src/components/event/EventFormShared.tsx`. It owns the section header,
+recurrence controls, duty editor, and address/map fields. The post-refactor
+page pair reports 24 clone groups and 374 duplicated lines. The pages are now
+1,750 and 1,531 lines, and the shared module is 300 lines: 3,581 combined
+lines across the two pages plus the shared module, down 88 lines from the
+original pair. The same aggregate scan reports 329,844 scanned lines, 1,331
+clone groups, 16,336 duplicated lines, and 4.9526443% duplication, compared
+with 329,933 lines, 1,334 groups, 16,480 duplicated lines, and 4.9949535%
+before this phase.
+
+Characterization coverage was added in
+`src/pages/EventForm.characterization.test.ts`; its four tests passed before
+and after the extraction. The existing create/edit validation and workflow
+suites also remain green. Create and edit mutation/query wiring, permission
+checks, create prefill/favorites/conflict behavior, edit record mapping and
+series-selection/reconciliation behavior, local ICP forms, navigation, and
+post-submit cache/error side effects intentionally remain page-owned.
+Only the equivalent controlled presentation and form interaction surfaces are
+shared; no divergent create/edit behavior was merged.
+
+This is a maintainability-only result. The product build measured
+8,859,950 JavaScript bytes, a 1,112,832-byte largest chunk, 501 JavaScript
+chunks, and 172,904 CSS bytes, within the existing budgets. The extraction
+adds no measured request, subscription, render, cache-invalidation, loading, or
+interaction evidence, so it does not qualify as a runtime-performance win.

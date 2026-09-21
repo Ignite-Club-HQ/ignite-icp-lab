@@ -45,6 +45,24 @@ Passing builds or extracting a helper does not count as success unless the agree
   decreased from 16,689 lines (5.0543%) to 16,480 (4.9950%). Team-member
   row validation, child/role mapping, invite import, mini-league ability and
   parent mapping, and player import remain separate.
+- **Phase 2.1 complete:** Create/Edit Event form presentation is consolidated
+  in `src/components/event/EventFormShared.tsx`. The exact pre-refactor
+  Create/Edit cluster had 27 clone groups and 521 duplicated lines across
+  3,669 combined page lines. The post-refactor pair has 24 clone groups and
+  374 duplicated lines; the two pages plus the 300-line shared module contain
+  3,581 lines, down 88. Aggregate authored duplication decreased from
+  16,480 lines / 4.9949535% to 16,336 lines / 4.9526443% (1,334 to 1,331
+  clone groups; 329,933 to 329,844 scanned lines). The four new page
+  characterization tests passed before and after refactoring.
+
+  Create and edit mutation/query wiring, permissions, create prefill and
+  conflict behavior, edit record mapping and recurrence reconciliation,
+  local ICP forms, navigation, cache refresh, and error side effects remain
+  intentionally separate. The shared module is limited to equivalent section
+  headers, recurring-event controls, duty fields, and location fields. This
+  static extraction has no request/render/subscription benchmark and therefore
+  makes no runtime-performance claim; the product bundle remained within the
+  existing measured budget. Phase 2.2, 2.3, and 2.4 remain untouched.
 
 ## Architectural boundaries
 

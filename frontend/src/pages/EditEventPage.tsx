@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, MapPin, Bell, Calendar, FileText, DollarSign, ChevronDown, ClipboardList, Plus, X, Repeat, Users, UserPlus } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Bell, Calendar, FileText, DollarSign, ClipboardList, Repeat, Users, UserPlus } from "lucide-react";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -40,8 +40,7 @@ import type { RsvpAudience } from "@/lib/rsvpAudience";
 import { useAuth } from "@/hooks/useAuth";
 import { refreshEventCaches } from "@/lib/eventCacheRefresh";
 import { supabase } from "@/integrations/supabase/client";
-import { GoogleMapEmbed } from "@/components/GoogleMapEmbed";
-import { AddressAutocomplete, SavedLocation } from "@/components/AddressAutocomplete";
+import { type SavedLocation } from "@/components/AddressAutocomplete";
 import { MobileCardSelect } from "@/components/MobileCardSelect";
 import { EventAudienceSelector } from "@/components/event/EventAudienceSelector";
 import { OpponentInput } from "@/components/OpponentInput";
@@ -56,19 +55,15 @@ import { eventKeys } from "@/lab/eventQueryKeys";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalEvent, setLocalEventRecurrence, updateLocalEvent } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
+import {
+  EventDutyFields,
+  EventLocationFields,
+  EventRecurrenceFields,
+  EventSectionHeader,
+  type EventRecurrencePattern,
+} from "@/components/event/EventFormShared";
 
 type EventType = "game" | "training" | "social";
-type RecurrencePattern = "daily" | "weekly" | "biweekly" | "monthly";
-
-const DAYS_OF_WEEK = [
-  { value: 0, label: "S" },
-  { value: 1, label: "M" },
-  { value: 2, label: "T" },
-  { value: 3, label: "W" },
-  { value: 4, label: "T" },
-  { value: 5, label: "F" },
-  { value: 6, label: "S" },
-];
 
 const EVENT_TYPES = [
   { value: "training", label: "Training", icon: "🏃" },
@@ -249,15 +244,15 @@ function SupabaseEditEventPage() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSeriesDialog, setShowSeriesDialog] = useState(false);
-  
+
   // Team/Club selection
   const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
-  
+
   // Reminder settings
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderHours, setReminderHours] = useState(24);
-  
+
   // Price for social events
   const [price, setPrice] = useState("");
   const [paidEvent, setPaidEvent] = useState(false);
@@ -268,7 +263,7 @@ function SupabaseEditEventPage() {
 
   // Recurring event state (for converting single event to recurring)
   const [enableRecurring, setEnableRecurring] = useState(false);
-  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("weekly");
+  const [recurrencePattern, setRecurrencePattern] = useState<EventRecurrencePattern>("weekly");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
@@ -337,7 +332,7 @@ function SupabaseEditEventPage() {
   };
 
   const assignDuty = (dutyName: string, userId: string | null) => {
-    setDuties(prev => prev.map(d => 
+    setDuties(prev => prev.map(d =>
       d.name === dutyName ? { ...d, assignedTo: userId } : d
     ));
   };
@@ -406,7 +401,7 @@ function SupabaseEditEventPage() {
     queryKey: ["can-edit-event", id, user?.id, event?.club_id, event?.team_id],
     queryFn: async () => {
       if (!event) return false;
-      
+
       // Check for app_admin
       const { data: appAdmin } = await supabase
         .from("user_roles")
@@ -414,7 +409,7 @@ function SupabaseEditEventPage() {
         .eq("user_id", user!.id)
         .eq("role", "app_admin")
         .maybeSingle();
-      
+
       if (appAdmin) return true;
 
       // Check for club_admin / committee_member role (always applies to club events)
@@ -425,9 +420,9 @@ function SupabaseEditEventPage() {
         .eq("club_id", event.club_id)
         .in("role", ["club_admin", "committee_member"])
         .limit(1);
-      
+
       if (clubAdminData && clubAdminData.length > 0) return true;
-      
+
       // For team-specific events, also check team_admin/coach roles
       if (event.team_id) {
         const { data: teamRoleData } = await supabase
@@ -436,7 +431,7 @@ function SupabaseEditEventPage() {
           .eq("user_id", user!.id)
           .eq("team_id", event.team_id)
           .in("role", ["team_admin", "coach"]);
-        
+
         if (teamRoleData && teamRoleData.length > 0) return true;
       }
 
@@ -461,7 +456,7 @@ function SupabaseEditEventPage() {
           .maybeSingle();
         if (clubLeagueAdmin) return true;
       }
-      
+
       return false;
     },
     enabled: !!user && !!event,
@@ -481,9 +476,9 @@ function SupabaseEditEventPage() {
     enabled: !!event?.club_id,
   });
 
-  const isPro = clubSubscription?.is_pro || 
-    clubSubscription?.is_pro_football || 
-    clubSubscription?.admin_pro_override || 
+  const isPro = clubSubscription?.is_pro ||
+    clubSubscription?.is_pro_football ||
+    clubSubscription?.admin_pro_override ||
     clubSubscription?.admin_pro_football_override;
 
   // Fetch existing duties for this event
@@ -506,14 +501,14 @@ function SupabaseEditEventPage() {
       // Get members from team if selected, otherwise from club
       const targetId = event?.team_id || event?.club_id;
       const idColumn = event?.team_id ? "team_id" : "club_id";
-      
+
       const { data: roles } = await supabase
         .from("user_roles")
         .select("user_id, profiles!inner(id, display_name, avatar_url)")
         .eq(idColumn, targetId!);
 
       if (!roles) return [];
-      
+
       // Deduplicate by user_id
       const seen = new Set<string>();
       return roles.filter(r => {
@@ -547,7 +542,7 @@ function SupabaseEditEventPage() {
       // Deduplicate by address
       const seen = new Set<string>();
       const uniqueLocations: SavedLocation[] = [];
-      
+
       for (const e of data) {
         const key = e.address?.toLowerCase().trim();
         if (key && !seen.has(key)) {
@@ -561,7 +556,7 @@ function SupabaseEditEventPage() {
         }
         if (uniqueLocations.length >= 10) break;
       }
-      
+
       return uniqueLocations;
     },
     enabled: !!event?.club_id,
@@ -577,7 +572,7 @@ function SupabaseEditEventPage() {
         .eq("user_id", user!.id)
         .not("club_id", "is", null)
         .in("role", ["club_admin", "team_admin", "coach", "committee_member"]);
-      
+
       if (!data) return [];
       const clubs = data.filter(r => r.clubs).map(r => r.clubs as { id: string; name: string });
       return Array.from(new Map<string, { id: string; name: string }>(clubs.map(c => [c.id, c])).values());
@@ -594,17 +589,17 @@ function SupabaseEditEventPage() {
         .eq("user_id", user!.id)
         .not("team_id", "is", null)
         .in("role", ["team_admin", "coach"]);
-      
+
       const { data } = await query;
-      
+
       if (!data) return [];
       let teams = data.filter(r => r.teams).map(r => r.teams as { id: string; name: string; club_id: string; default_match_arrival_minutes: number | null });
-      
+
       // Filter by selected club if set
       if (selectedClubId) {
         teams = teams.filter(t => t.club_id === selectedClubId);
       }
-      
+
       return Array.from(new Map(teams.map(t => [t.id, t])).values());
     },
     enabled: !!user,
@@ -717,7 +712,7 @@ function SupabaseEditEventPage() {
       setRsvpGrouping(grp === "level" || grp === "team" ? grp : "");
       const tti = (event as any).target_team_ids;
       setTargetTeamIds(Array.isArray(tti) && tti.length > 0 ? (tti as string[]) : null);
-      
+
       const parsedEventDateTime = parseISO(event.event_date);
       setEventDateTime(format(parsedEventDateTime, "yyyy-MM-dd'T'HH:mm"));
     }
@@ -1014,43 +1009,6 @@ function SupabaseEditEventPage() {
     }
   };
 
-  const SectionHeader = ({ 
-    icon: Icon, 
-    title, 
-    isOpen, 
-    onClick,
-    badge
-  }: { 
-    icon: any; 
-    title: string; 
-    isOpen: boolean; 
-    onClick: () => void;
-    badge?: string;
-  }) => (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-      className="flex items-center justify-between w-full p-4 text-left hover:bg-muted/50 transition-colors rounded-lg cursor-pointer select-none"
-    >
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Icon className="h-4 w-4 text-primary" />
-        </div>
-        <span className="font-medium">{title}</span>
-        {badge && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            {badge}
-          </span>
-        )}
-      </div>
-      <ChevronDown className={cn(
-        "h-4 w-4 text-muted-foreground transition-transform duration-200",
-        isOpen && "rotate-180"
-      )} />
-    </div>
-  );
 
   if (isLoading) {
     return (
@@ -1111,9 +1069,9 @@ function SupabaseEditEventPage() {
       {/* Details Section */}
       <Card>
         <Collapsible open={openSections.details}>
-          <SectionHeader 
-            icon={FileText} 
-            title="Event Details" 
+          <EventSectionHeader
+            icon={FileText}
+            title="Event Details"
             isOpen={openSections.details}
             onClick={() => toggleSection('details')}
             badge="Required"
@@ -1152,9 +1110,9 @@ function SupabaseEditEventPage() {
       {/* Club/Team Assignment Section */}
       <Card>
         <Collapsible open={openSections.assignment}>
-          <SectionHeader 
-            icon={Users} 
-            title="Club & Team" 
+          <EventSectionHeader
+            icon={Users}
+            title="Club & Team"
             isOpen={openSections.assignment}
             onClick={() => toggleSection('assignment')}
           />
@@ -1301,9 +1259,9 @@ function SupabaseEditEventPage() {
       {/* Schedule Section */}
       <Card>
         <Collapsible open={openSections.schedule}>
-          <SectionHeader 
-            icon={Calendar} 
-            title="Date & Time" 
+          <EventSectionHeader
+            icon={Calendar}
+            title="Date & Time"
             isOpen={openSections.schedule}
             onClick={() => toggleSection('schedule')}
             badge="Required"
@@ -1337,80 +1295,17 @@ function SupabaseEditEventPage() {
                   </div>
 
                   {enableRecurring && (
-                    <div className="space-y-4 p-3 rounded-lg border border-dashed">
-                      <div className="space-y-2">
-                        <Label>Frequency</Label>
-                        <Select
-                          value={recurrencePattern}
-                          onValueChange={(v) => setRecurrencePattern(v as RecurrencePattern)}
-                        >
-                          <SelectTrigger className="h-12 text-base">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4}>
-                            <SelectItem value="daily" className="py-3 text-base">Daily</SelectItem>
-                            <SelectItem value="weekly" className="py-3 text-base">Weekly</SelectItem>
-                            <SelectItem value="biweekly" className="py-3 text-base">Bi-weekly</SelectItem>
-                            <SelectItem value="monthly" className="py-3 text-base">Monthly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {recurrencePattern === "weekly" && (
-                        <div className="space-y-2">
-                          <Label>Repeat on</Label>
-                          <div className="flex gap-1">
-                            {DAYS_OF_WEEK.map((day) => (
-                              <button
-                                key={day.value}
-                                type="button"
-                                onClick={() => toggleRecurrenceDay(day.value)}
-                                className={cn(
-                                  "w-9 h-9 rounded-full text-sm font-medium transition-colors",
-                                  recurrenceDays.includes(day.value)
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted hover:bg-muted/80"
-                                )}
-                              >
-                                {day.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Every</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={12}
-                              value={recurrenceInterval}
-                              onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
-                              className="w-16"
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              {recurrencePattern === "daily" && "day(s)"}
-                              {recurrencePattern === "weekly" && "week(s)"}
-                              {recurrencePattern === "biweekly" && "period(s)"}
-                              {recurrencePattern === "monthly" && "month(s)"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">Until</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={recurrenceEndDate}
-                            onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                            min={eventDateTime ? eventDateTime.split('T')[0] : undefined}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <EventRecurrenceFields
+                      pattern={recurrencePattern}
+                      days={recurrenceDays}
+                      interval={recurrenceInterval}
+                      endDate={recurrenceEndDate}
+                      startDate={eventDateTime}
+                      onPatternChange={setRecurrencePattern}
+                      onToggleDay={toggleRecurrenceDay}
+                      onIntervalChange={setRecurrenceInterval}
+                      onEndDateChange={setRecurrenceEndDate}
+                    />
                   )}
                 </>
               )}
@@ -1436,106 +1331,28 @@ function SupabaseEditEventPage() {
       {type === "game" && (
         <Card>
           <Collapsible open={openSections.duties}>
-            <SectionHeader 
-              icon={ClipboardList} 
-              title="Duties" 
+            <EventSectionHeader
+              icon={ClipboardList}
+              title="Duties"
               isOpen={openSections.duties}
-              onClick={() => toggleSection('duties')}
+              onClick={() => toggleSection("duties")}
               badge={duties.length > 0 ? `${duties.length}` : "Optional"}
             />
             <CollapsibleContent>
-              <CardContent className="pt-0 pb-4 px-4 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Add duties like BBQ, scorer, or first aid for volunteers to sign up.
-                </p>
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <span className="text-lg">🔥</span>
-                  <p className="text-sm text-foreground">
-                    <span className="font-medium">Points:</span> Volunteers earn <span className="font-semibold text-primary">10 points</span> for each completed duty (Pro clubs only). Points are awarded 24 hours after the game ends.
-                  </p>
-                </div>
-                
-                {/* Add duty input */}
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g., BBQ duty, Scorer, First Aid"
-                    value={newDutyName}
-                    onChange={(e) => setNewDutyName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addDuty();
-                      }
-                    }}
-                    className="flex-1 h-12"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="h-12 w-12 shrink-0"
-                    onClick={addDuty}
-                    disabled={!newDutyName.trim()}
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-                </div>
-
-                {/* Duty list */}
-                {duties.length > 0 && (
-                  <div className="space-y-3">
-                    {duties.map((duty, index) => (
-                      <div 
-                        key={duty.id || index} 
-                        className="p-3 rounded-lg bg-muted/50 space-y-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{duty.name}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => removeDuty(duty.name, duty.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <DutyMemberSelect
-                          value={duty.assignedTo}
-                          onValueChange={(v) => assignDuty(duty.name, v)}
-                          members={members || []}
-                          dutyName={duty.name}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Quick add common duties */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Quick add:</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {["BBQ", "Scorer", "First Aid", "Oranges", "Snacks", "Subs Manager", "Water Duty", "Set Up", "Pack Up"].map((suggestion) => (
-                      <Button
-                        key={suggestion}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => {
-                          if (!duties.some(d => d.name === suggestion)) {
-                            setDuties(prev => [...prev, { name: suggestion, assignedTo: null }]);
-                          }
-                        }}
-                        disabled={duties.some(d => d.name === suggestion)}
-                      >
-                        {suggestion}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
+              <EventDutyFields
+                duties={duties}
+                members={members || []}
+                newDutyName={newDutyName}
+                onNewDutyNameChange={setNewDutyName}
+                onAddDuty={addDuty}
+                onRemoveDuty={(duty) => removeDuty(duty.name, duty.id)}
+                onAssignDuty={(duty, userId) => assignDuty(duty.name, userId)}
+                onQuickAddDuty={(suggestion) => {
+                  if (!duties.some((duty) => duty.name === suggestion)) {
+                    setDuties((prev) => [...prev, { name: suggestion, assignedTo: null }]);
+                  }
+                }}
+              />
             </CollapsibleContent>
           </Collapsible>
         </Card>
@@ -1544,31 +1361,21 @@ function SupabaseEditEventPage() {
       {/* Location Section */}
       <Card>
         <Collapsible open={openSections.location}>
-          <SectionHeader 
-            icon={MapPin} 
-            title="Location" 
+          <EventSectionHeader
+            icon={MapPin}
+            title="Location"
             isOpen={openSections.location}
-            onClick={() => toggleSection('location')}
+            onClick={() => toggleSection("location")}
             badge={address ? "Set" : undefined}
           />
           <CollapsibleContent>
             <CardContent className="pt-0 pb-4 px-4 space-y-4">
-              <AddressAutocomplete
+              <EventLocationFields
                 value={address}
-                onChange={setAddress}
-                onSelect={(addr) => {
-                  const fullAddress = [addr.address, addr.suburb, addr.state, addr.postcode]
-                    .filter(Boolean)
-                    .join(", ");
-                  setAddress(fullAddress || addr.address);
-                }}
-                placeholder="Search for address..."
                 savedLocations={savedLocations}
+                onChange={setAddress}
+                mapWrapperClassName="rounded-lg overflow-hidden"
               />
-              
-              {address && (
-                <GoogleMapEmbed address={address} />
-              )}
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
@@ -1577,9 +1384,9 @@ function SupabaseEditEventPage() {
       {/* Options Section */}
       <Card>
         <Collapsible open={openSections.options}>
-          <SectionHeader 
-            icon={Bell} 
-            title="Options" 
+          <EventSectionHeader
+            icon={Bell}
+            title="Options"
             isOpen={openSections.options}
             onClick={() => toggleSection('options')}
           />
