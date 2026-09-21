@@ -37,6 +37,14 @@ Passing builds or extracting a helper does not count as success unless the agree
   is 230 lines smaller. Product reads, authorization gates, provider behavior,
   tracking contexts, placement-specific dimensions, and the lab boundary
   remain local.
+- **Phase 1.4 complete:** the member and mini-league CSV import dialogs now
+  share only their presentation primitives. The 1,113-line target pair became
+  585 local adapter lines plus a 270-line shared presentation module (855
+  lines total, down 258). Identical-scope target clone groups decreased from
+  11 to 2 and duplicated lines from 190 to 21; aggregate scan duplication
+  decreased from 16,689 lines (5.0543%) to 16,480 (4.9950%). Team-member
+  row validation, child/role mapping, invite import, mini-league ability and
+  parent mapping, and player import remain separate.
 
 ## Architectural boundaries
 

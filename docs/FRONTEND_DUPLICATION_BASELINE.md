@@ -188,3 +188,69 @@ JavaScript bytes, 1,112,736-byte largest chunk, 500 JavaScript chunks, and
 172,904 CSS bytes. JavaScript bytes decreased from the Phase 1.1 checkpoint
 (8,875,459 bytes) and the largest chunk and CSS totals were unchanged; the
 shared presentation introduced one additional small common chunk.
+
+## Phase 1.4 result
+
+The CSV package started with 1,113 combined physical source lines: 601 in
+`src/components/MemberCSVImportDialog.tsx` and 512 in
+`src/components/MiniLeagueMemberCSVImportDialog.tsx`. The exact pinned
+`jscpd 5.3.0` 50-token/5-line scan from the reproduction command reported 11
+target clone groups, 190 duplicated lines, and 17.0710% duplication. All 11
+groups were between those two files; no other CSV import dialog was linked by
+this target clone report. The groups were:
+
+| Member dialog range | Mini-league dialog range | Duplicated lines |
+| --- | --- | ---: |
+| 2-21 | 2-21 | 20 |
+| 64-70 | 67-72 | 7 |
+| 215-225 | 145-155 | 11 |
+| 225-245 | 155-175 | 21 |
+| 252-290 | 182-220 | 39 |
+| 333-342 | 274-283 | 10 |
+| 350-369 | 291-310 | 20 |
+| 391-404 | 321-334 | 14 |
+| 415-433 | 343-361 | 19 |
+| 433-454 | 361-382 | 22 |
+| 454-471 | 382-399 | 18 |
+
+Before this package, `src/components/FixturesCSVImport.test.tsx` was the only
+existing source CSV-import test and did not cover either member dialog. The
+new `src/components/MemberCSVImportDialogs.characterization.test.tsx` has four
+portal-aware tests. They passed before refactoring and after it, using
+Testing Library `screen` to find the Radix-portaled dialog before locating its
+file input. They cover team child/role mapping, team invalid-role reporting,
+mini-league ability/parent mapping, mini-league invalid-ability reporting, and
+the two distinct template filenames.
+
+The extraction created the focused
+`src/components/csv-import/CsvImportPresentation.tsx` module. It owns the
+dialog frame, format-guide presentation, file/drop-zone UI, imported-file and
+issue summaries, preview shell, and CSV template download lifecycle. The two
+local adapters keep their parsers, field mappings, row editors, validation,
+and import callbacks. The two residual clone groups (21 lines) are the file
+reader and invalid-file handling surrounding those deliberately separate
+parser adapters.
+
+The post-change package contains 855 physical source lines: 334 team-member
+adapter lines, 251 mini-league adapter lines, and 270 shared presentation
+lines. The same target scan now reports 2 clone groups, 21 duplicated lines,
+and 2.4561% duplication. This reduces the complete target package by 258
+lines, 9 clone groups, 169 duplicated lines, and 14.6148 percentage points.
+The same aggregate scan reports 329,933 scanned lines, 1,334 clone groups,
+16,480 duplicated lines, and 4.9950% duplication, improving on the pre-change
+330,191 lines, 1,345 groups, 16,689 duplicated lines, and 5.0543% duplication.
+
+The targeted characterization tests pass (4 tests). The dedicated lab suite
+passes (279 Node tests and 1,720 Vitest tests), and the legacy suite passes
+(4,269 tests and 1 skipped). The guarded product build, product bundle check,
+quality ratchet, duplication ratchet, and isolation check pass. The product
+type ratchet reports only its 14 pre-existing unrelated diagnostics in
+`StartDMDialog` and `ClubDetailPage`; this package adds none. The guarded
+product bundle reports 8,862,636 JavaScript bytes, a 1,112,837-byte largest
+chunk, 501 JavaScript chunks, and 172,904 CSS bytes, all within budget.
+
+This is a maintainability-only consolidation. The build supplies a bundle
+measurement, but the worktree contains unrelated changes and this package did
+not add a request, subscription, or render benchmark. It therefore makes no
+claim of lower request counts, fewer renders, faster interaction, or a
+Phase-1.4-attributable runtime improvement.
