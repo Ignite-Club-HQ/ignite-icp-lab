@@ -80,6 +80,34 @@ Passing builds or extracting a helper does not count as success unless the agree
   extraction. This static presentation extraction has no request/render/
   subscription benchmark and therefore makes no runtime-performance claim;
   Phase 2.3 and 2.4 remain untouched.
+- **Phase 2.3 complete:** Vault's repeated folder/file rendering, active and
+  trash row actions, empty/loading states, cache invalidation, and storage-by-
+  team projection now cross one typed renderer/controller boundary in
+  `src/components/vault/VaultContentRenderer.tsx` and the typed
+  `invalidateVaultCache` helper in `src/features/vault/vaultQueryKeys.ts`.
+  `src/pages/VaultPage.tsx` decreased from 5,495 to 4,597 lines (898 fewer).
+  The exact target scope (`VaultPage.tsx`, `components/vault`, and
+  `features/vault`) decreased from 452 duplicated lines across 29 clone groups
+  (3.9503583%) to 362 lines across 26 groups (3.1418157%). The complete scope
+  is 11,522 lines after the extraction versus 11,442 before it; the 80-line
+  increase is the explicit typed adapter/controller surface, not duplicated
+  page markup. Aggregate authored duplication decreased from 16,169 / 4.9021778%
+  (329,833 scanned lines; 1,321 groups) to 16,079 / 4.8737091% (329,913 lines;
+  1,318 groups).
+
+  Four characterization tests passed against the pre-refactor page and again
+  after extraction, covering club/team/mini-league branches, active/trash
+  variants, photo/file actions and confirmations, loading/empty states, cache
+  scopes, storage projection, and the Supabase/ICP page boundary. Supabase
+  repository calls, permission scopes, mutations, and provider-specific page
+  behavior remain in the page adapter. Mini-league remains photo-only with
+  disabled file actions; its semantics were not merged with club/team views.
+  Messages self-duplication (Phase 2.4) remains untouched.
+
+  This is a maintainability-only result. The shared module is statically
+  imported and no request, subscription, render-count, cache, or interaction
+  benchmark was added, so this phase does not qualify as a runtime-performance
+  win. Product bundle measurements remain evidence of budget compliance only.
 
 ## Architectural boundaries
 

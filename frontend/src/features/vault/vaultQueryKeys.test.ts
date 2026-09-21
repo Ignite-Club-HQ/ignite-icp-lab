@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { vaultKeys } from "./vaultQueryKeys";
+import { describe, expect, it, vi } from "vitest";
+import { invalidateVaultCache, vaultKeys } from "./vaultQueryKeys";
 
 describe("vaultKeys", () => {
   it("preserves prefix keys used for broad invalidation", () => {
@@ -29,5 +29,19 @@ describe("vaultKeys", () => {
       "vault-club-teams", "club-1", false, ["team-1"], true,
     ]);
     expect(vaultKeys.trashForClub("club-1")).toEqual(["vault-trash", "club-1"]);
+  });
+});
+
+
+describe("invalidateVaultCache", () => {
+  it("invalidates only the requested broad Vault scopes", () => {
+    const invalidateQueries = vi.fn();
+
+    invalidateVaultCache({ invalidateQueries }, ["files", "trash", "storageBreakdown"]);
+
+    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ["vault-files"] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ["vault-trash"] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ["storage-breakdown"] });
   });
 });

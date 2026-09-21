@@ -36,18 +36,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getFolderColorClass } from "@/components/TeamFoldersManager";
-import { VaultFolderCard } from "@/components/vault/VaultFolderCard";
 import { VaultStorageBarRow } from "@/components/vault/VaultStorageBarRow";
 import { resolveEmptyTrashOutcome } from "@/lib/vaultTrashOutcome";
 import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
-import { HighlightedText } from "@/components/vault/HighlightedText";
 import { PhotoLightbox } from "@/components/PhotoLightbox";
 import { removePhotoFromCache } from "@/lib/mediaCache";
 import { downloadImage } from "@/lib/downloadImage";
 const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
 import { useClubTheme } from "@/hooks/useClubTheme";
-import { useSignedPhotoUrl } from "@/hooks/useSignedPhotoUrl";
 import {
   buildVaultStorageUrl,
   compensateVaultUpload,
@@ -65,12 +62,7 @@ import {
   renameVaultFolder,
   renameVaultItem,
 } from "@/features/vault/vaultMutationRepository";
-import {
-  formatVaultFileSize,
-  getVaultExternalLinkInfo,
-  isVaultDocumentFile,
-  isVaultSpreadsheetFile,
-} from "@/features/vault/vaultFilePresentation";
+import { formatVaultFileSize } from "@/features/vault/vaultFilePresentation";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -105,10 +97,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Sheet as UISheet,
-  SheetContent as UISheetContent,
-  SheetHeader as UISheetHeader,
-  SheetTitle as UISheetTitle,
 } from "@/components/ui/sheet";
 
 type FolderView = 
@@ -126,6 +114,8 @@ const DRIVE_IMPORT_ALLOWED_CLUB_IDS = new Set<string>([
 
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { VaultContentRenderer, VaultStorageTeamProjection, type ContentSectionProps, type TrashSectionProps } from "@/components/vault/VaultContentRenderer";
+import { invalidateVaultCache } from "@/features/vault/vaultQueryKeys";
 import {
   canAccessVault as resolveVaultAccess,
   getVaultAdminUpgradeInfo,
@@ -241,7 +231,7 @@ function SupabaseVaultPage() {
               ? "Tip: link a Google Drive folder so private files can be renamed too."
               : undefined,
         });
-        queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+        invalidateVaultCache(queryClient, ["files"]);
       }
     } catch (err: any) {
       console.error("resolve-drive-titles failed", err);
@@ -1134,7 +1124,7 @@ function SupabaseVaultPage() {
       searchParams.delete("success");
       setSearchParams(searchParams, { replace: true });
       queryClient.invalidateQueries({ queryKey: ["club-purchased-storage"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-clubs"] });
+      invalidateVaultCache(queryClient, ["clubs"]);
     }
   }, [searchParams, setSearchParams, queryClient]);
 
@@ -1543,7 +1533,7 @@ function SupabaseVaultPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
+      invalidateVaultCache(queryClient, ["subfolders"]);
       setNewFolderDialogOpen(false);
       setNewFolderName("");
       toast.success("Folder created!");
@@ -1558,7 +1548,7 @@ function SupabaseVaultPage() {
       await deleteVaultFolder(folderId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
+      invalidateVaultCache(queryClient, ["subfolders"]);
       setDeleteFolderId(null);
       toast.success("Folder deleted");
     },
@@ -1572,7 +1562,7 @@ function SupabaseVaultPage() {
       await renameVaultFolder(folderId, newName);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["vault-subfolders"] });
+      invalidateVaultCache(queryClient, ["subfolders"]);
       // Update folder path if renamed folder is in the path
       setFolderPath(prev => prev.map(f => f.id === variables.folderId ? { ...f, name: variables.newName } : f));
       setRenameFolderId(null);
@@ -1589,7 +1579,7 @@ function SupabaseVaultPage() {
       await renameVaultItem(fileId, newName);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["files"]);
       setRenameFileId(null);
       setRenameFileName("");
       toast.success("File renamed");
@@ -1605,7 +1595,7 @@ function SupabaseVaultPage() {
       await renameVaultItem(photoId, newName);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["files"]);
       setRenamePhotoId(null);
       setRenamePhotoName("");
       toast.success("Photo renamed");
@@ -1687,9 +1677,7 @@ function SupabaseVaultPage() {
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-clubs"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
+      invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);
       setUploadDialogOpen(false);
       // No toast for successful photo uploads
     },
@@ -1766,10 +1754,8 @@ function SupabaseVaultPage() {
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-clubs"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["club-free-usage"] });
+      invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);
+      invalidateVaultCache(queryClient, ["clubFreeUsage"]);
       setUploadDialogOpen(false);
       setFileName("");
       toast.success("File uploaded successfully!");
@@ -1804,7 +1790,7 @@ function SupabaseVaultPage() {
       if (insertError) throw insertError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["files"]);
       setAddLinkDialogOpen(false);
       toast.success("Link added successfully!");
     },
@@ -1855,8 +1841,8 @@ function SupabaseVaultPage() {
       toast.error(error.message || "Failed to delete photo");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
+      invalidateVaultCache(queryClient, ["files"]);
+      invalidateVaultCache(queryClient, ["storageBreakdown"]);
     },
   });
 
@@ -1869,8 +1855,8 @@ function SupabaseVaultPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
+      invalidateVaultCache(queryClient, ["files"]);
+      invalidateVaultCache(queryClient, ["storageBreakdown"]);
       setDeleteFileId(null);
       // Silent success - no toast
     },
@@ -1889,8 +1875,7 @@ function SupabaseVaultPage() {
       return photoId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-trash"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["trash", "files"]);
       toast.success("Photo restored to original location");
     },
     onError: (error: any) => {
@@ -1907,8 +1892,7 @@ function SupabaseVaultPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-trash"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["trash", "files"]);
       toast.success("File restored to original location");
     },
     onError: (error: any) => {
@@ -1947,10 +1931,7 @@ function SupabaseVaultPage() {
     },
     onSuccess: (photoId) => {
       removePhotoFromCache(photoId);
-      queryClient.invalidateQueries({ queryKey: ["vault-trash"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["photos"] });
+      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);
       toast.success("Photo permanently deleted");
     },
     onError: (error: any) => {
@@ -1967,9 +1948,7 @@ function SupabaseVaultPage() {
       if (response.error) throw new Error(response.error.message);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-trash"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
+      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown"]);
       toast.success("File permanently deleted");
     },
     onError: (error: any) => {
@@ -2021,10 +2000,7 @@ function SupabaseVaultPage() {
 
 
       // Always refresh so remaining (failed) items stay visible and counts are accurate
-      queryClient.invalidateQueries({ queryKey: ["vault-trash"] });
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["photos"] });
+      invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);
 
       // Exactly one toast; never a success message when any item failed
       const outcome = resolveEmptyTrashOutcome({ succeededCount, failedCount });
@@ -2056,7 +2032,7 @@ function SupabaseVaultPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+      invalidateVaultCache(queryClient, ["files"]);
       setMoveFileDialogOpen(false);
       setFileToMove(null);
       toast.success("File moved successfully");
@@ -2103,9 +2079,7 @@ function SupabaseVaultPage() {
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-      queryClient.invalidateQueries({ queryKey: ["photos"] });
-      queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
+      invalidateVaultCache(queryClient, ["files", "photos", "storageBreakdown"]);
 
       if (errorCount === 0) {
         toast.success(`Moved ${deletedCount} items to trash`);
@@ -2232,9 +2206,9 @@ function SupabaseVaultPage() {
       const { outcome, message } = buildVaultDeleteMessage(summary, formatStorageSize);
 
       if (summary.deletedCount > 0) {
-        queryClient.invalidateQueries({ queryKey: ["vault-files"] });
-        queryClient.invalidateQueries({ queryKey: ["storage-breakdown"] });
-        queryClient.invalidateQueries({ queryKey: ["photos"] });
+        invalidateVaultCache(queryClient, ["files"]);
+        invalidateVaultCache(queryClient, ["storageBreakdown"]);
+        invalidateVaultCache(queryClient, ["photos"]);
       }
 
       // Failed items stay selected so the user can retry; successes are cleared.
@@ -3078,6 +3052,64 @@ function SupabaseVaultPage() {
     );
   }
 
+  const contentRendererProps: ContentSectionProps = {
+    searchQuery: normalizedSearch,
+    photos: displayPhotos || [],
+    files: displayFiles || [],
+    onPhotoClick: openLightbox,
+    canDeletePhoto,
+    canDeleteFile,
+    canRenamePhoto,
+    canRenameFile,
+    canMoveFile: canRenameFile,
+    onDeletePhoto: setDeletePhotoId,
+    onDeleteFile: setDeleteFileId,
+    onRenamePhoto: (photo) => {
+      setRenamePhotoId(photo.id);
+      setRenamePhotoName(photo.title || "");
+    },
+    onRenameFile: (file) => {
+      setRenameFileId(file.id);
+      setRenameFileName(file.name);
+    },
+    onMoveFile: (file) => {
+      setFileToMove({ id: file.id, name: file.name, folder_id: file.folder_id, team_id: file.team_id });
+      setMoveFileDialogOpen(true);
+    },
+    onDownloadPhoto: downloadPhotoFile,
+    selectionMode,
+    selectedPhotos,
+    selectedFiles,
+    onTogglePhotoSelection: togglePhotoSelection,
+    onToggleFileSelection: toggleFileSelection,
+  };
+
+  const miniLeagueContentRendererProps: ContentSectionProps = {
+    ...contentRendererProps,
+    files: [],
+    canDeleteFile: () => false,
+    canRenameFile: () => false,
+    onDeleteFile: () => undefined,
+    onRenameFile: () => undefined,
+    onMoveFile: undefined,
+  };
+
+  const trashRendererProps: TrashSectionProps = {
+    photos: trashItems?.photos || [],
+    files: trashItems?.files || [],
+    isLoading: isLoadingTrash,
+    onRestorePhoto: (id) => { setRestoreItemType("photo"); setRestoreItemId(id); },
+    onRestoreFile: (id) => { setRestoreItemType("file"); setRestoreItemId(id); },
+    onPermanentDeletePhoto: isClubAdmin ? setDeletePhotoId : undefined,
+    onPermanentDeleteFile: isClubAdmin ? setDeleteFileId : undefined,
+    onEmptyTrash: isClubAdmin ? emptyTrash : undefined,
+    isEmptyingTrash,
+  };
+
+  const contentRendererView = showTrash
+    ? { mode: "trash" as const, trash: trashRendererProps }
+    : { mode: "content" as const, content: contentRendererProps };
+
   return (
     <div className={currentView.type === "root" ? "py-6 space-y-6" : "pt-3 pb-6 space-y-4"}>
       {/* Header - different for root vs inner views */}
@@ -3253,42 +3285,11 @@ function SupabaseVaultPage() {
                       </Suspense>
                     )}
                     
-                    {/* Storage breakdown by team */}
-                    {currentView.type === "club" && storageBreakdown?.byTeam && storageBreakdown.byTeam.length > 0 && (
-                      <Collapsible className="pt-3 border-t">
-                        <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground hover:text-foreground transition-colors group">
-                          <span>Storage by Team</span>
-                          <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]:rotate-180" />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-2 space-y-2">
-                          {storageBreakdown.byTeam.slice(0, 5).map((team) => {
-                            const teamPercentageOfTotal = totalClubStorageUsed > 0 
-                              ? Math.min(100, (team.size / totalClubStorageUsed) * 100)
-                              : 0;
-                            return (
-                              <div key={team.teamId || "club"} className="space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <FolderOpen className="h-3 w-3 text-muted-foreground shrink-0" />
-                                    <span className="truncate">{team.teamName}</span>
-                                  </div>
-                                  <span className="text-muted-foreground shrink-0">
-                                    {formatStorageSize(team.size)} ({Math.round(teamPercentageOfTotal)}%)
-                                  </span>
-                                </div>
-                                <Progress 
-                                  value={teamPercentageOfTotal} 
-                                  className="h-1.5 w-full bg-white dark:bg-muted [&>div]:bg-primary"
-                                />
-                              </div>
-                            );
-                          })}
-                          {storageBreakdown.byTeam.length > 5 && (
-                            <span className="text-xs text-muted-foreground">+{storageBreakdown.byTeam.length - 5} more teams</span>
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                    <VaultStorageTeamProjection
+                      byTeam={storageBreakdown?.byTeam || []}
+                      totalStorage={totalClubStorageUsed}
+                      formatStorageSize={formatStorageSize}
+                    />
                     
                     {/* Compact action icons row */}
                     {(isClubAdmin || (totalClubStorageUsed / PRO_STORAGE_LIMIT) >= 0.8) && (
@@ -3621,7 +3622,7 @@ function SupabaseVaultPage() {
               open={googleDriveImportOpen}
               onOpenChange={setGoogleDriveImportOpen}
               onImportComplete={() => {
-                queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+                invalidateVaultCache(queryClient, ["files"]);
                 queryClient.invalidateQueries({ queryKey: ["vault-folders"] });
               }}
               targetFolderId={currentView.type === "team" || currentView.type === "mini-league" ? (currentView.folderId || null) : null}
@@ -3639,7 +3640,7 @@ function SupabaseVaultPage() {
                 clubId={currentView.clubId}
                 teamId={currentView.type === "team" ? currentView.teamId : null}
                 onChanged={() => {
-                  queryClient.invalidateQueries({ queryKey: ["vault-files"] });
+                  invalidateVaultCache(queryClient, ["files"]);
                   queryClient.invalidateQueries({ queryKey: ["vault-folders"] });
                 }}
               />
@@ -3899,183 +3900,55 @@ function SupabaseVaultPage() {
             </div>
           )}
 
-          {/* Subfolders - hide when in trash view */}
-          {!showTrash && displaySubfolders && displaySubfolders.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">Folders</h2>
-              {displaySubfolders.map((folder) => (
-                <VaultFolderCard
-                  key={folder.id}
-                  folder={folder}
-                  searchQuery={normalizedSearch}
-                  onNavigate={() => navigateToFolder({ id: folder.id, name: folder.name })}
-                  onShare={() => shareFolder(folder.id)}
-                  onExport={() => openFolderExportDialog({ id: folder.id, name: folder.name })}
-                  onRename={() => {
-                    setRenameFolderId(folder.id);
-                    setRenameFolderName(folder.name);
-                  }}
-                  onDelete={() => setDeleteFolderId(folder.id)}
-                  canEdit={canDeleteFolder(folder)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Club-level content - hide when in trash view */}
-          {!showTrash && (
-            <ContentSection 
-              searchQuery={normalizedSearch}
-              photos={displayPhotos || []} 
-              files={displayFiles || []} 
-              onPhotoClick={openLightbox}
-              canDeletePhoto={canDeletePhoto}
-              canDeleteFile={canDeleteFile}
-              canRenamePhoto={canRenamePhoto}
-              canRenameFile={canRenameFile}
-              canMoveFile={canRenameFile}
-              onDeletePhoto={setDeletePhotoId}
-              onDeleteFile={setDeleteFileId}
-              onRenamePhoto={(photo) => {
-                setRenamePhotoId(photo.id);
-                setRenamePhotoName(photo.title || "");
-              }}
-              onRenameFile={(file) => {
-                setRenameFileId(file.id);
-                setRenameFileName(file.name);
-              }}
-              onMoveFile={(file) => {
-                setFileToMove({ id: file.id, name: file.name, folder_id: file.folder_id, team_id: file.team_id });
-                setMoveFileDialogOpen(true);
-              }}
-              onDownloadPhoto={downloadPhotoFile}
-              selectionMode={selectionMode}
-              selectedPhotos={selectedPhotos}
-              selectedFiles={selectedFiles}
-              onTogglePhotoSelection={togglePhotoSelection}
-              onToggleFileSelection={toggleFileSelection}
-            />
-          )}
-
-          {/* Trash view - flat list of all deleted items */}
-          {showTrash && (
-            <TrashSection
-              photos={trashItems?.photos || []}
-              files={trashItems?.files || []}
-              isLoading={isLoadingTrash}
-              onRestorePhoto={(id) => { setRestoreItemType("photo"); setRestoreItemId(id); }}
-              onRestoreFile={(id) => { setRestoreItemType("file"); setRestoreItemId(id); }}
-              onPermanentDeletePhoto={isClubAdmin ? setDeletePhotoId : undefined}
-              onPermanentDeleteFile={isClubAdmin ? setDeleteFileId : undefined}
-              onEmptyTrash={isClubAdmin ? emptyTrash : undefined}
-              isEmptyingTrash={isEmptyingTrash}
-            />
-          )}
+          <VaultContentRenderer
+            folders={displaySubfolders || []}
+            searchQuery={normalizedSearch}
+            onNavigateToFolder={(folder) => navigateToFolder(folder)}
+            onShareFolder={(folder) => shareFolder(folder.id)}
+            onExportFolder={(folder) => openFolderExportDialog(folder)}
+            onRenameFolder={(folder) => {
+              setRenameFolderId(folder.id);
+              setRenameFolderName(folder.name);
+            }}
+            onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+            canEditFolder={canDeleteFolder}
+            {...contentRendererView}
+          />
         </div>
       )}
 
       {currentView.type === "team" && (
         <div className="space-y-6">
-          {/* Subfolders - hide when in trash view */}
-          {!showTrash && displaySubfolders && displaySubfolders.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">Folders</h2>
-              {displaySubfolders.map((folder) => (
-                <VaultFolderCard
-                  key={folder.id}
-                  folder={folder}
-                  searchQuery={normalizedSearch}
-                  onNavigate={() => navigateToFolder({ id: folder.id, name: folder.name })}
-                  onShare={() => shareFolder(folder.id)}
-                  onExport={() => openFolderExportDialog({ id: folder.id, name: folder.name })}
-                  onRename={() => {
-                    setRenameFolderId(folder.id);
-                    setRenameFolderName(folder.name);
-                  }}
-                  onDelete={() => setDeleteFolderId(folder.id)}
-                  canEdit={canDeleteFolder(folder)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Team content - hide when in trash view */}
-          {!showTrash && (
-            <ContentSection 
-              searchQuery={normalizedSearch}
-              photos={displayPhotos || []} 
-              files={displayFiles || []} 
-              onPhotoClick={openLightbox}
-              canDeletePhoto={canDeletePhoto}
-              canDeleteFile={canDeleteFile}
-              canRenamePhoto={canRenamePhoto}
-              canRenameFile={canRenameFile}
-              canMoveFile={canRenameFile}
-              onDeletePhoto={setDeletePhotoId}
-              onDeleteFile={setDeleteFileId}
-              onRenamePhoto={(photo) => {
-                setRenamePhotoId(photo.id);
-                setRenamePhotoName(photo.title || "");
-              }}
-              onRenameFile={(file) => {
-                setRenameFileId(file.id);
-                setRenameFileName(file.name);
-              }}
-              onMoveFile={(file) => {
-                setFileToMove({ id: file.id, name: file.name, folder_id: file.folder_id, team_id: file.team_id });
-                setMoveFileDialogOpen(true);
-              }}
-              onDownloadPhoto={downloadPhotoFile}
-              selectionMode={selectionMode}
-              selectedPhotos={selectedPhotos}
-              selectedFiles={selectedFiles}
-              onTogglePhotoSelection={togglePhotoSelection}
-              onToggleFileSelection={toggleFileSelection}
-            />
-          )}
-
-          {/* Trash view - flat list of all deleted items */}
-          {showTrash && (
-            <TrashSection
-              photos={trashItems?.photos || []}
-              files={trashItems?.files || []}
-              isLoading={isLoadingTrash}
-              onRestorePhoto={(id) => { setRestoreItemType("photo"); setRestoreItemId(id); }}
-              onRestoreFile={(id) => { setRestoreItemType("file"); setRestoreItemId(id); }}
-              onPermanentDeletePhoto={isClubAdmin ? setDeletePhotoId : undefined}
-              onPermanentDeleteFile={isClubAdmin ? setDeleteFileId : undefined}
-              onEmptyTrash={isClubAdmin ? emptyTrash : undefined}
-              isEmptyingTrash={isEmptyingTrash}
-            />
-          )}
+          <VaultContentRenderer
+            folders={displaySubfolders || []}
+            searchQuery={normalizedSearch}
+            onNavigateToFolder={(folder) => navigateToFolder(folder)}
+            onShareFolder={(folder) => shareFolder(folder.id)}
+            onExportFolder={(folder) => openFolderExportDialog(folder)}
+            onRenameFolder={(folder) => {
+              setRenameFolderId(folder.id);
+              setRenameFolderName(folder.name);
+            }}
+            onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+            canEditFolder={canDeleteFolder}
+            {...contentRendererView}
+          />
         </div>
       )}
 
       {currentView.type === "mini-league" && (
         <div className="space-y-6">
-          {/* Mini-league content - photos only for now */}
-          <ContentSection 
+          <VaultContentRenderer
+            folders={[]}
             searchQuery={normalizedSearch}
-            photos={displayPhotos || []} 
-            files={[]} 
-            onPhotoClick={openLightbox}
-            canDeletePhoto={canDeletePhoto}
-            canDeleteFile={() => false}
-            canRenamePhoto={canRenamePhoto}
-            canRenameFile={() => false}
-            onDeletePhoto={setDeletePhotoId}
-            onDeleteFile={() => {}}
-            onRenamePhoto={(photo) => {
-              setRenamePhotoId(photo.id);
-              setRenamePhotoName(photo.title || "");
-            }}
-            onRenameFile={() => {}}
-            onDownloadPhoto={downloadPhotoFile}
-            selectionMode={selectionMode}
-            selectedPhotos={selectedPhotos}
-            selectedFiles={selectedFiles}
-            onTogglePhotoSelection={togglePhotoSelection}
-            onToggleFileSelection={toggleFileSelection}
+            onNavigateToFolder={() => undefined}
+            onShareFolder={() => undefined}
+            onExportFolder={() => undefined}
+            onRenameFolder={() => undefined}
+            onDeleteFolder={() => undefined}
+            canEditFolder={() => false}
+            mode="content"
+            content={miniLeagueContentRendererProps}
           />
         </div>
       )}
@@ -4719,777 +4592,6 @@ function SupabaseVaultPage() {
         isMoving={moveFileMutation.isPending}
       />
       </Suspense>
-    </div>
-  );
-}
-
-// Photo item with three-dot menu for actions
-function VaultPhotoItem({
-  photo,
-  index,
-  onPhotoClick,
-  canDelete,
-  onDelete,
-  onDownload,
-  canRename,
-  onRename,
-  selectionMode = false,
-  isSelected = false,
-  onToggleSelection,
-}: {
-  photo: any;
-  index: number;
-  onPhotoClick: (index: number) => void;
-  canDelete: boolean;
-  onDelete: (id: string) => void;
-  onDownload?: (url: string, filename: string) => void;
-  canRename?: boolean;
-  onRename?: (photo: any) => void;
-  selectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelection?: (id: string) => void;
-}) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  // Use file_url or image_url (mini-league photos use image_url)
-  const rawPhotoUrl = photo.file_url || photo.image_url;
-  
-  // Get signed URL for private bucket photos
-  const { signedUrl, isLoading: isLoadingSignedUrl } = useSignedPhotoUrl(rawPhotoUrl);
-  const photoUrl = signedUrl || rawPhotoUrl;
-  
-  // If no URL is available, show error state
-  if (!rawPhotoUrl) {
-    return (
-      <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
-        <span className="text-xs text-muted-foreground">No image</span>
-      </div>
-    );
-  }
-  
-  // Show loading state while fetching signed URL or loading image
-  if (isLoadingSignedUrl || (!isLoaded && !hasError)) {
-    return (
-      <>
-        {/* Only start preloading once we have a signed URL */}
-        {!isLoadingSignedUrl && photoUrl && (
-          <img
-            src={photoUrl}
-            alt=""
-            style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
-            onLoad={() => setIsLoaded(true)}
-            onError={() => {
-              console.error('[VaultPhotoItem] Failed to load image:', photoUrl);
-              setHasError(true);
-            }}
-          />
-        )}
-        {/* Placeholder skeleton while loading */}
-        <div className="aspect-square rounded-lg bg-muted animate-pulse" />
-      </>
-    );
-  }
-  
-  // Show error state if image failed to load
-  if (hasError) {
-    return (
-      <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
-        <span className="text-xs text-muted-foreground text-center px-2">Failed to load</span>
-      </div>
-    );
-  }
-
-  const hasActions = onDownload || (canRename && onRename) || canDelete;
-
-  return (
-    <div className={`relative group ${selectionMode && isSelected ? 'ring-2 ring-primary rounded-lg' : ''}`}>
-      <img
-        src={photoUrl}
-        alt={photo.title || "Photo"}
-        className={`aspect-square object-cover rounded-lg cursor-pointer transition-opacity select-none hover:opacity-90 ${selectionMode && isSelected ? 'opacity-75' : ''}`}
-        draggable={false}
-        onContextMenu={(e) => e.preventDefault()}
-        onClick={() => selectionMode ? onToggleSelection?.(photo.id) : onPhotoClick(index)}
-      />
-      {/* Selection checkbox overlay */}
-      {selectionMode && (
-        <div 
-          className="absolute top-1.5 left-1.5 z-10"
-          onClick={(e) => { e.stopPropagation(); onToggleSelection?.(photo.id); }}
-        >
-          <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-            isSelected 
-              ? 'bg-primary border-primary text-primary-foreground' 
-              : 'bg-background/80 border-muted-foreground/50'
-          }`}>
-            {isSelected && <CheckSquare className="h-3.5 w-3.5" />}
-          </div>
-        </div>
-      )}
-      {/* Three-dot menu for actions - hide in selection mode */}
-      {!selectionMode && hasActions && (
-        <div className="absolute top-1 right-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover">
-              {onDownload && (
-                <DropdownMenuItem onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload(photoUrl, photo.title || `photo-${photo.id}.jpg`);
-                }}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </DropdownMenuItem>
-              )}
-              {canRename && onRename && (
-                <DropdownMenuItem onClick={(e) => {
-                  e.stopPropagation();
-                  onRename(photo);
-                }}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Rename
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(photo.id);
-                  }}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Helper function to download and open in external service
-function downloadAndOpenExternal(
-  fileUrl: string, 
-  fileName: string, 
-  serviceUrl: string,
-  serviceName: string,
-  instructions: string,
-  showToast: (msg: string, opts?: { description?: string }) => void
-): void {
-  // Download the file first
-  const link = document.createElement('a');
-  link.href = fileUrl;
-  link.download = fileName;
-  link.click();
-  
-  // Show toast with instructions
-  showToast("File downloaded!", {
-    description: `Opening ${serviceName}... ${instructions}`
-  });
-  
-  // Open the service after a brief delay
-  setTimeout(async () => {
-    const { safeOpenUrl } = await import("@/lib/safeOpenUrl");
-    safeOpenUrl(serviceUrl);
-  }, 500);
-}
-
-// Helper function to open a file in Google Sheets
-function openInGoogleSheets(fileUrl: string, fileName: string, showToast: (msg: string, opts?: { description?: string }) => void): void {
-  downloadAndOpenExternal(
-    fileUrl, 
-    fileName, 
-    "https://reference.invalid",
-    "Google Sheets",
-    "Use File > Import to open your downloaded file.",
-    showToast
-  );
-}
-
-// Helper function to open a file in Google Drive
-function openInGoogleDrive(fileUrl: string, fileName: string, showToast: (msg: string, opts?: { description?: string }) => void): void {
-  downloadAndOpenExternal(
-    fileUrl, 
-    fileName, 
-    "https://reference.invalid",
-    "Google Drive",
-    "Click 'New' > 'File upload' to upload your downloaded file.",
-    showToast
-  );
-}
-
-// Helper function to open a file in Dropbox
-function openInDropbox(fileUrl: string, fileName: string, showToast: (msg: string, opts?: { description?: string }) => void): void {
-  downloadAndOpenExternal(
-    fileUrl, 
-    fileName, 
-    "https://reference.invalid",
-    "Dropbox",
-    "Click 'Upload' to add your downloaded file.",
-    showToast
-  );
-}
-
-interface ContentSectionProps {
-  photos: any[];
-  files: any[];
-  onPhotoClick: (index: number) => void;
-  canDeletePhoto: (photo: any) => boolean;
-  canDeleteFile: (file: any) => boolean;
-  canRenamePhoto?: (photo: any) => boolean;
-  canRenameFile?: (file: any) => boolean;
-  canMoveFile?: (file: any) => boolean;
-  onDeletePhoto: (id: string) => void;
-  onDeleteFile: (id: string) => void;
-  onRenamePhoto?: (photo: any) => void;
-  onRenameFile?: (file: any) => void;
-  onMoveFile?: (file: any) => void;
-  onDownloadPhoto?: (url: string, filename: string) => void;
-  // Selection mode props
-  selectionMode?: boolean;
-  selectedPhotos?: Set<string>;
-  selectedFiles?: Set<string>;
-  onTogglePhotoSelection?: (id: string) => void;
-  onToggleFileSelection?: (id: string) => void;
-  // Trash mode props
-  isTrashView?: boolean;
-  onRestorePhoto?: (id: string) => void;
-  onRestoreFile?: (id: string) => void;
-  onPermanentDeletePhoto?: (id: string) => void;
-  onPermanentDeleteFile?: (id: string) => void;
-  searchQuery?: string;
-}
-
-function ContentSection({ 
-  photos, 
-  files, 
-  onPhotoClick,
-  canDeletePhoto,
-  canDeleteFile,
-  canRenamePhoto,
-  canRenameFile,
-  canMoveFile,
-  onDeletePhoto,
-  onDeleteFile,
-  onRenamePhoto,
-  onRenameFile,
-  onMoveFile,
-  onDownloadPhoto,
-  selectionMode = false,
-  selectedPhotos,
-  selectedFiles,
-  onTogglePhotoSelection,
-  onToggleFileSelection,
-  isTrashView = false,
-  onRestorePhoto,
-  onRestoreFile,
-  onPermanentDeletePhoto,
-  onPermanentDeleteFile,
-  searchQuery,
-}: ContentSectionProps) {
-  const hasContent = photos.length > 0 || files.length > 0;
-  const [actionSheetFile, setActionSheetFile] = useState<any | null>(null);
-
-  if (!hasContent) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="p-8 text-center">
-          <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">{isTrashView ? "Trash is empty" : "This folder is empty"}</p>
-          <p className="text-sm text-muted-foreground mt-1">{isTrashView ? "Deleted files will appear here" : "Upload photos or files to get started"}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {photos.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Photos ({photos.length})</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {photos.map((photo, index) => (
-              <VaultPhotoItem
-                key={photo.id}
-                photo={photo}
-                index={index}
-                onPhotoClick={selectionMode ? () => onTogglePhotoSelection?.(photo.id) : onPhotoClick}
-                canDelete={canDeletePhoto(photo)}
-                onDelete={onDeletePhoto}
-                onDownload={onDownloadPhoto}
-                canRename={canRenamePhoto?.(photo)}
-                onRename={onRenamePhoto}
-                selectionMode={selectionMode}
-                isSelected={selectedPhotos?.has(photo.id) || false}
-                onToggleSelection={onTogglePhotoSelection}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {files.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Files ({files.length})</h2>
-          <div className="space-y-2">
-            {files.map((file) => {
-              const isExternalLink = file.is_external_link;
-              const externalLinkInfo = isExternalLink ? getVaultExternalLinkInfo(file.file_url) : null;
-              
-              return (
-              <Card 
-                key={file.id} 
-                className="group cursor-pointer"
-                onClick={() => {
-                  // External links go to the browser; stored files hand off to
-                  // the native viewer so the real file name is shown.
-                  if (isExternalLink) {
-                    import("@/lib/safeOpenUrl").then(({ safeOpenUrl }) => safeOpenUrl(file.file_url));
-                  } else {
-                    import("@/lib/safeOpenFile").then(({ safeOpenFile }) =>
-                      safeOpenFile(file.file_url, {
-                        fileName: file.name || undefined,
-                        mimeType: file.file_type || undefined,
-                      }),
-                    ).catch(() => {});
-                  }
-                }}
-              >
-                <CardContent className="p-3 flex items-center gap-3">
-                  {isExternalLink && externalLinkInfo ? (
-                    <div className="p-2 rounded-lg bg-muted flex items-center justify-center text-lg">
-                      {externalLinkInfo.icon}
-                    </div>
-                  ) : (
-                    <div className={`p-2 rounded-lg ${isVaultSpreadsheetFile(file.name || '') ? 'bg-green-500/10' : 'bg-primary/10'}`}>
-                      {isVaultSpreadsheetFile(file.name || '') ? (
-                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <FileText className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      <HighlightedText text={file.name} query={searchQuery} />
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {isExternalLink && externalLinkInfo ? (
-                        <span className={externalLinkInfo.color}>{externalLinkInfo.type}</span>
-                      ) : (
-                        <>
-                          {format(new Date(file.created_at), "MMM d, yyyy")}
-                          {file.file_size ? ` • ${formatVaultFileSize(file.file_size)}` : ''}
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                      {isTrashView ? (
-                        <>
-                          {onRestoreFile && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-green-600 hover:text-green-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRestoreFile(file.id);
-                              }}
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onPermanentDeleteFile && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteFile(file.id);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActionSheetFile(file);
-                          }}
-                          aria-label="File actions"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                </CardContent>
-              </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* File actions bottom sheet */}
-      <UISheet open={!!actionSheetFile} onOpenChange={(o) => { if (!o) setActionSheetFile(null); }}>
-        <UISheetContent side="bottom" className="rounded-t-xl pb-[max(env(safe-area-inset-bottom),1rem)]">
-          {actionSheetFile && (() => {
-            const file = actionSheetFile;
-            const isExternalLink = file.is_external_link;
-            const externalLinkInfo = isExternalLink ? getVaultExternalLinkInfo(file.file_url) : null;
-            const close = () => setActionSheetFile(null);
-            const Item = ({ icon: Icon, label, onClick, destructive = false }: { icon: any; label: string; onClick: () => void; destructive?: boolean }) => (
-              <button
-                type="button"
-                onClick={() => { onClick(); close(); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm hover:bg-accent active:bg-accent transition-colors ${destructive ? 'text-destructive' : 'text-foreground'}`}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </button>
-            );
-            return (
-              <>
-                <UISheetHeader className="text-left">
-                  <UISheetTitle className="truncate">{file.name}</UISheetTitle>
-                </UISheetHeader>
-                <div className="mt-2 flex flex-col gap-1">
-                  {isExternalLink ? (
-                    <Item
-                      icon={ExternalLink}
-                      label={`Open ${externalLinkInfo?.type || 'Link'}`}
-                      onClick={() => import("@/lib/safeOpenUrl").then(({ safeOpenUrl }) => safeOpenUrl(file.file_url))}
-                    />
-                  ) : (
-                    <>
-                      <Item
-                        icon={ExternalLink}
-                        label="Open"
-                        onClick={() =>
-                          import("@/lib/safeOpenFile").then(({ safeOpenFile }) =>
-                            safeOpenFile(file.file_url, {
-                              fileName: file.name || undefined,
-                              mimeType: file.file_type || undefined,
-                            }),
-                          ).catch(() => {})
-                        }
-                      />
-                      <Item
-                        icon={Download}
-                        label="Download"
-                        onClick={async () => {
-                          const { resolveSignedUrl } = await import("@/hooks/useSignedPhotoUrl");
-                          const href = await resolveSignedUrl(file.file_url);
-                          const a = document.createElement('a');
-                          a.href = href;
-                          a.download = file.name || '';
-                          a.rel = 'noopener';
-                          a.target = '_blank';
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                        }}
-                      />
-                    </>
-                  )}
-                  {!isExternalLink && isVaultSpreadsheetFile(file.name || '') && (
-                    <Item
-                      icon={Sheet}
-                      label="Open in Google Sheets"
-                      onClick={() => openInGoogleSheets(file.file_url, file.name || 'spreadsheet', toast)}
-                    />
-                  )}
-                  {!isExternalLink && isVaultDocumentFile(file.name || '') && (
-                    <Item
-                      icon={HardDrive}
-                      label="Open in Google Drive"
-                      onClick={() => openInGoogleDrive(file.file_url, file.name || 'document', toast)}
-                    />
-                  )}
-                  {canMoveFile?.(file) && onMoveFile && (
-                    <Item icon={FolderDown} label="Move to Folder" onClick={() => onMoveFile(file)} />
-                  )}
-                  {canRenameFile?.(file) && onRenameFile && (
-                    <Item icon={Pencil} label="Rename" onClick={() => onRenameFile(file)} />
-                  )}
-                  {canDeleteFile(file) && (
-                    <Item icon={Trash2} label="Delete" destructive onClick={() => onDeleteFile(file.id)} />
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </UISheetContent>
-      </UISheet>
-    </div>
-  );
-}
-
-// Small component to render signed thumbnail for trash photos
-function TrashPhotoThumbnail({ src, alt }: { src: string; alt: string }) {
-  const { signedUrl, isLoading } = useSignedPhotoUrl(src);
-  const effectiveSrc = signedUrl || src;
-  
-  if (isLoading) {
-    return <div className="h-12 w-12 rounded-lg bg-muted animate-pulse flex-shrink-0" />;
-  }
-  
-  return (
-    <img
-      src={effectiveSrc}
-      alt={alt}
-      className="h-12 w-12 object-cover rounded-lg flex-shrink-0"
-    />
-  );
-}
-
-// Trash section component - shows all deleted items in a flat list with original location
-interface TrashSectionProps {
-  photos: any[];
-  files: any[];
-  isLoading: boolean;
-  onRestorePhoto: (id: string) => void;
-  onRestoreFile: (id: string) => void;
-  onPermanentDeletePhoto?: (id: string) => void;
-  onPermanentDeleteFile?: (id: string) => void;
-  onEmptyTrash?: () => void;
-  isEmptyingTrash?: boolean;
-}
-
-function TrashSection({
-  photos,
-  files,
-  isLoading,
-  onRestorePhoto,
-  onRestoreFile,
-  onPermanentDeletePhoto,
-  onPermanentDeleteFile,
-  onEmptyTrash,
-  isEmptyingTrash,
-}: TrashSectionProps) {
-  const hasContent = photos.length > 0 || files.length > 0;
-
-  const getLocationPath = (item: any): string => {
-    const parts: string[] = [];
-    if (item.team?.name) {
-      parts.push(item.team.name);
-    }
-    if (item.folder?.name) {
-      parts.push(item.folder.name);
-    }
-    if (parts.length === 0) {
-      return item.team_id ? "Team root" : "Club root";
-    }
-    return parts.join(" / ");
-  };
-
-  if (isLoading) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="p-8 text-center">
-          <Loader2 className="h-8 w-8 mx-auto text-muted-foreground mb-4 animate-spin" />
-          <p className="text-muted-foreground">Loading trash...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!hasContent) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="p-8 text-center">
-          <Trash2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Trash is empty</p>
-          <p className="text-sm text-muted-foreground mt-1">Deleted files will appear here for recovery</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Auto-purge notice + Empty Trash */}
-      <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
-        <p className="text-xs text-muted-foreground">
-          Items in trash are automatically deleted after 30 days.
-        </p>
-        {onEmptyTrash && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={isEmptyingTrash}
-              >
-                {isEmptyingTrash ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4 mr-1" />
-                )}
-                Empty Trash
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Empty Trash?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all {photos.length + files.length} item{photos.length + files.length !== 1 ? 's' : ''} in the trash. Files will be removed from storage and cannot be recovered.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onEmptyTrash}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Yes, empty trash
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
-
-      {photos.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Deleted Photos ({photos.length})</h2>
-          <div className="space-y-2">
-            {photos.map((photo) => (
-              <Card key={photo.id} className="group">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <TrashPhotoThumbnail src={photo.file_url} alt={photo.title || "Photo"} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{photo.title || "Untitled photo"}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <FolderOpen className="h-3 w-3" />
-                      {getLocationPath(photo)}
-                    </p>
-                    {photo.deleted_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Deleted {format(new Date(photo.deleted_at), "MMM d, yyyy")}
-                        {(() => {
-                          const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(photo.deleted_at).getTime()) / (1000 * 60 * 60 * 24)));
-                          return ` • Auto-deletes in ${daysLeft}d`;
-                        })()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestorePhoto(photo.id);
-                      }}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1" />
-                      Restore
-                    </Button>
-                    {onPermanentDeletePhoto && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPermanentDeletePhoto(photo.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {files.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Deleted Files ({files.length})</h2>
-          <div className="space-y-2">
-            {files.map((file) => (
-              <Card key={file.id} className="group">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileText className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{file.name}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <FolderOpen className="h-3 w-3" />
-                      {getLocationPath(file)}
-                    </p>
-                    {file.deleted_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Deleted {format(new Date(file.deleted_at), "MMM d, yyyy")}
-                        {file.file_size ? ` • ${formatVaultFileSize(file.file_size)}` : ''}
-                        {(() => {
-                          const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(file.deleted_at).getTime()) / (1000 * 60 * 60 * 24)));
-                          return ` • Auto-deletes in ${daysLeft}d`;
-                        })()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestoreFile(file.id);
-                      }}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1" />
-                      Restore
-                    </Button>
-                    {onPermanentDeleteFile && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPermanentDeleteFile(file.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

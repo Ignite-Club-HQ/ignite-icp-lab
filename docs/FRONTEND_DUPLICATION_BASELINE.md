@@ -406,3 +406,55 @@ introduced. The dedicated lab suite, legacy suite, quality ratchet,
 duplication ratchet, isolation check, and `git diff --check` pass. Vault and
 Messages self-duplication remain intentionally untouched for Phases 2.3 and
 2.4.
+
+## Phase 2.3 result
+
+The exact pre-refactor pinned `jscpd 5.3.0` scan used the standard
+50-token/5-line thresholds and ignore set. `src/pages/VaultPage.tsx` was 5,495
+lines. Its self-duplication comprised 22 clone groups and 412 duplicated lines.
+The directly linked Vault scope (`src/pages/VaultPage.tsx`,
+`src/components/vault`, and `src/features/vault`) contained 11,442 lines, 29
+clone groups, and 452 duplicated lines (3.9503583%). The repeated areas were
+folder/file lists, active/trash row actions and confirmations, empty/loading
+states, cache invalidation calls, and storage-by-team projection.
+
+The extraction created the typed `src/components/vault/VaultContentRenderer.tsx`
+boundary and the typed `invalidateVaultCache` helper in
+`src/features/vault/vaultQueryKeys.ts`. The renderer owns equivalent folder,
+photo, file, trash, loading/empty, row-action, and storage projection markup;
+page-owned callbacks continue to perform the provider-specific repository
+work. The four characterization tests in
+`src/pages/VaultPage.characterization.test.ts` passed before the extraction and
+again after it. The cache-key contract tests also pass.
+
+After the extraction, `VaultPage.tsx` is 4,597 lines, a raw reduction of 898
+lines. The directly linked scope is 11,522 lines, 26 clone groups, and 362
+duplicated lines (3.1418157%). The scope is 80 lines larger because the typed
+renderer and cache-controller adapters are explicit source; the page itself is
+materially smaller and the duplicated-line count decreased by 90.
+
+The aggregate exact scan changed as follows:
+
+| Measure | Before Phase 2.3 | After Phase 2.3 | Change |
+| --- | ---: | ---: | ---: |
+| Scanned lines | 329,833 | 329,913 | +80 |
+| Clone groups | 1,321 | 1,318 | -3 |
+| Duplicated lines | 16,169 | 16,079 | -90 |
+| Duplication | 4.9021778% | 4.8737091% | -0.0284687 pp |
+
+The exact after scan was reproduced with the same jscpd 5.3.0 command and
+reported 1,318 clone groups, 16,079 duplicated lines, and 4.8737091%. The
+quality ratchet's counted scope reports a different total because it applies
+its authored-ratchet filtering; that result also passes and is not substituted
+for this reproduction scan.
+
+Supabase repository calls, permission scopes, mutations, and Supabase-versus-
+ICP page behavior remain separate. Mini-league remains photo-only with file
+actions disabled, rather than being merged with club/team semantics. Messages
+self-duplication remains intentionally untouched for Phase 2.4.
+
+This phase qualifies as a maintainability/bloat reduction only. The shared
+module is statically imported and no request, subscription, render-count,
+cache-invalidation, loading, or interaction benchmark was measured. Product
+bundle output is reported only as budget-compliance evidence, not as a runtime
+performance improvement.

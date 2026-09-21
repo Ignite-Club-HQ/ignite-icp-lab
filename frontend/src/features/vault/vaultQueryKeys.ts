@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import type { VaultFolderView } from "./types";
 
 export const vaultKeys = {
@@ -82,3 +83,34 @@ export const vaultKeys = {
   photos: () => ["photos"] as const,
   clubFreeUsage: () => ["club-free-usage"] as const,
 };
+
+
+export type VaultCacheScope =
+  | "clubs"
+  | "files"
+  | "folders"
+  | "subfolders"
+  | "trash"
+  | "storageBreakdown"
+  | "photos"
+  | "clubFreeUsage";
+
+const vaultInvalidationKeys: Record<VaultCacheScope, readonly string[]> = {
+  clubs: vaultKeys.clubs(),
+  files: vaultKeys.files(),
+  folders: vaultKeys.folders(),
+  subfolders: vaultKeys.subfolders(),
+  trash: vaultKeys.trash(),
+  storageBreakdown: vaultKeys.storageBreakdown(),
+  photos: vaultKeys.photos(),
+  clubFreeUsage: vaultKeys.clubFreeUsage(),
+};
+
+export function invalidateVaultCache(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  scopes: readonly VaultCacheScope[],
+): void {
+  for (const scope of scopes) {
+    void queryClient.invalidateQueries({ queryKey: vaultInvalidationKeys[scope] });
+  }
+}
