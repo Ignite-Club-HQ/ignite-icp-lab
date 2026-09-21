@@ -1,25 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2, Shield, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +16,18 @@ import { connectLocalIdentityAccessClient } from "@/lab/localIdentityAccess";
 import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
 import { IcpLabRoleRosterView } from "@/features/membership/IcpLabRoleRosterView";
 import { groupRoleRowsByUser } from "@/features/membership/roleRoster";
+import {
+  RoleManagementHeader,
+  RoleManagementTabs,
+  RolePageLoading,
+  RoleRosterEmpty,
+  RoleRosterLoading,
+} from "@/components/membership/RoleManagementShell";
+import { RoleMemberCard } from "@/components/membership/RoleMemberCard";
+import {
+  roleMutationFeedback,
+  roleRequestErrorFeedback,
+} from "@/features/membership/roleMutationFeedback";
 
 const roleColors: Record<AppRole, string> = {
   app_admin: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -199,7 +195,7 @@ function SupabaseManageRolesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["club-roles", clubId] });
-      toast({ title: "Role removed" });
+      toast(roleMutationFeedback.removed);
     },
   });
 
@@ -216,25 +212,15 @@ function SupabaseManageRolesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["club-role-requests", clubId] });
       queryClient.invalidateQueries({ queryKey: ["club-roles", clubId] });
-      toast({ title: "Request processed" });
+      toast(roleMutationFeedback.requestProcessed);
     },
     onError: (error: Error) => {
-      const msg = error.message?.toLowerCase() || "";
-      if (msg.includes("not authorized")) {
-        toast({ title: "Permission denied", description: "You don't have permission to manage join requests. Only club admins can approve or deny requests.", variant: "destructive" });
-      } else {
-        toast({ title: "Something went wrong", description: "Failed to process the request. Please try again.", variant: "destructive" });
-      }
+      toast(roleRequestErrorFeedback("club", error));
     },
   });
 
   if (loadingClub) {
-    return (
-      <div className="py-6 space-y-4">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
+    return <RolePageLoading />;
   }
 
   if (!club) {
@@ -250,32 +236,12 @@ function SupabaseManageRolesPage() {
 
   return (
     <div className="py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-xl font-bold">Manage Roles</h1>
-          <p className="text-sm text-muted-foreground">{club.name}</p>
-        </div>
-      </div>
-
-      <Tabs defaultValue="members">
-        <TabsList className="w-full">
-          <TabsTrigger value="members" className="flex-1">Members</TabsTrigger>
-          <TabsTrigger value="requests" className="flex-1 relative">
-            Requests
-            {requests && requests.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold flex items-center justify-center text-destructive-foreground">
-                {requests.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="members" className="mt-4 space-y-4">
-          <div className="relative">
+      <RoleManagementHeader subtitle={club.name} onBack={() => navigate(-1)} />
+      <RoleManagementTabs
+        requestCount={requests?.length ?? 0}
+        members={
+          <>
+            <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
@@ -283,36 +249,21 @@ function SupabaseManageRolesPage() {
               placeholder="Search members..."
               className="pl-9"
             />
-          </div>
-          {loadingRoles ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
             </div>
+          {loadingRoles ? (
+            <RoleRosterLoading />
           ) : filteredUserEntries.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">{q ? "No members match your search" : "No members yet"}</p>
-              </CardContent>
-            </Card>
+            <RoleRosterEmpty message={q ? "No members match your search" : "No members yet"} />
           ) : (
             <>
             {filteredUserEntries.slice(0, displayCount).map(([userId, { profile, roles: userRoleList }]) => (
-              <Card key={userId}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={profile?.avatar_url || undefined} />
-                      <AvatarFallback>{profile?.display_name?.charAt(0) || "?"}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{profile?.display_name}</p>
-                      {userId === user?.id && (
-                        <p className="text-xs text-muted-foreground">You</p>
-                      )}
-                    </div>
+              <RoleMemberCard
+                key={userId}
+                userId={userId}
+                displayName={profile?.display_name}
+                avatarUrl={profile?.avatar_url}
+                isCurrentUser={userId === user?.id}
+                headerAction={
                     <AddClubRoleToMemberDialog
                       userId={userId}
                       userName={profile?.display_name || "User"}
@@ -320,54 +271,29 @@ function SupabaseManageRolesPage() {
                       clubName={club?.name || ""}
                       existingRoles={userRoleList}
                     />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {userRoleList.map((role) => {
-                      const scopeName = role.teams?.name || (role.club_id ? club?.name : undefined);
-                      return (
-                      <div key={role.id} className="flex items-center gap-1">
-                        <Badge className={`border ${roleColors[role.role as AppRole]}`} variant="outline">
-                          {roleLabels[role.role as AppRole]}
-                          {scopeName && ` • ${scopeName}`}
-                        </Badge>
-                        {/* Can't remove own admin role */}
-                        {!(userId === user?.id && (role.role === "club_admin" || role.role === "team_admin")) && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6">
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Role?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Remove {roleLabels[role.role as AppRole]} role from {profile?.display_name}?
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => deleteRoleMutation.mutate({ 
-                                    roleId: role.id, 
-                                    userId, 
-                                    roleName: roleLabels[role.role as AppRole],
-                                    userName: profile?.display_name || "User"
-                                  })}
-                                  className="bg-destructive text-destructive-foreground"
-                                >
-                                  Remove
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </div>
-                    );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                }
+                roles={userRoleList.map((role) => ({
+                  id: role.id,
+                  label: roleLabels[role.role as AppRole],
+                  className: `border ${roleColors[role.role as AppRole]}`,
+                  variant: "outline" as const,
+                  scopeName: role.teams?.name || (role.club_id ? club.name : undefined),
+                  removal:
+                    userId === user?.id &&
+                    (role.role === "club_admin" || role.role === "team_admin")
+                      ? undefined
+                      : {
+                          description: `Remove ${roleLabels[role.role as AppRole]} role from ${profile?.display_name}?`,
+                          onConfirm: () =>
+                            deleteRoleMutation.mutate({
+                              roleId: role.id,
+                              userId,
+                              roleName: roleLabels[role.role as AppRole],
+                              userName: profile?.display_name || "User",
+                            }),
+                        },
+                }))}
+              />
             ))}
             {filteredUserEntries.length > displayCount && (
               <Button 
@@ -380,17 +306,17 @@ function SupabaseManageRolesPage() {
             )}
             </>
           )}
-        </TabsContent>
-
-        <TabsContent value="requests" className="mt-4 space-y-4">
+          </>
+        }
+        requests={
           <RoleRequestsList
             requests={requests}
             isProcessing={handleRequestMutation.isPending}
             onApprove={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: true, request })}
             onDeny={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: false, request })}
           />
-        </TabsContent>
-      </Tabs>
+        }
+      />
     </div>
   );
 }

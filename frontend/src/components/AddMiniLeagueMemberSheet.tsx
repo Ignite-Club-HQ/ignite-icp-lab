@@ -31,6 +31,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNativeKeyboardHeight } from "@/hooks/useNativeKeyboardHeight";
 import { useToast } from "@/hooks/use-toast";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import {
+  ParentInviteFields,
+  type ParentInviteSuggestion,
+} from "@/components/membership/ParentInviteFields";
 
 interface BulkPlayer {
   id: string;
@@ -730,84 +734,52 @@ export function AddMiniLeagueMemberSheet({ miniLeagueId, miniLeagueName, clubId,
                               </select>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="space-y-2 relative">
-                                <Label htmlFor={`mini-league-parent-name-${player.id}`}>Parent name</Label>
-                                <Input
-                                  id={`mini-league-parent-name-${player.id}`}
-                                  placeholder="Search by name or email, or type new"
-                                  value={player.parentName}
-                                  onFocus={(event) => {
-                                    setActiveSearch({ rowId: player.id, field: "parentName" });
-                                    setParentQuery(player.parentName);
-                                    keepFocusedInputVisible(event.currentTarget);
-                                  }}
-                                  onBlur={(event) => {
-                                    if (focusedInputRef.current === event.currentTarget) focusedInputRef.current = null;
-                                    setTimeout(() => setActiveSearch((s) => s?.rowId === player.id && s.field === "parentName" ? null : s), 150);
-                                  }}
-                                  onChange={(event) => {
-                                    updatePlayer(player.id, { parentName: event.target.value, existingParentUserId: undefined });
-                                    setParentQuery(event.target.value);
-                                  }}
-                                />
-                                {player.existingParentUserId ? (
-                                  <p className="text-xs text-primary flex items-center gap-1">
-                                    <Check className="h-3 w-3" /> Linked to existing parent
-                                  </p>
-                                ) : player.parentName.trim().length > 0 ? (
-                                  <p className="text-xs text-muted-foreground">
-                                    Not on the app yet — enter their email below to send an invite.
-                                  </p>
-                                ) : null}
-                                {activeSearch?.rowId === player.id && activeSearch.field === "parentName" && !player.existingParentUserId && player.parentName.trim().length >= 2 && (
-                                  <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg border bg-muted/30 p-2">
-                                    {activeParentSuggestions.length > 0 ? activeParentSuggestions.map((p) => (
-                                      <button
-                                        key={p.id}
-                                        type="button"
-                                        className="w-full text-left p-2 rounded-lg hover:bg-background transition-colors text-sm"
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          updatePlayer(player.id, {
-                                            parentName: p.display_name || "",
-                                            existingParentUserId: p.id,
-                                            parentEmail: "",
-                                          });
-                                          setActiveSearch(null);
-                                        }}
-                                      >
-                                        <p className="font-medium">{p.display_name || "Unknown"}</p>
-                                        {p.roles && p.roles.length > 0 && (
-                                          <p className="text-xs text-muted-foreground capitalize">{p.roles.join(" · ")}</p>
-                                        )}
-                                        {p.masked_email && <p className="text-xs text-muted-foreground">{p.masked_email}</p>}
-                                      </button>
-                                    )) : (
-                                      <p className="px-2 py-1 text-xs text-muted-foreground">No existing parents found — keep typing to add manually</p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`mini-league-parent-email-${player.id}`}>
-                                  {player.existingParentUserId ? "Parent email" : "Parent email (required to invite)"}
-                                </Label>
-                                <Input
-                                  id={`mini-league-parent-email-${player.id}`}
-                                  type="email"
-                                  placeholder="redacted@example.invalid"
-                                  value={player.parentEmail}
-                                  disabled={!!player.existingParentUserId}
-                                  onChange={(event) => updatePlayer(player.id, { parentEmail: event.target.value })}
-                                />
-                                {!player.existingParentUserId && player.name.trim() && !player.parentEmail.trim() && (
-                                  <p className="text-xs text-destructive">
-                                    Enter the parent's email so they can be invited to the app.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                            <ParentInviteFields
+                              idPrefix={`mini-league-parent-${player.id}`}
+                              name={player.parentName}
+                              email={player.parentEmail}
+                              searchValue={player.parentName}
+                              nameLabel="Parent name"
+                              emailLabel={player.existingParentUserId ? "Parent email" : "Parent email (required to invite)"}
+                              namePlaceholder="Search by name or email, or type new"
+                              emailPlaceholder="redacted@example.invalid"
+                              suggestions={
+                                activeSearch?.rowId === player.id && activeSearch.field === "parentName" && player.parentName.trim().length >= 2
+                                  ? activeParentSuggestions.map((parent): ParentInviteSuggestion => ({
+                                      id: parent.id,
+                                      name: parent.display_name || "Unknown",
+                                      secondaryText: [
+                                        ...(parent.roles || []).map((role) => role),
+                                        parent.masked_email,
+                                      ].filter(Boolean).join(" · "),
+                                    }))
+                                  : []
+                              }
+                              selectedSuggestion={player.existingParentUserId ? {
+                                id: player.existingParentUserId,
+                                name: player.parentName,
+                              } : undefined}
+                              onNameChange={(value) => updatePlayer(player.id, { parentName: value, existingParentUserId: undefined })}
+                              onEmailChange={(value) => updatePlayer(player.id, { parentEmail: value })}
+                              onSearchChange={setParentQuery}
+                              onSelectSuggestion={(parent) => {
+                                updatePlayer(player.id, {
+                                  parentName: parent.name,
+                                  existingParentUserId: parent.id,
+                                  parentEmail: "",
+                                });
+                                setActiveSearch(null);
+                              }}
+                              onClearSelection={() => updatePlayer(player.id, { existingParentUserId: undefined, parentEmail: "" })}
+                              onFocus={(event) => {
+                                setActiveSearch({ rowId: player.id, field: "parentName" });
+                                setParentQuery(player.parentName);
+                                keepFocusedInputVisible(event.currentTarget);
+                              }}
+                              onBlur={() => setTimeout(() => setActiveSearch((s) => s?.rowId === player.id && s.field === "parentName" ? null : s), 150)}
+                              requiredMessage="Enter the parent's email so they can be invited to the app."
+                              emptyMessage="No existing parents found — keep typing to add manually"
+                            />
                           </div>
                         );
                       })}

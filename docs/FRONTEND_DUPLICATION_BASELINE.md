@@ -514,3 +514,31 @@ This phase qualifies as a maintainability/bloat reduction only. The helpers are
 statically imported and no request, subscription, render-count, cache, loading,
 or interaction benchmark was measured. Product bundle output remains budget-
 compliance evidence, not a runtime-performance improvement.
+
+## Phase 3 result
+
+The exact role and membership target scope used the pinned `jscpd 5.3.0`
+50-token/5-line thresholds and included the two role-management pages and the
+team/mini-league invite sheets. Before the consolidation it contained 5,207
+lines, 34 clone groups, and 366 duplicated lines (7.0290%).
+
+The extraction introduced focused typed modules:
+
+- `src/components/membership/RoleMemberCard.tsx`;
+- `src/components/membership/RoleManagementShell.tsx`;
+- `src/components/membership/ParentInviteFields.tsx`;
+- `src/features/membership/roleMutationFeedback.ts`.
+
+After the extraction the target scope contains 5,391 lines, 29 clone groups,
+and 299 duplicated lines (5.5463%). The complete scope is 184 lines larger
+because the adapter and presentation contracts are explicit source; the
+duplicated-line count decreases by 67 and the page/sheet files themselves are
+smaller. Club/team queries, permissions, role-removal constraints, point-reset
+behavior, cache scopes, and team-versus-mini-league invite semantics remain
+separate. Five characterization tests pass, covering those differences.
+
+Product build, bundle, quality-ratchet, isolation, duplication-ratchet, and
+`git diff --check` gates pass. The product type ratchet still reports only the
+documented unrelated diagnostics in `StartDMDialog` and `ClubDetailPage`.
+This is a maintainability and safer-change result only; no request,
+subscription, render-count, or interaction benchmark was measured.

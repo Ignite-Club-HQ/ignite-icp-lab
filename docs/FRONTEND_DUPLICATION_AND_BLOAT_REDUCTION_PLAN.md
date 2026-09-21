@@ -134,6 +134,27 @@ Passing builds or extracting a helper does not count as success unless the agree
   page line counts decreased across the four sub-phases, and aggregate authored
   duplication decreased from 16,480 lines / 4.9950% at the start of Phase 2 to
   16,017 lines / 4.8549% after Phase 2.4.
+- **Phase 3 implementation complete:** role and membership surfaces now use
+  focused typed presentation boundaries in `src/components/membership/` and
+  shared role-request feedback in
+  `src/features/membership/roleMutationFeedback.ts`. The measured role/
+  membership target scope decreased from 34 clone groups and 366 duplicated
+  lines across 5,207 lines to 29 clone groups and 299 duplicated lines across
+  5,391 lines. The explicit adapter source makes the complete scope 184 lines
+  larger, while the duplicated-line count decreases by 67 and the role pages
+  and invite sheets become smaller individually. Club/team queries,
+  permissions, role-removal constraints, point-reset behavior, cache scopes,
+  and team-versus-mini-league invite semantics remain separate. Five
+  characterization tests pass, and product build, bundle, quality, isolation,
+  duplication, and diff gates pass. This is a maintainability/safety result;
+  no runtime-performance claim is made.
+- **New Phase 4A added:** large-file decomposition and safe change boundaries
+  is now an explicit phase for `VaultPage`, `MessagesPage`, `EventDetailPage`,
+  `AutoSubPlanDialog`, and `VirtualizedChatMessageList`. It is separate from
+  duplication reduction and requires responsibility maps, boundary tests,
+  cohesive typed modules, and before/after file, bundle, request,
+  subscription, render, and interaction measurements. Static file movement
+  cannot be reported as a runtime win.
 
 ## Architectural boundaries
 
@@ -564,6 +585,50 @@ Retain small route adapters for genuine differences. Do not use a six-route swit
 
 **Phase gate:** combined chat-page lines and duplicated chat lines decrease materially while route-specific offline, optimistic, realtime, entitlement, and ICP tests remain green.
 
+## Phase 4A - large-file decomposition and safe change boundaries
+
+This phase addresses a separate problem from literal duplication: oversized
+pages and components that mix data loading, mutations, realtime orchestration,
+dialog state, and rendering in one change surface. Initial targets are the
+largest or highest-risk files identified by the baseline:
+
+- `src/pages/VaultPage.tsx`;
+- `src/pages/MessagesPage.tsx`;
+- `src/pages/EventDetailPage.tsx`;
+- `src/components/pitch/AutoSubPlanDialog.tsx`;
+- `src/components/chat/VirtualizedChatMessageList.tsx`.
+
+Work must be incremental, one route or component at a time. For each target:
+
+1. map current responsibilities, state ownership, query keys, mutation
+   boundaries, provider/ICP branches, and error paths before editing;
+2. add characterization and contract tests for the boundaries being moved;
+3. extract cohesive modules rather than arbitrary line ranges:
+   typed query/data hooks, mutation and cache adapters, realtime lifecycle,
+   dialog/command orchestration, and presentational sections or row/list
+   components;
+4. keep provider-specific Supabase/ICP behavior in explicit adapters and keep
+   authorization, optimistic updates, retries, and error handling observable;
+5. preserve route-level lazy boundaries and introduce new lazy imports only
+   when the extracted module is genuinely interaction-gated;
+6. use memoized/render-isolated subtrees only where profiling or render-count
+   evidence shows avoidable work;
+7. measure raw target-file lines, combined package lines, bundle chunks,
+   request counts, subscription counts, render counts, and interaction latency
+   before and after.
+
+The phase must not create a single page-controller replacement, broad
+boolean-prop components, hidden global state, or statically imported modules
+that are reported as runtime improvements merely because the file is smaller.
+Every extraction must have a narrow typed contract and tests that fail at the
+boundary when behavior changes.
+
+**Phase gate:** each accepted target is materially more manageable through
+cohesive responsibility boundaries and has no behavior regression. Any claimed
+runtime improvement must have measured evidence of lower route bytes, requests,
+subscriptions, renders, or interaction latency. Pure file organization is
+reported as maintainability and safety progress only.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
@@ -625,9 +690,12 @@ This phase is hygiene and final trimming. It must not be reported as the primary
 11. Chat behavior matrix and characterization tests.
 12. Chat presentation convergence.
 13. Chat controller/transport convergence pair by pair.
-14. Runtime data-fetch, subscription, render, and bundle profiling.
-15. Dead-code and dependency cleanup.
-16. Final metrics, regression suite, and vendor handover report.
+14. Large-file decomposition, beginning with Vault and Messages and then
+    proceeding by measured risk and benefit.
+15. Runtime data-fetch, subscription, render, and bundle profiling, using any
+    safe decomposition boundaries created in step 14.
+16. Dead-code and dependency cleanup.
+17. Final metrics, regression suite, and vendor handover report.
 
 ## Commit and reporting policy
 

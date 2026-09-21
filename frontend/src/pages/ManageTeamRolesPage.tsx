@@ -1,24 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2, Shield, RotateCcw, Flame } from "lucide-react";
+import { RotateCcw, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +17,18 @@ import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
 import { roleLabels, type AppRole } from "@/features/membership/rolePresentation";
 import { IcpLabRoleRosterView } from "@/features/membership/IcpLabRoleRosterView";
 import { groupRoleRowsByUser } from "@/features/membership/roleRoster";
+import {
+  RoleManagementHeader,
+  RoleManagementTabs,
+  RolePageLoading,
+  RoleRosterEmpty,
+  RoleRosterLoading,
+} from "@/components/membership/RoleManagementShell";
+import { RoleMemberCard } from "@/components/membership/RoleMemberCard";
+import {
+  roleMutationFeedback,
+  roleRequestErrorFeedback,
+} from "@/features/membership/roleMutationFeedback";
 
 type TeamRole = Extract<
   AppRole,
@@ -170,7 +167,7 @@ function SupabaseManageTeamRolesPage() {
     },
     onSuccess: () => {
       if (teamId) refreshTeamRoleChange(queryClient, teamId);
-      toast({ title: "Role removed" });
+      toast(roleMutationFeedback.removed);
     },
   });
 
@@ -209,25 +206,15 @@ function SupabaseManageTeamRolesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-role-requests", teamId] });
       if (teamId) refreshTeamRoleChange(queryClient, teamId);
-      toast({ title: "Request processed" });
+      toast(roleMutationFeedback.requestProcessed);
     },
     onError: (error: Error) => {
-      const msg = error.message?.toLowerCase() || "";
-      if (msg.includes("not authorized")) {
-        toast({ title: "Permission denied", description: "You don't have permission to manage join requests. Only team admins, coaches, and club admins can approve or deny requests.", variant: "destructive" });
-      } else {
-        toast({ title: "Something went wrong", description: "Failed to process the request. Please try again.", variant: "destructive" });
-      }
+      toast(roleRequestErrorFeedback("team", error));
     },
   });
 
   if (loadingTeam || (teamFetchStatus === "paused" && !team)) {
-    return (
-      <div className="py-6 space-y-4">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
+    return <RolePageLoading />;
   }
 
   if (!team) {
@@ -241,137 +228,84 @@ function SupabaseManageTeamRolesPage() {
 
   return (
     <div className="py-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-xl font-bold">Manage Roles</h1>
-          <p className="text-sm text-muted-foreground">{team.name}</p>
-        </div>
-      </div>
-
-      <Tabs defaultValue="members">
-        <TabsList className="w-full">
-          <TabsTrigger value="members" className="flex-1">Members</TabsTrigger>
-          <TabsTrigger value="requests" className="flex-1 relative">
-            Requests
-            {requests && requests.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold flex items-center justify-center text-destructive-foreground">
-                {requests.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="members" className="mt-4 space-y-4">
-          {loadingRoles ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
-            </div>
+      <RoleManagementHeader subtitle={team.name} onBack={() => navigate(-1)} />
+      <RoleManagementTabs
+        requestCount={requests?.length ?? 0}
+        members={
+          loadingRoles ? (
+            <RoleRosterLoading />
           ) : Object.keys(userRoles).length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No members yet</p>
-              </CardContent>
-            </Card>
+            <RoleRosterEmpty message="No members yet" />
           ) : (
             Object.entries(userRoles).map(([userId, { profile, roles: userRoleList }]) => (
-              <Card key={userId}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={profile?.avatar_url || undefined} />
-                      <AvatarFallback>{profile?.display_name?.charAt(0) || "?"}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{profile?.display_name}</p>
-                      {userId === user?.id && <p className="text-xs text-muted-foreground">You</p>}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {userRoleList.map((role) => (
-                      <div key={role.id} className="flex items-center gap-1">
-                        <Badge className={roleColors[role.role as AppRole]} variant="secondary">
-                          {roleLabels[role.role as AppRole]}
-                        </Badge>
-                        {!(userId === user?.id && role.role === "team_admin" && userRoleList.length <= 1) && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6">
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Role?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Remove {roleLabels[role.role as AppRole]} from {profile?.display_name}?
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteRoleMutation.mutate({
-                                    roleId: role.id,
-                                    userId,
-                                    roleName: roleLabels[role.role as AppRole],
-                                    userName: profile?.display_name || "User"
-                                  })}
-                                  className="bg-destructive text-destructive-foreground"
-                                >
-                                  Remove
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </div>
-                    ))}
-                    {/* Reset Points Button */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1">
-                          <RotateCcw className="h-3 w-3" />
-                          <Flame className="h-3 w-3" />
+              <RoleMemberCard
+                key={userId}
+                userId={userId}
+                displayName={profile?.display_name}
+                avatarUrl={profile?.avatar_url}
+                isCurrentUser={userId === user?.id}
+                roles={userRoleList.map((role) => ({
+                  id: role.id,
+                  label: roleLabels[role.role as AppRole],
+                  className: roleColors[role.role as TeamRole],
+                  variant: "secondary" as const,
+                  removal:
+                    userId === user?.id &&
+                    role.role === "team_admin" &&
+                    userRoleList.length <= 1
+                      ? undefined
+                      : {
+                          description: `Remove ${roleLabels[role.role as AppRole]} from ${profile?.display_name}?`,
+                          onConfirm: () =>
+                            deleteRoleMutation.mutate({
+                              roleId: role.id,
+                              userId,
+                              roleName: roleLabels[role.role as AppRole],
+                              userName: profile?.display_name || "User",
+                            }),
+                        },
+                }))}
+                footerAction={
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <RotateCcw className="h-3 w-3" />
+                        <Flame className="h-3 w-3" />
+                        Reset Points
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Points?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will reset {profile?.display_name}'s points to 0 and remove any earned rewards.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => resetPointsMutation.mutate(userId)}
+                          className="bg-destructive text-destructive-foreground"
+                        >
                           Reset Points
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Reset Points?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will reset {profile?.display_name}'s points to 0 and remove any earned rewards.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => resetPointsMutation.mutate(userId)}
-                            className="bg-destructive text-destructive-foreground"
-                          >
-                            Reset Points
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardContent>
-              </Card>
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                }
+              />
             ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="requests" className="mt-4 space-y-4">
+          )
+        }
+        requests={
           <RoleRequestsList
             requests={requests}
             isProcessing={handleRequestMutation.isPending}
             onApprove={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: true, request })}
             onDeny={(request) => handleRequestMutation.mutate({ requestId: request.id, approved: false, request })}
           />
-        </TabsContent>
-      </Tabs>
+        }
+      />
     </div>
   );
 }

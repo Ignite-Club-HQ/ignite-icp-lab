@@ -49,6 +49,10 @@ import {
   type BulkChild,
   type PendingInviteChildMatch,
 } from "@/components/members/ChildAndSecondGuardianFields";
+import {
+  ParentInviteFields,
+  type ParentInviteSuggestion,
+} from "@/components/membership/ParentInviteFields";
 
 type ExistingTeamChildRow = {
   id: string;
@@ -3053,6 +3057,16 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
             <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
               {bulkMembers.map((member, idx) => {
                 const bulkMatches = member.selectedUser ? [] : (bulkSearchMap.get(member.name.trim()) || []);
+                const secondParentSearch = (member.secondParentSearch || "").trim();
+                const secondParentSuggestions = secondParentSearch.length >= 2
+                  ? (bulkSecondParentMap.get(secondParentSearch) || [])
+                      .filter((profile) => profile.id !== member.selectedUser?.id)
+                      .map((profile): ParentInviteSuggestion => ({
+                        id: profile.id,
+                        name: profile.display_name || "Unknown",
+                        avatarUrl: profile.avatar_url,
+                      }))
+                  : [];
 
                 return (
                   <div key={member.id} className="p-3 rounded-lg border bg-muted/20 space-y-3">
@@ -3326,91 +3340,54 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
 
                   {/* Second parent/guardian for bulk parent row */}
                   {member.role === "parent" && member.children.length > 0 && (
-                    <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
-                      <span className="text-xs font-medium text-blue-600 flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        Second Parent / Guardian (Optional)
-                      </span>
-
-                      {member.selectedSecondParent ? (
-                        <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-2">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={member.selectedSecondParent.avatar_url || undefined} />
-                            <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                              {member.selectedSecondParent.display_name?.[0]?.toUpperCase() || "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <p className="text-xs font-medium">{member.selectedSecondParent.display_name}</p>
-                            <p className="text-[10px] text-muted-foreground">Existing user</p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => 
-                            setBulkMembers(bulkMembers.map(m => m.id === member.id 
-                              ? { ...m, selectedSecondParent: null, secondParentSearch: "", secondParentName: "", secondParentEmail: "" } : m))
-                          }>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Search by name or email, or type new"
-                              value={member.secondParentSearch || member.secondParentName || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setBulkMembers(bulkMembers.map(m => m.id === member.id
-                                  ? { ...m, secondParentSearch: val, secondParentName: val } : m));
-                              }}
-                              className="h-8 text-sm pl-9"
-                            />
-                          </div>
-
-                          {/* Search results for second parent */}
-                          {(() => {
-                            const spSearch = (member.secondParentSearch || "").trim();
-                            const spResults = spSearch.length >= 2 ? (bulkSecondParentMap.get(spSearch) || []) : [];
-                            const filtered = spResults.filter(u => u.id !== member.selectedUser?.id);
-                            if (filtered.length === 0) return null;
-                            return (
-                              <div className="border rounded-md overflow-hidden divide-y max-h-28 overflow-y-auto">
-                                {filtered.map((u) => (
-                                  <button
-                                    key={u.id}
-                                    type="button"
-                                    className="w-full flex items-center gap-2 p-2 hover:bg-accent/50 transition-colors text-left"
-                                    onClick={() => setBulkMembers(bulkMembers.map(m => m.id === member.id
-                                      ? { ...m, selectedSecondParent: u, secondParentName: u.display_name || "", secondParentSearch: "", secondParentEmail: "" } : m))}
-                                  >
-                                    <Avatar className="h-6 w-6">
-                                      <AvatarImage src={u.avatar_url || undefined} />
-                                      <AvatarFallback className="bg-muted text-[10px]">
-                                        {u.display_name?.[0]?.toUpperCase() || "?"}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-xs">{u.display_name}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            );
-                          })()}
-
-                          {(member.secondParentName || "").trim() && !member.selectedSecondParent && (
-                            <div className="relative">
-                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                              <Input
-                                type="email"
-                                placeholder="Guardian's email (for invite)"
-                                value={member.secondParentEmail || ""}
-                                onChange={(e) => setBulkMembers(bulkMembers.map(m => m.id === member.id
-                                  ? { ...m, secondParentEmail: e.target.value } : m))}
-                                className="h-8 text-sm pl-9"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
+                    <div className="pl-3 border-l-2 border-blue-500/30">
+                      <ParentInviteFields
+                        idPrefix={`bulk-${member.id}-second-parent`}
+                        name={member.secondParentName || ""}
+                        email={member.secondParentEmail || ""}
+                        searchValue={member.secondParentSearch || ""}
+                        nameLabel="Second Parent / Guardian (Optional)"
+                        emailLabel="Guardian email (for invite)"
+                        namePlaceholder="Search by name or email, or type new"
+                        emailPlaceholder="Guardian's email (for invite)"
+                        suggestions={secondParentSuggestions}
+                        selectedSuggestion={member.selectedSecondParent ? {
+                          id: member.selectedSecondParent.id,
+                          name: member.selectedSecondParent.display_name || "Unknown",
+                          avatarUrl: member.selectedSecondParent.avatar_url,
+                        } : undefined}
+                        onNameChange={(value) => setBulkMembers(bulkMembers.map((current) =>
+                          current.id === member.id
+                            ? { ...current, secondParentName: value, selectedSecondParent: null }
+                            : current
+                        ))}
+                        onEmailChange={(value) => setBulkMembers(bulkMembers.map((current) =>
+                          current.id === member.id ? { ...current, secondParentEmail: value } : current
+                        ))}
+                        onSearchChange={(value) => setBulkMembers(bulkMembers.map((current) =>
+                          current.id === member.id ? { ...current, secondParentSearch: value, secondParentName: value } : current
+                        ))}
+                        onSelectSuggestion={(suggestion) => setBulkMembers(bulkMembers.map((current) =>
+                          current.id === member.id
+                            ? {
+                                ...current,
+                                selectedSecondParent: {
+                                  id: suggestion.id,
+                                  display_name: suggestion.name,
+                                  avatar_url: suggestion.avatarUrl || null,
+                                },
+                                secondParentName: suggestion.name,
+                                secondParentSearch: "",
+                                secondParentEmail: "",
+                              }
+                            : current
+                        ))}
+                        onClearSelection={() => setBulkMembers(bulkMembers.map((current) =>
+                          current.id === member.id
+                            ? { ...current, selectedSecondParent: null, secondParentSearch: "", secondParentName: "", secondParentEmail: "" }
+                            : current
+                        ))}
+                      />
                     </div>
                   )}
                 </div>
