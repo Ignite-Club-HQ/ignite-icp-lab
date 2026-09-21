@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfileById } from "@/lib/profileCache";
 import { SPORT_EMOJIS, getSportEmoji, isClassModeSport } from "@/lib/sportEmojis";
-import { isCachedAppAdmin, getCachedRoles } from "@/lib/rolesCache";
+import { isCachedAppAdmin } from "@/lib/rolesCache";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const SPORTS = Object.keys(SPORT_EMOJIS);

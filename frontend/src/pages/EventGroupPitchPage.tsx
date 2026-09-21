@@ -1,10 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
 import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Users, Play, Pause, RotateCcw, Clock, Loader2, Plus, X, Check, UserPlus, Flame } from "lucide-react";
+import { ArrowLeft, Users, Loader2, Plus, X, UserPlus, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";

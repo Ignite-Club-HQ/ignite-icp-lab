@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, Navigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { Smartphone, ExternalLink } from "lucide-react";

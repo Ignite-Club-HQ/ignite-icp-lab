@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trophy, Gift, Loader2, CheckCircle2, Clock, ChevronRight, Star, Users, QrCode, Building2, Lock, Flame, HelpCircle, ChevronsUpDown } from "lucide-react";
+import { Trophy, Gift, Loader2, CheckCircle2, ChevronRight, Star, Users, QrCode, Building2, Flame, HelpCircle, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,

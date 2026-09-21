@@ -6,8 +6,6 @@ import type {
   TeamSize,
   DrawingTool,
   Goal,
-  PitchBoardState,
-  TimerState,
   MiniLeagueTeams,
 } from "./types";
 import type { PitchPosition } from "./PositionBadge";

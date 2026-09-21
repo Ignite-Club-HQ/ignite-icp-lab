@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Shield, Trash2, Search, Loader2, Users, AlertTriangle, UserPlus, UserMinus, X, Filter, History, UserX, UserCheck, Download, Mail, Flame, BarChart3 } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { ArrowLeft, Shield, Trash2, Search, Loader2, Users, AlertTriangle, UserPlus, UserMinus, X, Filter, History, UserX, Download, Mail, Flame, BarChart3 } from "lucide-react";
+import { Suspense } from "react";
 
 const UserAnalyticsTab = lazyWithRetry(() => import("@/components/admin/UserAnalyticsTab"));
 import { format } from "date-fns";
@@ -35,7 +35,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,

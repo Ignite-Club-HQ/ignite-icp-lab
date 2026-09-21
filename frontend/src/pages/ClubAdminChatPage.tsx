@@ -21,7 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Loader2, Users, Search, BarChart3, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, Users, Search, RefreshCw } from "lucide-react";
 import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";

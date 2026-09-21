@@ -22,7 +22,7 @@ import * as fixtureData from "@/lab/fixtureDataLayer";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Loader2, Crown, Lock, Flame, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Crown, Lock, Search } from "lucide-react";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -64,7 +64,7 @@ import {
   isTombstoned,
   clearReconciliationScope,
 } from "@/lib/chatMessageReconciliation";
-import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authoritativeMessageExists, dropSupersededOptimisticRow, type FailedSendContext } from "@/lib/failedSendRestore";
+import { createSendTempId, restoreFailedSendComposer, authoritativeMessageExists, dropSupersededOptimisticRow, type FailedSendContext } from "@/lib/failedSendRestore";
 
 import { MentionInput } from "@/components/chat/MentionInput";
 import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
@@ -83,7 +83,7 @@ import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSea
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
 import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
 import { DIRECT_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
-import { IGNITE_SUPPORT_USER_ID, isIgniteSupportUser } from "@/lib/systemUser";
+import { isIgniteSupportUser } from "@/lib/systemUser";
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";

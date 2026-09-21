@@ -1,5 +1,5 @@
 import type { Principal } from '@icp-sdk/core/principal';
-import type { ClubLink, ClubLinkDraft, ClubLinksService } from './ClubLinksService';
+import type { ClubLink, ClubLinksService } from './ClubLinksService';
 
 export type HybridBackend =
   | { Icp: { canister: Principal } }

@@ -11,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sparkles,
   CheckCircle2,
-  HelpCircle,
   ChevronRight,
   X,
   AlertCircle,

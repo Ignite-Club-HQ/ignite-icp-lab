@@ -22,7 +22,6 @@ import {
   isVideoUrl,
   validateVideo,
   videoMimeToExtension,
-  MAX_VIDEO_SIZE_BYTES,
 } from "@/lib/videoUtils";
 
 interface ChatImageInputProps {

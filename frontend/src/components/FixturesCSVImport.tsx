@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileText, X, AlertCircle, Download, RefreshCw, FileSpreadsheet, ChevronDown, Info } from "lucide-react";
+import { Upload, FileText, X, AlertCircle, Download, FileSpreadsheet, ChevronDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";

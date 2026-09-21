@@ -25,7 +25,6 @@ import { toast } from 'sonner';
 import { preloadMessageFromNotification } from '@/lib/notificationPreload';
 import {
   processPendingNotificationNavigation,
-  isNotificationNavigationHandled,
   peekPendingNotificationNavigation,
   setNotificationNavigator,
   clearNotificationNavigator,

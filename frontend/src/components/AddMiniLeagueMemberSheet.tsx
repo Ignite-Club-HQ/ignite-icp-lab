@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, lazy, Suspense, type CSSProperties } from "react";
+import { useState, useEffect, useRef, Suspense, type CSSProperties } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Loader2, X, Send, Plus, Upload, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { UserPlus, Loader2, X, Send, Plus, Upload, ChevronUp, Check } from "lucide-react";
 const MiniLeagueMemberCSVImportDialog = lazyWithRetry(() => import("@/components/MiniLeagueMemberCSVImportDialog").then(m => ({ default: m.MiniLeagueMemberCSVImportDialog })));
 import MiniLeagueParentJoinLinkCard from "@/components/mini-league/MiniLeagueParentJoinLinkCard";
 import { parseRecipients, looksLikeMultiRecipient } from "@/components/invite/recipientParser";

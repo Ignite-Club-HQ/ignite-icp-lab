@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Clock, MapPin } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -4,9 +4,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Sparkles, AlertCircle, CheckCircle2, CalendarClock,
-  Paperclip, HelpCircle, RefreshCw, MessageSquare, ChevronDown, ChevronUp, Pin,
-  Loader2, X,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  CalendarClock,
+  Paperclip,
+  RefreshCw,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Pin,
+  Loader2,
+  X,
 } from "lucide-react";
 import type { ChatSummaryResult, OutstandingAction, OutstandingQuestion } from "@/hooks/useChatCatchUp";
 import { normalizeQuestion } from "@/hooks/useChatCatchUp";

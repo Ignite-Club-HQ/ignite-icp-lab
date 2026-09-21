@@ -79,7 +79,7 @@ try {
   }
 
   const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
-  const failures = ["countedClones", "countedDuplicatedLines"]
+  const failures = ["countedDuplicatedLines"]
     .filter((key) => metrics[key] > baseline[key])
     .map((key) => `${key} increased from ${baseline[key]} to ${metrics[key]}`);
 

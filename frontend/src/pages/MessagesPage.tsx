@@ -5,7 +5,7 @@ import {
   conversationTypeActiveStyle,
   conversationTypeBadgeStyle,
 } from "@/features/messaging/inbox/inboxPresentation";
-import React, { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
 const StartDMDialog = lazyWithRetry(() => import("@/components/chat/StartDMDialog").then(m => ({ default: m.StartDMDialog })));
@@ -16,14 +16,14 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAllChatDrafts } from "@/hooks/useChatDraft";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, ChevronRight, Users, Trash2, Search, BellOff, ImageIcon, Lock, RefreshCw, Flame, Filter, Check, Building2, Clock, Sparkles } from "lucide-react";
+import { MessageCircle, Search, RefreshCw, Filter, Check, Building2, Clock, Sparkles } from "lucide-react";
 import { type RecapScopeRef } from "@/components/chat/GlobalChatRecapSheet";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
 import { CreateActionButton } from "@/components/CreateActionButton";
 import { ConversationAvatar } from "@/components/chat/ConversationAvatar";
 import { QueryErrorBanner } from "@/components/QueryErrorBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatTimeShort } from "@/lib/formatTimeShort";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

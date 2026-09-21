@@ -1,11 +1,22 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format, isToday, parseISO, startOfDay, nextSaturday } from "date-fns";
 import {
-  ArrowLeft, Users, Calendar as CalendarIcon, Plus, Loader2,
-  ChevronRight, Clock, MapPin, Shirt, Settings, Trophy, Target,
-  UserPlus, CalendarDays, Shield, UserRound, MessageSquare, Mail
+  ArrowLeft,
+  Users,
+  Plus,
+  Loader2,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Shirt,
+  Settings,
+  Trophy,
+  UserPlus,
+  CalendarDays,
+  MessageSquare,
+  Mail,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";

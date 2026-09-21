@@ -10,7 +10,7 @@
  * Vitest, so the signature module is tested directly and the handler's claim /
  * complete / fail control flow is reproduced faithfully in a harness.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {

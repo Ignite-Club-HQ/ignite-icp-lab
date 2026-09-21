@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { subscribeToPushNotifications, checkPushSubscription, resetPushNotifications } from "@/lib/pushNotifications";
+import { subscribeToPushNotifications, resetPushNotifications } from "@/lib/pushNotifications";
 import {
   logPush,
   generateCorrelationId,

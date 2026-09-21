@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { refreshSessionOnce } from "@/lib/refreshSessionOnce";
 import { selectCachedProfileById } from "@/lib/profileCache";
-import { cacheRoles, getCachedRoles } from "@/lib/rolesCache";
+import { cacheRoles } from "@/lib/rolesCache";
 import { cacheClubs, cacheTeams, getCachedClubs, getCachedTeams } from "@/lib/clubTeamCache";
 
 const MESSAGES_PER_PAGE = 15;

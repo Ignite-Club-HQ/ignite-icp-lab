@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Minus, Target, X, Users, Pencil, Trash2 } from "lucide-react";
+import { Plus, Minus, Target, Users, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Goal, Player, MiniLeagueTeams } from "./types";
 

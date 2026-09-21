@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Eye, MousePointer, TrendingUp } from "lucide-react";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { subDays, startOfDay } from "date-fns";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 type DateRange = "7d" | "30d" | "90d" | "all";

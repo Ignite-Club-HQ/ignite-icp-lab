@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { runZipExport, summarizeZipExport, type ZipExportItem } from "./vaultZipExport";
 import {
   summarizeVaultDeletion,

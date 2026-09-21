@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Wand2, User, Megaphone, Apple, Check, Shuffle, Layers } from "lucide-react";
+import { Loader2, Wand2, Megaphone, Apple, Check, Shuffle, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {

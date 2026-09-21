@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Reply, Clock, Megaphone, ImagePlus, Check, Loader2, Forward } from "lucide-react";
+import { Clock, Megaphone, ImagePlus, Check, Loader2, Forward } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +28,7 @@ import { MessageReadIndicator } from "./MessageReadIndicator";
 import { ReadReceiptSheet } from "./ReadReceiptSheet";
 import type { ReaderInfo } from "@/hooks/useMessageReads";
 import { useLongPressDismissGuard } from "@/hooks/useLongPressDismissGuard";
-import { hapticImpactLight, hapticSelectionTick } from "@/lib/haptics";
+import { hapticImpactLight } from "@/lib/haptics";
 import { toast } from "sonner";
 import { BlockUserDialog } from "@/components/BlockUserDialog";
 import { useBlockedUsers } from "@/hooks/useBlockedUsers";

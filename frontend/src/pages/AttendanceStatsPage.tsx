@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, Users, BarChart3, Download, Filter, Check, X, HelpCircle, Lock, Crown } from "lucide-react";
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO, isPast } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, parseISO, isPast } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

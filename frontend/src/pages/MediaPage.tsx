@@ -3,7 +3,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { cn } from "@/lib/utils";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient, onlineManager } from "@tanstack/react-query";
-import { Image, Image as ImageIcon, Lock, Crown, Plus, MessageCircle, Trash2, Loader2, Filter, X, Calendar, Flag, ShieldAlert, Eye, WifiOff } from "lucide-react";
+import { Image, Image as ImageIcon, Lock, Crown, Plus, MessageCircle, Trash2, Loader2, Filter, Flag, ShieldAlert, Eye, WifiOff } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -40,7 +40,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { toast } from "sonner";
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
-import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { formatTimeShort } from "@/lib/formatTimeShort";
 import { Link } from "react-router-dom";
 import { EmojiReactions } from "@/components/EmojiReactions";
@@ -67,7 +67,6 @@ const isNativeRuntime = () => !!(window as any).Capacitor?.isNativePlatform?.();
 
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarFallbackStyle, getAvatarInitial } from "@/lib/avatarColor";
 import { Button } from "@/components/ui/button";
-import { Reply, Clock, Check, ImagePlus, Loader2, Forward } from "lucide-react";
+import { Clock, Check, ImagePlus, Loader2, Forward } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ import { MessageReadIndicator } from "./MessageReadIndicator";
 import { ReadReceiptSheet } from "./ReadReceiptSheet";
 import type { ReaderInfo } from "@/hooks/useMessageReads";
 import { useLongPressDismissGuard } from "@/hooks/useLongPressDismissGuard";
-import { hapticImpactLight, hapticSelectionTick } from "@/lib/haptics";
+import { hapticImpactLight } from "@/lib/haptics";
 import { useSwipeToReply } from "@/hooks/useSwipeToReply";
 import { MessageActionSheet } from "@/components/chat/MessageActionSheet";
 import { ForwardMessageSheet } from "@/components/chat/ForwardMessageSheet";

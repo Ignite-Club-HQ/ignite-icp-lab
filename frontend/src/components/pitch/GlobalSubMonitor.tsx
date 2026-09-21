@@ -12,12 +12,11 @@ import { usePitchBoardNotifications } from "@/hooks/usePitchBoardNotifications";
 import type { Json } from "@/integrations/supabase/types";
 import { setSyncStatus } from "@/hooks/useSyncStatus";
 import { hasAnchoredTimerMarker } from "@/lib/serverTimer";
-import { getCurrentGameSeconds, getSecondsSinceUpdate, MAX_EXTRAPOLATION_SECS } from "./timerUtils";
+import { getCurrentGameSeconds, MAX_EXTRAPOLATION_SECS } from "./timerUtils";
 import { recalculateRemainingPlanTeamAware as recalculateRemainingPlan, validateAndFixRemainingPlan } from "./pitchStateUtils";
 import type { Player, SubstitutionEvent, TimerState, PitchBoardState, Goal } from "./types";
 import {
   PITCH_STATE_KEY,
-  PITCH_STATE_KEY_BASE,
   getPitchStateKey,
   PITCH_BOARD_OPEN_KEY,
   TIMER_STORAGE_KEY,
@@ -31,7 +30,7 @@ import {
   getSubTotalSeconds,
   STALE_SUB_GRACE_SECONDS,
 } from "./autoSubHelpers";
-import { acknowledgeHalftimePrompt, canShowHalftimePrompt, getHalftimePromptAckKey, hasAcknowledgedHalftimePrompt } from "./halftimePromptAck";
+import { acknowledgeHalftimePrompt, canShowHalftimePrompt, getHalftimePromptAckKey } from "./halftimePromptAck";
 
 const TIMER_STATE_KEY = TIMER_STORAGE_KEY;
 const getPitchStateKeyForTeam = getPitchStateKey;

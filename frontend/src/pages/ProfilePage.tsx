@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Flame, Trophy, Users, Settings, ChevronRight, ChevronDown, Baby, Loader2, Crown, Building2, ShieldCheck, Gift, Plus, CheckCircle2, ClipboardList, Lock, FileText, Pencil, KeyRound } from "lucide-react";
+import { LogOut, Flame, Users, Settings, ChevronRight, ChevronDown, Baby, Loader2, Crown, Building2, ShieldCheck, Plus, Lock, Pencil, KeyRound } from "lucide-react";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClubSeasons } from "@/hooks/useClubSeasons";
@@ -15,7 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isPast, parseISO } from "date-fns";
+import { isPast, parseISO } from "date-fns";
 import RewardRedemptionCard from "@/components/RewardRedemptionCard";
 import { ProfileTeamHistory } from "@/components/profile/ProfileTeamHistory";
 import { PointsActivityFeed, type PointsActivityItem } from "@/components/profile/PointsActivityFeed";

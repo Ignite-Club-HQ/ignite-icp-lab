@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
-import { HardDrive, Folder, FileText, Image, Loader2, ChevronRight, ChevronLeft, Check, ArrowLeft, X, RefreshCw, UserCircle } from "lucide-react";
+import { HardDrive, Folder, FileText, Image, Loader2, ChevronRight, Check, ArrowLeft, RefreshCw, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -13,7 +13,6 @@ import {
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-  ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 
 interface DriveFile {

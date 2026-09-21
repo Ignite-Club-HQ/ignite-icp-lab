@@ -2,7 +2,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { recordPointsHistory, type PointsSourceType } from "@/lib/pointsHistory";
 import { checkRewardThreshold } from "@/lib/rewardThresholdCheck";
 import {
-  buildEngagementNotification,
   checkLeaderboardPosition,
   checkEngagementStreak,
   checkRewardProximity,

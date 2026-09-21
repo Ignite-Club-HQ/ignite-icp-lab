@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { Loader2, Search, MessageSquare, ImageIcon, Forward } from "lucide-react";
+import { Loader2, Search, MessageSquare, Forward } from "lucide-react";
 import {
   useForwardDestinations,
   useForwardMessageMutation,

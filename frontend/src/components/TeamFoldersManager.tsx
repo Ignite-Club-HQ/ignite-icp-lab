@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Folder, Plus, Pencil, Trash2, GripVertical, FolderPlus, Loader2 } from "lucide-react";
+import { Folder, Plus, Pencil, Trash2, GripVertical, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

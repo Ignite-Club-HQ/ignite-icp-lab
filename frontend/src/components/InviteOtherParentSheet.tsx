@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Send, UserPlus, Mail, User, CheckCircle2, Share2, Copy, Search } from "lucide-react";
+import { Loader2, Send, UserPlus, Mail, CheckCircle2, Share2, Copy, Search } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { Button } from "@/components/ui/button";

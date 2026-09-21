@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Loader2, UserMinus, Clock, CalendarDays, Download } from "lucide-react";
+import { Loader2, UserMinus, Clock, CalendarDays, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

@@ -2,20 +2,34 @@ import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { 
-  Pencil, Eraser, Trash2, MoveRight, Save, FolderOpen, Loader2, 
-  ZoomIn, ZoomOut, RotateCcw, RefreshCw, Users, Settings2, List, 
-  Clock, Calendar, BarChart3, Pause, Play, X, ChevronDown, ChevronUp, ChevronLeft,
-  Palette, Timer, PenTool, Eye, Database, GripHorizontal, Undo2, ArrowLeftRight,
-  Target, Link2, Link2Off
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  Pencil,
+  Eraser,
+  Trash2,
+  MoveRight,
+  RefreshCw,
+  Settings2,
+  List,
+  Calendar,
+  BarChart3,
+  Pause,
+  Play,
+  X,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  Timer,
+  PenTool,
+  Undo2,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GameTimer, { GameTimerRef } from "./GameTimer";

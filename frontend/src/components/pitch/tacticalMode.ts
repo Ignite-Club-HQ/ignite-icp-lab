@@ -1,5 +1,5 @@
 import { PitchPosition } from "./PositionBadge";
-import { TeamSize, Player, FORMATIONS } from "./types";
+import { TeamSize, Player } from "./types";
 
 /**
  * Recommended formation indices per team size for each tactical mode.

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Gift, Loader2, CheckCircle, QrCode } from "lucide-react";
+import { Loader2, CheckCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,

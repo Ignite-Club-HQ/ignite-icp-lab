@@ -1,7 +1,7 @@
 import type { Principal } from '@icp-sdk/core/principal';
 import type { _SERVICE } from './bindings/declarations/club_links.did.js';
 import { createIcpClubLinksService } from './icpClubLinksService';
-import type { ClubLink, ClubLinkDraft, ClubLinksService } from './ClubLinksService';
+import type { ClubLink, ClubLinksService } from './ClubLinksService';
 
 type Route = { club_id: string; revision: bigint; shard: Principal };
 type Router = { get_route(club: string): Promise<{ Ok: [] | [Route] } | { Err: string }> };

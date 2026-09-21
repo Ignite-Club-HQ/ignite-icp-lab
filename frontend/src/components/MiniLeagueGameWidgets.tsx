@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, Suspense } from "react";
 import { getCurrentGameSeconds } from "@/components/pitch/timerUtils";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Timer, Play, Pause, ExternalLink, Users, LayoutGrid, ChevronDown, ChevronUp } from "lucide-react";
+import { Timer, ExternalLink, LayoutGrid, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";

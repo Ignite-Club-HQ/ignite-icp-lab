@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect, Suspense } from "react";
 import { useChatLoadingLatch } from "@/hooks/useChatLoadingLatch";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
@@ -36,14 +36,14 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
-import { ensureFreshSession, isAuthLikeError } from "@/lib/ensureFreshSession";
+import { ensureFreshSession } from "@/lib/ensureFreshSession";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { MentionInput } from "@/components/chat/MentionInput";
 import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
 import { canPostInCompetitionChat, competitionChatSublabel } from "@/features/competitions/competitionChatScope";
 
-import { ArrowLeft, Send, MoreVertical, Pencil, Trash2, Reply, SmilePlus, Loader2, Clock, Users, Search, UserPlus, ChevronRight, Lock } from "lucide-react";
+import { ArrowLeft, Search, UserPlus, ChevronRight, Lock } from "lucide-react";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
 import { ChatHeaderShell } from "@/components/chat/ChatHeaderShell";
@@ -105,7 +105,7 @@ import { MessageContent } from "@/components/chat/MessageContent";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, isSameDay } from "date-fns";
+import { isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
@@ -114,7 +114,7 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { MessageReadAvatars } from "@/components/chat/MessageReadAvatars";
 import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
-import { getCachedMessages, cacheMessages, addMessageToCache, shouldRefetchMessages, removeMessageFromCache } from "@/lib/messageCache";
+import { getCachedMessages, cacheMessages, shouldRefetchMessages, removeMessageFromCache } from "@/lib/messageCache";
 import {
   classifyChatThreadState,
   nextEmptyRetryDelay,
@@ -125,7 +125,7 @@ import { consumeFromNotificationFlag } from "@/lib/notificationPreload";
 import { logChatOpenLatency } from "@/lib/chatOpenLatency";
 import { useChatPerfMarks, markChatFetch } from "@/hooks/useChatPerfMarks";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { queueMessage, getQueuedMessagesForTarget } from "@/lib/messageQueue";
+import { queueMessage } from "@/lib/messageQueue";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";

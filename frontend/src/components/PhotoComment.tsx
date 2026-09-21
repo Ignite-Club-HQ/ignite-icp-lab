@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2, Check, X, Reply, ShieldAlert, Flag } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { formatTimeShort } from "@/lib/formatTimeShort";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,5 @@
 import { memo } from "react";
 import type {
-  Annotation,
   ArrowGeometry,
   DrillFrame,
   StepMarkerGeometry,

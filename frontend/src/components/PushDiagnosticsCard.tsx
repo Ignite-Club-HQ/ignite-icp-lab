@@ -19,10 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  getPushDiagnostics, 
-  getPlatformInfo, 
-  getRecentLogs,
+import {
+  getPushDiagnostics,
+  getPlatformInfo,
   clearLogs,
   type PushDiagnostics,
   type PlatformInfo,

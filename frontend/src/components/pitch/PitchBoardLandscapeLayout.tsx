@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { createPortal } from "react-dom";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar } from "@capacitor/status-bar";
@@ -14,11 +14,11 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Eraser, Trash2, ArrowLeft, RotateCcw, MoveRight, Save, FolderOpen, Loader2, ZoomIn, ZoomOut, X, RefreshCw, Users, Settings2, List, Clock, Calendar, BarChart3, Pause, Play, ChevronUp, ChevronLeft, ChevronRight, ChevronDown, Eye, ArrowLeftRight, Undo2, Flame, Shield, Circle, Swords, Pin, Link2, Link2Off, Settings, UserCog, ClipboardList, Check, UserPlus } from "lucide-react";
+import { Pencil, Eraser, Trash2, ArrowLeft, RotateCcw, MoveRight, Loader2, X, Users, Settings2, BarChart3, Play, Eye, ArrowLeftRight, Undo2, Flame, Shield, Circle, Swords, Pin, Link2, Link2Off, Settings, UserCog, ClipboardList, Check, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlayerToken from "./PlayerToken";
 import SoccerBall from "./SoccerBall";
-import GameTimer, { GameTimerRef, playSubAlertBeep } from "./GameTimer";
+import GameTimer from "./GameTimer";
 import PitchToolbar from "./PitchToolbar";
 import { EventLinkSelector } from "./EventLinkSelector";
 import { LinkedEventHeader } from "./LinkedEventHeader";
@@ -64,24 +64,7 @@ import { useEventGoingAttendees } from "@/hooks/useEventGoingAttendees";
 import { hapticImpactMedium, hapticImpactLight } from "@/lib/haptics";
 
 // Import types and utils from extracted files
-import { 
-  Player, 
-  SubstitutionEvent, 
-  TeamSize, 
-  DrawingTool,
-  Goal,
-  FORMATIONS,
-  getPositionFromCoords,
-  getSpecificPositionLabel,
-  PITCH_STATE_KEY,
-  PITCH_BOARD_OPEN_KEY,
-  PITCH_BOARD_OPEN_PATH_KEY,
-  PITCH_BOARD_LAST_CONTEXT_KEY,
-  TIMER_STORAGE_KEY,
-  PitchBoardState,
-  TimerState,
-  MiniLeagueTeams
-} from "./types";
+import { FORMATIONS } from "./types";
 import ScoreTracker from "./ScoreTracker";
 import {
   savePitchState,
@@ -109,7 +92,7 @@ import { usePitchBoardPlayerBootstrap } from "./hooks/usePitchBoardPlayerBootstr
 import { usePitchBoardLifecycle } from "./hooks/usePitchBoardLifecycle";
 import { usePitchBoardDrawing } from "./hooks/usePitchBoardDrawing";
 import { usePitchBoardInitialState, isSavedDefaultTeamSize } from "./hooks/usePitchBoardInitialState";
-import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
+import { TacticalMode, TACTICAL_MODE_LABELS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 
 import { Download } from "lucide-react";

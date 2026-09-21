@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect, Suspense } from "react";
 import { useChatLoadingLatch } from "@/hooks/useChatLoadingLatch";
 import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
 import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
@@ -24,7 +24,7 @@ import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Send, Loader2, Search, UserPlus, ChevronRight } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
 import { SecureAvatar } from "@/components/SecureAvatar";
@@ -97,11 +97,11 @@ import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
-import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache, cacheProfiles } from "@/lib/profileCache";
+import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { queueMessage, getQueuedMessagesForTarget, type QueuedMessage } from "@/lib/messageQueue";
-import { getCachedMessages, cacheMessages, addMessageToCache, shouldRefetchMessages } from "@/lib/messageCache";
+import { queueMessage } from "@/lib/messageQueue";
+import { getCachedMessages, cacheMessages, shouldRefetchMessages } from "@/lib/messageCache";
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
 import {
   recordRealtimeMutation,

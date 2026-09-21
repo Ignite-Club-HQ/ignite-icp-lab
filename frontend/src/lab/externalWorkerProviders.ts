@@ -10,9 +10,7 @@
  */
 
 import {
-  createExternalWorkerBoundary,
   createProviderScopedDeliveryBoundary,
-  type SecretAccessDecision,
   type SecretAccessVerifier,
   type SecretAuditLogger,
 } from './externalWorkerBoundary';

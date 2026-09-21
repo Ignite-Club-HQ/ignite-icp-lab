@@ -1,14 +1,24 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { 
-  Flame, Mail, Lock, Loader2, Check, Crown, Target, 
-  Building2, Users, Camera, Ticket, ChevronLeft, ChevronRight 
+import {
+  Flame,
+  Mail,
+  Lock,
+  Loader2,
+  Check,
+  Crown,
+  Target,
+  Users,
+  Camera,
+  Ticket,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { SPORT_EMOJIS, getSportEmoji } from "@/lib/sportEmojis";
+import { SPORT_EMOJIS } from "@/lib/sportEmojis";
 const FindOrCreateClubWizard = lazyWithRetry(() => import("@/components/FindOrCreateClubWizard"));
 import { SubscriptionLegalLinks } from "@/components/SubscriptionLegalLinks";
 import { isNativePlatform } from "@/lib/nativePush";

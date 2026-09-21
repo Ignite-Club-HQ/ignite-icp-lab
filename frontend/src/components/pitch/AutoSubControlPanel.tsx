@@ -3,8 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Pause, Play, SkipForward, Lock, Unlock,
-  X, Check, Pencil, Clock, ChevronDown, ChevronUp, ArrowRightLeft
+  Pause,
+  Play,
+  Lock,
+  Unlock,
+  X,
+  Check,
+  Pencil,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Player, SubstitutionEvent } from "./types";

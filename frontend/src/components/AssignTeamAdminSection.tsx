@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Mail, User } from "lucide-react";
+import { Search, UserPlus, Mail } from "lucide-react";
 
 interface AssignTeamAdminSectionProps {
   clubId: string;

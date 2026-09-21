@@ -1,12 +1,10 @@
-import { 
-  PitchBoardState, 
-  TimerState, 
-  PITCH_STATE_KEY, 
+import {
+  PitchBoardState,
+  TimerState,
+  PITCH_STATE_KEY,
   getPitchStateKey,
-  TIMER_STORAGE_KEY,
   Player,
   SubstitutionEvent,
-  TeamSize
 } from "./types";
 import { PitchPosition } from "./PositionBadge";
 import { getCurrentGameSeconds } from "./timerUtils";

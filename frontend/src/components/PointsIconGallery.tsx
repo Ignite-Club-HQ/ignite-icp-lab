@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ImagePlus, X, Loader2 } from "lucide-react";
+import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

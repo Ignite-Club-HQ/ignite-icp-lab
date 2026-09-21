@@ -1,5 +1,5 @@
 import { useSyncStatus, SyncStatus } from "@/hooks/useSyncStatus";
-import { Cloud, CloudOff, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { CloudOff, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
