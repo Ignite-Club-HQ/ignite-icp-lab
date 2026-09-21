@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Eraser, Trash2, ArrowLeft, RotateCcw, MoveRight, Loader2, X, Users, Settings2, BarChart3, Play, Eye, ArrowLeftRight, Undo2, Flame, Shield, Circle, Swords, Pin, Link2, Link2Off, Settings, UserCog, ClipboardList, Check, UserPlus } from "lucide-react";
+import { Pencil, Eraser, Trash2, ArrowLeft, RotateCcw, MoveRight, X, Users, Settings2, BarChart3, Play, Eye, ArrowLeftRight, Undo2, Shield, Circle, Swords, Pin, Link2, Link2Off, Settings, UserCog, ClipboardList, Check, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PlayerToken from "./PlayerToken";
 import SoccerBall from "./SoccerBall";
@@ -25,22 +25,6 @@ import { LinkedEventHeader } from "./LinkedEventHeader";
 import { LandscapeEventSelector } from "./LandscapeEventSelector";
 import { PitchPosition } from "./PositionBadge";
 
-// Lazy load heavy dialog components for better initial load performance
-const AutoSubPlanDialog = lazyWithRetry(() => import("./AutoSubPlanDialog"));
-const SubstitutionPreviewDialog = lazyWithRetry(() => import("./SubstitutionPreviewDialog"));
-const BenchToSubDialog = lazyWithRetry(() => import("./BenchToSubDialog"));
-const MatchStatsPanel = lazyWithRetry(() => import("./MatchStatsPanel"));
-const PlayerPositionEditor = lazyWithRetry(() => import("./PlayerPositionEditor"));
-const PositionSwapDialog = lazyWithRetry(() => import("./PositionSwapDialog"));
-const PitchSwapConfirmDialog = lazyWithRetry(() => import("./PitchSwapConfirmDialog"));
-const ManualSubConfirmDialog = lazyWithRetry(() => import("./ManualSubConfirmDialog"));
-const FormationChangeDialog = lazyWithRetry(() => import("./FormationChangeDialog"));
-const PitchPlayerActionMenu = lazyWithRetry(() => import("./PitchPlayerActionMenu"));
-const SubConfirmDialog = lazyWithRetry(() => import("./SubConfirmDialog"));
-const AddFillInPlayerDialog = lazyWithRetry(() => import("./AddFillInPlayerDialog"));
-const AutoSubManager = lazyWithRetry(() => import("./AutoSubManager"));
-const AutoSubControlPanel = lazyWithRetry(() => import("./AutoSubControlPanel"));
-const PreGameLineupScreen = lazyWithRetry(() => import("./PreGameLineupScreen"));
 import TacticalModeSelector from "./TacticalModeSelector";
 import { useAutoSubs } from "@/hooks/useAutoSubs";
 import { usePitchSettings } from "@/hooks/usePitchSettings";
@@ -96,31 +80,25 @@ import { TacticalMode, TACTICAL_MODE_LABELS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 
 import { Download } from "lucide-react";
-const TrainingBoard = lazyWithRetry(() => import("./training/TrainingBoard"));
 
 import { usePitchBoardLayoutContext } from "./PitchBoardLayoutContext";
 import type { PitchBoardLayoutContextValue } from "./PitchBoardLayoutContext";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
-
-// Loading fallback for lazy-loaded dialogs
-const DialogLoader = () => (
-  <div className="flex items-center justify-center p-4">
-    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-  </div>
-);
-
-const PitchBoardLoading = ({ message = "Loading..." }: { message?: string }) => (
-  <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12 bg-pitch-green min-h-[300px]">
-    <div className="flex items-center gap-3">
-      <div className="p-3 rounded-xl bg-primary">
-        <Flame className="h-8 w-8 text-primary-foreground" />
-      </div>
-      <span className="text-4xl" role="img" aria-label="soccer ball">⚽</span>
-    </div>
-    <Loader2 className="h-6 w-6 animate-spin text-white" />
-    <p className="text-sm text-white/80">{message}</p>
-  </div>
-);
+import { PitchBoardBenchPlayers } from "./PitchBoardBenchPlayers";
+import { PitchBoardPositionDialogs } from "./PitchBoardPositionDialogs";
+import {
+  AutoSubControlPanel,
+  AutoSubPlanDialog,
+  DialogLoader,
+  FormationChangeDialog,
+  MatchStatsPanel,
+  ManualSubConfirmDialog,
+  PitchBoardLoading,
+  PitchPlayerActionMenu,
+  PitchSwapConfirmDialog,
+  PreGameLineupScreen,
+  SubConfirmDialog,
+  TrainingBoard,
+} from "./PitchBoardSharedPresentation";
 
 export default function PitchBoardLandscapeLayout() {
   const ctx: PitchBoardLayoutContextValue = usePitchBoardLayoutContext();
@@ -1528,87 +1506,44 @@ export default function PitchBoardLandscapeLayout() {
                       onTouchMove={handleBenchLongPressMove}
                       onTouchEnd={handleBenchLongPressEnd}
                     >
-                      {playersOnBench.length === 0 && (
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">Drag here</p>
-                      )}
-                      {subMode && selectedOnPitch && getValidBenchPlayerIds.size === 0 && playersOnBench.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          No players can fill this position
-                        </p>
-                      )}
-                      {playersOnBench
-                        .filter(player => {
-                          // Mini-league team filter
-                          if (miniLeagueTeams && selectedTeamForSettings !== "both" && player.teamSide !== selectedTeamForSettings) return false;
-                          if (subMode && selectedOnPitch) {
-                            return getValidBenchPlayerIds.has(player.id);
-                          }
-                          return !benchPositionFilter || player.assignedPositions?.includes(benchPositionFilter) || !player.assignedPositions?.length;
-                        })
-                        .map(player => (
-                          <div key={player.id} className="shrink-0">
-                            <PlayerToken
-                              player={player}
-                              onDragStart={() => !readOnly && handleDragStart(player.id)}
-                              onDragEnd={handleDragEnd}
-                             onTouchStart={(e) => {
-                               if (readOnly) return;
-                               touchHandledRef.current = true;
-                                if (subMode || swapMode) return;
-                                const now = Date.now();
-                                const last = lastTapRef.current;
-                                if (last && last.playerId === player.id && now - last.time < 400) {
-                                  lastTapRef.current = null;
-                                  e.preventDefault();
-                                  if (benchLongPressTimer.current) {
-                                    clearTimeout(benchLongPressTimer.current);
-                                    benchLongPressTimer.current = null;
-                                  }
-                                  setBenchInjuryTarget(player.id);
-                                  setBenchInjuryConfirmOpen(true);
-                                } else {
-                                  lastTapRef.current = { playerId: player.id, time: now };
-                                  handleBenchLongPressStart(player.id, e);
-                                }
-                             }}
-                             onClick={
-                               !readOnly && subMode && !player.isInjured 
-                                 ? () => { if (touchHandledRef.current) { touchHandledRef.current = false; return; } handlePlayerClick(player.id, false); }
-                                 : !readOnly && !subMode && !swapMode
-                                    ? () => {
-                                        if (touchHandledRef.current) { touchHandledRef.current = false; return; }
-                                        const now = Date.now();
-                                        const last = lastTapRef.current;
-                                        if (last && last.playerId === player.id && now - last.time < 400) {
-                                          lastTapRef.current = null;
-                                          setBenchInjuryTarget(player.id);
-                                          setBenchInjuryConfirmOpen(true);
-                                        } else {
-                                          lastTapRef.current = { playerId: player.id, time: now };
-                                          // Single tap during active game: open BenchToSubDialog for quick "slot in"
-                                          if (gameInProgress && !player.isInjured && playersOnPitch.length > 0) {
-                                            setBenchToSubPlayer(player.id);
-                                            setBenchToSubOpen(true);
-                                          }
-                                        }
-                                      }
-                                   : undefined
-                             }
-                              onInjuryToggle={undefined}
-                              onRemoveFillIn={!subMode && !swapMode && player.isFillIn ? () => handleRemoveFillInPlayer(player.id) : undefined}
-                              isDragging={draggedPlayer === player.id || touchDragPlayer === player.id}
-                              isSelected={subMode && selectedOnBench === player.id}
-                              isSubTarget={subMode && selectedOnPitch !== null && selectedOnBench !== player.id && !player.isInjured}
-                              subAnimation={subAnimationPlayers.out === player.id ? "out" : null}
-                              variant="bench"
-                              readOnly={readOnly}
-                              teamColor={getPlayerTeamColor(player)}
-                              isNextSub={nextSubInfo?.playerInId === player.id}
-                              nextSubCountdown={nextSubInfo?.playerInId === player.id ? nextSubInfo.countdown : null}
-                              isSubDue={subDuePlayerIds.has(player.id)}
-                            />
-                          </div>
-                        ))}
+                      <PitchBoardBenchPlayers
+                        players={playersOnBench}
+                        playersOnPitch={playersOnPitch}
+                        miniLeagueTeams={miniLeagueTeams}
+                        selectedTeam={selectedTeamForSettings}
+                        subMode={subMode}
+                        swapMode={swapMode}
+                        selectedOnPitch={selectedOnPitch}
+                        selectedOnBench={selectedOnBench}
+                        validBenchPlayerIds={getValidBenchPlayerIds}
+                        positionFilter={benchPositionFilter}
+                        readOnly={readOnly}
+                        gameInProgress={gameInProgress}
+                        lastTapRef={lastTapRef}
+                        touchHandledRef={touchHandledRef}
+                        benchLongPressTimer={benchLongPressTimer}
+                        setBenchInjuryTarget={setBenchInjuryTarget}
+                        setBenchInjuryConfirmOpen={setBenchInjuryConfirmOpen}
+                        onBenchLongPressStart={handleBenchLongPressStart}
+                        onBenchLongPressMove={handleBenchLongPressMove}
+                        onBenchLongPressEnd={handleBenchLongPressEnd}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onPlayerClick={handlePlayerClick}
+                        onOpenBenchToSub={(playerId) => {
+                          setBenchToSubPlayer(playerId);
+                          setBenchToSubOpen(true);
+                        }}
+                        onRemoveFillInPlayer={handleRemoveFillInPlayer}
+                        getPlayerTeamColor={getPlayerTeamColor}
+                        nextSubInfo={nextSubInfo ? { playerInId: nextSubInfo.playerInId, countdown: nextSubInfo.countdown } : null}
+                        subAnimationOut={subAnimationPlayers.out}
+                        subDuePlayerIds={subDuePlayerIds}
+                        isDragging={(player) => draggedPlayer === player.id || touchDragPlayer === player.id}
+                        wrapperClassName="shrink-0"
+                        emptyMessage="Drag here"
+                        noValidPlayerMessage="No players can fill this position"
+                      />
                     </div>
                   </div>
               </div>
@@ -1654,72 +1589,41 @@ export default function PitchBoardLandscapeLayout() {
           </div>
         )}
 
-        {/* Position Editor Dialog */}
-        <PlayerPositionEditor
-          open={positionEditorOpen}
-          onOpenChange={setPositionEditorOpen}
-          players={players}
-          onUpdatePositions={handleUpdatePositions}
-        />
-
-        {/* Position Swap Dialog */}
-        <PositionSwapDialog
-          open={positionSwapDialogOpen}
-          onOpenChange={setPositionSwapDialogOpen}
-          benchPlayer={players.find(p => p.id === pendingSubBenchPlayer) || null}
-          pitchPlayers={playersOnPitch}
-          requiredPosition={requiredPosition}
-          onSwapAndSubstitute={handleSwapAndSubstitute}
-          onCancel={() => {
-            setPositionSwapDialogOpen(false);
-            setPendingSubBenchPlayer(null);
-            setRequiredPosition(null);
-          }}
-          miniLeagueTeams={miniLeagueTeams}
-        />
-
-        {/* Substitution Preview Dialog */}
-        <SubstitutionPreviewDialog
-          open={subPreviewOpen}
-          onOpenChange={(open) => {
-            setSubPreviewOpen(open);
-            if (!open) {
-              setSelectedOnPitch(null);
-              setSelectedOnBench(null);
-              setPreviewSwapPlayers({ sourceId: null, targetId: null });
-            }
-          }}
-          pitchPlayer={players.find(p => p.id === selectedOnPitch) || null}
-          benchPlayers={playersOnBench}
-          allPitchPlayers={playersOnPitch}
-          onSelectOption={handleSubPreviewSelect}
-          miniLeagueTeams={miniLeagueTeams}
-        />
-
-        {/* Bench-to-Pitch Substitution Dialog - landscape */}
-        <Suspense fallback={null}>
-          <BenchToSubDialog
-            open={benchToSubOpen}
-            onOpenChange={(open) => {
-              setBenchToSubOpen(open);
-              if (!open) setBenchToSubPlayer(null);
-            }}
-            benchPlayer={players.find(p => p.id === benchToSubPlayer) || null}
-            allPitchPlayers={playersOnPitch}
-            onSelectOption={handleBenchToSubSelect}
-            miniLeagueTeams={miniLeagueTeams}
-          />
-        </Suspense>
-
-        <Suspense fallback={null}>
-          <AddFillInPlayerDialog
-            onAddPlayer={handleAddFillInPlayer}
-            existingNumbers={players.map(p => p.number).filter((n): n is number => typeof n === 'number')}
-            hideTrigger
-            externalOpen={fillInDialogOpen}
-            onExternalOpenChange={setFillInDialogOpen}
-          />
-        </Suspense>
+        <PitchBoardPositionDialogs
+        positionEditorOpen={positionEditorOpen}
+        setPositionEditorOpen={setPositionEditorOpen}
+        players={players}
+        onUpdatePositions={handleUpdatePositions}
+        positionSwapDialogOpen={positionSwapDialogOpen}
+        setPositionSwapDialogOpen={setPositionSwapDialogOpen}
+        pendingSubBenchPlayer={pendingSubBenchPlayer}
+        playersOnPitch={playersOnPitch}
+        requiredPosition={requiredPosition}
+        onSwapAndSubstitute={handleSwapAndSubstitute}
+        onClearPositionSwap={() => {
+          setPositionSwapDialogOpen(false);
+          setPendingSubBenchPlayer(null);
+          setRequiredPosition(null);
+        }}
+        miniLeagueTeams={miniLeagueTeams}
+        subPreviewOpen={subPreviewOpen}
+        setSubPreviewOpen={setSubPreviewOpen}
+        setSelectedOnPitch={setSelectedOnPitch}
+        setSelectedOnBench={setSelectedOnBench}
+        setPreviewSwapPlayers={setPreviewSwapPlayers}
+        pitchPlayer={players.find((player) => player.id === selectedOnPitch) || null}
+        playersOnBench={playersOnBench}
+        onSelectSubstitutionOption={handleSubPreviewSelect}
+        benchToSubOpen={benchToSubOpen}
+        setBenchToSubOpen={setBenchToSubOpen}
+        benchToSubPlayer={benchToSubPlayer}
+        setBenchToSubPlayer={setBenchToSubPlayer}
+        onSelectBenchSubstitution={handleBenchToSubSelect}
+        onAddFillInPlayer={handleAddFillInPlayer}
+        existingNumbers={players.map((player) => player.number).filter((number): number is number => typeof number === "number")}
+        fillInDialogOpen={fillInDialogOpen}
+        setFillInDialogOpen={setFillInDialogOpen}
+      />
 
         {/* Formation Change Dialog */}
         <FormationChangeDialog
