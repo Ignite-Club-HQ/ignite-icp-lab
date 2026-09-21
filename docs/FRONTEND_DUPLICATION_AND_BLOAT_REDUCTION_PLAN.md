@@ -62,6 +62,75 @@ One reproducible baseline command and configuration must be used throughout the 
 
 Generated bindings, generated Supabase types, tests, build output, and intentional lab mirrors must be excluded consistently from authored-code metrics. Historical percentages must not be compared unless scanner version, options, thresholds, extensions, paths, and exclusions are identical.
 
+## Runtime performance program targets
+
+Large-file decomposition and runtime performance are separate from duplication
+reduction. Moving code into additional statically imported files may improve
+navigation and ownership, but it does not qualify as a runtime improvement.
+Runtime claims require measured loading, rendering, data-access, or dependency
+improvements.
+
+The Phase 0 product baseline is:
+
+| Measure | Phase 0 baseline | Program target |
+| --- | ---: | ---: |
+| Initial product JavaScript chunk | 1,112,736 bytes | Below 800 KB; stretch target below 700 KB |
+| Total product JavaScript | 8,878,193 bytes | Reduce by 10-20% where dependency and route splitting permit |
+| Ten largest runtime files | 3,088-5,585 lines each | Reduce each targeted file by 30-50% |
+| Ordinary route-page size | Several routes exceed 3,000 lines | Move toward a 1,500-line ceiling |
+| Ordinary presentation-component size | Several components exceed 2,000-5,000 lines | Move toward an 800-1,000-line ceiling |
+| Requests, subscriptions, renders, and cache invalidations | Not yet consistently measured | Establish per-route baselines and eliminate confirmed redundancy |
+
+The initial-chunk target must not be achieved by moving required startup code
+into another chunk that is immediately requested. The total-JavaScript target
+must not be achieved by disabling or dropping required behavior.
+
+### What qualifies as a runtime improvement
+
+- optional dialogs, editors, admin panels, exports, charts, media tooling, and
+  specialist modes load only when opened;
+- route-specific code does not enter the root dependency graph unnecessarily;
+- duplicated queries, profile hydration, subscriptions, cache entries, and
+  invalidations are consolidated;
+- expensive filtering, sorting, and projection are not repeated during
+  unrelated renders;
+- list updates rerender the smallest practical subtree;
+- provider-neutral adapters avoid loading inactive provider implementations
+  where the architecture permits;
+- bundle, request, subscription, render, or interaction measurements improve
+  against the recorded baseline.
+
+### What does not qualify
+
+- splitting one large source file into several files that are all statically
+  imported by the same route;
+- adding `useMemo`, `useCallback`, or `React.memo` without profiling evidence;
+- moving code to a barrel export that pulls the same dependency graph into the
+  initial bundle;
+- replacing a straightforward large component with a more complex generic
+  abstraction while runtime behavior remains unchanged;
+- reporting total build size as initial-load cost without distinguishing lazy
+  route chunks from startup chunks.
+
+### Runtime acceptance evidence
+
+Every large-page or performance package must record, where applicable:
+
+1. initial and affected route chunk sizes before and after;
+2. whether newly extracted modules are static or lazy boundaries;
+3. requests made during initial route load and the tested interaction;
+4. realtime subscriptions opened and closed;
+5. query-cache entries and invalidations caused by common mutations;
+6. render counts for the route shell and affected large lists;
+7. interaction latency for the targeted expensive workflow;
+8. total lines and responsibility boundaries in the original route/component;
+9. confirmation that behavior, provider selection, and lab isolation remain
+   unchanged.
+
+An extraction can be accepted for maintainability without a runtime gain, but
+it must be labelled honestly and must still reduce file size or duplication.
+It must not be counted toward the runtime targets.
+
 ## Definition of done for each work package
 
 Every package must provide:
@@ -319,6 +388,14 @@ Record before/after evidence for affected routes:
 - interaction latency where measurable.
 
 Do not introduce memoization indiscriminately. Apply it only where profiling identifies repeated expensive work or unstable identity causes meaningful rerenders.
+
+**Phase gate:** the initial product JavaScript chunk is below 800 KB, total
+product JavaScript has decreased by 10-20% where safe dependency boundaries
+exist, the targeted large runtime files have decreased by 30-50%, and each
+accepted runtime claim is supported by the applicable evidence above. Any
+target that cannot safely be met must be documented with the dependency graph,
+profile, or behavior constraint that prevents it; it must not be silently
+reclassified as complete.
 
 ## Phase 6 - dead code and dependency cleanup
 
