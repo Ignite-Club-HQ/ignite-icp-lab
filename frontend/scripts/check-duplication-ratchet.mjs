@@ -46,7 +46,21 @@ const output = mkdtempSync(join(tmpdir(), "jscpd-ratchet-"));
 try {
   const result = spawnSync(
     "npx",
-    ["jscpd", "src", "--ignore", IGNORE, "--reporters", "json", "--output", output, "--silent"],
+    [
+      "jscpd",
+      "src",
+      "--min-tokens",
+      "50",
+      "--min-lines",
+      "5",
+      "--ignore",
+      IGNORE,
+      "--reporters",
+      "json",
+      "--output",
+      output,
+      "--silent",
+    ],
     { cwd: root, encoding: "utf8" },
   );
 
