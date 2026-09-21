@@ -1542,7 +1542,9 @@ export default function PitchBoardLandscapeLayout() {
                         isDragging={(player) => draggedPlayer === player.id || touchDragPlayer === player.id}
                         wrapperClassName="shrink-0"
                         emptyMessage="Drag here"
+                        emptyMessageClassName="text-xs text-muted-foreground whitespace-nowrap"
                         noValidPlayerMessage="No players can fill this position"
+                        noValidPlayerMessageClassName="text-[10px] text-muted-foreground whitespace-nowrap"
                       />
                     </div>
                   </div>

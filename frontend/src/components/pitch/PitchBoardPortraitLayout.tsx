@@ -1141,7 +1141,9 @@ export default function PitchBoardPortraitLayout() {
                         subDuePlayerIds={subDuePlayerIds}
                         isDragging={(player) => draggedPlayer === player.id || touchDragPlayer === player.id || benchDragPlayer === player.id}
                         emptyMessage="Drag players here to substitute"
+                        emptyMessageClassName="text-xs text-muted-foreground"
                         noValidPlayerMessage="No players can fill this position"
+                        noValidPlayerMessageClassName="text-xs text-muted-foreground"
                       />
                     </div>
                   </div>

@@ -68,7 +68,9 @@ interface BenchPlayersProps {
   isDragging: (player: Player) => boolean;
   wrapperClassName?: string;
   emptyMessage: string;
+  emptyMessageClassName: string;
   noValidPlayerMessage: string;
+  noValidPlayerMessageClassName: string;
 }
 
 export function PitchBoardBenchPlayers({
@@ -104,7 +106,9 @@ export function PitchBoardBenchPlayers({
   isDragging,
   wrapperClassName,
   emptyMessage,
+  emptyMessageClassName,
   noValidPlayerMessage,
+  noValidPlayerMessageClassName,
 }: BenchPlayersProps) {
   const filteredPlayers = filterBenchPlayers({
     players,
@@ -119,10 +123,10 @@ export function PitchBoardBenchPlayers({
   return (
     <>
       {players.length === 0 && (
-        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
+        <p className={emptyMessageClassName}>{emptyMessage}</p>
       )}
       {subMode && selectedOnPitch && validBenchPlayerIds.size === 0 && players.length > 0 && (
-        <p className="text-[10px] text-muted-foreground">{noValidPlayerMessage}</p>
+        <p className={noValidPlayerMessageClassName}>{noValidPlayerMessage}</p>
       )}
       {filteredPlayers.map((player) => {
         const token = (
