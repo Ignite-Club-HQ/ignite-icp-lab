@@ -108,6 +108,32 @@ Passing builds or extracting a helper does not count as success unless the agree
   imported and no request, subscription, render-count, cache, or interaction
   benchmark was added, so this phase does not qualify as a runtime-performance
   win. Product bundle measurements remain evidence of budget compliance only.
+- **Phase 2.4 complete:** Messages inbox preview hydration and web realtime
+  cache patching now cross typed helpers in
+  `src/features/messaging/inbox/inboxPreviewHydration.ts` and
+  `src/features/messaging/inbox/inboxRealtimeCache.ts`. The raw page
+  `src/pages/MessagesPage.tsx` decreased from 3,607 to 3,443 lines (164
+  fewer). The exact target scope stayed at 3,607 lines because the extracted
+  helpers are explicit source, but target clone groups still decreased from 11
+  to 10 and target duplicated lines from 155 to 93 (4.2972% to 2.5783%).
+  Aggregate authored duplication decreased from 16,079 / 4.8737091%
+  (329,913 scanned lines; 1,318 groups) to 16,017 / 4.8549163% (329,913
+  lines; 1,317 groups). The new characterization coverage in
+  `src/pages/MessagesPage.characterization.test.ts` and the existing
+  message-navigation, cold-offline, and web-realtime watermark guards all pass
+  against the extracted structure.
+
+  Message-source semantics, per-section copy, authorization gates, query keys,
+  provider-specific realtime behavior, lazy dialog boundaries, and the route-
+  local inbox controller remain intentionally separate. This is a
+  maintainability-only result; no request, render, subscription, cache, or
+  interaction benchmark changed, so it makes no runtime-performance claim.
+
+  **Phase 2 gate met:** Create/Edit Event, Club/Pro upgrade, Vault, and
+  Messages all gained regression coverage for the extracted behavior, targeted
+  page line counts decreased across the four sub-phases, and aggregate authored
+  duplication decreased from 16,480 lines / 4.9950% at the start of Phase 2 to
+  16,017 lines / 4.8549% after Phase 2.4.
 
 ## Architectural boundaries
 

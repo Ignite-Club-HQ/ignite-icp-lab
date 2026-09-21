@@ -458,3 +458,59 @@ module is statically imported and no request, subscription, render-count,
 cache-invalidation, loading, or interaction benchmark was measured. Product
 bundle output is reported only as budget-compliance evidence, not as a runtime
 performance improvement.
+
+## Phase 2.4 result
+
+The exact pre-refactor pinned `jscpd 5.3.0` scan used the standard
+50-token/5-line thresholds and ignore set. `src/pages/MessagesPage.tsx` was
+3,607 lines and contained 11 self-clone groups with 155 duplicated lines
+(4.2972%). The repeated areas were inbox preview hydration, web realtime cache
+patching, repeated loading/empty/error shell logic, and route-local filter /
+ordering helpers.
+
+The extraction created the typed `resolveInboxAuthorNames` /
+`toInboxPreviewMessage` helper in
+`src/features/messaging/inbox/inboxPreviewHydration.ts` and the typed web
+realtime cache helpers in
+`src/features/messaging/inbox/inboxRealtimeCache.ts`. The route-local
+controller in `src/pages/MessagesPage.tsx` still owns message-source semantics,
+authorization gates, query keys, provider-specific realtime behavior, lazy
+dialog boundaries, and route-specific copy. The four characterization tests in
+`src/pages/MessagesPage.characterization.test.ts` pass, and the existing
+message-navigation, cold-offline, and web-realtime watermark guards also pass
+against the extracted structure.
+
+After the extraction, `MessagesPage.tsx` is 3,443 lines, a raw reduction of
+164 lines. The exact target scope (`MessagesPage.tsx` plus the two extracted
+helpers) remains 3,607 lines because the helpers are explicit source, but the
+scope still decreased from 11 to 10 clone groups and from 155 to 93 duplicated
+lines (4.2972% to 2.5783%). The package is therefore flatter and less
+duplicated even though the extracted helper source balances the page reduction.
+
+The aggregate exact scan changed as follows:
+
+| Measure | Before Phase 2.4 | After Phase 2.4 | Change |
+| --- | ---: | ---: | ---: |
+| Scanned lines | 329,913 | 329,913 | 0 |
+| Clone groups | 1,318 | 1,317 | -1 |
+| Duplicated lines | 16,079 | 16,017 | -62 |
+| Duplication | 4.8737091% | 4.8549163% | -0.0187928 pp |
+
+The exact after scan was reproduced with the same jscpd 5.3.0 command and
+reported 1,317 clone groups, 16,017 duplicated lines, and 4.8549163%
+duplication. The authored ratchet uses its own filtered counted scope and is
+not substituted for this reproduction scan.
+
+`npm run typecheck:product` still reports only the documented unrelated
+`StartDMDialog` and `ClubDetailPage` diagnostics; no Messages diagnostics were
+introduced. `npm run build:product`, `npm run check:product-bundle`,
+`npm run check:quality-ratchet`, `npm run check:isolation`,
+`npm run check:duplication`, the full legacy suite, and `git diff --check`
+pass. The default `npm test` run continues to fail in the unrelated
+`lab-tests/external-worker-provider-registry.test.tsx` suite; that failure is
+outside the Messages scope and was not introduced by this extraction.
+
+This phase qualifies as a maintainability/bloat reduction only. The helpers are
+statically imported and no request, subscription, render-count, cache, loading,
+or interaction benchmark was measured. Product bundle output remains budget-
+compliance evidence, not a runtime-performance improvement.

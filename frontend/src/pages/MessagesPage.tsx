@@ -53,12 +53,25 @@ import {
   type InboxRealtimeEvent,
 } from "@/features/messaging/inbox/inboxRealtimeReconciliation";
 import {
+  buildRealtimePreview,
+  isAuthorizedInboxScope,
+  mergeLatestMessagesPreview,
+  moveDirectConversationToTop,
+  patchDirectConversationEdit,
+  type InboxAuthorizationSnapshot,
+} from "@/features/messaging/inbox/inboxRealtimeCache";
+import {
   buildUnifiedInboxConversations,
 } from "@/features/messaging/inbox/inboxUnifiedComposition";
 import { buildInboxPrefetchJobs } from "@/features/messaging/inbox/inboxPrefetch";
-import type {
-  InboxConversation,
-  InboxPreviewMessage,
+import {
+  filterInboxConversations,
+  isHiddenConversationVisible,
+  normalizeInboxTypeFilter,
+  partitionInboxByReadState,
+  resolveOperationalConversationDisclosure,
+  type InboxConversation,
+  type InboxPreviewMessage,
 } from "@/features/messaging/inbox/inboxReadModel";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
@@ -67,6 +80,7 @@ import { notificationKeys } from "@/lab/notificationQueryKeys";
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview } from "@/lib/messagePreview";
 import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
+import { resolveInboxAuthorNames, toInboxPreviewMessage } from "@/features/messaging/inbox/inboxPreviewHydration";
 import { ContactClubButton } from "@/components/ContactClubButton";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
 import DiscoverGroupsList from "@/components/chat/DiscoverGroupsList";
@@ -168,6 +182,22 @@ interface Club {
 
 type UnifiedConversation = InboxConversation;
 
+function inboxAuthorizationSnapshot(refs: {
+  status: { current: "loading" | "ready" | "failed" };
+  teamIds: { current: ReadonlySet<string> };
+  clubIds: { current: ReadonlySet<string> };
+  groupIds: { current: ReadonlySet<string> };
+  dmIds: { current: ReadonlySet<string> };
+}): InboxAuthorizationSnapshot {
+  return {
+    status: refs.status.current,
+    teamIds: refs.teamIds.current,
+    clubIds: refs.clubIds.current,
+    groupIds: refs.groupIds.current,
+    dmIds: refs.dmIds.current,
+  };
+}
+
 export default function MessagesPage() {
   const { user, initialized, refreshUnreadCount } = useAuth();
   const useIcpLab = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
@@ -186,9 +216,7 @@ export default function MessagesPage() {
   const [typeFilterRaw, setTypeFilter] = usePersistedFilter("messages.typeFilter", "all");
   // Normalize legacy persisted values ('club' / 'league' used to be top-level
   // chips — they now live inside 'groups').
-  const typeFilter = (
-    typeFilterRaw === 'club' || typeFilterRaw === 'league' ? 'groups' : typeFilterRaw
-  ) as 'all' | 'teams' | 'groups' | 'dms';
+  const typeFilter = normalizeInboxTypeFilter(typeFilterRaw);
   const [showAllOps, setShowAllOps] = useState(false);
   const [showClubFilterDrawer, setShowClubFilterDrawer] = useState(false);
   const { activeClubFilter, activeClubTeamIds } = useClubTheme();
@@ -466,25 +494,11 @@ export default function MessagesPage() {
         })
       );
 
-      const authorIds = Array.from(new Set(
-        msgRows.map(r => r.msg?.author_id).filter((id): id is string => !!id)
-      ));
-      const authorNameById: Record<string, string> = {};
-      if (authorIds.length > 0) {
-        const { data: profiles } = await selectCachedProfilesByIds(authorIds);
-        for (const p of profiles ?? []) {
-          if (p.display_name) authorNameById[p.id] = p.display_name;
-        }
-      }
+      const authorNameById = await resolveInboxAuthorNames(msgRows.map((row) => row.msg));
 
       for (const { clubId, msg } of msgRows) {
         if (!msg) continue;
-        latestMessages[clubId] = {
-          text: msg.text,
-          author: msg.author_id ? (authorNameById[msg.author_id] ?? "") : "",
-          created_at: msg.created_at,
-          image_url: msg.image_url,
-        };
+        latestMessages[clubId] = toInboxPreviewMessage(msg, authorNameById);
       }
       
       return { clubs, latestMessages };
@@ -640,33 +654,14 @@ export default function MessagesPage() {
         })
       );
 
-      const authorIds = Array.from(new Set(
-        msgRows
-          .map(r => r.msg)
-          .filter((m): m is NonNullable<typeof m> => !!m && !(m.is_club_announcement && m.club_announcement_name) && !!m.author_id)
-          .map(m => m.author_id as string)
-      ));
-      const authorNameById: Record<string, string> = {};
-      if (authorIds.length > 0) {
-        const { data: profiles } = await selectCachedProfilesByIds(authorIds);
-        for (const p of profiles ?? []) {
-          if (p.display_name) authorNameById[p.id] = p.display_name;
-        }
-      }
+      const authorNameById = await resolveInboxAuthorNames(
+        msgRows.map((row) => row.msg),
+        (message) => !(message.is_club_announcement && message.club_announcement_name),
+      );
 
       for (const { teamId, msg } of msgRows) {
         if (!msg) continue;
-        const isAnnouncement = !!(msg.is_club_announcement && msg.club_announcement_name);
-        const authorName = isAnnouncement
-          ? msg.club_announcement_name!
-          : (msg.author_id ? (authorNameById[msg.author_id] ?? "") : "");
-        latestMessages[teamId] = {
-          text: msg.text,
-          author: authorName,
-          created_at: msg.created_at,
-          image_url: msg.image_url,
-          is_announcement: isAnnouncement,
-        };
+        latestMessages[teamId] = toInboxPreviewMessage(msg, authorNameById);
       }
 
       return { teams, latestMessages };
@@ -978,25 +973,11 @@ export default function MessagesPage() {
         })
       );
 
-      const authorIds = Array.from(new Set(
-        msgRows.map(r => r.msg?.author_id).filter((id): id is string => !!id)
-      ));
-      const authorNameById: Record<string, string> = {};
-      if (authorIds.length > 0) {
-        const { data: profiles } = await selectCachedProfilesByIds(authorIds);
-        for (const p of profiles ?? []) {
-          if (p.display_name) authorNameById[p.id] = p.display_name;
-        }
-      }
+      const authorNameById = await resolveInboxAuthorNames(msgRows.map((row) => row.msg));
 
       for (const { groupId, msg } of msgRows) {
         if (!msg) continue;
-        latestMessages[groupId] = {
-          text: msg.text,
-          author: msg.author_id ? (authorNameById[msg.author_id] ?? "") : "",
-          created_at: msg.created_at,
-          image_url: msg.image_url,
-        };
+        latestMessages[groupId] = toInboxPreviewMessage(msg, authorNameById);
       }
 
       return { groups, latestMessages };
@@ -1592,43 +1573,30 @@ export default function MessagesPage() {
     ) => {
       const cached = queryClient.getQueryData<any>(key);
       const prev = cached?.latestMessages?.[targetId];
-      const preview = {
-        text: row.text ?? '',
-        author: extra.author || previewAuthor(row.author_id) || (prev?.author ?? ""),
-        created_at: row.created_at,
-        image_url: row.image_url ?? null,
-        ...extra,
-      };
+      const preview = buildRealtimePreview(
+        row,
+        extra.author || previewAuthor(row.author_id) || (prev?.author ?? ""),
+        extra,
+      );
 
       // This handler is reached only after the final fail-closed scope check.
       // Record the exact object written to React Query so a stale response from
       // the invalidation below cannot erase the accepted Realtime preview.
       previewWatermarks.note(`${scope}:${targetId}`, preview);
-      queryClient.setQueryData(key, (old: any) => {
-        const base = old ?? { latestMessages: {} };
-        return {
-          ...base,
-          latestMessages: {
-            ...(base.latestMessages || {}),
-            [targetId]: preview,
-          },
-        };
-      });
+      queryClient.setQueryData(key, (old: any) => mergeLatestMessagesPreview(old, targetId, preview, { createIfMissing: true }));
     };
 
     // Fail-closed filters — drop payload unless membership snapshot is `ready`
     // AND the scope id is in the authorized set. Empty set + ready => user
     // has no access to that kind => drop.
-    const isAuthorized = (kind: 'team' | 'club' | 'group' | 'dm', id: string | null | undefined): boolean => {
-      if (!id) return false;
-      if (authStatusRef.current !== 'ready') return false;
-      const set =
-        kind === 'team' ? authTeamIdsRef.current :
-        kind === 'club' ? authClubIdsRef.current :
-        kind === 'group' ? authGroupIdsRef.current :
-        authDmIdsRef.current;
-      return set.has(id);
-    };
+    const isAuthorized = (kind: 'team' | 'club' | 'group' | 'dm', id: string | null | undefined): boolean =>
+      isAuthorizedInboxScope(kind, id, inboxAuthorizationSnapshot({
+        status: authStatusRef,
+        teamIds: authTeamIdsRef,
+        clubIds: authClubIdsRef,
+        groupIds: authGroupIdsRef,
+        dmIds: authDmIdsRef,
+      }));
 
     const handlers: Record<string, (payload: any) => void> = {
       team_messages: (payload: any) => {
@@ -1659,26 +1627,7 @@ export default function MessagesPage() {
       direct_messages: (payload: any) => {
         const row = payload.new;
         if (!isAuthorized('dm', row?.conversation_id)) return;
-        queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => {
-          if (!Array.isArray(old)) return old;
-          const idx = old.findIndex((c: any) => c.id === row.conversation_id);
-          if (idx === -1) return old;
-          const conv = old[idx];
-          const updated = {
-            ...conv,
-            updated_at: row.created_at,
-            last_message: {
-              text: row.text ?? '',
-              image_url: row.image_url ?? null,
-              created_at: row.created_at,
-              author_id: row.author_id,
-            },
-          };
-          const next = old.slice();
-          next.splice(idx, 1);
-          next.unshift(updated);
-          return next;
-        });
+queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => moveDirectConversationToTop(old, row));
         schedule('dm', () => queryClient.invalidateQueries({ queryKey: ["dm-conversations", user.id] }));
         bumpUnread();
       },
@@ -1892,132 +1841,73 @@ export default function MessagesPage() {
     };
 
     // Fail-closed authorization filter (native-light channel).
-    const isAuthorized = (kind: 'team' | 'club' | 'group' | 'dm', id: string | null | undefined): boolean => {
-      if (!id) return false;
-      if (authStatusRef.current !== 'ready') return false;
-      const set =
-        kind === 'team' ? authTeamIdsRef.current :
-        kind === 'club' ? authClubIdsRef.current :
-        kind === 'group' ? authGroupIdsRef.current :
-        authDmIdsRef.current;
-      return set.has(id);
+    const isAuthorized = (kind: 'team' | 'club' | 'group' | 'dm', id: string | null | undefined): boolean =>
+      isAuthorizedInboxScope(kind, id, inboxAuthorizationSnapshot({
+        status: authStatusRef,
+        teamIds: authTeamIdsRef,
+        clubIds: authClubIdsRef,
+        groupIds: authGroupIdsRef,
+        dmIds: authDmIdsRef,
+      }));
+
+    const patchNativeLatest = (
+      key: any[],
+      scope: 'team' | 'club' | 'group',
+      targetId: string,
+      row: any,
+      author: string,
+      extra: Record<string, any> = {},
+    ) => {
+      const cached = queryClient.getQueryData<any>(key);
+      const preview = buildRealtimePreview(row, author || (cached?.latestMessages?.[targetId]?.author ?? ""), extra);
+      previewWatermarks.note(`${scope}:${targetId}`, preview);
+      queryClient.setQueryData(key, (old: any) => mergeLatestMessagesPreview(old, targetId, preview));
     };
 
     const handlers: Record<string, (payload: any) => void> = {
       team_messages: (payload: any) => {
-
         const row = payload.new;
         if (!isAuthorized('team', row?.team_id)) return;
         const isAnnouncement = !!(row.is_club_announcement && row.club_announcement_name);
-        const author = isAnnouncement
-          ? row.club_announcement_name
-          : resolveAuthor(row.author_id, { kind: 'team', targetId: row.team_id });
-        const teamPreview = {
-          text: row.text ?? '',
-          author: author || '',
-          created_at: row.created_at,
-          image_url: row.image_url ?? null,
-          is_announcement: isAnnouncement,
-        };
-        // Watermark first: a query that started before this event must not
-        // regress the preview when it resolves afterwards.
-        previewWatermarks.note(`team:${row.team_id}`, teamPreview);
-        queryClient.setQueryData(["my-teams-with-messages", user.id], (old: any) => {
-          if (!old) return old;
-          const prev = old.latestMessages?.[row.team_id];
-          return {
-            ...old,
-            latestMessages: {
-              ...(old.latestMessages || {}),
-              [row.team_id]: {
-                ...teamPreview,
-                author: author || (prev?.author ?? ""),
-              },
-            },
-          };
-        });
+        patchNativeLatest(
+          ["my-teams-with-messages", user.id],
+          'team',
+          row.team_id,
+          row,
+          isAnnouncement ? row.club_announcement_name : resolveAuthor(row.author_id, { kind: 'team', targetId: row.team_id }),
+          { is_announcement: isAnnouncement },
+        );
         bumpUnread('team', row.team_id, row.author_id);
       },
       club_messages: (payload: any) => {
-
         const row = payload.new;
         if (!isAuthorized('club', row?.club_id)) return;
-        const author = resolveAuthor(row.author_id, { kind: 'club', targetId: row.club_id });
-        const clubPreview = {
-          text: row.text ?? '',
-          author: author || '',
-          created_at: row.created_at,
-          image_url: row.image_url ?? null,
-        };
-        previewWatermarks.note(`club:${row.club_id}`, clubPreview);
-        queryClient.setQueryData(["member-clubs-with-messages", user.id], (old: any) => {
-          if (!old) return old;
-          const prev = old.latestMessages?.[row.club_id];
-          return {
-            ...old,
-            latestMessages: {
-              ...(old.latestMessages || {}),
-              [row.club_id]: {
-                ...clubPreview,
-                author: author || (prev?.author ?? ""),
-              },
-            },
-          };
-        });
+        patchNativeLatest(
+          ["member-clubs-with-messages", user.id],
+          'club',
+          row.club_id,
+          row,
+          resolveAuthor(row.author_id, { kind: 'club', targetId: row.club_id }),
+        );
         bumpUnread('club', row.club_id, row.author_id);
       },
       group_messages: (payload: any) => {
-
         const row = payload.new;
         if (!isAuthorized('group', row?.group_id)) return;
-        const author = resolveAuthor(row.author_id, { kind: 'group', targetId: row.group_id });
-        const groupPreview = {
-          text: row.text ?? '',
-          author: author || '',
-          created_at: row.created_at,
-          image_url: row.image_url ?? null,
-        };
-        previewWatermarks.note(`group:${row.group_id}`, groupPreview);
-        queryClient.setQueryData(["my-chat-groups-with-messages", user.id], (old: any) => {
-          if (!old) return old;
-          const prev = old.latestMessages?.[row.group_id];
-          return {
-            ...old,
-            latestMessages: {
-              ...(old.latestMessages || {}),
-              [row.group_id]: {
-                ...groupPreview,
-                author: author || (prev?.author ?? ""),
-              },
-            },
-          };
-        });
+        patchNativeLatest(
+          ["my-chat-groups-with-messages", user.id],
+          'group',
+          row.group_id,
+          row,
+          resolveAuthor(row.author_id, { kind: 'group', targetId: row.group_id }),
+        );
         bumpUnread('group', row.group_id, row.author_id);
       },
       direct_messages: (payload: any) => {
 
         const row = payload.new;
         if (!isAuthorized('dm', row?.conversation_id)) return;
-        queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => {
-          if (!Array.isArray(old)) return old;
-          const idx = old.findIndex((c: any) => c.id === row.conversation_id);
-          if (idx === -1) return old;
-          const conv = old[idx];
-          const updated = {
-            ...conv,
-            updated_at: row.created_at,
-            last_message: {
-              text: row.text ?? '',
-              image_url: row.image_url ?? null,
-              created_at: row.created_at,
-              author_id: row.author_id,
-            },
-          };
-          const next = old.slice();
-          next.splice(idx, 1);
-          next.unshift(updated);
-          return next;
-        });
+queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => moveDirectConversationToTop(old, row));
         const convs = queryClient.getQueryData<any[]>(["dm-conversations", user.id]);
         const conv = convs?.find(c => c.id === row.conversation_id);
         const otherId = conv?.other_user?.id
@@ -2087,19 +1977,7 @@ export default function MessagesPage() {
       direct_messages: (payload: any) => {
         const row = payload.new;
         if (!isAuthorized('dm', row?.conversation_id)) return;
-        queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => {
-          if (!Array.isArray(old)) return old;
-          const idx = old.findIndex((c: any) => c.id === row.conversation_id);
-          if (idx === -1) return old;
-          const conv = old[idx];
-          if (conv?.last_message?.created_at !== row.created_at) return old;
-          const next = old.slice();
-          next[idx] = {
-            ...conv,
-            last_message: { ...conv.last_message, text: row.text ?? '', image_url: row.image_url ?? null },
-          };
-          return next;
-        });
+queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined) => patchDirectConversationEdit(old, row));
       },
       broadcast_messages: (payload: any) => {
         if (authStatusRef.current !== 'ready') return;
@@ -2663,12 +2541,11 @@ export default function MessagesPage() {
     }
     return effectiveDMConversations.filter((conv: any) => {
 
-      const hiddenAt = hiddenDMMap?.get(conv.id);
-      if (hiddenAt) {
-        const lastMsgAt = conv.last_message?.created_at;
-        const stillHidden = !lastMsgAt || new Date(lastMsgAt).getTime() <= new Date(hiddenAt).getTime();
-        if (stillHidden && !query) return false;
-      }
+      if (!isHiddenConversationVisible({
+        hiddenAt: hiddenDMMap?.get(conv.id),
+        lastMessageAt: conv.last_message?.created_at,
+        hasSearchQuery: !!query,
+      })) return false;
       // DMs are scoped to the active club: only show threads whose other
       // participant holds a role in that club, so the list matches the badge.
       if (effectiveClubFilter && clubScopedUsersInClub) {
@@ -2863,67 +2740,26 @@ export default function MessagesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Apply type filter chip (teams/groups/dms/club/league/all).
-  // Broadcasts and Ignite Support always remain visible regardless of chip
-  // (they're not real conversation types users think about filtering away).
-  const typeFilteredConversations = useMemo(() => {
-    if (typeFilter === 'all') return unifiedConversations;
-    return unifiedConversations.filter((c) => {
-      if (c.type === 'support') return true;
-      switch (typeFilter) {
-        // Mini-leagues (e.g. Maxiroos) live under Teams — users mentally treat
-        // them as another team they belong to.
-        case 'teams': return c.type === 'team' || c.type === 'league';
-        // Groups bucket includes club broadcast-style groups alongside regular chat groups.
-        case 'groups': return c.type === 'group' || c.type === 'club' || c.type === 'admin_group';
-        case 'dms': return c.type === 'dm';
-        default: return true;
-      }
-    });
-  }, [unifiedConversations, typeFilter]);
+  // Broadcasts and Ignite Support keep their special visibility semantics in the shared read-model helper.
+  const typeFilteredConversations = useMemo(
+    () => filterInboxConversations(unifiedConversations, typeFilter),
+    [unifiedConversations, typeFilter],
+  );
 
-  const sortByActivityDesc = (a: UnifiedConversation, b: UnifiedConversation) => {
-    if (!a.lastActivity && !b.lastActivity) return 0;
-    if (!a.lastActivity) return 1;
-    if (!b.lastActivity) return -1;
-    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
-  };
+  const { unread: unreadItems, recent: recentItems } = useMemo(
+    () => partitionInboxByReadState(typeFilteredConversations),
+    [typeFilteredConversations],
+  );
 
-  // Split into unread and recent
-  const unreadItems = useMemo(() => {
-    return typeFilteredConversations.filter(c => c.unreadCount > 0).sort(sortByActivityDesc);
-  }, [typeFilteredConversations]);
-
-  const recentItems = useMemo(() => {
-    return typeFilteredConversations.filter(c => c.unreadCount === 0).sort(sortByActivityDesc);
-  }, [typeFilteredConversations]);
-
-  // Mark first non-empty render for perf diagnostics (one-shot).
-  // Progressive disclosure for operational groups: when a user has many
-  // stale group/league chats, collapse the long tail behind a "Show more
-  // groups" toggle. Only kicks in for power users — regular parents with
-  // only a few groups see no change.
-  const STALE_OPS_DAYS = 30;
-  const STALE_OPS_THRESHOLD = 6;
-  const OPS_VISIBLE_WHEN_COLLAPSED = 2;
-  const { visibleRecent, hiddenOps } = useMemo(() => {
-    const cutoff = Date.now() - STALE_OPS_DAYS * 24 * 60 * 60 * 1000;
-    const isStaleOp = (c: UnifiedConversation) =>
-      (c.type === 'group' || c.type === 'league') &&
-      c.unreadCount === 0 &&
-      !c.draftText &&
-      (!c.lastActivity || new Date(c.lastActivity).getTime() < cutoff);
-
-    const stale = recentItems.filter(isStaleOp);
-    if (stale.length <= STALE_OPS_THRESHOLD || showAllOps || typeFilter !== 'all' || !!query) {
-      return { visibleRecent: recentItems, hiddenOps: [] as UnifiedConversation[] };
-    }
-    const keepStaleIds = new Set(stale.slice(0, OPS_VISIBLE_WHEN_COLLAPSED).map(c => c.key));
-    const hidden = stale.slice(OPS_VISIBLE_WHEN_COLLAPSED);
-    const hiddenIds = new Set(hidden.map(c => c.key));
-    const visible = recentItems.filter(c => !hiddenIds.has(c.key) || keepStaleIds.has(c.key));
-    return { visibleRecent: visible, hiddenOps: hidden };
-  }, [recentItems, showAllOps, typeFilter, query]);
+  const { visibleRecent, hiddenOps } = useMemo(
+    () => resolveOperationalConversationDisclosure(recentItems, {
+      now: Date.now(),
+      showAll: showAllOps,
+      typeFilter,
+      hasSearchQuery: !!query,
+    }),
+    [recentItems, showAllOps, typeFilter, query],
+  );
 
 
   const hasNoResults = query && unifiedConversations.length === 0;

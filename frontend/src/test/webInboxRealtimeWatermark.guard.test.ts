@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 
 const src = readFileSync("src/pages/MessagesPage.tsx", "utf8");
+const realtimeCacheSrc = readFileSync("src/features/messaging/inbox/inboxRealtimeCache.ts", "utf8");
+const combinedSrc = `${src}\n${realtimeCacheSrc}`;
 const webStart = src.indexOf("HARD-STOP PERF GUARD (native)");
 const webEnd = src.indexOf("Native-only: lightweight realtime", webStart);
 const webBlock = src.slice(webStart, webEnd);
@@ -9,7 +11,7 @@ const webBlock = src.slice(webStart, webEnd);
 describe("web inbox Realtime preview watermarks", () => {
   it("records the exact accepted preview before writing it to React Query", () => {
     const note = webBlock.indexOf("previewWatermarks.note(`${scope}:${targetId}`, preview)");
-    const cacheWrite = webBlock.indexOf("[targetId]: preview", note);
+    const cacheWrite = combinedSrc.indexOf("[targetId]: preview", note);
 
     expect(note).toBeGreaterThan(-1);
     expect(cacheWrite).toBeGreaterThan(note);
