@@ -39,7 +39,7 @@ import { getFolderColorClass } from "@/components/TeamFoldersManager";
 import { VaultStorageBarRow } from "@/components/vault/VaultStorageBarRow";
 import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
-import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { VaultLightbox } from "@/components/vault/VaultLightbox";
 import { removePhotoFromCache } from "@/lib/mediaCache";
 import { downloadImage } from "@/lib/downloadImage";
 const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
@@ -62,6 +62,7 @@ import {
 import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
 import { useVaultExport, type FolderView } from "@/features/vault/useVaultExport";
 import { useVaultLargeFiles } from "@/features/vault/useVaultLargeFiles";
+import { useVaultLightbox } from "@/features/vault/useVaultLightbox";
 import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
 import {
@@ -144,8 +145,6 @@ function SupabaseVaultPage() {
 
   const [uploadType, setUploadType] = useState<"photo" | "file">("photo");
   const [fileName, setFileName] = useState("");
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [deletePhotoId, setDeletePhotoId] = useState<string | null>(null);
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
@@ -1495,6 +1494,19 @@ function SupabaseVaultPage() {
     return false;
   }, [isAppAdmin, user?.id, getCurrentClubId, getCurrentTeamId, userRoles]);
 
+
+  const {
+    state: lightboxState,
+    openLightbox,
+    closeLightbox,
+    navigate: navigateLightbox,
+    handleLightboxDelete,
+  } = useVaultLightbox({
+    photos,
+    canDeletePhoto,
+    onDeletePhotoRequested: setDeletePhotoId,
+  });
+
   const createFolderMutation = useMutation({
     mutationFn: async (name: string) => {
       await createVaultFolder({
@@ -1790,7 +1802,7 @@ function SupabaseVaultPage() {
     isCoachOrTeamAdmin,
     onPhotoSoftDeleteStart: () => {
       setDeletePhotoId(null);
-      setLightboxOpen(false);
+      closeLightbox();
     },
     onFileSoftDeleteSuccess: () => setDeleteFileId(null),
   });
@@ -2084,17 +2096,6 @@ function SupabaseVaultPage() {
     return nodes;
   };
 
-
-  const openLightbox = (index: number) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
-
-  const handleLightboxDelete = (photoId: string) => {
-    // Close lightbox first, then show confirmation dialog
-    setLightboxOpen(false);
-    setDeletePhotoId(photoId);
-  };
 
   if (isLoadingAccess) {
     return (
@@ -3053,14 +3054,12 @@ function SupabaseVaultPage() {
       )}
 
       {/* Photo Lightbox */}
-      <PhotoLightbox
-        isOpen={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-        photos={photos || []}
-        currentIndex={lightboxIndex}
-        onNavigate={setLightboxIndex}
+      <VaultLightbox
+        photos={photos}
+        state={lightboxState}
+        onClose={closeLightbox}
+        onNavigate={navigateLightbox}
         onDelete={handleLightboxDelete}
-        canDelete={photos?.[lightboxIndex] ? canDeletePhoto(photos[lightboxIndex]) : false}
       />
 
       {/* Delete Photo Confirmation */}
