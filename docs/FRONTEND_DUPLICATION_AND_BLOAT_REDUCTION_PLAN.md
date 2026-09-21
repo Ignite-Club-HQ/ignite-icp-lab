@@ -868,6 +868,88 @@ refactoring. Vault remains as a test case for further Phase 4A extractions (bulk
 selection/delete, upload/file-name flow, folder/file rename, Google Drive import
 remain untouched). Phase 4A Vault lightbox is complete.
 
+### Phase 4A Vault bulk selection/delete result (2026-09-21)
+
+The bulk selection and bulk soft-delete feature cluster in `VaultPage.tsx` was
+extracted next. The pre-refactor map covered: `selectionMode`, `selectedPhotos`,
+`selectedFiles`, `bulkDeleteDialogOpen`, and `isDeletingSelected` state;
+`togglePhotoSelection`/`toggleFileSelection` toggles; `exitSelectionMode`
+(resets selection mode and both selected sets); `selectAll` (selects every
+currently visible photo/file id); `getSelectedItems` (derives the selected
+photo/file objects from the visible `photos`/`files` arrays); the derived
+`selectedCount`; the `deleteSelectedItems` bulk soft-delete workflow (per-item
+try/catch soft delete, ordered photos-then-files, media-cache eviction for
+deleted photos, `["files", "photos", "storageBreakdown"]` cache invalidation,
+and exact truthful success/partial/failure toast wording); and the bulk-delete
+confirmation `AlertDialog`. Shared dependencies were the page-owned `photos`/
+`files` view arrays, `queryClient`, and `user?.id`; the toolbar buttons that
+trigger selection mode and export/download of the same selection remain in the
+page because they are interleaved with the export and upload toolbar JSX
+(`useVaultExport` already consumes this hook's `selectionMode`/`selectedPhotos`/
+`selectedFiles`/`exitSelectionMode` as inputs, unchanged by this extraction).
+
+The cohesive typed boundary is `src/features/vault/useVaultBulkDeleteWorkflow.ts`
+(132 lines) plus the presentational `src/components/vault/VaultBulkDeleteDialog.tsx`
+(57 lines). The hook reuses the existing, already-tested
+`softDeleteVaultSelection` from `vaultBulkMutationService.ts` (present in the
+ported source but previously unused by the page) instead of re-inlining
+per-item Supabase calls; its per-item ordering and partial-failure behavior are
+covered by `vaultBulkMutationService.test.ts`. The dialog component owns only
+the confirmation copy, disabled-while-deleting state, and cancel/confirm
+wiring; the page still owns the toolbar, authorization gate for showing the
+delete button (`isClubAdmin || isAppAdmin`), and dialog open trigger.
+
+`src/pages/VaultPage.bulk-delete.characterization.test.ts` was added and
+proven green against the original inline implementation before the extraction
+(verified by temporarily restoring the pre-refactor `VaultPage.tsx` and
+re-running the suite), then kept green after the hook/dialog existed. It
+covers: independent photo/file toggle semantics; `selectAll` deriving from the
+visible `photos`/`files` arrays; `exitSelectionMode` resetting all three
+pieces of state together; ordered photo-then-file soft deletion reusing the
+tested service; exact success/partial/failure toast strings and the
+`["files", "photos", "storageBreakdown"]` invalidation; media-cache eviction
+and the close/exit-always-in-`finally` semantics; the dialog's exact copy,
+disabled state, and cancel wording; and that upload, rename/move, Drive
+import, export/large-files, trash/recovery, and lightbox call sites are
+untouched. The existing `VaultPage.export-large-files.characterization.test.ts`
+assertion that bulk selection stayed page-owned was updated to assert the new
+hook boundary instead.
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,356 | 3,255 | -101 |
+| `useState` calls in `VaultPage.tsx` | 21 | 18 | -3 |
+| New bulk selection/delete modules (`useVaultBulkDeleteWorkflow.ts` + `VaultBulkDeleteDialog.tsx`) | 0 | 189 (132 + 57) | +189 |
+| Complete Vault package (`VaultPage.tsx`, `components/vault`, `features/vault`; tests excluded) | 11,531 | 11,619 | +88 |
+| Same-scope jscpd (`jscpd 5.3.0`, 50-token/5-line, same three directories) | 321 lines / 24 groups / 2.7838001907900445% | 321 lines / 24 groups / 2.7627162406403305% | 0 lines / 0 groups / -0.0211 pp |
+| Product Vault route chunk | 121,991 bytes | 123,060 bytes | +1,069 |
+| Product JavaScript total / chunks | 8,860,485 bytes / 502 | 8,861,554 bytes / 502 | +1,069 bytes / 0 |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | 0 |
+
+The same-scope jscpd duplicated-line count and clone-group count are unchanged
+(321/24) because this state/workflow was not duplicated elsewhere in the Vault
+package; the percentage moved only because the scanned line total grew. The
+new hook and dialog are statically imported (matching every prior Phase 4A
+Vault round), so the +1,069-byte route-chunk increase is organization
+overhead, not a loading improvement; no new lazy-loading boundary was added or
+is claimed. No request, subscription, render-count, or interaction-latency
+evidence was collected for this legacy Supabase route, and no runtime-
+performance claim is made — this is a maintainability/safety extraction only.
+Product typecheck introduced no Vault diagnostic; its ratchet failure remains
+limited to the known unrelated 14 `StartDMDialog`/`ClubDetailPage`
+diagnostics. Product build, bundle budget, quality ratchet (`asAny` and
+`consoleCalls` both decreased; `directSupabaseImports` unchanged), duplication
+ratchet (1,570 duplicated lines removed repo-wide since baseline), isolation,
+the full legacy suite (452 files / 4,316 tests passed, 1 pre-existing skip,
+zero failures), and `git diff --check` all pass. Upload/file-name flow,
+folder/file rename-move, Google Drive import/link/title resolution, storage
+purchase, content renderer internals, export/large-files, trash/recovery, and
+lightbox were not modified beyond the stable `photos`/`files`/`selectionMode`/
+`selectedPhotos`/`selectedFiles`/`exitSelectionMode` contract they already
+consumed. Phase 4A Vault bulk selection/delete is complete; remaining
+untouched Vault clusters are upload/file-name flow, folder/file rename/move,
+and Google Drive import.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:

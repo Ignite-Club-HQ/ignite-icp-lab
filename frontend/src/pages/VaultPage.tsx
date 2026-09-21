@@ -40,7 +40,6 @@ import { VaultStorageBarRow } from "@/components/vault/VaultStorageBarRow";
 import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VaultLightbox } from "@/components/vault/VaultLightbox";
-import { removePhotoFromCache } from "@/lib/mediaCache";
 import { downloadImage } from "@/lib/downloadImage";
 const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
 import { useClubTheme } from "@/hooks/useClubTheme";
@@ -63,7 +62,9 @@ import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
 import { useVaultExport, type FolderView } from "@/features/vault/useVaultExport";
 import { useVaultLargeFiles } from "@/features/vault/useVaultLargeFiles";
 import { useVaultLightbox } from "@/features/vault/useVaultLightbox";
+import { useVaultBulkDeleteWorkflow } from "@/features/vault/useVaultBulkDeleteWorkflow";
 import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
+import { VaultBulkDeleteDialog } from "@/components/vault/VaultBulkDeleteDialog";
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
 import {
   emptyVaultStorageBreakdown,
@@ -159,11 +160,6 @@ function SupabaseVaultPage() {
   const [renameFileName, setRenameFileName] = useState("");
   const [renamePhotoId, setRenamePhotoId] = useState<string | null>(null);
   const [renamePhotoName, setRenamePhotoName] = useState("");
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
-  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [storagePurchaseDialogOpen, setStoragePurchaseDialogOpen] = useState(false);
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
@@ -205,49 +201,6 @@ function SupabaseVaultPage() {
       setResolvingDriveTitles(false);
     }
   };
-
-  const togglePhotoSelection = (photoId: string) => {
-    setSelectedPhotos(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(photoId)) {
-        newSet.delete(photoId);
-      } else {
-        newSet.add(photoId);
-      }
-      return newSet;
-    });
-  };
-
-  const toggleFileSelection = (fileId: string) => {
-    setSelectedFiles(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(fileId)) {
-        newSet.delete(fileId);
-      } else {
-        newSet.add(fileId);
-      }
-      return newSet;
-    });
-  };
-
-  const exitSelectionMode = () => {
-    setSelectionMode(false);
-    setSelectedPhotos(new Set());
-    setSelectedFiles(new Set());
-  };
-
-  const selectAll = () => {
-    setSelectedPhotos(new Set((photos || []).map(p => p.id)));
-    setSelectedFiles(new Set((files || []).map(f => f.id)));
-  };
-
-  const getSelectedItems = () => {
-    const selectedPhotoItems = (photos || []).filter(p => selectedPhotos.has(p.id));
-    const selectedFileItems = (files || []).filter(f => selectedFiles.has(f.id));
-    return { photos: selectedPhotoItems, files: selectedFileItems };
-  };
-
-  const selectedCount = selectedPhotos.size + selectedFiles.size;
 
   const { data: isAppAdmin, isLoading: isLoadingAppAdmin } = useQuery({
     queryKey: ["is-app-admin", user?.id],
@@ -784,6 +737,26 @@ function SupabaseVaultPage() {
     return vaultItems.filter(item => !isVaultImageItem(item));
   }, [vaultItems]);
 
+  const {
+    selectionMode,
+    setSelectionMode,
+    selectedPhotos,
+    selectedFiles,
+    bulkDeleteDialogOpen,
+    setBulkDeleteDialogOpen,
+    isDeletingSelected,
+    selectedCount,
+    togglePhotoSelection,
+    toggleFileSelection,
+    exitSelectionMode,
+    selectAll,
+    deleteSelectedItems,
+  } = useVaultBulkDeleteWorkflow({
+    photos,
+    files,
+    userId: user?.id,
+    queryClient,
+  });
 
   // Recursive search - always search inside subfolders when a query is active.
   // Performance strategy:
@@ -1835,59 +1808,6 @@ function SupabaseVaultPage() {
       toast.error(error.message || "Failed to move file");
     },
   });
-
-  // Bulk delete selected photos and files (soft delete)
-  const deleteSelectedItems = async () => {
-    setIsDeletingSelected(true);
-    const { photos: selectedPhotoItems, files: selectedFileItems } = getSelectedItems();
-    let deletedCount = 0;
-    let errorCount = 0;
-
-    try {
-      // Soft delete photos (vault photos are stored in vault_files)
-      for (const photo of selectedPhotoItems) {
-        try {
-          const { error } = await supabase.from("vault_files")
-            .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id })
-            .eq("id", photo.id);
-          if (error) throw error;
-          removePhotoFromCache(photo.id);
-          deletedCount++;
-        } catch (e) {
-          console.error("Failed to soft-delete photo", photo.id, e);
-          errorCount++;
-        }
-      }
-
-      // Soft delete files
-      for (const file of selectedFileItems) {
-        try {
-          const { error } = await supabase.from("vault_files")
-            .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id })
-            .eq("id", file.id);
-          if (error) throw error;
-          deletedCount++;
-        } catch (e) {
-          console.error("Failed to soft-delete file", file.id, e);
-          errorCount++;
-        }
-      }
-
-      invalidateVaultCache(queryClient, ["files", "photos", "storageBreakdown"]);
-
-      if (errorCount === 0) {
-        toast.success(`Moved ${deletedCount} items to trash`);
-      } else {
-        toast.warning(`Moved ${deletedCount} items to trash, ${errorCount} failed`);
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete items");
-    } finally {
-      setIsDeletingSelected(false);
-      setBulkDeleteDialogOpen(false);
-      exitSelectionMode();
-    }
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -3139,34 +3059,13 @@ function SupabaseVaultPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bulk Delete Confirmation */}
-      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Selected Items</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedCount} selected item{selectedCount !== 1 ? 's' : ''}? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingSelected}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={deleteSelectedItems}
-              disabled={isDeletingSelected}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeletingSelected ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                `Delete ${selectedCount} Item${selectedCount !== 1 ? 's' : ''}`
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <VaultBulkDeleteDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        selectedCount={selectedCount}
+        isDeleting={isDeletingSelected}
+        onConfirm={deleteSelectedItems}
+      />
       <AlertDialog open={!!deleteFolderId} onOpenChange={() => setDeleteFolderId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

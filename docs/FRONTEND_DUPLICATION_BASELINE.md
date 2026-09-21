@@ -659,3 +659,69 @@ measured, so this is a maintainability/safety result only and makes no
 runtime-performance claim. Further Phase 4A Vault targets (bulk selection/delete,
 folder/file rename, upload, Google Drive import) remain untouched.
 
+## Phase 4A Vault bulk selection/delete result (2026-09-21)
+
+The fourth Vault package extraction moved the bulk selection and bulk
+soft-delete cluster (`selectionMode`, `selectedPhotos`, `selectedFiles`,
+`bulkDeleteDialogOpen`, `isDeletingSelected`, the toggle/select-all/exit
+handlers, and the `deleteSelectedItems` workflow) into
+`src/features/vault/useVaultBulkDeleteWorkflow.ts`, plus the presentational
+`src/components/vault/VaultBulkDeleteDialog.tsx` for the confirmation dialog.
+The hook reuses the already-tested `softDeleteVaultSelection` from
+`vaultBulkMutationService.ts` (present in the ported source but previously
+unused) instead of re-inlining per-item Supabase calls. Upload/file-name flow,
+folder/file rename/move, Google Drive import, export/large-files, trash/
+recovery, and the lightbox remain untouched; `useVaultExport` continues to
+receive this hook's `selectionMode`/`selectedPhotos`/`selectedFiles`/
+`exitSelectionMode` outputs unchanged.
+
+All figures below were captured directly against this repository's commit
+`ddc497293` (the "before" state) using the same reproduction command as the
+baseline scan, scoped to `src/pages/VaultPage.tsx src/components/vault
+src/features/vault`:
+
+```sh
+npx --no-install jscpd src/pages/VaultPage.tsx src/components/vault src/features/vault   --min-tokens 50 --min-lines 5   --ignore '**/*.test.ts,**/*.test.tsx'   --reporters json --output "$(mktemp -d)" --silent
+```
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 3,356 | 3,255 |
+| `VaultPage.tsx` `useState` calls | 21 | 18 |
+| `useVaultBulkDeleteWorkflow.ts` | 0 | 132 |
+| `VaultBulkDeleteDialog.tsx` | 0 | 57 |
+| Complete Vault source package (non-test) | 11,531 | 11,619 |
+| Same-scope jscpd | 321 lines / 24 groups / 2.7838001907900445% | 321 lines / 24 groups / 2.7627162406403305% |
+| Product Vault route chunk | 121,991 bytes | 123,060 bytes |
+| Product JavaScript total / chunks | 8,860,485 bytes / 502 | 8,861,554 bytes / 502 |
+| Lazy-loading boundary | none added | none added |
+
+The same-scope jscpd duplicated-line count and clone-group count are unchanged
+(321/24); the percentage moved only because the scanned line total grew, since
+this state/workflow was not duplicated elsewhere in the Vault package before
+extraction.
+
+`src/pages/VaultPage.bulk-delete.characterization.test.ts` (9 tests) was added
+and proven to pass against the original inline `VaultPage.tsx` (verified by
+temporarily restoring the pre-refactor file and re-running the suite) before
+being kept green against the extracted hook/dialog. It covers independent
+photo/file toggle semantics, `selectAll` scope, `exitSelectionMode` resetting
+all three pieces of state together, ordered photo-then-file soft deletion via
+the tested service, exact success/partial/failure toast wording and cache
+invalidation keys, media-cache eviction, always-run close/exit-in-`finally`
+semantics, and the confirmation dialog's exact copy/disabled state. The
+existing `VaultPage.export-large-files.characterization.test.ts` assertion
+that bulk selection remained page-owned was updated to assert the new hook
+boundary. The full legacy suite passed 4,316 tests across 452 files with one
+pre-existing skip and zero failures. Product typecheck remained at exactly the
+known unrelated 14 `StartDMDialog`/`ClubDetailPage` diagnostics. Product
+build, bundle budget, quality ratchet (`asAny` and `consoleCalls` both
+decreased), duplication ratchet (1,570 duplicated lines removed repo-wide
+since baseline), isolation, and `git diff --check` all passed.
+
+The extracted modules are statically imported and the route chunk is 1,069
+bytes larger. No request, subscription, render-count, or interaction
+benchmark was measured, so this is a maintainability/safety result only and
+makes no runtime-performance claim. The remaining untouched Vault clusters are
+upload/file-name flow, folder/file rename/move, and Google Drive import.
+

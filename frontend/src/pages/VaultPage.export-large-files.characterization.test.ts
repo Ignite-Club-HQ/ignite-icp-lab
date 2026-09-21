@@ -50,11 +50,13 @@ describe("Vault export and large-file behavior contract", () => {
     expect(largeFilesDialogSource).toContain("Manage Large Files");
   });
 
-  it("leaves bulk selection/delete as a separate page-owned workflow", () => {
-    expect(pageSource).toMatch(/\[selectionMode, setSelectionMode\]/);
-    expect(pageSource).toMatch(/\[selectedPhotos, setSelectedPhotos\]/);
-    expect(pageSource).toMatch(/\[selectedFiles, setSelectedFiles\]/);
-    expect(pageSource).toMatch(/\[bulkDeleteDialogOpen, setBulkDeleteDialogOpen\]/);
-    expect(pageSource).toContain("deleteSelectedItems");
+  it("delegates bulk selection/delete to its own extracted workflow (see VaultPage.bulk-delete.characterization.test.ts)", () => {
+    // Phase 4A moved this cluster out of the page into
+    // useVaultBulkDeleteWorkflow; the page only consumes the hook's outputs.
+    expect(pageSource).toContain("useVaultBulkDeleteWorkflow");
+    expect(pageSource).not.toMatch(/\[selectionMode, setSelectionMode\]/);
+    expect(pageSource).not.toMatch(/\[selectedPhotos, setSelectedPhotos\]/);
+    expect(pageSource).not.toMatch(/\[selectedFiles, setSelectedFiles\]/);
+    expect(pageSource).not.toMatch(/\[bulkDeleteDialogOpen, setBulkDeleteDialogOpen\]/);
   });
 });
