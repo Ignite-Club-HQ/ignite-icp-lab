@@ -7,7 +7,10 @@ import { join } from "node:path";
  * blank list. Cached, user-scoped conversations render immediately and stay
  * selectable while Supabase REST is unreachable.
  */
-const messages = readFileSync(join(__dirname, "../pages/MessagesPage.tsx"), "utf8");
+const messages = [
+  readFileSync(join(__dirname, "../pages/MessagesPage.tsx"), "utf8"),
+  readFileSync(join(__dirname, "../pages/MessagesInboxSections.tsx"), "utf8"),
+].join("\n");
 const cache = readFileSync(join(__dirname, "../lib/messagesPageCache.ts"), "utf8");
 
 describe("cold-offline messages inbox guards", () => {

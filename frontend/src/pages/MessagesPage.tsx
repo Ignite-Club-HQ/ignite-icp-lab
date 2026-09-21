@@ -5,30 +5,25 @@ import {
   conversationTypeActiveStyle,
   conversationTypeBadgeStyle,
 } from "@/features/messaging/inbox/inboxPresentation";
-import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
 const StartDMDialog = lazyWithRetry(() => import("@/components/chat/StartDMDialog").then(m => ({ default: m.StartDMDialog })));
 const CreateGroupDialog = lazyWithRetry(() => import("@/components/chat/CreateGroupDialog"));
 const NewMessageSheet = lazyWithRetry(() => import("@/components/chat/NewMessageSheet").then(m => ({ default: m.NewMessageSheet })));
-import { Virtuoso } from "react-virtuoso";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAllChatDrafts } from "@/hooks/useChatDraft";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Search, RefreshCw, Filter, Check, Building2, Clock, Sparkles } from "lucide-react";
+import { RefreshCw, Filter, Clock, Sparkles } from "lucide-react";
 import { type RecapScopeRef } from "@/components/chat/GlobalChatRecapSheet";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
 import { CreateActionButton } from "@/components/CreateActionButton";
-import { ConversationAvatar } from "@/components/chat/ConversationAvatar";
 import { QueryErrorBanner } from "@/components/QueryErrorBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatTimeShort } from "@/lib/formatTimeShort";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -37,7 +32,6 @@ import { toast } from "@/hooks/use-toast";
 import { getCachedMessagesPageData, cacheMessagesPageData } from "@/lib/messagesPageCache";
 import { filterDeletedTeams } from "@/lib/deletedTeamTombstones";
 import { useClubTheme } from "@/hooks/useClubTheme";
-import { SponsorOrAdCarousel } from "@/components/SponsorOrAdCarousel";
 import { fetchUnreadMessageCounts } from "@/lib/unreadMessageCounts";
 import { useUnreadMessageCounts } from "@/hooks/useUnreadMessageCounts";
 import { useGroupChatUnreadCache } from "@/hooks/useGroupChatUnreadCache";
@@ -78,46 +72,17 @@ import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
-import { formatMessagePreview as stripMentionFormatting, getMessagePreviewText as getMessagePreview } from "@/lib/messagePreview";
 import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
 import { resolveInboxAuthorNames, toInboxPreviewMessage } from "@/features/messaging/inbox/inboxPreviewHydration";
-import { ContactClubButton } from "@/components/ContactClubButton";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
-import DiscoverGroupsList from "@/components/chat/DiscoverGroupsList";
-import { MessagePreview } from "@/components/chat/MessagePreview";
 import { ConversationRow } from "@/components/chat/ConversationRow";
+import { MessagesInboxSections } from "@/pages/MessagesInboxSections";
 
 // Session-scoped first-reveal latch (per user id). Survives inbox unmount so
 // warm re-entries paint cached rows immediately instead of re-running the
 // initial ordering gate. Reset implicitly on reload / user switch.
 let sessionRevealedInboxUserId: string | null = null;
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { EyeOff } from "lucide-react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 
@@ -143,21 +108,6 @@ const PREFETCH_THREAD_CAP = isNativeRuntime() ? 5 : 15;
 
 
 // Skeleton component for message items while loading
-function MessageSkeleton() {
-  return (
-    <Card>
-      <CardContent className="p-3 flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-48" />
-        </div>
-        <Skeleton className="h-3 w-8 shrink-0" />
-      </CardContent>
-    </Card>
-  );
-}
-
 // NOTE: Placeholder name generation was removed - it caused confusion by showing
 // fake names like "Casey Walker" when profiles weren't loaded yet.
 // Now we show empty string until the real profile is fetched.
@@ -3003,17 +2953,6 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
         </Suspense>
       )}
 
-      {/* Search input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search messages..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       {/* Pro upgrade banner for non-Pro admin users — compact, benefit-led */}
       {hasAdminRoleButNoPro && (
         <Card className="border-primary/10 bg-primary/[0.03] overflow-hidden">
@@ -3051,393 +2990,34 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
         </Card>
       )}
 
-      {/* Lightweight type filter chips. Only chips for types the user actually
-          has appear, keeping the inbox uncluttered for simple users. Gated on
-          exactly the same reveal latch as the conversation list, so the chips
-          paint in the SAME frame as the rows instead of popping in afterwards
-          and pushing the list down (previously gated on all four inbox queries
-          having individually resolved, which lands later than first reveal). */}
-      {!showSkeletonLoading && (() => {
-        const counts = { teams: 0, groupish: 0, dms: 0 };
-        const unread = { teams: 0, groupish: 0, dms: 0 };
-        unifiedConversations.forEach((c) => {
-          const u = c.unreadCount || 0;
-          if (c.type === 'team' || c.type === 'league') { counts.teams++; unread.teams += u; }
-          else if (c.type === 'group' || c.type === 'club' || c.type === 'admin_group') { counts.groupish++; unread.groupish += u; }
-          else if (c.type === 'dm') { counts.dms++; unread.dms += u; }
-        });
-        const totalUnread = unread.teams + unread.groupish + unread.dms;
-        const chips: { id: typeof typeFilter; label: string; visible: boolean; type?: string; unread: number }[] = [
-          { id: 'all', label: 'All', visible: true, unread: totalUnread },
-          { id: 'teams', label: 'Teams', visible: counts.teams > 0, type: 'team', unread: unread.teams },
-          { id: 'groups', label: 'Groups', visible: counts.groupish > 0, type: 'group', unread: unread.groupish },
-          { id: 'dms', label: 'DMs', visible: counts.dms > 0, type: 'dm', unread: unread.dms },
-        ];
-        const shown = chips.filter(c => c.visible);
-        // Show chips for power users (>6 threads) OR whenever there are
-        // unread messages anywhere — so users can instantly see where the
-        // unread badge they saw on the tab is hiding.
-        if (totalUnread === 0 && unifiedConversations.length <= 6) return null;
-        if (shown.length <= 2) return null;
-
-        // Contextual nudge: current filter is empty of unread but another
-        // bucket has some — point the user there.
-        const currentUnread = chips.find(c => c.id === typeFilter)?.unread ?? 0;
-        const elsewhere = chips
-          .filter(c => c.id !== 'all' && c.id !== typeFilter && c.unread > 0)
-          .sort((a, b) => b.unread - a.unread);
-        const showBanner = typeFilter !== 'all' && currentUnread === 0 && elsewhere.length > 0;
-        const banner = showBanner ? elsewhere[0] : null;
-
-        return (
-          <>
-            <div className="-mx-4 px-4 mt-1 mb-1 overflow-x-auto scrollbar-none">
-              <div className="flex items-center gap-2 py-1">
-                {shown.map((chip) => {
-                  const active = typeFilter === chip.id;
-                  const activeStyle = active && chip.type
-                    ? conversationTypeActiveStyle(chip.type)
-                    : undefined;
-                  const hasActiveAccent = activeStyle !== undefined;
-                  const showCount = chip.unread > 0;
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => setTypeFilter(chip.id)}
-                      style={activeStyle}
-                      aria-pressed={active}
-                      aria-label={showCount ? `${chip.label}, ${chip.unread} unread` : chip.label}
-                      className={`shrink-0 inline-flex items-center gap-2 px-4 h-10 min-h-[40px] rounded-full text-sm border transition-colors touch-manipulation ${
-                        active
-                          ? `font-semibold ${hasActiveAccent ? '' : 'bg-primary text-primary-foreground border-primary'}`
-                          : `${showCount ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'} bg-background border-border hover:text-foreground`
-                      }`}
-                    >
-                      <span>{chip.label}</span>
-                      {showCount && (
-                        chip.unread === 1 ? (
-                          <span className="h-2 w-2 rounded-full bg-destructive" />
-                        ) : (
-                          <span className="h-[18px] min-w-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center leading-none">
-                            {chip.unread > 99 ? '99+' : chip.unread}
-                          </span>
-                        )
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {banner && (
-              <button
-                type="button"
-                onClick={() => setTypeFilter(banner.id)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-destructive/30 bg-destructive/5 text-left touch-manipulation"
-              >
-                <span className="text-[13px] text-foreground">
-                  You have <span className="font-semibold">{banner.unread}</span> unread message{banner.unread === 1 ? '' : 's'} in <span className="font-semibold">{banner.label}</span>
-                </span>
-                <span className="shrink-0 text-[12px] font-semibold text-destructive">
-                  View {banner.label} →
-                </span>
-              </button>
-            )}
-          </>
-        );
-      })()}
-
-      {/* Active club filter indicator */}
-      {hasLocalFilter && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-            <Building2 className="h-3 w-3" />
-            {displayMemberClubs.find((c: any) => c.id === localClubFilter)?.name || "Club"}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={() => setLocalClubFilter("all")} className="h-7 px-2 text-xs text-muted-foreground">
-            Clear
-          </Button>
-        </div>
-      )}
-
-      {/* Club filter drawer */}
-      <Drawer open={showClubFilterDrawer} onOpenChange={setShowClubFilterDrawer}>
-        <DrawerContent>
-          <DrawerHeader className="text-left border-b">
-            <DrawerTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Filter by Club
-            </DrawerTitle>
-          </DrawerHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="p-4 space-y-2">
-              <button
-                type="button"
-                onClick={() => { setLocalClubFilter("all"); setShowClubFilterDrawer(false); }}
-                className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left hover:bg-accent/50 ${
-                  localClubFilter === "all" ? "border-primary bg-primary/5" : "border-border bg-card"
-                }`}
-              >
-                <span className="text-base font-medium">All Clubs</span>
-                {localClubFilter === "all" && <Check className="h-5 w-5 text-primary" />}
-              </button>
-              {displayMemberClubs.map((club: any) => (
-                <button
-                  key={club.id}
-                  type="button"
-                  onClick={() => { setLocalClubFilter(club.id); setShowClubFilterDrawer(false); }}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left hover:bg-accent/50 ${
-                    localClubFilter === club.id ? "border-primary bg-primary/5" : "border-border bg-card"
-                  }`}
-                >
-                  <span className="text-base font-medium">{club.name}</span>
-                  {localClubFilter === club.id && <Check className="h-5 w-5 text-primary" />}
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Unified Messages List */}
-      <div className="space-y-2">
-        {/* Skeleton loading when no cache available */}
-        {showSkeletonLoading && (
-          <>
-            <MessageSkeleton />
-            <MessageSkeleton />
-            <MessageSkeleton />
-            <MessageSkeleton />
-          </>
-        )}
-
-        {/*
-          Inbox rendering.
-
-          For short inboxes (≤ VIRTUALIZE_THRESHOLD rows) or the bucketed
-          Groups-filter view, we render the original flat / sectioned markup.
-          For long inboxes we flatten Unread + Recent into a typed row list
-          and hand it to Virtuoso in `useWindowScroll` mode so off-screen
-          conversation cards never mount. The Groups sectioned layout stays
-          on the legacy path because it's a power-user view with internal
-          sub-headers — virtualizing it adds complexity for marginal gain.
-        */}
-        {(() => {
-          if (showSkeletonLoading) return null;
-
-          // Virtualization disabled — Virtuoso `useWindowScroll` miscomputed
-          // the viewport inside the app's scrollable main container, which
-          // clipped the inbox to ~12 rows and hid the sections beneath
-          // (Discover groups, Contact Club, sponsor carousel). Render the
-          // full legacy list until we move to a scroll-parent virtualizer.
-          const VIRTUALIZE_THRESHOLD = Number.POSITIVE_INFINITY;
-          const useGroupSections =
-            typeFilter === 'groups' && visibleRecent.length >= 5;
-          const totalRows = unreadItems.length + visibleRecent.length;
-          const shouldVirtualize = !useGroupSections && totalRows > VIRTUALIZE_THRESHOLD;
-
-          type FlatRow =
-            | { kind: 'unread-header'; key: string; count: number }
-            | { kind: 'recent-header'; key: string; withDivider: boolean }
-            | { kind: 'card'; key: string; item: UnifiedConversation }
-            | { kind: 'show-more-ops'; key: string; count: number };
-
-          if (shouldVirtualize) {
-            const rows: FlatRow[] = [];
-            if (unreadItems.length > 0) {
-              rows.push({ kind: 'unread-header', key: '__unread_header', count: unreadItems.length });
-              unreadItems.forEach((item) => rows.push({ kind: 'card', key: `u:${item.key}`, item }));
-            }
-            if (visibleRecent.length > 0) {
-              rows.push({
-                kind: 'recent-header',
-                key: '__recent_header',
-                withDivider: unreadItems.length > 0,
-              });
-              visibleRecent.forEach((item) => rows.push({ kind: 'card', key: `r:${item.key}`, item }));
-            }
-            if (hiddenOps.length > 0) {
-              rows.push({ kind: 'show-more-ops', key: '__more_ops', count: hiddenOps.length });
-            }
-
-            return (
-              <Virtuoso
-                useWindowScroll
-                data={rows}
-                computeItemKey={(_i, row) => row.key}
-                increaseViewportBy={{ top: 600, bottom: 800 }}
-                itemContent={(_i, row) => {
-                  if (row.kind === 'unread-header') {
-                    return (
-                      <div className="flex items-center gap-2 pb-1.5 mb-2">
-                        <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Unread</span>
-                      </div>
-                    );
-                  }
-                  if (row.kind === 'recent-header') {
-                    return (
-                      <div
-                        className={`flex items-center gap-2 pb-1.5 mb-2 ${
-                          row.withDivider ? 'pt-5 border-t border-border/50 mt-3' : ''
-                        }`}
-                      >
-                        <span className="text-[13px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Recent
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (row.kind === 'show-more-ops') {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllOps(true)}
-                        className="w-full mt-1 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md border border-dashed border-border hover:border-foreground/40"
-                      >
-                        Show {row.count} more inactive group{row.count === 1 ? '' : 's'}
-                      </button>
-                    );
-                  }
-                  // card
-                  return <div className="mb-2">{renderConversationCard(row.item)}</div>;
-                }}
-              />
-            );
-          }
-
-          // Legacy non-virtualized rendering (short inbox or Groups-sectioned view).
-          return (
-            <>
-              {unreadItems.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 pb-1.5">
-                    <span className="text-[13px] font-bold uppercase tracking-wide text-foreground">Unread</span>
-                  </div>
-                  {unreadItems.map(renderConversationCard)}
-                </>
-              )}
-
-              {recentItems.length > 0 && (
-                <>
-                  <div className={`flex items-center gap-2 pb-1.5 ${unreadItems.length > 0 ? 'pt-5 border-t border-border/50 mt-3' : ''}`}>
-                    <span className="text-[13px] font-bold uppercase tracking-wide text-muted-foreground">Recent</span>
-                  </div>
-                  {(() => {
-                    const BUILTIN_ORDER = ['Announcements', 'Club Management', 'Operations', 'Volunteers', 'Admin Groups', 'Custom Groups'] as const;
-                    const classifyGroup = (c: UnifiedConversation): string => {
-                      if (c.type === 'admin_group') return 'Admin Groups';
-                      if (c.type === 'club' || c.type === 'broadcast') return 'Announcements';
-                      const explicit = (c.category || '').trim();
-                      if (explicit) return explicit;
-                      const name = (c.name || '').toLowerCase();
-                      if (/committee|admin|coach|leadership|staff|board|manager|coordinator/.test(name)) return 'Club Management';
-                      if (/finance|treasur|ground|fixture|operation|registr|equipment|kit|event|schedul/.test(name)) return 'Operations';
-                      if (/volunteer|bbq|canteen|fundrais|helper|roster/.test(name)) return 'Volunteers';
-                      return 'Custom Groups';
-                    };
-
-                    if (!useGroupSections) {
-                      return <>{visibleRecent.map(renderConversationCard)}</>;
-                    }
-                    const buckets: Record<string, UnifiedConversation[]> = {};
-                    visibleRecent.forEach((c) => {
-                      const section = (c.type === 'group' || c.type === 'club' || c.type === 'broadcast' || c.type === 'admin_group')
-                        ? classifyGroup(c)
-                        : 'Custom Groups';
-                      (buckets[section] ||= []).push(c);
-                    });
-                    const customSections = Object.keys(buckets)
-                      .filter((s) => !(BUILTIN_ORDER as readonly string[]).includes(s))
-                      .sort((a, b) => a.localeCompare(b));
-                    const orderedSections = [...BUILTIN_ORDER.filter((s) => buckets[s]?.length), ...customSections];
-                    return (
-                      <>
-                        {orderedSections.map((section, idx) => (
-                          <Fragment key={section}>
-                            <div className={idx === 0 ? '' : 'pt-3'}>
-                              <div className="flex items-center gap-2 pb-1.5">
-                                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                  {section}
-                                </span>
-                              </div>
-                              {buckets[section].map(renderConversationCard)}
-                            </div>
-                          </Fragment>
-                        ))}
-                      </>
-                    );
-                  })()}
-
-                  {hiddenOps.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllOps(true)}
-                      className="w-full mt-1 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md border border-dashed border-border hover:border-foreground/40"
-                    >
-                      Show {hiddenOps.length} more inactive group{hiddenOps.length === 1 ? '' : 's'}
-                    </button>
-                  )}
-                </>
-              )}
-            </>
-          );
-        })()}
-
-
-        {/* Empty state when no results */}
-        {!showSkeletonLoading && hasNoResults && (
-          <Card className="border-dashed">
-            <CardContent className="p-6 text-center">
-              <Search className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No messages match "{searchQuery}"</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty state when no messages at all */}
-        {!showSkeletonLoading && !searchQuery && hasNoMessages && (
-          <Card className="border-dashed">
-            <CardContent className="p-8 text-center">
-              {isOnline ? (
-                <>
-                  <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No messages available</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Join a team or club to access chats
-                  </p>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    You're offline and no saved conversations are available yet
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Reconnect to load your messages
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-
-        {/* Admin Group threads are now merged into the unified sorted list above. */}
-
-
-        {/* Contact Club - Pro feature */}
-        {!showSkeletonLoading && (
-          <ContactClubButton clubFilter={activeClubFilter} />
-        )}
-
-        {/* Discover open-to-club Operations / Volunteers groups */}
-        {!showSkeletonLoading && (typeFilter === 'all' || typeFilter === 'groups') && (
-          <DiscoverGroupsList activeClubFilter={effectiveClubFilter} />
-        )}
-
-        {/* Sponsor/Ad Carousel */}
-        <SponsorOrAdCarousel location="messages" activeClubFilter={activeClubFilter} />
-      </div>
+      <MessagesInboxSections
+        model={{
+          searchQuery,
+          typeFilter,
+          isOnline,
+          showSkeletonLoading,
+          hasLocalFilter,
+          localClubFilter,
+          showClubFilterDrawer,
+          activeClubFilter,
+          effectiveClubFilter,
+          memberClubs: displayMemberClubs,
+          unreadItems,
+          recentItems,
+          visibleRecent,
+          hiddenOps,
+          hasNoResults: Boolean(hasNoResults),
+          hasNoMessages,
+        }}
+        actions={{
+          setSearchQuery,
+          setTypeFilter: (value) => setTypeFilter(value),
+          setLocalClubFilter,
+          setShowClubFilterDrawer,
+          setShowAllOps,
+        }}
+        renderConversationCard={renderConversationCard}
+      />
     </div>
   );
 }

@@ -542,3 +542,40 @@ Product build, bundle, quality-ratchet, isolation, duplication-ratchet, and
 documented unrelated diagnostics in `StartDMDialog` and `ClubDetailPage`.
 This is a maintainability and safer-change result only; no request,
 subscription, render-count, or interaction benchmark was measured.
+
+## Phase 4A Messages result
+
+The Phase 4A Messages decomposition moved the cohesive inbox presentation
+sections into the typed
+[`MessagesInboxSections.tsx`](../frontend/src/pages/MessagesInboxSections.tsx)
+module. The page still owns provider selection and Supabase-versus-ICP
+branches, user-scoped offline/cache behavior, query keys and mutations, all
+authorization and realtime lifecycle code, error/retry behavior, dialog state,
+and the existing lazy dialog imports. The new module owns only search/type/club
+filter presentation, skeleton/list/empty states, group disclosure, and the
+Contact/Discover/Sponsor tail.
+
+The boundary was characterized against the committed inline implementation
+before editing and re-run after extraction. The targeted suite passed 25 tests,
+including the existing inbox ordering, offline, first-reveal, and realtime
+watermark guards.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 3,443 | 3,058 | -385 |
+| Complete Messages package (`MessagesPage`, `MessagesInboxSections`, and non-test `features/messaging/inbox`) | 6,489 | 6,588 | +99 |
+| Exact Phase 2.4 target scope | 3,607 | 3,706 | +99 |
+| Same-scope jscpd | 93 lines / 10 groups / 2.5783% | 93 lines / 10 groups / 2.53% | 0 lines / 0 groups |
+| Messages route chunk | 108,273 bytes | 109,204 bytes | +931 |
+| Initial product chunk | 1,112,842 bytes | 1,112,842 bytes | 0 |
+| Static query call sites (`useQuery` / `supabase.from` / RPC) | 23 / 43 / 5 | 23 / 43 / 5 | unchanged |
+| Static realtime (`subscribe` / `registerChannel`) | 2 / 2 | 2 / 2 | unchanged |
+
+The extracted module is statically imported and the package grows by the
+explicit typed boundary, so this is a maintainability and safety result only.
+The route chunk increase is not a runtime win. No request, subscription,
+render-count, or interaction-latency improvement is claimed. Product
+typecheck added no Messages diagnostics; the known unrelated
+`StartDMDialog`/`ClubDetailPage` diagnostics remain. Product build, bundle,
+quality, isolation, duplication, targeted legacy tests, and `git diff --check`
+passed. Phase 4A stops after Messages as requested.

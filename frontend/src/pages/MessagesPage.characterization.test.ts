@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const pagesDirectory = dirname(fileURLToPath(import.meta.url));
 const messagesPageSource = readFileSync(join(pagesDirectory, "MessagesPage.tsx"), "utf8");
-const messageInboxSource = existsSync(join(pagesDirectory, "../components/chat/MessageInboxSections.tsx"))
-  ? readFileSync(join(pagesDirectory, "../components/chat/MessageInboxSections.tsx"), "utf8")
+const messageInboxSource = existsSync(join(pagesDirectory, "MessagesInboxSections.tsx"))
+  ? readFileSync(join(pagesDirectory, "MessagesInboxSections.tsx"), "utf8")
   : "";
 const messageFilterSource = existsSync(join(pagesDirectory, "../features/messaging/inbox/inboxFiltering.ts"))
   ? readFileSync(join(pagesDirectory, "../features/messaging/inbox/inboxFiltering.ts"), "utf8")

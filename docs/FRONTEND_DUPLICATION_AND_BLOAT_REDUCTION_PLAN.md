@@ -703,6 +703,68 @@ live request counts, render counts, and interaction latency were not measured.
 The one trash query remains scoped to a non-root open-trash view; the 468-byte
 route-chunk increase is static organization overhead, not an optimization.
 
+### Phase 4A Messages result (2026-09-21)
+
+The Messages responsibility map before extraction was intentionally kept
+route-local and covered:
+
+- provider selection (`resolveLocalAuthMode`), explicit Supabase-versus-ICP
+  branches, user-scoped offline cache reads, and all query keys;
+- inbox source queries, unread/profile/entitlement reads, mutations, optimistic
+  and retry behavior, cache invalidation, and error/toast paths;
+- fail-closed authorization snapshots, web/native realtime coordinators,
+  preview watermarks, channel registration/teardown, visibility recovery, and
+  native no-invalidation behavior;
+- first-reveal/order gates, search/type/club filters, operational disclosure,
+  lazy dialog state and Pro/role gates; and
+- the header, filter controls, skeleton/loading/empty states, conversation
+  sections, and Contact/Discover/Sponsor tail.
+
+The accepted boundary is the statically imported typed
+`src/pages/MessagesInboxSections.tsx` presentation module (484 lines). It owns
+only search input, type chips and unread disclosure, the club-filter indicator
+and drawer, skeleton/list/empty states, group sectioning, and the existing
+Contact Club, Discover Groups, and Sponsor/Ad tail. Its contract is one
+`MessagesInboxSectionsModel`, one `MessagesInboxSectionsActions` object, and a
+typed conversation-card renderer. Query composition, mutations, cache keys and
+invalidation, authorization, Supabase/ICP branches, realtime lifecycle,
+offline/retry decisions, error banner retry, and all four existing lazy dialog
+boundaries remain in `MessagesPage.tsx`. No provider fallback, global state,
+controller, or new lazy boundary was introduced.
+
+Characterization coverage was added before the extraction and run against the
+pre-refactor page. It now also verifies the extracted presentation contract;
+the targeted Messages characterization, offline, first-reveal, and web
+realtime guards pass before and after the move (25 tests). The page retains the
+existing provider/realtime source guards, and the offline guard now reads the
+page plus its explicitly presentation-only module.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 3,443 | 3,058 |
+| Complete Messages package (`MessagesPage`, `MessagesInboxSections`, and non-test `features/messaging/inbox`) | 6,489 | 6,588 |
+| New presentation responsibility module | 0 | 484 |
+| Exact target scope (`MessagesPage`, Phase 2.4 helpers, new sections module) | 3,607 | 3,706 |
+| Same-scope jscpd | 93 lines / 10 groups / 2.5783% | 93 lines / 10 groups / 2.53% |
+| Product Messages route chunk | 108,273 bytes | 109,204 bytes |
+| Product initial chunk | 1,112,842 bytes | 1,112,842 bytes |
+| Static `useQuery` / `supabase.from` / RPC call sites | 23 / 43 / 5 | 23 / 43 / 5 |
+| Static realtime subscriptions / registry registrations | 2 / 2 | 2 / 2 |
+| Product JavaScript total / chunks | 8,854,720 bytes / 502 | 8,855,651 bytes / 502 |
+
+The complete package grows by 99 lines because the typed boundary is explicit;
+the target page is 385 lines smaller and the responsibility is independently
+owned. The route module is statically imported, so the 931-byte route-chunk
+increase is organization overhead rather than a loading improvement. No
+request, subscription, render-count, or interaction-latency reduction was
+measured, and no runtime-performance claim is made. Render counts and
+interaction latency remain uninstrumented for this legacy Supabase route.
+Product typecheck introduced no Messages diagnostic; its remaining ratchet
+failures are the known unrelated `StartDMDialog` and `ClubDetailPage`
+diagnostics. Product build/bundle, quality, isolation, duplication, targeted
+legacy characterization, and diff checks pass. Phase 4A stops here for
+Messages; no other Phase 4A target is started.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
