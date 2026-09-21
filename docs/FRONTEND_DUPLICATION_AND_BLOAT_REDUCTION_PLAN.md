@@ -30,6 +30,13 @@ Passing builds or extracting a helper does not count as success unless the agree
   17 to 11 clone groups. Aggregate authored duplication decreased from 17,415
   to 17,227 lines (5.2710% to 5.2138%). Role-specific authorization, queries,
   invite metadata, warnings, copy, and action adapters remain local.
+- **Phase 1.3 complete:** sponsor slot, tier weighting, and full-carousel
+  presentation are consolidated and verified. The eight clone-report-linked
+  sponsor surfaces decreased from 2,223 to 1,681 lines and from 771 to 452
+  duplicated lines; including the 312 shared presentation lines, the package
+  is 230 lines smaller. Product reads, authorization gates, provider behavior,
+  tracking contexts, placement-specific dimensions, and the lab boundary
+  remain local.
 
 ## Architectural boundaries
 
@@ -220,6 +227,102 @@ Create:
 - a provider-neutral read adapter where query contracts are genuinely equivalent.
 
 Do not centralize placement-specific authorization or tracking unless contracts match.
+
+#### Baseline and contract classification
+
+The 2026-09-21 identical-scope scan includes the six named targets plus the
+clone-report-linked `MultiClubSponsorCarousel` and `MediaSponsorTile`. It
+contains 2,223 authored lines, 45 clone groups, 771 duplicated lines
+(34.6829%). The named six-file subset contains 1,814 lines, 34 clone groups,
+and 604 duplicated lines (33.2966%). The aggregate authored scan at this
+checkpoint contains 330,412 lines, 1,294 clone groups, 17,227 duplicated
+lines, and 5.2138% duplication.
+
+| Surface | Source lines | Read/query contract | Subscription contract | Classification |
+| --- | ---: | --- | --- | --- |
+| `EventsHeaderSponsorStrip` | 345 | Five React Query reads: effective-club resolution, Pro status, sponsors, events placement setting, and app ads | None | Compact-row presentation is equivalent; effective-club selection, event toggle, hints, and `event_page`/`events_page` tracking remain local. |
+| `MediaHeaderSponsorStrip` | 331 | Five React Query reads: Pro status, media flag, sponsors, media-header setting, and app ads | None | Compact-row presentation is equivalent; media opt-in, hints, and existing tracking context remain local. |
+| `ChatThreadSponsorStrip` | 351 | Five React Query reads: chat opt-in, placement setting, Pro status, sponsors, and app ads | None; deliberately stays above the virtualized chat scroller | Compact-row presentation is equivalent; chat entitlement gates, virtualization placement, and tracking remain local. |
+| `ClubSponsorSection` | 227 | One React Query entry making subscription, club, sponsor, and allocation reads | None | Full Embla presentation is equivalent; Pro-expiry gate, home hint, and home context remain local. |
+| `MessagesSponsorCarousel` | 267 | One React Query entry; filtered and all-member-club sponsor/allocation reads differ | None | Full Embla presentation is equivalent; message query scope and message context remain local. |
+| `SponsorOrAdCarousel` | 293 | Four React Query entries for event eligibility, Pro status, placement settings, and sponsor presence | None | Deliberately separate tier/router contract: persisted tier hint, native banner, placement-specific eligibility, and app-ad routing must not enter a shared slot. |
+| `MultiClubSponsorCarousel` | 237 | One React Query entry for membership, Pro subscriptions, clubs, sponsors, and allocations | None | Full Embla presentation is equivalent; multi-club Pro filter and home hint remain local. |
+| `MediaSponsorTile` | 172 | Three React Query entries for effective club, media opt-in/Pro status, and sponsors | None | Intentionally separate seeded photo-card presentation; it shares only typed tier weighting, not compact-row dimensions, rotation, tracking, or reads. |
+
+All eight surfaces use the existing Supabase product provider and open no
+realtime subscriptions. Their gates, query keys, error handling, cache scope,
+authorization assumptions, tracking contexts, and provider behavior are not
+equivalent. Consequently this package may share pure typed slot presentation,
+carousel presentation, and tier weighting only; it does not introduce a
+provider read/query adapter or move product reads into the lab runtime.
+
+The guarded product baseline is 8,873,630 total JavaScript bytes, a
+1,112,736-byte initial `product-index` chunk, 500 JavaScript chunks, and
+172,904 CSS bytes. The affected lazy route chunks are Event Detail 220,918
+bytes, Home 126,299, Messages 108,802, Media 69,682, Events 54,661, Team Chat
+46,427, Club Chat 36,276, and Club Admin Chat 29,143. This package adds
+statically imported shared presentation modules; absent changed query,
+subscription, render, or request measurements, any accepted improvement is
+maintainability-only and is not a runtime-performance claim.
+
+The global scan also links `SponsorOrAdCarousel` to `AppAdCarousel`, plus
+separate sponsor-management surfaces. Their app-ad routing, upgrade-policy,
+or administrator-management contracts differ and are outside this focused
+presentation package. `SponsorOrAdCarousel` retains its own duplicate
+membership-resolution paths because their query keys, result shapes, and
+error semantics differ; forcing a provider abstraction would hide those
+differences rather than remove an equivalent contract.
+
+#### Result
+
+The same eight-source scan now contains 1,681 lines, 31 clone groups, and
+452 duplicated lines (26.8888%). That is a reduction of 542 target-source
+lines, 14 clone groups, and 319 duplicated lines. The new focused shared
+modules contain 312 lines:
+
+- `src/components/sponsor/SponsorSlotPresentation.tsx` (138 lines);
+- `src/components/sponsor/SponsorCarouselPresentation.tsx` (139 lines);
+- `src/components/sponsor/sponsorTier.ts` (35 lines).
+
+Consequently the complete sponsor presentation package is 1,993 lines,
+down 230 lines from the 2,223-line baseline. The aggregate authored scan is
+330,191 lines, 1,280 clone groups, 16,894 duplicated lines, and 5.1164%
+duplication: a decrease of 221 scanned lines, 14 clone groups, 333 duplicated
+lines, and 0.0974 percentage points from the Phase 1.2 checkpoint.
+
+The shared slot primitive owns only the already-identical row DOM, avatar
+dimensions, labels, disabled-click behavior, and dismiss control. Card and
+chat-thread descriptors retain their separate outer dimensions. The shared
+carousel owns only Embla controls, slide dots, and the eight-second rotation;
+the club, message, and multi-club descriptors retain their exact section
+spacing and selection lifecycle. Tier weighting and durations are a pure typed
+helper shared with the intentionally separate seeded media-feed card. No
+provider-neutral query adapter was added because the read contracts are not
+equivalent.
+
+The initial product chunk changed from 1,112,736 to 1,112,837 bytes (+101);
+total JavaScript changed from 8,873,630 to 8,866,082 bytes (-7,548), and the
+number of JavaScript chunks changed from 500 to 501. Affected lazy chunks are:
+Event Detail 220,964 (+46), Home 122,683 (-3,616), Messages 108,802
+(unchanged), Media 67,223 (-2,459), Events 54,707 (+46), Team Chat 46,473
+(+46), Club Chat 36,322 (+46), and Club Admin Chat 29,189 (+46). These are
+static presentation imports, not new lazy boundaries. The suite preserves the
+same query configurations and confirms no realtime subscriptions on these
+surfaces; it does not establish lower request counts, fewer renders, or faster
+interactions. Phase 1.3 is therefore an explicitly maintainability-only
+improvement, not a runtime-performance claim.
+
+Characterization coverage was committed before the consolidation in
+`src/components/SponsorPresentations.characterization.test.tsx`; it verifies
+the independent compact-strip gates, tracking contexts, chat placement, full
+carousel contexts/spacing, and separate `SponsorOrAdCarousel` tier router.
+`src/components/sponsor/sponsorTier.test.ts` verifies preserved tier weights
+and durations. The targeted tests pass (2 files, 4 tests), the dedicated lab
+suite passes (279 Node tests and 1,720 Vitest tests), and the legacy suite
+passes (4,265 tests, 1 skipped). The guarded product build and bundle check,
+quality ratchet, aggregate duplication ratchet, and isolation check pass.
+The product type ratchet reports only the pre-existing 14 unrelated baseline
+diagnostics in `StartDMDialog` and `ClubDetailPage`; this package adds none.
 
 ### 1.4 CSV import dialogs
 
