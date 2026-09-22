@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const source = readFileSync(resolve(__dirname, "EventDetailPage.tsx"), "utf8");
+const pageSource = readFileSync(resolve(__dirname, "EventDetailPage.tsx"), "utf8");
+const dialogSource = readFileSync(
+  resolve(__dirname, "../components/event/EventDetailActionDialogs.tsx"),
+  "utf8",
+);
+const source = `${pageSource}\n${dialogSource}`;
 
 /**
  * Event Detail attendance failure handling.
