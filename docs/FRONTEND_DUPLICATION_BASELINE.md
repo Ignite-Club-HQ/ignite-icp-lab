@@ -1347,23 +1347,29 @@ passed. The resulting planner sizes are `scheduler.ts` 666 lines,
 ## Phase 4A Event detail result (2026-09-14)
 
 The Event Detail decomposition reduced `src/pages/EventDetailPage.tsx` from
-4,613 to 2,574 raw lines. The extracted modules are intentionally bounded:
+4,613 to 1,771 raw lines. The extracted modules are intentionally bounded:
 
 - mutation hooks: 42–474 lines;
 - `EventOverviewSection.tsx`: 347 lines;
 - `EventDetailActionDialogs.tsx`: 211 lines;
 - `EventDutiesSection.tsx`: 242 lines;
 - `EventMatchAwardsSection.tsx`: 103 lines;
-- `EventPitchBoardPortal.tsx`: 96 lines.
+- `EventPitchBoardPortal.tsx`: 96 lines;
+- `EventRsvpResponseSection.tsx`: 384 lines;
+- `useEventAttendanceViewModel.ts`: 203 lines;
+- `EventAttendanceRosterSection.tsx`: 477 lines.
 
 No extracted file recreates the original monolith. Provider/query ownership,
-permissions, attendance policy, roster derivation, and attendance composition
-remain in the page; the new modules own cohesive mutation or presentation
-responsibilities.
+permissions, attendance failure/loading policy, and attendance composition
+remain in the page; the new modules own cohesive mutation, roster derivation,
+or presentation responsibilities.
 
 Validation evidence: 467 legacy files / 4,471 passing tests (one skip), 153 lab
 files / 1,720 passing tests, clean lab typecheck, successful product build,
-product bundle within budget (8,877,407 total JavaScript bytes; 1,112,842-byte
+product bundle within budget (8,879,664 total JavaScript bytes; 1,112,842-byte
 largest JavaScript chunk; 172,904 CSS bytes), isolation and quality ratchets
-passing, and duplication ratchet at 15,839 counted duplicated lines (1,743
-below baseline). No runtime-performance claim is made.
+passing, and duplication ratchet at 15,814 counted duplicated lines (1,768
+below baseline). The aggregate `npm test` command has one unrelated pre-existing
+raw-source contract failure: the Vault storage-breakdown contract still reads
+`VaultPage.tsx` after that lazy component moved to `VaultTopSection.tsx`.
+No runtime-performance claim is made.

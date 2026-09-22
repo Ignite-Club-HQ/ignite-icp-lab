@@ -1911,28 +1911,36 @@ than moving the page wholesale. Mutation orchestration now lives in focused
 hooks for duties, cancellation, reminders/invites, checkout, RSVP/admin RSVP,
 local attendance, and parent-managed mini-league RSVP. Presentation was split
 into event overview, action dialogs, duty roster, match awards, and pitch-board
-portal components. The page remains the owner of provider selection, queries,
-permissions, attendance failure/loading policy, derived rosters, dialog state,
-and the unified attendance composition.
+portal components. The RSVP response panel now has its own presentation
+boundary, while attendance derivation and roster rendering are split between a
+view-model hook and a focused presentation component. The page remains the
+owner of provider selection, queries, permissions, attendance failure/loading
+policy, dialog state, and the unified attendance composition.
 
 | Measure | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| `EventDetailPage.tsx` raw lines | 4,613 | 2,574 | -2,039 (-44.2%) |
+| `EventDetailPage.tsx` raw lines | 4,613 | 1,771 | -2,842 (-61.6%) |
 | Largest new hook | 0 | 474 (`useEventRsvpMutations.ts`) | +474 |
-| Largest new presentation component | 0 | 347 (`EventOverviewSection.tsx`) | +347 |
+| Largest new presentation component | 0 | 477 (`EventAttendanceRosterSection.tsx`) | +477 |
 | Event detail source contract | 7 tests | 7 tests | unchanged/passing |
-| Product JavaScript total / chunks | not measured at the exact pre-change commit | 8,877,407 bytes / 502 | budget passing |
+| Product JavaScript total / chunks | not measured at the exact pre-change commit | 8,879,664 bytes / 502 | budget passing |
 | Largest product JavaScript chunk | not measured at the exact pre-change commit | 1,112,842 bytes | budget passing |
 
 No replacement file approaches the original page size. The attendance failure
-contract now reads the page plus the extracted action dialogs so its
-disabled-action assertions follow the intentional component boundary; the
-failure alert, RSVP query state, loading state, and retry policy remain
-page-owned.
+contract reads the page plus the extracted action dialogs and RSVP response
+section so its disabled-action assertions follow the intentional component
+boundaries; the failure alert, RSVP query state, loading state, and retry
+policy remain page-owned. `useEventAttendanceViewModel.ts` is 203 lines,
+`EventAttendanceRosterSection.tsx` is 477 lines, and
+`EventRsvpResponseSection.tsx` is 384 lines.
 
 The full legacy suite passed 4,471 tests across 467 files (one existing skip);
 the lab suite passed 1,720 tests across 153 files. `typecheck:lab`, product
 build, product bundle budget, isolation, quality ratchet, duplication ratchet,
 the focused Event Detail/pitch-board guards, and `git diff --check` passed.
+The aggregate `npm test` command remains blocked before Vitest by the unrelated
+`vault-storage-breakdown-loading-contract.test.mjs`, whose raw-source assertion
+still expects the lazy storage component in `VaultPage.tsx` after it moved to
+`VaultTopSection.tsx`; this Event Detail work does not alter that Vault surface.
 This is a maintainability/safe-change result; no request, subscription,
 render-count, or interaction-latency improvement is claimed.
