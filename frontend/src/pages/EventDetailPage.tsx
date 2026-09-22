@@ -19,15 +19,13 @@ import { defaultMinutesPerHalfForTeamName } from "@/lib/teamAgeDefaults";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Circle, Loader2, Plus, Trash2, UserPlus, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Flame, MoreVertical, Trophy, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, UserPlus, Trash2, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Flame, MoreVertical, Trophy, Lock } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { TrainingDefaultControl } from "@/components/event/TrainingDefaultControl";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { RecurringEventActionDialog } from "@/components/RecurringEventActionDialog";
 import { CancelEventConfirmDialog } from "@/components/CancelEventConfirmDialog";
 import { RecurringCancelEventDialog } from "@/components/RecurringCancelEventDialog";
-import { AddDutySheet } from "@/components/AddDutySheet";
-import { AssignDutySheet } from "@/components/AssignDutySheet";
 import PlayerOfMatchSelector from "@/components/PlayerOfMatchSelector";
 import MatchCaptainSelector from "@/components/MatchCaptainSelector";
 import MatchGoalkeepersSelector from "@/components/MatchGoalkeepersSelector";
@@ -96,10 +94,10 @@ import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
 import { RsvpNoteSheet } from "@/components/rsvp/RsvpNoteSheet";
 import { PostRsvpNotificationPrompt } from "@/components/PostRsvpNotificationPrompt";
-import { getMatchArrivalDate } from "@/lib/matchArrivalTime";
 import { formatRelativePast } from "@/lib/formatRelativeTime";
 import { EventNoteSection } from "@/components/event/EventNoteSection";
 import { EventOverviewSection } from "@/components/event/EventOverviewSection";
+import { EventDutiesSection } from "@/components/event/EventDutiesSection";
 
 
 // Lazy load PitchBoard for game events
@@ -2696,199 +2694,38 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      {/* Duties Pro upgrade prompt — shown to admins on free clubs so they know duties exist behind Pro */}
-      {event.type === "game" && !isMiniLeagueEvent && isAdmin && !isAppAdmin && !isLoadingHasTeamPro && hasTeamPro !== true && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Duty Roster</h2>
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
-            <div className="flex items-start gap-2">
-              <Lock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Match-day duties are a Pro feature</p>
-                <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to add and assign duties like Canteen/BBQ, Umpire/Referee, Snacks, Linesperson, Scorer and more — with automatic reminders and points for volunteers.
-                </p>
-              </div>
-            </div>
-            {event.club_id && (
-              <Button
-                size="sm"
-                onClick={() => navigate(`/clubs/${event.club_id}/upgrade`)}
-                className="gap-1.5"
-              >
-                <Lock className="h-3.5 w-3.5" />
-                Upgrade to Pro
-              </Button>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Duties Section (only for non-mini-league games — mini league duties are auto-created via Generate Matches) */}
-      {event.type === "game" && !isMiniLeagueEvent && canAwardDutyPoints && (
-
-        <>
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Duty Roster</h2>
-              {isAdmin && (
-                <Button size="sm" variant="outline" onClick={() => setAddDutyOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Duty
-                </Button>
-              )}
-            </div>
-
-            
-            <AddDutySheet
-              open={addDutyOpen}
-              onOpenChange={setAddDutyOpen}
-              onAddDuty={(dutyName, opts) => addDutyMutation.mutate({ dutyName, startTime: opts?.startTime, endTime: opts?.endTime })}
-              isPending={addDutyMutation.isPending}
-              isMiniLeague={!!event?.mini_league_id}
-              context="session"
-              // Soccer/football clubs get Referee / Linesperson / Subs Manager;
-              // other sports get Umpire / Scorer instead.
-              sport={event.clubs?.sport ?? null}
-            />
-            {duties?.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No duties assigned for this event</p>
-            ) : (
-              <div className="space-y-2">
-                {duties?.map((duty) => (
-                  <Card key={duty.id} className={duty.status === "completed" ? "opacity-60" : ""}>
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {duty.status === "completed" ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <div>
-                          <p className="font-medium">{duty.name}</p>
-                          {(duty as any).start_time && (
-                            <p className="text-xs text-muted-foreground whitespace-nowrap">
-                              {format(new Date((duty as any).start_time), "h:mm a")}
-                              {(duty as any).end_time ? ` – ${format(new Date((duty as any).end_time), "h:mm a")}` : ""}
-                            </p>
-                          )}
-
-                          {duty.profiles ? (
-                            <p className="text-sm text-muted-foreground">
-                              {duty.profiles.display_name}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Unassigned</p>
-                          )}
-                          {duty.status === "completed" && (duty.assigned_to === user?.id || isAdmin) && (
-                            <button
-                              type="button"
-                              onClick={() => uncompleteDutyMutation.mutate(duty.id)}
-                              disabled={uncompleteDutyMutation.isPending}
-                              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground mt-0.5 disabled:opacity-50"
-                            >
-                              {uncompleteDutyMutation.isPending ? "Reopening…" : "Marked by mistake? Reopen"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isAdmin && duty.status === "open" && (
-                          <>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedDutyId(duty.id);
-                                setSelectedUserId(duty.assigned_to || "");
-                                setAssignDialogOpen(true);
-                              }}
-                            >
-                              <UserPlus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => deleteDutyMutation.mutate(duty.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                        {duty.status === "open" && !duty.assigned_to && !isAdmin && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => claimDutyMutation.mutate(duty.id)}
-                            disabled={claimDutyMutation.isPending}
-                          >
-                            Claim
-                          </Button>
-                        )}
-                        {duty.status === "open" && (duty.assigned_to === user?.id || isAdmin) && (() => {
-                          const earliest = event?.type === "game"
-                            ? (getMatchArrivalDate(event as any) ?? new Date(event.start_time || event.event_date))
-                            : new Date(event!.start_time || event!.event_date);
-                          const tooEarly = !Number.isNaN(earliest.getTime()) && new Date() < earliest;
-                          return (
-                            <div className="flex flex-col items-end gap-1">
-                              <Button
-                                size="sm"
-                                onClick={() => completeDutyMutation.mutate(duty.id)}
-                                disabled={completeDutyMutation.isPending || tooEarly}
-                                title={tooEarly ? `Available from ${format(earliest, "EEE d MMM, h:mm a")}` : undefined}
-                              >
-                                {completeDutyMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  "Complete"
-                                )}
-                              </Button>
-                              {tooEarly && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  Available {format(earliest, "EEE d MMM, h:mm a")}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                        {duty.status === "completed" && (
-                          <Badge variant="secondary" className="bg-primary/20 text-primary gap-1">
-                            <Check className="h-3 w-3" />
-                            Completed
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
-
-      {/* Assign Duty Sheet */}
-      <AssignDutySheet
-        open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
-        dutyName={duties?.find(d => d.id === selectedDutyId)?.name || "Duty"}
-        currentAssignee={selectedUserId || null}
-        members={
-          isMiniLeagueEvent
-            ? (miniLeagueDutyAssignees?.map((m: any) => ({
-                id: m.id,
-                display_name: m.display_name,
-                avatar_url: m.avatar_url,
-              })) || [])
-            : (members?.map((m: any) => ({
-                id: m.id,
-                display_name: m.display_name,
-                avatar_url: m.avatar_url,
-              })) || [])
+      <EventDutiesSection
+        event={event}
+        duties={duties}
+        userId={user?.id}
+        members={members}
+        miniLeagueDutyAssignees={miniLeagueDutyAssignees}
+        isMiniLeagueEvent={isMiniLeagueEvent}
+        isAdmin={isAdmin}
+        showProUpgrade={
+          event.type === "game" &&
+          !isMiniLeagueEvent &&
+          isAdmin &&
+          !isAppAdmin &&
+          !isLoadingHasTeamPro &&
+          hasTeamPro !== true
         }
-        onAssign={(userId) => assignDutyMutation.mutate(userId)}
-        isPending={assignDutyMutation.isPending}
+        canAwardDutyPoints={canAwardDutyPoints}
+        onUpgrade={() => navigate(`/clubs/${event.club_id}/upgrade`)}
+        addDutyOpen={addDutyOpen}
+        setAddDutyOpen={setAddDutyOpen}
+        assignDialogOpen={assignDialogOpen}
+        setAssignDialogOpen={setAssignDialogOpen}
+        selectedDutyId={selectedDutyId}
+        setSelectedDutyId={setSelectedDutyId}
+        selectedUserId={selectedUserId}
+        setSelectedUserId={setSelectedUserId}
+        addDutyMutation={addDutyMutation}
+        claimDutyMutation={claimDutyMutation}
+        completeDutyMutation={completeDutyMutation}
+        uncompleteDutyMutation={uncompleteDutyMutation}
+        deleteDutyMutation={deleteDutyMutation}
+        assignDutyMutation={assignDutyMutation}
       />
 
       {/* Pitch Board Modal — soccer */}
