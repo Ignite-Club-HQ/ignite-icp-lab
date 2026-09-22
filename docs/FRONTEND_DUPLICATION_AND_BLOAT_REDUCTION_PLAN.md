@@ -1944,3 +1944,35 @@ still expects the lazy storage component in `VaultPage.tsx` after it moved to
 `VaultTopSection.tsx`; this Event Detail work does not alter that Vault surface.
 This is a maintainability/safe-change result; no request, subscription,
 render-count, or interaction-latency improvement is claimed.
+
+## Phase 4A Add Team Member result (2026-09-22)
+
+`AddTeamMemberSheet.tsx` was decomposed along its existing workflow boundaries.
+Existing-user, pending-invite, and bulk-add mutations now live in separate
+hooks. Club roster/child reads and member searches have separate data hooks,
+and the bulk/single success surfaces share a bounded presentation module. The
+sheet retains form state, progressive disclosure, role selection, child and
+second-guardian field composition, and single/bulk form orchestration.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `AddTeamMemberSheet.tsx` raw lines | 3,552 | 1,700 | -1,852 (-52.1%) |
+| Largest new mutation hook | 0 | 580 (`useAddPendingTeamMemberMutation.ts`) | +580 |
+| Search data hook | 0 | 348 (`useAddTeamMemberSearch.ts`) | +348 |
+| Roster data hook | 0 | 239 (`useAddTeamMemberRosterData.ts`) | +239 |
+| Success presentation module | 0 | 315 (`AddTeamMemberSuccessSheets.tsx`) | +315 |
+| Product JavaScript total / chunks | 8,879,664 bytes / 502 | 8,882,693 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | unchanged |
+
+The second-parent and role/cache source contracts now read the extracted hooks
+as part of the same production boundary. They continue to require all
+second-parent branches to use `ensureSecondParent`, preserve partial-failure
+feedback, and require canonical team-role cache completion.
+
+Validation passed 35 focused role/membership tests, the 23-test local
+membership model, 467 legacy files / 4,471 tests (one skip), 153 lab files /
+1,720 tests, lab type-check, product build, product bundle budget, isolation,
+quality ratchet, duplication ratchet, and `git diff --check`. The first full
+lab run had one transient external-worker provider-registry failure; its
+isolated rerun and the complete suite rerun both passed. No runtime-performance
+claim is made.

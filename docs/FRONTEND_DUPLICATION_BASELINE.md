@@ -1373,3 +1373,31 @@ below baseline). The aggregate `npm test` command has one unrelated pre-existing
 raw-source contract failure: the Vault storage-breakdown contract still reads
 `VaultPage.tsx` after that lazy component moved to `VaultTopSection.tsx`.
 No runtime-performance claim is made.
+
+## Phase 4A Add Team Member result (2026-09-22)
+
+The Add Team Member decomposition reduced
+`src/components/AddTeamMemberSheet.tsx` from 3,552 to 1,700 raw lines. Its
+extracted production modules are:
+
+- `useAddPendingTeamMemberMutation.ts`: 580 lines;
+- `useAddExistingTeamMemberMutation.ts`: 441 lines;
+- `useAddBulkTeamMembersMutation.ts`: 438 lines;
+- `useAddTeamMemberSearch.ts`: 348 lines;
+- `AddTeamMemberSuccessSheets.tsx`: 315 lines;
+- `useAddTeamMemberRosterData.ts`: 239 lines.
+
+No extracted file recreates the original sheet. The source contracts follow
+the mutation boundary and continue to enforce second-parent creation,
+partial-failure visibility, child creation, and canonical role-cache
+completion.
+
+Validation evidence: 35 focused role/membership tests, 23 local membership
+model tests, 467 legacy files / 4,471 passing tests (one skip), 153 lab files /
+1,720 passing tests, clean lab typecheck, successful product build, product
+bundle within budget (8,882,693 total JavaScript bytes; 1,112,842-byte largest
+JavaScript chunk; 172,904 CSS bytes), isolation and quality ratchets passing,
+and duplication ratchet at 15,735 counted duplicated lines (1,847 below
+baseline). The initial lab run's single external-worker provider-registry
+failure passed both its isolated rerun and the subsequent complete suite rerun.
+No runtime-performance claim is made.
