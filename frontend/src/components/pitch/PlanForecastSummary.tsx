@@ -17,7 +17,6 @@ export interface PlanImpactBaseline {
   shortShifts: number;
   hasHalftimeClash: boolean;
 }
-
 // ===========================================================================
 // PlanStatusCard — calm, plain-English headline + 3 key chips. Replaces the
 // dense "Game time fairness" grid for everyday coaches.
@@ -346,4 +345,3 @@ export function PlanModeToggles({
     </div>
   );
 }
-
