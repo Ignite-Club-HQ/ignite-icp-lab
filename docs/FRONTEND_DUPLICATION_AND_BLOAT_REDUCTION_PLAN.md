@@ -1342,7 +1342,104 @@ performance claim. Further large reduction now requires data/access/query
 model extraction, which is intentionally higher risk and must be separately
 characterized rather than merged into this presentation change.
 
+### Phase 4A Vault access/entitlement/root-navigation data-model result (2026-09-22)
+
+`src/features/vault/useVaultAccessModel.ts` now owns the access/entitlement/
+root-navigation query-derived data model: the app-admin query, user-roles
+query (with its existing debug log preserved), `hasVaultRoleAccess`, the
+`userClubs` query and its once-only root auto-navigation effect,
+`isClubAdmin`/`isCoachOrTeamAdmin`/`userTeamIds` derivations,
+`adminUpgradeInfo`, the scoped club/team Pro-entitlement queries and
+current-context Pro derivation, the root-level any-Pro-access query, and the
+final `canAccessVault`/`hasProButNoRole`/`isLoadingAccess` decisions.
+`VaultPage.tsx` keeps `currentView`/`setCurrentView` ownership and passes it
+to the hook as a read-only input plus an explicit `onAutoNavigateToClub`
+callback; the hook fires that callback, it does not navigate directly. All
+other Vault content/search/storage queries, workflow hooks, mutations,
+presentation components, dialogs, and the already-extracted navigation JSX
+are unchanged.
+
+The hook composes the previously unused (zero-consumer, already fully
+tested) `src/features/vault/vaultAccessRepository.ts` fetch functions,
+`src/features/vault/vaultAccess.ts` pure decision functions, and
+`src/features/vault/vaultQueryKeys.ts` key builders instead of duplicating
+this logic a second time. This mirrors the established sibling pattern
+(`useVaultFolderManagement.ts` + `vaultMutationRepository.ts`) and leaves
+the previously-wired `src/lab/vaultAccess.ts` module orphaned (still
+present and tested, no longer imported by the page). Every existing query
+key, cache-invalidation-relevant literal (`is-app-admin`, `user-admin-roles`,
+`pro-access-info`, and the `vaultKeys.clubsForUser`/`clubHasPro`/`teamHasPro`
+builders consumed by `src/lib/invalidateProAccess.ts`), `enabled` condition,
+and the once-only auto-navigation semantics were preserved exactly; no
+fallback provider was added.
+
+The before state is commit `5dabef09e` (this repository's current HEAD).
+Measurements use the same non-test Vault package scope and 50-token/5-line
+jscpd command as the preceding Vault rounds:
+
+```sh
+npx --no-install jscpd src/pages/VaultPage.tsx src/components/vault src/features/vault \
+  --min-tokens 50 --min-lines 5 \
+  --ignore '**/*.test.ts,**/*.test.tsx' \
+  --reporters json --output "$(mktemp -d)" --silent
+```
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 1,887 | 1,656 |
+| New `useVaultAccessModel.ts` | 0 | 229 |
+| New `useVaultAccessModel.test.tsx` (hook contract tests) | 0 | 262 |
+| New `VaultPage.access-model.characterization.test.ts` | 0 | 111 |
+| Complete Vault source package (non-test) | 12,474 | 12,472 |
+| `VaultPage.tsx` local `useState` declarations | 4 | 4 |
+| Same-scope jscpd | 208 lines / 18 groups / 1.6675% | 208 lines / 18 groups / 1.6676% |
+| Product Vault route chunk | 130,929 bytes | 131,232 bytes |
+| Product JavaScript total / chunks | 8,869,423 bytes / 502 | 8,869,726 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The page is 231 lines smaller. Because the extraction reuses already-tested
+repository/logic modules instead of duplicating them, the complete non-test
+package is 2 lines smaller overall despite adding a 229-line hook. Same-scope
+duplicated lines and clone-group count are unchanged (208/18); the
+`useState` count is unchanged because this cluster owned no local `useState`
+state before or after (only `useQuery`/`useMemo`/`useEffect`/`useRef`).
+
+[`useVaultAccessModel.test.tsx`](../frontend/src/features/vault/useVaultAccessModel.test.tsx)
+adds 18 runtime contract tests via `renderHook`, covering app-admin bypass,
+role-without-Pro denial, Pro-without-role denial (`hasProButNoRole`), root
+access grant, loading-state aggregation, scoped club/team Pro entitlement
+by active club, club-admin/committee and coach/team-admin isolation,
+upgrade-target selection, team-id ordering, and four root auto-navigation
+scenarios (fires once for a matching Pro club; does not fire for a non-Pro
+club, a non-root view, or no active-club filter).
+[`VaultPage.access-model.characterization.test.ts`](../frontend/src/pages/VaultPage.access-model.characterization.test.ts)
+adds 13 source-contract tests over the combined page/hook/repository/logic
+source, following the established per-cluster characterization pattern. Both
+files were run and passed against the original inline page/logic before
+extraction and again afterward (13/13 characterization tests both times; all
+10 Vault-page characterization test files, 98 tests, and all 24
+`features/vault` test files, 224 tests, pass after extraction).
+
+The complete legacy suite passed 4,415 tests across 459 files (one
+pre-existing skip) after extraction. Lab typecheck and isolation passed.
+Product typecheck returned only the 14 known unrelated
+`StartDMDialog`/`ClubDetailPage` diagnostics (verified identical against
+the pristine pre-extraction tree, confirming they are pre-existing baseline
+drift unrelated to this change) and no new Vault diagnostic. Product build,
+bundle budget (8,869,726 / 9,800,000 JavaScript bytes; largest chunk
+1,112,842 / 1,500,000 bytes), quality ratchet, duplication ratchet, and
+`git diff --check` passed.
+
+The 303-byte route-chunk increase is bundle-budget evidence only, not a
+runtime claim. No request, subscription, render-count, interaction-latency,
+or user-perceived performance evidence was collected. This is a
+maintainability/safety result only. This was the intentionally
+higher-risk data-model cluster flagged by the preceding presentation round;
+Vault items/files/folders/search queries and storage data remain
+unextracted and are the next candidate, in a separate task.
+
 ## Phase 5 - runtime efficiency and redundant data work
+
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
 

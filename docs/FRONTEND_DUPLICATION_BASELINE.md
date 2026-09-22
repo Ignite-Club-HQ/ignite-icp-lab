@@ -1015,3 +1015,76 @@ unrelated `StartDMDialog`/`ClubDetailPage` diagnostics. The presentation module
 is statically imported, so the 1,069-byte route-chunk increase is organization
 overhead. No request, subscription, render-count, interaction, or latency
 benchmark was performed; this is maintainability/safety evidence only.
+
+## Phase 4A Vault access/entitlement/root-navigation data-model result (2026-09-22)
+
+The next Vault boundary extracted the access/entitlement/root-navigation
+query-derived data model into `src/features/vault/useVaultAccessModel.ts`:
+the app-admin query, user-roles query, `hasVaultRoleAccess`, the `userClubs`
+query and its once-only root auto-navigation effect, `isClubAdmin`/
+`isCoachOrTeamAdmin`/`userTeamIds`, `adminUpgradeInfo`, the scoped club/team
+Pro-entitlement queries and current-context Pro derivation, the root-level
+any-Pro-access query, and `canAccessVault`/`hasProButNoRole`/
+`isLoadingAccess`. `VaultPage.tsx` retains `currentView`/`setCurrentView`
+ownership, passing it to the hook as a read-only input plus an explicit
+`onAutoNavigateToClub` callback. All Vault content/search/storage queries,
+workflow hooks, mutations, presentation components, dialogs, and the
+already-extracted navigation JSX are unchanged.
+
+Unlike the presentation rounds, this is a higher-risk data-model extraction.
+The hook composes the previously unused (zero-consumer, already fully
+tested) `vaultAccessRepository.ts`/`vaultAccess.ts`/`vaultQueryKeys.ts`
+modules instead of duplicating this logic a second time, matching the
+`useVaultFolderManagement.ts` + `vaultMutationRepository.ts` sibling
+pattern; the previously-wired `src/lab/vaultAccess.ts` module is now
+orphaned. Every query key and cache-invalidation-relevant literal consumed
+by `src/lib/invalidateProAccess.ts` (`is-app-admin`, `user-admin-roles`,
+`pro-access-info`, and the `vaultKeys.clubsForUser`/`clubHasPro`/
+`teamHasPro` builders), every `enabled` condition, and the once-only
+auto-navigation semantics were preserved exactly. No fallback provider was
+added.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 1,887 | 1,656 |
+| `useVaultAccessModel.ts` | 0 | 229 |
+| Hook contract test (`useVaultAccessModel.test.tsx`) | 0 | 262 |
+| Characterization test | 0 | 111 |
+| Complete Vault source package (non-test) | 12,474 | 12,472 |
+| `VaultPage.tsx` `useState` calls | 4 | 4 |
+| Same-scope jscpd | 208 lines / 18 groups / 1.6675% | 208 lines / 18 groups / 1.6676% |
+| Product Vault route chunk | 130,929 bytes | 131,232 bytes |
+| Product JavaScript total / chunks | 8,869,423 bytes / 502 | 8,869,726 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The page is 231 lines smaller. Because the extraction reuses already-tested
+modules instead of duplicating them, the complete non-test package is 2 lines
+smaller overall despite adding a 229-line hook. Same-scope jscpd duplicated
+lines and clone-group count are unchanged (208/18). The `useState` count is
+unchanged because this cluster used only `useQuery`/`useMemo`/`useEffect`/
+`useRef`, never local `useState`.
+
+18 runtime contract tests (`renderHook`) cover app-admin bypass,
+role-without-Pro denial, Pro-without-role denial (`hasProButNoRole`), root
+access grant, loading-state aggregation, scoped club/team Pro entitlement by
+active club, club-admin/committee and coach/team-admin isolation,
+upgrade-target selection, team-id ordering, and four root auto-navigation
+scenarios. 13 source-contract characterization tests were run against the
+original inline page/logic before extraction and again afterward (13/13 both
+times); all 10 Vault-page characterization files (98 tests) and all 24
+`features/vault` test files (224 tests) pass after extraction.
+
+The complete legacy suite passed 4,415 tests across 459 files (one
+pre-existing skip). Lab typecheck and isolation passed. Product typecheck
+returned only the 14 known unrelated `StartDMDialog`/`ClubDetailPage`
+diagnostics (independently confirmed identical against the pristine
+pre-extraction tree, so this is pre-existing baseline drift, not introduced
+by this change). Product build, bundle budget, quality ratchet, duplication
+ratchet, and diff checks passed.
+
+The 303-byte route-chunk increase is bundle-budget evidence only, not a
+runtime claim. No request, subscription, render-count, interaction, or
+latency benchmark was performed; this is maintainability/safety evidence
+only. This closes the data-model cluster flagged by the preceding
+presentation round. Vault items/files/folders/search queries and storage
+data remain unextracted and are the next candidate, in a separate task.

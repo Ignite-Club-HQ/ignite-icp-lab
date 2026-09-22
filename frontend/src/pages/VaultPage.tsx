@@ -70,15 +70,7 @@ import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { VaultContentRenderer, type ContentSectionProps, type TrashSectionProps } from "@/components/vault/VaultContentRenderer";
 import { invalidateVaultCache } from "@/features/vault/vaultQueryKeys";
-import {
-  canAccessVault as resolveVaultAccess,
-  getVaultAdminUpgradeInfo,
-  getVaultTeamIds,
-  hasVaultRoleAccess as resolveVaultRoleAccess,
-  isVaultClubAdminOrCommittee,
-  isVaultCoachOrTeamAdmin,
-  resolveVaultVisibleClubIds,
-} from "@/lab/vaultAccess";
+import { useVaultAccessModel } from "@/features/vault/useVaultAccessModel";
 
 export default function VaultPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -113,162 +105,30 @@ function SupabaseVaultPage() {
   const [restoreItemType, setRestoreItemType] = useState<"photo" | "file">("photo");
   const [storagePurchaseDialogOpen, setStoragePurchaseDialogOpen] = useState(false);
 
-  const { data: isAppAdmin, isLoading: isLoadingAppAdmin } = useQuery({
-    queryKey: ["is-app-admin", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id)
-        .eq("role", "app_admin")
-        .maybeSingle();
-      return !!data;
-    },
-    enabled: !!user,
+  const {
+    isAppAdmin,
+    userRoles,
+    userClubs,
+    isLoadingClubs,
+    isClubAdmin,
+    isCoachOrTeamAdmin,
+    adminUpgradeInfo,
+    userTeamIds,
+    currentClubHasPro,
+    currentContextHasPro,
+    hasProClub,
+    canAccessVault,
+    hasProButNoRole,
+    isLoadingAccess,
+  } = useVaultAccessModel({
+    userId: user?.id,
+    currentView,
+    activeClubFilter,
+    onAutoNavigateToClub: useCallback(
+      (clubId: string, clubName: string) => setCurrentView({ type: "club", clubId, clubName }),
+      [],
+    ),
   });
-
-  const { data: userRoles, isLoading: isLoadingRoles } = useQuery({
-    queryKey: ["user-admin-roles", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role, club_id, team_id")
-        .eq("user_id", user!.id);
-      console.log("[Vault] Fetched userRoles for user", user!.id, ":", data);
-      return data || [];
-    },
-    enabled: !!user,
-  });
-
-  // Check if user has vault access (admins and coaches only)
-  const hasVaultRoleAccess = useMemo(() => {
-    return resolveVaultRoleAccess(isAppAdmin ?? false, userRoles);
-  }, [isAppAdmin, userRoles]);
-
-  const { data: userClubs, isLoading: isLoadingClubs } = useQuery({
-    queryKey: ["vault-clubs", user?.id, isAppAdmin],
-    queryFn: async () => {
-      if (isAppAdmin) {
-        const { data: clubs } = await supabase
-          .from("clubs")
-          .select("id, name, is_pro, storage_used_bytes")
-          .order("name");
-        return clubs || [];
-      }
-
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("club_id, team_id")
-        .eq("user_id", user!.id);
-
-      if (!roles || roles.length === 0) return [];
-
-      // Resolve visible club ids: direct club roles plus any club reached
-      // through team membership (only looked up when a team role exists).
-      const teamIds = getVaultTeamIds(roles);
-      let teamClubIds: (string | null)[] | undefined;
-      if (teamIds.length > 0) {
-        const { data: teams } = await supabase
-          .from("teams")
-          .select("club_id")
-          .in("id", teamIds);
-        teamClubIds = teams?.map((t) => t.club_id);
-      }
-
-      const clubIds = resolveVaultVisibleClubIds(roles, teamClubIds);
-      if (clubIds.length === 0) return [];
-
-      const { data: clubs } = await supabase
-        .from("clubs")
-        .select("id, name, is_pro, storage_used_bytes")
-        .in("id", clubIds);
-
-      return clubs || [];
-    },
-    enabled: !!user && isAppAdmin !== undefined,
-  });
-
-  // Auto-navigate to club view when theme filter is active - only on initial load
-  const hasAutoNavigatedRef = useRef(false);
-  useEffect(() => {
-    if (activeClubFilter && currentView.type === "root" && userClubs && userClubs.length > 0 && !hasAutoNavigatedRef.current) {
-      const club = userClubs.find(c => c.id === activeClubFilter);
-      if (club && club.is_pro) {
-        hasAutoNavigatedRef.current = true;
-        setCurrentView({ type: "club", clubId: activeClubFilter, clubName: club.name });
-      }
-    }
-  }, [activeClubFilter, userClubs, currentView.type]);
-
-  // Check if user is a club admin or committee member for the current club (can see all teams)
-  const isClubAdminOrCommittee = useMemo(() => {
-    return isVaultClubAdminOrCommittee(isAppAdmin ?? false, currentView, userRoles);
-  }, [isAppAdmin, currentView, userRoles]);
-
-  // Alias for backward compatibility
-  const isClubAdmin = isClubAdminOrCommittee;
-
-  // Check if user is a coach or team admin in the current club (can see club-level chat folders)
-  const isCoachOrTeamAdmin = useMemo(() => {
-    return isVaultCoachOrTeamAdmin(isClubAdmin, currentView, userRoles);
-  }, [isClubAdmin, currentView, userRoles]);
-
-  // Get first admin club/team for upgrade link
-  const adminUpgradeInfo = useMemo(() => {
-    return getVaultAdminUpgradeInfo(userRoles);
-  }, [userRoles]);
-
-  // Get teams user has access to
-  const userTeamIds = useMemo(() => {
-    return getVaultTeamIds(userRoles);
-  }, [userRoles]);
-
-  // Check if the current club has Pro
-  const { data: currentClubHasPro, isLoading: isLoadingClubHasPro } = useQuery({
-    queryKey: ["vault-club-has-pro", (currentView.type === "club" || currentView.type === "team" || currentView.type === "mini-league") ? currentView.clubId : null],
-    queryFn: async () => {
-      if (currentView.type !== "club" && currentView.type !== "team" && currentView.type !== "mini-league") return false;
-      const clubId = currentView.clubId;
-      const { data } = await supabase
-        .from("club_subscriptions")
-        .select("is_pro, is_pro_football, admin_pro_override, admin_pro_football_override")
-        .eq("club_id", clubId)
-        .maybeSingle();
-      return !!(data?.is_pro || data?.is_pro_football || data?.admin_pro_override || data?.admin_pro_football_override);
-    },
-    enabled: currentView.type === "club" || currentView.type === "team" || currentView.type === "mini-league",
-  });
-
-  // Check if the current team has Pro (for teams in non-Pro clubs)
-  const { data: currentTeamHasPro, isLoading: isLoadingTeamHasPro } = useQuery({
-    queryKey: ["vault-team-has-pro", currentView.type === "team" ? currentView.teamId : null],
-    queryFn: async () => {
-      if (currentView.type !== "team") return false;
-      const { data } = await supabase
-        .from("team_subscriptions")
-        .select("is_pro, is_pro_football, admin_pro_override, admin_pro_football_override")
-        .eq("team_id", currentView.teamId)
-        .maybeSingle();
-      return !!(data?.is_pro || data?.is_pro_football || data?.admin_pro_override || data?.admin_pro_football_override);
-    },
-    enabled: currentView.type === "team",
-  });
-
-  // Determine if current context has Pro access for uploads
-  const currentContextHasPro = useMemo(() => {
-    if (currentView.type === "club") {
-      return currentClubHasPro || false;
-    }
-    if (currentView.type === "team") {
-      // Team inherits Pro if club has Pro, or team has individual Pro
-      return currentClubHasPro || currentTeamHasPro || false;
-    }
-    if (currentView.type === "mini-league") {
-      // Mini-leagues are only available for Pro Football clubs
-      return currentClubHasPro || false;
-    }
-    return false;
-  }, [currentView.type, currentClubHasPro, currentTeamHasPro]);
 
   const { data: clubTeams } = useQuery({
     queryKey: ["vault-club-teams", currentView.type === "club" ? currentView.clubId : null, isClubAdmin, userTeamIds, currentClubHasPro],
@@ -811,94 +671,6 @@ function SupabaseVaultPage() {
   const displayFiles = useMemo(() => {
     return fuzzyFilter(searchSourceFiles as any[], normalizedSearch, (f: any) => f.name || "");
   }, [searchSourceFiles, normalizedSearch]);
-
-  // Check for Pro subscription and get plan details
-  // Logic: Club Pro → all teams inherit Pro; Free club → check team subscription
-  const { data: proAccessInfo, isLoading: isLoadingProClub } = useQuery({
-    queryKey: ["pro-access-info", user?.id],
-    queryFn: async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("club_id, team_id")
-        .eq("user_id", user!.id);
-
-      if (!roles || roles.length === 0) return false;
-
-      const clubIds = roles.map((r) => r.club_id).filter(Boolean) as string[];
-      const teamIds = roles.map((r) => r.team_id).filter(Boolean) as string[];
-      
-      // Fetch team info to get parent club IDs
-      let allClubIds = [...clubIds];
-      if (teamIds.length > 0) {
-        const { data: teams } = await supabase
-          .from("teams")
-          .select("id, club_id")
-          .in("id", teamIds);
-        
-        if (teams) {
-          teams.forEach(t => {
-            if (t.club_id && !allClubIds.includes(t.club_id)) {
-              allClubIds.push(t.club_id);
-            }
-          });
-        }
-      }
-      
-      // Check club-level Pro subscriptions first
-      if (allClubIds.length > 0) {
-        const { data: clubSubs } = await supabase
-          .from("club_subscriptions")
-          .select("club_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override")
-          .in("club_id", allClubIds);
-        
-        const hasClubPro = (clubSubs || []).some(sub => 
-          sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override
-        );
-        
-        if (hasClubPro) return true;
-      }
-      
-      // For teams in free clubs, check team-level subscriptions
-      if (teamIds.length > 0) {
-        const { data: teamSubs } = await supabase
-          .from("team_subscriptions")
-          .select("team_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override")
-          .in("team_id", teamIds);
-        
-        const teamHasPro = (teamSubs || []).some(sub => 
-          sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override
-        );
-        
-        if (teamHasPro) return true;
-      }
-
-      // Fallback: Check for club is_pro flag
-      if (allClubIds.length > 0) {
-        const { data: clubs } = await supabase
-          .from("clubs")
-          .select("is_pro")
-          .in("id", allClubIds)
-          .eq("is_pro", true);
-
-        return clubs && clubs.length > 0;
-      }
-      
-      return false;
-    },
-    enabled: !!user,
-  });
-
-  const hasProClub = proAccessInfo ?? false;
-  const isLoadingAccess = isLoadingAppAdmin || isLoadingProClub || isLoadingRoles || isLoadingClubHasPro || isLoadingTeamHasPro;
-  // Vault access requires: 1) Pro subscription in current context AND 2) Admin/coach role
-  const vaultAccessContextHasPro = currentView.type === "root" ? hasProClub : currentContextHasPro;
-  const canAccessVault = resolveVaultAccess({
-    isAppAdmin: isAppAdmin ?? false,
-    hasRoleAccess: hasVaultRoleAccess,
-    hasAnyPro: hasProClub,
-    currentContextHasPro,
-    isRoot: currentView.type === "root",
-  });
 
   // Handle storage purchase success redirect
   useEffect(() => {
@@ -1443,9 +1215,6 @@ function SupabaseVaultPage() {
   }
 
   if (!canAccessVault) {
-    // Determine if it's a role issue or a Pro subscription issue
-    const hasProButNoRole = vaultAccessContextHasPro && !hasVaultRoleAccess;
-    
     return (
       <div className="py-6 space-y-6">
         <div className="flex items-center gap-2">
