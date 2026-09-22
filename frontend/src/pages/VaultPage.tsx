@@ -17,14 +17,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getFolderColorClass } from "@/components/TeamFoldersManager";
-import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VaultLightbox } from "@/components/vault/VaultLightbox";
 import { downloadImage } from "@/lib/downloadImage";
 const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
 import { useClubTheme } from "@/hooks/useClubTheme";
 import { permanentlyDeleteVaultItems } from "@/lib/vaultDelete";
-import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
 import { useVaultTrashWorkflow } from "@/features/vault/useVaultTrashWorkflow";
 import { useVaultExport, type FolderView } from "@/features/vault/useVaultExport";
@@ -71,6 +69,7 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { VaultContentRenderer, type ContentSectionProps, type TrashSectionProps } from "@/components/vault/VaultContentRenderer";
 import { invalidateVaultCache } from "@/features/vault/vaultQueryKeys";
 import { useVaultAccessModel } from "@/features/vault/useVaultAccessModel";
+import { useVaultContentDataModel } from "@/features/vault/useVaultContentDataModel";
 
 export default function VaultPage() {
   if (resolveLocalAuthMode(typeof window !== "undefined" ? window.location.search : "", true)) {
@@ -355,146 +354,27 @@ function SupabaseVaultPage() {
     queryClient,
   });
 
-  const CHAT_FOLDER_NAMES = ["Chat Images", "Chat Links"];
-
-  // Roles the current user holds in the active club (used to filter
-  // role-restricted chat folders like "Coaches Chat", "Club Admin Chat", etc.)
-  const userClubRoleSet = useMemo(() => {
-    const set = new Set<string>();
-    const clubId = getCurrentClubId();
-    if (!clubId || !userRoles) return set;
-    userRoles.forEach((r: any) => {
-      if (r.club_id === clubId && r.role) set.add(r.role as string);
-    });
-    return set;
-  }, [userRoles, currentView]);
-
-  const { data: subfolders } = useQuery({
-    queryKey: ["vault-subfolders", currentView, isClubAdmin, isCoachOrTeamAdmin, isAppAdmin, Array.from(userClubRoleSet).sort().join(",")],
-    queryFn: async () => {
-      const clubId = getCurrentClubId();
-      const teamId = getCurrentTeamId();
-      const miniLeagueId = getCurrentMiniLeagueId();
-      const parentFolderId = getCurrentFolderId();
-      
-      // Build filter conditions based on view type
-      let filters: Record<string, any> = {};
-      let nullFilters: string[] = [];
-      
-      if (currentView.type === "club") {
-        // Allow non-admin users into the club view ONLY if they may have
-        // role-restricted chat folders to see (coaches, team admins, league admins).
-        // Generic vault access stays admin-only.
-        if (!isClubAdmin && !isCoachOrTeamAdmin && userClubRoleSet.size === 0) return [];
-        filters.club_id = clubId;
-        // vault_folders does not have a mini_league_id column; only filter by team_id.
-        nullFilters = ["team_id"];
-      } else if (currentView.type === "team") {
-        filters.team_id = teamId;
-      } else if (currentView.type === "mini-league") {
-        // vault_folders has no mini_league_id column — there are no folders for mini-leagues.
-        return [];
-      }
-      
-      if (parentFolderId) {
-        filters.parent_id = parentFolderId;
-      } else {
-        nullFilters.push("parent_id");
-      }
-      
-      // Execute query with filters - use type assertion to avoid deep type instantiation
-      let query: any = supabase.from("vault_folders").select("*").is("deleted_at", null);
-      
-      for (const [key, value] of Object.entries(filters)) {
-        query = query.eq(key, value);
-      }
-      
-      for (const nullField of nullFilters) {
-        query = query.is(nullField, null);
-      }
-      
-      const { data } = await query.order("name");
-      let folders = (data || []) as { id: string; name: string; parent_id: string | null; club_id: string | null; team_id: string | null; mini_league_id: string | null; chat_group_id: string | null; restricted_roles: string[] | null; created_at: string }[];
-
-      // Apply role-restriction filtering for chat-scoped folders.
-      // Club admins, committee members, and app admins can always see them.
-      const isPrivilegedViewer = isAppAdmin || isClubAdmin;
-      folders = folders.filter((f) => {
-        if (!f.restricted_roles || f.restricted_roles.length === 0) return true;
-        if (isPrivilegedViewer) return true;
-        return f.restricted_roles.some((r) => userClubRoleSet.has(r));
-      });
-
-      // Non-admin coaches/team admins at club root can only see chat-scoped folders
-      // (generic Chat Images / Chat Links, plus any role-restricted chat folder
-      // they qualify for via restricted_roles above).
-      if (currentView.type === "club" && !isClubAdmin && isCoachOrTeamAdmin) {
-        folders = folders.filter(
-          (f) =>
-            CHAT_FOLDER_NAMES.includes(f.name) ||
-            (f.restricted_roles && f.restricted_roles.length > 0)
-        );
-      }
-
-      return folders;
-    },
-    enabled: currentView.type !== "root",
-  });
-
   const [showTrash, setShowTrash] = useState(false);
 
-  // Vault now reads all content from vault_files table only
-  // Photos uploaded via Media page are also added to vault_files
-  // Photos uploaded directly to Vault stay in vault_files only (not in photos table)
-  const { data: vaultItems } = useQuery({
-    queryKey: ["vault-files", currentView, isClubAdmin, isCoachOrTeamAdmin],
-    queryFn: async () => {
-      const folderId = getCurrentFolderId();
-      let query = supabase.from("vault_files").select("*").is("deleted_at", null);
-      
-      if (currentView.type === "club") {
-        if (!isClubAdmin && !isCoachOrTeamAdmin) return [];
-        query = query.eq("club_id", currentView.clubId).is("team_id", null).is("mini_league_id", null);
-        
-        // Non-admin coaches/team admins can only see files inside chat folders
-        if (!isClubAdmin && isCoachOrTeamAdmin && !folderId) {
-          // At root level with no folder selected, they won't see loose files
-          return [];
-        }
-      } else if (currentView.type === "team") {
-        query = query.eq("team_id", currentView.teamId);
-      } else if (currentView.type === "mini-league") {
-        query = query.eq("mini_league_id", currentView.miniLeagueId);
-      }
-      
-      if (folderId) {
-        query = query.eq("folder_id", folderId);
-      } else {
-        query = query.is("folder_id", null);
-      }
-      
-      const { data } = await query.order("created_at", { ascending: false });
-      return data || [];
-    },
-    enabled: currentView.type !== "root" && !showTrash,
+  const {
+    subfolders,
+    photos,
+    files,
+    normalizedSearch,
+    isFetchingRecursive,
+    displaySubfolders,
+    displayPhotos,
+    displayFiles,
+  } = useVaultContentDataModel({
+    currentView,
+    showTrash,
+    vaultSearchQuery,
+    debouncedVaultSearchQuery,
+    isClubAdmin,
+    isCoachOrTeamAdmin,
+    isAppAdmin,
+    userRoles,
   });
-
-  // Separate vault items into photos and files using the shared classifier
-  const photos = useMemo(() => {
-    if (!vaultItems) return [];
-    return vaultItems.filter(isVaultImageItem).map(item => ({
-      ...item,
-      // Map vault_files fields to photo-like structure for compatibility
-      image_url: item.file_url,
-      uploader_id: item.uploaded_by,
-      title: item.name, // Map name to title for compatibility with existing code
-    }));
-  }, [vaultItems]);
-
-  const files = useMemo(() => {
-    if (!vaultItems) return [];
-    return vaultItems.filter(item => !isVaultImageItem(item));
-  }, [vaultItems]);
 
   const {
     selectionMode,
@@ -516,161 +396,6 @@ function SupabaseVaultPage() {
     userId: user?.id,
     queryClient,
   });
-
-  // Recursive search - always search inside subfolders when a query is active.
-  // Performance strategy:
-  //  - Debounce the query so we don't re-fetch on every keystroke.
-  //  - Cache the folder tree per scope (no query in its key) so paths are
-  //    available instantly across searches.
-  //  - Push the name filter to Postgres via ilike so the payload only
-  //    contains matches, not the entire vault.
-  const recursiveEnabled = debouncedVaultSearchQuery.trim().length > 0 && currentView.type !== "root" && !showTrash;
-  const recursiveScope = useMemo(() => ({
-    type: currentView.type,
-    clubId: getCurrentClubId(),
-    teamId: getCurrentTeamId(),
-    miniLeagueId: getCurrentMiniLeagueId(),
-    startFolderId: getCurrentFolderId(),
-  }), [currentView]);
-
-  // Folder tree cache (per scope) — used for path display and descendant set.
-  const { data: folderTree } = useQuery({
-    queryKey: [
-      "vault-folder-tree",
-      recursiveScope.type,
-      recursiveScope.clubId,
-      recursiveScope.teamId,
-      isClubAdmin,
-      isAppAdmin,
-      Array.from(userClubRoleSet).sort().join(","),
-    ],
-    queryFn: async () => {
-      let folderQuery: any = supabase
-        .from("vault_folders")
-        .select("id,name,parent_id,restricted_roles");
-      if (recursiveScope.type === "club") {
-        folderQuery = folderQuery.eq("club_id", recursiveScope.clubId).is("team_id", null);
-      } else if (recursiveScope.type === "team") {
-        folderQuery = folderQuery.eq("team_id", recursiveScope.teamId);
-      } else {
-        return { descendants: [] as any[], pathById: new Map<string, string>(), descendantIds: [] as string[] };
-      }
-      const { data: rawFolders } = await folderQuery;
-      const all = (rawFolders || []) as Array<{ id: string; name: string; parent_id: string | null; restricted_roles: string[] | null }>;
-      const isPrivilegedViewer = isAppAdmin || isClubAdmin;
-      const visible = all.filter((f) => {
-        if (!f.restricted_roles || f.restricted_roles.length === 0) return true;
-        if (isPrivilegedViewer) return true;
-        return f.restricted_roles.some((r) => userClubRoleSet.has(r));
-      });
-      const childMap = new Map<string | null, typeof visible>();
-      for (const f of visible) {
-        const k = f.parent_id;
-        if (!childMap.has(k)) childMap.set(k, []);
-        childMap.get(k)!.push(f);
-      }
-      const descendants: typeof visible = [];
-      const pathById = new Map<string, string>();
-      const stack: { id: string | null; path: string }[] = [{ id: recursiveScope.startFolderId, path: "" }];
-      while (stack.length) {
-        const { id, path } = stack.pop()!;
-        for (const k of (childMap.get(id) || [])) {
-          const kPath = path ? `${path} / ${k.name}` : k.name;
-          descendants.push(k);
-          pathById.set(k.id, kPath);
-          stack.push({ id: k.id, path: kPath });
-        }
-      }
-      return { descendants, pathById, descendantIds: descendants.map((d) => d.id) };
-    },
-    enabled: recursiveScope.type === "club" || recursiveScope.type === "team",
-    staleTime: 60_000,
-  });
-
-  const { data: recursiveData, isFetching: isFetchingRecursive } = useQuery({
-    queryKey: [
-      "vault-recursive-search",
-      recursiveScope,
-      debouncedVaultSearchQuery.trim().toLowerCase(),
-      isClubAdmin,
-      isCoachOrTeamAdmin,
-      Array.from(userClubRoleSet).sort().join(","),
-    ],
-    queryFn: async () => {
-      const safe = debouncedVaultSearchQuery.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
-      const pattern = `%${safe}%`;
-      const tree = folderTree || { descendants: [], pathById: new Map<string, string>(), descendantIds: [] };
-      const startFolderId = recursiveScope.startFolderId;
-
-      // Server-side ilike on file name — only matches come back.
-      let fileQuery: any = supabase
-        .from("vault_files")
-        .select("id,folder_id,club_id,team_id,mini_league_id,name,file_url,file_size,file_type,uploaded_by,created_at,is_external_link")
-        .is("deleted_at", null)
-        .ilike("name", pattern)
-        .limit(200);
-      if (recursiveScope.type === "club") {
-        fileQuery = fileQuery.eq("club_id", recursiveScope.clubId).is("team_id", null).is("mini_league_id", null);
-      } else if (recursiveScope.type === "team") {
-        fileQuery = fileQuery.eq("team_id", recursiveScope.teamId);
-      } else if (recursiveScope.type === "mini-league") {
-        fileQuery = fileQuery.eq("mini_league_id", recursiveScope.miniLeagueId);
-      }
-      if (startFolderId) {
-        const folderIds = [startFolderId, ...tree.descendantIds];
-        fileQuery = fileQuery.in("folder_id", folderIds);
-      }
-
-      // Folder name matches come from the cached tree — no extra round-trip.
-      const lower = debouncedVaultSearchQuery.trim().toLowerCase();
-      const matchedFolders = (tree.descendants as any[]).filter((f) =>
-        (f.name || "").toLowerCase().includes(lower)
-      );
-
-      const { data: rawFiles } = await fileQuery.order("created_at", { ascending: false });
-      const visibleFolderIds = new Set(tree.descendants.map((d: any) => d.id));
-      // For root searches with no startFolderId, also allow root-level files (folder_id null)
-      const files = (rawFiles || [])
-        .filter((f: any) => !f.folder_id || visibleFolderIds.has(f.folder_id) || f.folder_id === startFolderId)
-        .map((f: any) => ({
-          ...f,
-          image_url: f.file_url,
-          uploader_id: f.uploaded_by,
-          title: f.name,
-          folder_path: f.folder_id ? tree.pathById.get(f.folder_id) || "" : "",
-        }));
-
-      const foldersWithPath = matchedFolders.map((f: any) => ({
-        ...f,
-        folder_path: tree.pathById.get(f.id) || f.name,
-      }));
-      return { folders: foldersWithPath, files };
-    },
-    enabled: recursiveEnabled && !!folderTree,
-    keepPreviousData: true,
-    staleTime: 30_000,
-  } as any);
-
-
-  // Search filtering across folders, photos, and files (fuzzy + ranked)
-  const normalizedSearch = vaultSearchQuery.trim();
-  const recursiveResult = recursiveData as { folders: any[]; files: any[] } | undefined;
-  const searchSourceFolders = recursiveEnabled ? (recursiveResult?.folders || []) : (subfolders || []);
-  const searchSourcePhotos = recursiveEnabled
-    ? ((recursiveResult?.files || []).filter((f: any) => f.file_type?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif|tiff|tif)$/i.test(f.name || f.file_url || "")))
-    : (photos || []);
-  const searchSourceFiles = recursiveEnabled
-    ? ((recursiveResult?.files || []).filter((f: any) => !f.file_type?.startsWith("image/") && !/\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif|tiff|tif)$/i.test(f.name || f.file_url || "")))
-    : (files || []);
-  const displaySubfolders = useMemo(() => {
-    return fuzzyFilter(searchSourceFolders as any[], normalizedSearch, (f: any) => f.name || "");
-  }, [searchSourceFolders, normalizedSearch]);
-  const displayPhotos = useMemo(() => {
-    return fuzzyFilter(searchSourcePhotos as any[], normalizedSearch, (p: any) => p.title || p.name || "");
-  }, [searchSourcePhotos, normalizedSearch]);
-  const displayFiles = useMemo(() => {
-    return fuzzyFilter(searchSourceFiles as any[], normalizedSearch, (f: any) => f.name || "");
-  }, [searchSourceFiles, normalizedSearch]);
 
   // Handle storage purchase success redirect
   useEffect(() => {

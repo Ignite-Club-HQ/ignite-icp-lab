@@ -1438,6 +1438,127 @@ higher-risk data-model cluster flagged by the preceding presentation round;
 Vault items/files/folders/search queries and storage data remain
 unextracted and are the next candidate, in a separate task.
 
+### Phase 4A Vault content/folder/item/search data-model result (2026-09-22)
+
+`src/features/vault/useVaultContentDataModel.ts` now owns the Vault
+content/folder/item/search query-derived data model: the `subfolders` query
+for the active view, the `vaultItems` query and its `photos`/`files`
+classification (via the existing `partitionVaultItems`/`isVaultImageItem`
+classifiers), the recursive search cluster (folder-tree query, recursive
+search query, `normalizedSearch`, `recursiveEnabled` gating), and the
+`displaySubfolders`/`displayPhotos`/`displayFiles` fuzzy-filtered/search
+switch that the presentation layer renders. `VaultPage.tsx` keeps
+`currentView` ownership, `showTrash` state (repositioned only, not moved),
+URL/query-param loading, folder navigation/mutations, the access model, the
+storage model, all workflow hooks (including `useVaultBulkDeleteWorkflow`,
+which the extraction had briefly and unintentionally deleted mid-edit and
+which was restored and re-verified in place), and every dialog/presentation
+component unchanged.
+
+The hook composes the previously unused (zero-consumer, already fully
+tested) `src/features/vault/vaultReadRepository.ts` fetch functions
+(`fetchVaultSubfolders`, `fetchVaultItems`, `partitionVaultItems`,
+`fetchVaultFolderTree`, `searchVaultContents`) and
+`src/features/vault/vaultScope.ts` (`getVaultScope`, `collectVaultClubRoles`,
+`GENERIC_CHAT_FOLDER_NAMES`) instead of duplicating this logic a second
+time, mirroring the established sibling pattern from the two preceding
+Vault rounds. Unlike those rounds, this cluster's "before" state already had
+these repository/scope modules authored and unit-tested (683 combined lines
+across `vaultReadRepository.test.ts`/`vaultScope.test.ts`) but not wired into
+the page — so this round is primarily a wiring/composition extraction rather
+than a fresh logic extraction, and the pre-existing repository/scope test
+suites already characterized the underlying query/scoping/classification
+behavior before this task began. Two query-key builders in
+`src/features/vault/vaultQueryKeys.ts` (`subfoldersForView`, `folderTree`)
+had their `isAppAdmin` parameter widened from `boolean` to
+`boolean | undefined` to preserve the original page's exact query-key
+identity (the page put the raw, possibly-unresolved `isAppAdmin` value
+directly into these keys); every other query key, `enabled` condition, the
+`keepPreviousData: true` (`as any`) react-query v5 quirk, the escaped-`ilike`
+pattern, descendant/path traversal, restricted-role filtering, chat-folder
+restriction, and root-level file allowance were preserved exactly as
+verified below.
+
+The before state is commit `bc99fa578` (this repository's HEAD prior to
+this task). Measurements use the same non-test Vault package scope and
+50-token/5-line jscpd command as the preceding Vault rounds:
+
+```sh
+npx --no-install jscpd src/pages/VaultPage.tsx src/components/vault src/features/vault \
+  --min-tokens 50 --min-lines 5 \
+  --ignore '**/*.test.ts,**/*.test.tsx' \
+  --reporters json --output "$(mktemp -d)" --silent
+```
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 1,656 | 1,381 |
+| New `useVaultContentDataModel.ts` | 0 | 233 |
+| New `useVaultContentDataModel.test.tsx` (hook contract tests) | 0 | 272 |
+| New `VaultPage.content-data-model.characterization.test.ts` | 0 | 146 |
+| Complete Vault source package (non-test) | 10,816 | 11,049 |
+| `VaultPage.tsx` local `useState` declarations | 4 | 4 |
+| Same-scope jscpd | 208 lines / 18 groups / 1.6677% | 199 lines / 17 groups / 1.6010% |
+| Product Vault route chunk | 131,232 bytes | 132,014 bytes |
+| Product JavaScript total / chunks | 8,869,726 bytes / 502 | 8,870,508 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The page is 275 lines (16.6%) smaller. Because the extraction reuses
+already-tested repository/scope modules instead of duplicating them, the
+complete non-test package grows by only 233 lines overall (the new hook
+itself) despite the 316-line inline cluster removed from the page; the
+`vaultQueryKeys.ts` type-widening changed no line count. Same-scope
+duplicated lines and clone-group count both decreased slightly (208/18 to
+199/17), consistent with the denominator-shift pattern seen in prior rounds
+rather than a targeted duplication fix. The `useState` count is unchanged
+(4 before and after) because `showTrash` remained page-owned as instructed;
+only its declaration position moved to precede the new hook call.
+
+[`useVaultContentDataModel.test.tsx`](../frontend/src/features/vault/useVaultContentDataModel.test.tsx)
+adds 12 runtime contract tests via `renderHook` against a mocked
+`vaultReadRepository.ts`, covering: no subfolder/file fetch at the root
+view; correct role/admin-flag threading into `fetchVaultSubfolders`; the
+`isAppAdmin: undefined` case coercing to `false` only at the repository-call
+site (not the query key); no file fetch while `showTrash` is active;
+photo/file classification of fetched `vault_files` rows; non-recursive
+fuzzy filtering of the active view's own folders/photos/files by both an
+empty and a non-empty immediate (non-debounced) query; recursive search
+disablement at root, while trashed, and with an empty/whitespace debounced
+query; folder-tree fetch restricted to club/team scope (not mini-league);
+folder-tree-then-search sequencing; recursive-result photo/file splitting
+using the same classifier; and `isFetchingRecursive` reflecting the
+in-flight recursive query.
+[`VaultPage.content-data-model.characterization.test.ts`](../frontend/src/pages/VaultPage.content-data-model.characterization.test.ts)
+adds 17 source-contract tests over the combined page/hook/repository/scope/
+query-key/classification source, following the established per-cluster
+characterization pattern. All 17 characterization assertions and all 12
+hook contract tests pass; combined with the pre-existing suites, all 36
+Vault-scoped test files (351 tests: 98 pre-existing page characterization +
+17 new page characterization + 224 pre-existing `features/vault` + 12 new
+hook contract) pass after extraction.
+
+The complete legacy suite passed 4,444 tests across 461 files (one
+pre-existing skip) after extraction. Lab typecheck and isolation passed.
+Product typecheck returned only the 14 known unrelated
+`StartDMDialog`/`ClubDetailPage` diagnostics (matching the documented
+baseline drift from prior rounds) and no new Vault diagnostic. Product
+build, bundle budget (8,870,508 / 9,800,000 JavaScript bytes; largest chunk
+1,112,842 / 1,500,000 bytes), quality ratchet, duplication ratchet, and
+`git diff --check` passed.
+
+The Vault route chunk grew by 782 bytes (131,232 to 132,014) even though
+the page's own source lines shrank, because the previously orphaned
+`vaultReadRepository.ts`/`vaultScope.ts` modules were not reachable from any
+bundled entry point before this task and are now pulled into the Vault
+route chunk through the new hook; total product JavaScript grew by the
+same 782 bytes. This is bundle-budget evidence only, not a runtime claim.
+No request, subscription,
+render-count, interaction-latency, or user-perceived performance evidence
+was collected. This is a maintainability/safety result only. Storage
+purchase/sizing and the delete/restore/trash workflow itself were
+intentionally left page-owned per this task's scope and remain candidates
+for a separate future round.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 

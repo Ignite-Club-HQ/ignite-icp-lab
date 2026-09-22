@@ -28,7 +28,7 @@ export const vaultKeys = {
     view: VaultFolderView,
     isClubAdmin: boolean,
     isCoachOrTeamAdmin: boolean,
-    isAppAdmin: boolean,
+    isAppAdmin: boolean | undefined,
     clubRoleSignature: string,
   ) => [
     "vault-subfolders",
@@ -52,7 +52,7 @@ export const vaultKeys = {
     clubId: string | null,
     teamId: string | null,
     isClubAdmin: boolean,
-    isAppAdmin: boolean,
+    isAppAdmin: boolean | undefined,
     clubRoleSignature: string,
   ) => [
     "vault-folder-tree",
