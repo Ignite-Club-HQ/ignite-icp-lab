@@ -5,13 +5,14 @@ import { useCancelEventMutation } from "@/hooks/useCancelEventMutation";
 import { useEventReminderMutations } from "@/hooks/useEventReminderMutations";
 import { useEventPaymentFlow } from "@/hooks/useEventPaymentFlow";
 import { useEventRsvpMutations } from "@/hooks/useEventRsvpMutations";
+import { useLocalAttendanceMutation } from "@/hooks/useLocalAttendanceMutation";
+import { useParentLeaguePlayerRsvpMutation } from "@/hooks/useParentLeaguePlayerRsvpMutation";
 import { buildEventRsvpBuckets } from "@/features/events/eventRsvpBuckets";
 import { resolveEventCapabilities } from "@/features/events/eventCapabilities";
 import { fetchEventDetail } from "@/features/events/eventDetailRepository";
 
 import { abortAllInFlightRestGets } from "@/lib/supabaseAuthRetry";
 import { Share } from "@capacitor/share";
-import { createMemberCheckout, listenForPaymentStatus } from "@/lib/memberCheckout";
 import { Capacitor } from "@capacitor/core";
 import { getShareUrl } from "@/lib/shareUtils";
 import { defaultMinutesPerHalfForTeamName } from "@/lib/teamAgeDefaults";
@@ -20,7 +21,6 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, MapPin, Users, CheckCircle2, Circle, Loader2, Plus, Trash2, UserPlus, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Play, Flame, MoreVertical, CalendarPlus, Trophy, Lock } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
-import { queueRsvp } from "@/lib/rsvpQueue";
 import { TrainingDefaultControl } from "@/components/event/TrainingDefaultControl";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { RecurringEventActionDialog } from "@/components/RecurringEventActionDialog";
@@ -72,13 +72,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { refreshEventCaches } from "@/lib/eventCacheRefresh";
 import { supabase } from "@/integrations/supabase/client";
 import { eventKeys } from "@/lab/eventQueryKeys";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { friendlyMutationError } from "@/lib/friendlyMutationError";
 import { format, parseISO } from "date-fns";
 import { GoogleMapEmbed } from "@/components/GoogleMapEmbed";
 import { EventsHeaderSponsorStrip } from "@/components/events/EventsHeaderSponsorStrip";
@@ -87,7 +85,6 @@ import { EventGroupsManager } from "@/components/EventGroupsManager";
 import { AttendanceSection } from "@/components/event/AttendanceSection";
 import { useEventGroupMap } from "@/hooks/useEventGroupMap";
 import { useEventViewTracking } from "@/hooks/useEventViews";
-import { awardEarlyRsvpPoints } from "@/lib/earlyRsvpPoints";
 import { resolveRsvpAudience, shouldPromptPlayer, shouldPromptSelf, isParentFirstEvent } from "@/lib/rsvpAudience";
 import { resolveRsvpChildren, resolveEventChildRoster } from "@/lib/resolveEventChildScope";
 
@@ -125,12 +122,10 @@ const closePitchBoardWithFlag = (setShow: (v: boolean) => void) => () => {
   clearPitchBoardOpenFlag();
 };
 import { hasGameBoardSupport } from "@/lib/sportDetection";
-import { resolveEventRecipients, eventRecipientContext } from "@/features/events/eventRecipientPolicy";
-import { resolveReminderRecipients, applyReminderCooldown, normalizeRecipientIds } from "@/features/events/reminderRecipients";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
-import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps, setLocalEventAttendance, setLocalEventDuty, setLocalEventRsvp } from "@/lab/localEventsService";
+import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps } from "@/lab/localEventsService";
 import { personas } from "@/lab/syntheticIdentities.mjs";
 import {
   fetchTargetedAttendanceRoster,
@@ -457,24 +452,7 @@ export default function EventDetailPage() {
   // Populate form with existing RSVP data
   const localAccountId = user?.id ?? localIcpPersona;
   const myRsvp = rsvps?.find((r) => r.user_id === (useIcpLab ? localAccountId : user?.id) && !r.child_id);
-  const localAttendanceMutation = useMutation({
-    mutationFn: async (present: boolean) => {
-      if (!id) throw new Error("Missing event ID");
-      return setLocalEventAttendance(localIcpPersona, id, localAccountId, present, "");
-    },
-    onSuccess: async (attendance) => {
-      queryClient.setQueryData(eventKeys.rsvps(id), (current: unknown) => {
-        if (!Array.isArray(current)) return current;
-        return current.map((row: any) =>
-          row.user_id === localAccountId && !row.child_id
-            ? { ...row, notes: `${attendance.present ? "Present" : "Absent"}${attendance.note ? `: ${attendance.note}` : ""}` }
-            : row,
-        );
-      });
-      toast({ title: attendance.present ? "Attendance marked present" : "Attendance marked absent" });
-    },
-    onError: (mutationError: Error) => toast({ title: "Could not save attendance", description: mutationError.message, variant: "destructive" }),
-  });
+  const { localAttendanceMutation } = useLocalAttendanceMutation({ id, localIcpPersona, localAccountId });
   
   useEffect(() => {
     if (myRsvp) {
@@ -952,35 +930,7 @@ export default function EventDetailPage() {
     enabled: !!event?.mini_league_id && !!user?.id,
   });
 
-  const parentLeaguePlayerRsvpMutation = useMutation({
-    mutationFn: async ({ playerId, status }: { playerId: string; status: RsvpStatus }) => {
-      const existing = rsvps?.find((r) => r.mini_league_player_id === playerId);
-      if (existing) {
-        const { error } = await supabase
-          .from("rsvps")
-          .update({ status, source: "user" })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("rsvps").insert({
-          event_id: id!,
-          user_id: user!.id,
-          mini_league_player_id: playerId,
-          status,
-          source: "user",
-        });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: eventKeys.rsvps(id) });
-      queryClient.invalidateQueries({ queryKey: eventKeys.goingRsvps(id) });
-      queryClient.invalidateQueries({ queryKey: eventKeys.groups(id) });
-    },
-    onError: (err: any) => {
-      toast({ title: "Failed to update RSVP", description: err.message, variant: "destructive" });
-    },
-  });
+  const { parentLeaguePlayerRsvpMutation } = useParentLeaguePlayerRsvpMutation({ supabase, id, user, rsvps });
 
   // For social events, always show all members; for training/games, use toggle
   const isSocialEvent = event?.type === "social";
