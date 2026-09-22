@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "rea
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { FolderOpen, FileText, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, FolderPlus, Plus, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, FileImage, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
 import {
@@ -35,12 +35,6 @@ import { VaultLightbox } from "@/components/vault/VaultLightbox";
 import { downloadImage } from "@/lib/downloadImage";
 const StoragePurchaseDialog = lazyWithRetry(() => import("@/components/StoragePurchaseDialog").then(m => ({ default: m.StoragePurchaseDialog })));
 import { useClubTheme } from "@/hooks/useClubTheme";
-import {
-  buildVaultStorageUrl,
-  compensateVaultUpload,
-  reserveVaultStorage,
-  settleVaultStorage,
-} from "@/lib/vaultUpload";
 import { permanentlyDeleteVaultItems } from "@/lib/vaultDelete";
 import { isVaultImageItem } from "@/features/vault/vaultItemClassification";
 import { summarizeVaultDeletion, buildVaultDeleteMessage } from "@/features/vault/vaultDeleteReporting";
@@ -51,6 +45,7 @@ import { useVaultLightbox } from "@/features/vault/useVaultLightbox";
 import { useVaultBulkDeleteWorkflow } from "@/features/vault/useVaultBulkDeleteWorkflow";
 import { useVaultFolderManagement } from "@/features/vault/useVaultFolderManagement";
 import { useVaultDriveLinkWorkflow } from "@/features/vault/useVaultDriveLinkWorkflow";
+import { useVaultUploadWorkflow } from "@/features/vault/useVaultUploadWorkflow";
 import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
 import { VaultBulkDeleteDialog } from "@/components/vault/VaultBulkDeleteDialog";
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
@@ -128,14 +123,10 @@ function SupabaseVaultPage() {
   const { activeClubFilter } = useClubTheme();
   const [currentView, setCurrentView] = useState<FolderView>({ type: "root" });
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [vaultSearchQuery, setVaultSearchQuery] = useState("");
   const debouncedVaultSearchQuery = useDebounce(vaultSearchQuery, 300);
   useEffect(() => { setVaultSearchQuery(""); }, [currentView]);
 
-  const [uploadType, setUploadType] = useState<"photo" | "file">("photo");
-  const [fileName, setFileName] = useState("");
   const [deletePhotoId, setDeletePhotoId] = useState<string | null>(null);
   const [deleteFileId, setDeleteFileId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
@@ -1408,164 +1399,16 @@ function SupabaseVaultPage() {
     onDeletePhotoRequested: setDeletePhotoId,
   });
 
-  // Vault photo uploads go to vault_files ONLY (not photos table)
-  // This keeps vault photos separate from the media gallery
-  const uploadPhotoMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const fileExt = file.name.split(".").pop();
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(7);
-      
-      // Structure path with club/team context for easier backup identification
-      let storagePath: string;
-      if (currentView.type === "team" && currentView.teamId && currentView.clubId) {
-        storagePath = `clubs/${currentView.clubId}/teams/${currentView.teamId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else if (currentView.type === "club" && currentView.clubId) {
-        storagePath = `clubs/${currentView.clubId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else if (currentView.type === "mini-league" && currentView.clubId && currentView.miniLeagueId) {
-        storagePath = `clubs/${currentView.clubId}/mini-leagues/${currentView.miniLeagueId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else {
-        storagePath = `unassigned/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      }
-
-      // Reserve quota atomically before any bytes are written.
-      const reservationId = await reserveVaultStorage(
-        "clubId" in currentView ? currentView.clubId ?? null : null,
-        file.size,
-      );
-
-
-      const { error: uploadError } = await supabase.storage
-        .from("photos")
-        .upload(storagePath, file, { cacheControl: "31536000" });
-
-      if (uploadError) {
-        await settleVaultStorage(reservationId, false);
-        throw uploadError;
-      }
-
-      const storageUrl = buildVaultStorageUrl(storagePath);
-
-      // Insert into vault_files instead of photos table
-      // This keeps vault photos private and separate from the media gallery
-      const insertData: any = {
-        file_url: storageUrl,
-        storage_bucket: "photos",
-        storage_path: storagePath,
-        uploaded_by: user!.id,
-        name: file.name,
-        folder_id: getCurrentFolderId(),
-        file_size: file.size,
-        file_type: file.type,
-      };
-
-      if (currentView.type === "club") {
-        insertData.club_id = currentView.clubId;
-      } else if (currentView.type === "team") {
-        insertData.club_id = currentView.clubId;
-        insertData.team_id = currentView.teamId;
-      } else if (currentView.type === "mini-league") {
-        insertData.club_id = currentView.clubId;
-        insertData.mini_league_id = currentView.miniLeagueId;
-      }
-
-      const { error: insertError } = await supabase.from("vault_files").insert(insertData);
-      if (insertError) {
-        // Compensate: never leave an orphaned object billed against the club.
-        await compensateVaultUpload(storagePath);
-        await settleVaultStorage(reservationId, false);
-        throw insertError;
-      }
-      await settleVaultStorage(reservationId, true);
-    },
-
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);
-      setUploadDialogOpen(false);
-      // No toast for successful photo uploads
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to upload photo");
-    },
-  });
-
-  const uploadFileMutation = useMutation({
-    mutationFn: async ({ file, customFileName }: { file: File; customFileName?: string }) => {
-      const fileExt = file.name.split(".").pop();
-      const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(7);
-      
-      // Structure path with club/team context for easier backup identification
-      let storagePath: string;
-      if (currentView.type === "team" && currentView.teamId && currentView.clubId) {
-        storagePath = `clubs/${currentView.clubId}/teams/${currentView.teamId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else if (currentView.type === "mini-league" && currentView.clubId && currentView.miniLeagueId) {
-        storagePath = `clubs/${currentView.clubId}/mini-leagues/${currentView.miniLeagueId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else if (currentView.type === "club" && currentView.clubId) {
-        storagePath = `clubs/${currentView.clubId}/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      } else {
-        storagePath = `unassigned/${user!.id}/${timestamp}-${randomSuffix}.${fileExt}`;
-      }
-
-      // Reserve quota atomically before any bytes are written.
-      const reservationId = await reserveVaultStorage(
-        "clubId" in currentView ? currentView.clubId ?? null : null,
-        file.size,
-      );
-
-      const { error: uploadError } = await supabase.storage
-        .from("photos")
-        .upload(storagePath, file, { cacheControl: "31536000" });
-
-      if (uploadError) {
-        await settleVaultStorage(reservationId, false);
-        throw uploadError;
-      }
-
-      const storageUrl = buildVaultStorageUrl(storagePath);
-
-      const insertData: any = {
-        file_url: storageUrl,
-        storage_bucket: "photos",
-        storage_path: storagePath,
-        uploaded_by: user!.id,
-        name: customFileName || fileName || file.name,
-        folder_id: getCurrentFolderId(),
-        file_size: file.size,
-      };
-
-      if (currentView.type === "club") {
-        insertData.club_id = currentView.clubId;
-      } else if (currentView.type === "team") {
-        insertData.club_id = currentView.clubId;
-        insertData.team_id = currentView.teamId;
-      } else if (currentView.type === "mini-league") {
-        insertData.club_id = currentView.clubId;
-        insertData.mini_league_id = currentView.miniLeagueId;
-      }
-
-      const { error: insertError } = await supabase.from("vault_files").insert(insertData);
-      if (insertError) {
-        // Compensate: never leave an orphaned object billed against the club.
-        await compensateVaultUpload(storagePath);
-        await settleVaultStorage(reservationId, false);
-        throw insertError;
-      }
-      await settleVaultStorage(reservationId, true);
-
-      // Note: Storage tracking is now per team, handled by the storage breakdown query
-    },
-
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);
-      invalidateVaultCache(queryClient, ["clubFreeUsage"]);
-      setUploadDialogOpen(false);
-      setFileName("");
-      toast.success("File uploaded successfully!");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to upload file");
-    },
+  const {
+    uploadDialogOpen,
+    setUploadDialogOpen,
+    uploading,
+    handleDialogUpload,
+  } = useVaultUploadWorkflow({
+    currentView,
+    getCurrentFolderId,
+    userId: user?.id,
+    queryClient,
   });
 
   const {
@@ -1610,33 +1453,6 @@ function SupabaseVaultPage() {
     },
     onFileSoftDeleteSuccess: () => setDeleteFileId(null),
   });
-
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    if (uploadType === "photo") {
-      await uploadPhotoMutation.mutateAsync(file);
-    } else {
-      await uploadFileMutation.mutateAsync({ file });
-    }
-    setUploading(false);
-  };
-
-  const handleDialogUpload = async (file: File, type: "photo" | "file", customFileName?: string) => {
-    setUploading(true);
-    try {
-      if (type === "photo") {
-        await uploadPhotoMutation.mutateAsync(file);
-      } else {
-        await uploadFileMutation.mutateAsync({ file, customFileName });
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
 
   if (isLoadingAccess) {
     return (

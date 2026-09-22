@@ -1132,6 +1132,106 @@ render-count, or interaction-latency benchmark was measured, so this is a
 maintainability/safety result only and makes no runtime-performance claim.
 The main remaining high-line-count Vault cluster is upload/file-name flow.
 
+### Phase 4A Vault upload/file-name result (2026-09-22)
+
+The upload/file-name/quota-reservation feature cluster in `VaultPage.tsx` —
+the last remaining untouched Vault cluster named in the prior round — was
+extracted into a typed workflow hook:
+
+- `src/features/vault/useVaultUploadWorkflow.ts` (125 lines): the upload
+  dialog's open/uploading/upload-type/file-name state, the photo and file
+  upload mutations, and both the raw-file-input (`handleFileUpload`, dead
+  code with no JSX caller both before and after this round) and dialog
+  (`handleDialogUpload`) upload handlers.
+
+Rather than re-inlining the reserve/upload/settle/compensate/insert mechanics
+in the new hook, its two mutations now call the already-existing but
+previously unused `uploadVaultItem` from `src/features/vault/vaultUploadService.ts`
+(added in an earlier round, covered by its own `vaultUploadService.test.ts`,
+but never wired into `VaultPage.tsx` until this round). `uploadVaultItem`
+reproduces the exact storage-path construction (club/team/mini-league/
+unassigned, `${timestamp}-${randomSuffix}.${fileExt}`), the
+reserve-before-write quota call, upload failure settlement, metadata insert
+scoping, orphaned-object compensation on insert failure, and success
+settlement that were previously duplicated inline across both mutations. The
+one-line "Compensate: never leave an orphaned object billed against the
+club." comment was restored at the service's compensation call site so the
+documented rationale is preserved now that the code path is live. The page
+retains `currentView`, folder scope ownership, `canUpload`/`canManageVaultPro`
+gates, and every other previously extracted Vault workflow boundary
+(trash/recovery, export/large-files, lightbox, bulk-delete, folder/file
+management, Drive/Add Link); the upload hook receives `currentView`,
+`getCurrentFolderId`, `userId`, and `queryClient` as readonly/stable inputs,
+matching the contract used by the other extracted Vault workflow hooks.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,732 | 2,548 |
+| `VaultPage.tsx` `useState` calls | 8 | 4 |
+| `useVaultUploadWorkflow.ts` | 0 | 125 |
+| Characterization test | 0 | 158 |
+| Complete Vault source package (non-test, same scope) | 12,122 | 12,064 |
+| Same-scope jscpd | 298 lines / 22 groups / 2.46% | 235 lines / 19 groups / 1.95% |
+| Product Vault route chunk | 128,117 bytes | 128,050 bytes |
+| Product JavaScript total / chunks | 8,866,611 bytes / 502 | 8,866,544 bytes / 502 |
+| Lazy-loading boundary | existing dialog lazy boundaries only | existing dialog lazy boundaries retained |
+
+Unlike every prior Phase 4A Vault round, the complete non-test Vault package
+shrank (12,122 → 12,064, -58 lines) even though a new 125-line hook was
+added, because the extraction reuses `uploadVaultItem`'s already-tested logic
+instead of duplicating it a third time (previously duplicated once each in
+the photo and file mutations). Same-scope jscpd duplication also dropped
+further (298 → 235 duplicated lines, 22 → 19 clone groups) for the same
+reason.
+
+`src/pages/VaultPage.upload.characterization.test.ts` (13 tests) was added
+and proven to pass against the original inline `VaultPage.tsx` before
+extraction, then kept green against the extracted hook. It covers: quota
+reserved before any bytes are written for both photo and file uploads; the
+exact club/team/mini-league/unassigned storage path shapes; settlement as
+failed (never inserting metadata) when the storage upload itself fails;
+compensating the orphaned storage object and settling as failed when the
+metadata insert fails; settling as successful only after both steps succeed;
+`buildVaultStorageUrl` usage and photo-only `file_type` scoping; the
+`customFileName || fileName || file.name` resolution order; the exact
+`["files", "clubs", "storageBreakdown"]` (both) and `["clubFreeUsage"]`
+(file-only) cache-invalidation scopes; dialog-close-on-success semantics for
+both upload kinds, `fileName` reset and the success toast for file uploads
+only (photo uploads intentionally have no success toast); the exact failure
+toasts; the `uploading` flag lifecycle for both the raw-input and dialog
+upload paths (including the dialog path's try/finally); a boundary-narrowness
+check; and that upload dialog wiring, the `canUpload` gate, and every other
+Vault cluster remain untouched. The pre-existing
+`VaultPage.characterization.test.ts`, `VaultPage.drive-link.characterization.test.ts`,
+and `VaultPage.folder-management.characterization.test.ts` "untouched
+cluster" assertions that referenced the now-moved `uploadPhotoMutation`/
+`uploadFileMutation` identifiers or the now-moved cache-invalidation literal
+were updated to assert the new `useVaultUploadWorkflow` boundary instead of
+expecting the cluster to remain inline, matching the pattern used by every
+prior round.
+
+Targeted Vault tests passed (206 tests across 23 files). The full legacy
+suite passed 4,364 tests across 455 files (1 pre-existing skip, 0 failures).
+Product typecheck introduced no new Vault diagnostic; its ratchet failure
+remains limited to the known unrelated 14 `StartDMDialog`/`ClubDetailPage`
+diagnostics. `typecheck:lab` was clean. Product build, bundle budget
+(8,866,544 / 9,800,000 JS bytes; largest chunk 1,112,842 / 1,500,000 bytes),
+quality ratchet (`asAny` 1,201→1,189, `consoleCalls` 1,271→1,267, both
+decreased or held), duplication ratchet (1,669 duplicated lines removed
+repo-wide since baseline), isolation, same-scope jscpd, and `git diff --check`
+all passed.
+
+The extracted module is statically imported and the route chunk is 67 bytes
+smaller than the Drive/Add Link result — not evidence of a runtime
+improvement, just line movement between chunks. No request, subscription,
+render-count, or interaction-latency evidence was collected, and no
+runtime-performance claim is made — this is a maintainability/safety
+extraction only. This completes every Vault cluster named in the Phase 4A
+Vault responsibility map (trash/recovery, export/large-files, lightbox, bulk
+selection/delete, folder/file management, Drive/Add Link, and now
+upload/file-name); no further Phase 4A Vault extraction target remains
+identified in this plan.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:

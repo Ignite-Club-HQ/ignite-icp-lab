@@ -159,8 +159,13 @@ describe("Vault folder/file management and navigation behavior contract", () => 
   });
 
   it("keeps upload, add-link, Drive import/link/title resolution, storage purchase, export/large-files, trash/recovery, lightbox, and bulk-delete untouched by this cluster", () => {
-    expect(vaultPageSource).toContain("uploadPhotoMutation");
-    expect(vaultPageSource).toContain("uploadFileMutation");
+    // Upload/file-name flow was subsequently extracted into
+    // `useVaultUploadWorkflow` by a later Phase 4A round (see
+    // VaultPage.upload.characterization.test.ts); this folder/file
+    // management cluster only needs to not have re-absorbed it.
+    expect(vaultPageSource).toContain("useVaultUploadWorkflow");
+    expect(vaultPageSource).not.toContain("uploadPhotoMutation");
+    expect(vaultPageSource).not.toContain("uploadFileMutation");
     // Add Link / Google Drive import/link/title resolution were later
     // extracted into their own cluster (`useVaultDriveLinkWorkflow` +
     // `VaultDriveLinkDialogs`) by a subsequent Phase 4A round; this folder/

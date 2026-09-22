@@ -127,6 +127,7 @@ export async function uploadVaultItem(
 
   const { error: insertError } = await client.from("vault_files").insert(insert);
   if (insertError) {
+    // Compensate: never leave an orphaned object billed against the club.
     await dependencies.compensateUpload(storagePath);
     await dependencies.settleStorage(reservationId, false);
     throw insertError;

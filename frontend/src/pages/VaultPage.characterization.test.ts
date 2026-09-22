@@ -17,7 +17,10 @@ const trashRepositorySource = existsSync(join(pagesDirectory, "../features/vault
 const vaultReadRepositorySource = existsSync(join(pagesDirectory, "../features/vault/vaultReadRepository.ts"))
   ? readFileSync(join(pagesDirectory, "../features/vault/vaultReadRepository.ts"), "utf8")
   : "";
-const source = `${vaultPageSource}\n${rendererSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}`;
+const uploadWorkflowSource = existsSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"))
+  ? readFileSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"), "utf8")
+  : "";
+const source = `${vaultPageSource}\n${rendererSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}\n${uploadWorkflowSource}`;
 
 describe("VaultPage rendering and provider-boundary characterization", () => {
   it("keeps club, team, and mini-league scope branches distinct", () => {
@@ -49,7 +52,11 @@ describe("VaultPage rendering and provider-boundary characterization", () => {
     expect(vaultPageSource).toContain('showTrash ? permanentDeletePhotoMutation.mutate');
     expect(vaultPageSource).toContain('showTrash ? permanentDeleteFileMutation.mutate');
     expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files"]);');
-    expect(vaultPageSource).toContain('invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);');
+    // Upload's cache-invalidation scope moved into `useVaultUploadWorkflow`
+    // in the upload/file-name Phase 4A round; this cluster only needs it to
+    // still exist somewhere in the Vault package, matching this test's own
+    // combined-source approach for the other extracted Vault workflow hooks.
+    expect(source).toContain('invalidateVaultCache(queryClient, ["files", "clubs", "storageBreakdown"]);');
     expect(source).toContain('invalidateVaultCache(queryClient, ["trash", "files", "storageBreakdown", "photos"]);');
   });
 

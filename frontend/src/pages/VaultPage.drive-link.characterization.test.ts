@@ -137,7 +137,13 @@ describe("Vault Add Link / Google Drive import/link/title-resolution behavior co
   });
 
   it("leaves upload/file-name flow, folder/file management, export/large-files, trash/recovery, lightbox, and bulk-delete untouched", () => {
-    expect(vaultPageSource).toContain("uploadFileMutation");
+    // Upload/file-name flow was subsequently extracted into
+    // `useVaultUploadWorkflow` by a later Phase 4A round (see
+    // VaultPage.upload.characterization.test.ts); this Drive/Add Link
+    // cluster only needs to not have re-absorbed it.
+    expect(vaultPageSource).toContain("useVaultUploadWorkflow");
+    expect(vaultPageSource).not.toContain("uploadPhotoMutation");
+    expect(vaultPageSource).not.toContain("uploadFileMutation");
     expect(vaultPageSource).toContain("useVaultFolderManagement");
     expect(vaultPageSource).toContain("useVaultExport");
     expect(vaultPageSource).toContain("useVaultTrashWorkflow");

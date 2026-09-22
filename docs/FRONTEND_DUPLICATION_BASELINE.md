@@ -854,3 +854,76 @@ render-count, or interaction-latency evidence was collected, and no
 runtime-performance claim is made — this is a maintainability/safety extraction
 only. The main remaining high-line-count Vault cluster is upload/file-name
 flow.
+
+## Phase 4A Vault upload/file-name result (2026-09-22)
+
+The seventh and final named Vault package extraction moved the upload/
+file-name/quota-reservation cluster into `useVaultUploadWorkflow`. The page
+retains `currentView`, folder scope ownership, `canUpload`/`canManageVaultPro`
+gates, and every other previously extracted Vault workflow boundary.
+
+The hook's mutations delegate to `uploadVaultItem` in
+`src/features/vault/vaultUploadService.ts` — added in an earlier round with
+its own passing test file but never actually wired into `VaultPage.tsx` until
+this round — instead of re-inlining the reserve/upload/settle/compensate/
+insert mechanics a third time. The one-line orphaned-object compensation
+comment was restored at the service's call site so the documented rationale
+survives now that the code path is live.
+
+All figures below were captured directly against this repository's commit
+`f2b279e56` (the "before" state, matching the prior round's "after") using
+the same reproduction command as the baseline scan, scoped to
+`src/pages/VaultPage.tsx src/components/vault src/features/vault`:
+
+```sh
+npx --no-install jscpd src/pages/VaultPage.tsx src/components/vault src/features/vault   --min-tokens 50 --min-lines 5   --ignore '**/*.test.ts,**/*.test.tsx'   --reporters json --output "$(mktemp -d)" --silent
+```
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,732 | 2,548 |
+| `VaultPage.tsx` `useState` calls | 8 | 4 |
+| `useVaultUploadWorkflow.ts` | 0 | 125 |
+| Complete Vault source package (non-test) | 12,122 | 12,064 |
+| Same-scope jscpd | 298 lines / 22 groups / 2.46% | 235 lines / 19 groups / 1.95% |
+| Product Vault route chunk | 128,117 bytes | 128,050 bytes |
+| Product JavaScript total / chunks | 8,866,611 bytes / 502 | 8,866,544 bytes / 502 |
+| Lazy-loading boundary | existing dialog lazy boundaries only | existing dialog lazy boundaries retained |
+
+Unlike every prior Vault round, the complete non-test package size decreased
+(-58 lines) despite adding a new 125-line hook, because the extraction reuses
+`uploadVaultItem`'s already-tested logic instead of duplicating it inline a
+third time. Same-scope jscpd duplication dropped for the same reason (298 →
+235 duplicated lines, 22 → 19 clone groups).
+
+`src/pages/VaultPage.upload.characterization.test.ts` (13 tests) was added
+and proven to pass against the original inline `VaultPage.tsx` before
+extraction, then kept green against the extracted hook. It covers reserve-
+before-write ordering, the four storage-path shapes, upload-failure and
+insert-failure settlement/compensation, success settlement, storage-URL and
+photo-only `file_type` scoping, the file-name fallback order, both cache-
+invalidation scopes, dialog-close/`fileName`-reset/success-toast semantics
+(file uploads only; photo uploads intentionally have no success toast), the
+exact failure toasts, the `uploading` flag lifecycle for both upload paths,
+a boundary-narrowness check, and that every other Vault cluster remains
+untouched. The pre-existing base/drive-link/folder-management
+characterization tests' "untouched cluster" assertions referencing the
+now-moved `uploadPhotoMutation`/`uploadFileMutation` identifiers or
+cache-invalidation literal were updated to assert the new hook boundary
+instead, matching every prior round's pattern.
+
+Targeted Vault tests passed (206 tests across 23 files); the full legacy
+suite passed 4,364 tests across 455 files (1 pre-existing skip, 0 failures).
+Product typecheck introduced no new Vault diagnostic; its ratchet failure
+remains limited to the known unrelated 14 `StartDMDialog`/`ClubDetailPage`
+diagnostics. `typecheck:lab` was clean. Product build, bundle budget, quality
+ratchet, duplication ratchet (1,669 duplicated lines removed repo-wide since
+baseline), isolation, same-scope jscpd, and `git diff --check` all passed.
+
+The extracted module is statically imported and the route chunk is 67 bytes
+smaller than the Drive/Add Link result — line movement between chunks, not a
+runtime claim. No request, subscription, render-count, or interaction-latency
+evidence was collected, and no runtime-performance claim is made — this is a
+maintainability/safety extraction only. This completes every Vault cluster
+named in the Phase 4A Vault responsibility map; no further Phase 4A Vault
+extraction target remains identified in this plan.
