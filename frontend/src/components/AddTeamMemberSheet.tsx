@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { UserPlus, Search, Loader2, Mail, X, CheckCircle2, Check, Send, Users, Plus, Trash2, Upload, Baby, MessageSquare, AlertTriangle, Share2, Pencil, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -29,17 +29,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
-import { isDuplicateChildError } from "@/lib/childDedup";
-import { friendlyMutationError } from "@/lib/friendlyMutationError";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
-import {
-  ensureSecondParent,
-  secondParentValidationError,
-  secondParentPartialFailureMessage,
-  SecondParentError,
-  type SecondParentResult,
-} from "@/features/membership/secondParentInvite";
-import { refreshTeamRoleChange } from "@/lab/teamMembershipCacheCompletion";
+import { secondParentValidationError } from "@/features/membership/secondParentInvite";
 import {
   ChildAndSecondGuardianFields,
   type BulkChild,
