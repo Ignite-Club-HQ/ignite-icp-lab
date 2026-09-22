@@ -7,7 +7,7 @@ import { useEventPaymentFlow } from "@/hooks/useEventPaymentFlow";
 import { useEventRsvpMutations } from "@/hooks/useEventRsvpMutations";
 import { useLocalAttendanceMutation } from "@/hooks/useLocalAttendanceMutation";
 import { useParentLeaguePlayerRsvpMutation } from "@/hooks/useParentLeaguePlayerRsvpMutation";
-import { buildEventRsvpBuckets } from "@/features/events/eventRsvpBuckets";
+import { useEventAttendanceViewModel } from "@/hooks/useEventAttendanceViewModel";
 import { resolveEventCapabilities } from "@/features/events/eventCapabilities";
 import { fetchEventDetail } from "@/features/events/eventDetailRepository";
 
@@ -17,16 +17,14 @@ import { Capacitor } from "@capacitor/core";
 import { getShareUrl } from "@/lib/shareUtils";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, UserPlus, Trash2, Pencil, XCircle, Bell, Check, Share2, MoreVertical, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, UserPlus, Trash2, Pencil, XCircle, Bell, Share2, MoreVertical } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -55,24 +53,14 @@ import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
-import { AttendanceSection } from "@/components/event/AttendanceSection";
 import { useEventGroupMap } from "@/hooks/useEventGroupMap";
 import { useEventViewTracking } from "@/hooks/useEventViews";
 import { resolveRsvpAudience } from "@/lib/rsvpAudience";
 import { resolveRsvpChildren, resolveEventChildRoster } from "@/lib/resolveEventChildScope";
-
-
-import {
-  EventAttendeeCard,
-  resolveEventAttendeeRoleLabel,
-} from "@/components/event/EventAttendeeCard";
-import { AdminRsvpChanger } from "@/components/event/AdminRsvpChanger";
-import { AttendanceRow } from "@/components/event/AttendanceRow";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
 import { RsvpNoteSheet } from "@/components/rsvp/RsvpNoteSheet";
 import { PostRsvpNotificationPrompt } from "@/components/PostRsvpNotificationPrompt";
-import { formatRelativePast } from "@/lib/formatRelativeTime";
 import { EventNoteSection } from "@/components/event/EventNoteSection";
 import { EventOverviewSection } from "@/components/event/EventOverviewSection";
 import { EventDutiesSection } from "@/components/event/EventDutiesSection";
@@ -80,6 +68,7 @@ import { EventMatchAwardsSection } from "@/components/event/EventMatchAwardsSect
 import { EventPitchBoardPortal } from "@/components/event/EventPitchBoardPortal";
 import { EventDetailActionDialogs } from "@/components/event/EventDetailActionDialogs";
 import { EventRsvpResponseSection } from "@/components/event/EventRsvpResponseSection";
+import { EventAttendanceRosterSection } from "@/components/event/EventAttendanceRosterSection";
 
 
 import {
@@ -1351,6 +1340,26 @@ export default function EventDetailPage() {
     supabase, id, event, gateEventShare, setRecentlyReminded, setResendDialogOpen,
   });
 
+  const attendanceViewModel = useEventAttendanceViewModel({
+    event,
+    rsvps,
+    playerMembers,
+    effectiveShowAll,
+    isMiniLeagueEvent,
+    targetTeamIdsForFetch,
+    allChildrenOnTeam,
+    attendanceMembers,
+    attendancePlayerMembers,
+    childGuardiansOnTeam,
+    scopedChildNames,
+    miniLeaguePlayers,
+    miniLeagueAdults,
+    members,
+    linkedAdultProfiles,
+    reminderMembers,
+    eventGuests,
+  });
+
   if (isLoading) {
     return (
       <div className="py-6 space-y-4">
@@ -1393,6 +1402,55 @@ export default function EventDetailPage() {
     );
   }
 
+  const attendanceContent = (() => {
+    if (attendanceUnavailable) return attendanceAlert;
+    if (!rsvps && attendanceInitialLoading) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading attendance…
+        </div>
+      );
+    }
+    return (
+      <EventAttendanceRosterSection
+        event={event}
+        eventId={id!}
+        model={attendanceViewModel}
+        groupMap={groupMap}
+        scopedRosterQuery={scopedRosterQuery}
+        showAllRoles={showAllRoles}
+        setShowAllRoles={setShowAllRoles}
+        isSocialEvent={isSocialEvent}
+        isMiniLeagueEvent={isMiniLeagueEvent}
+        isGameEvent={isGameEvent}
+        canManageEvent={canManageEvent}
+        canSendReminders={canSendReminders}
+        gateReminders={gateReminders}
+        eventGuests={eventGuests}
+        paidUserIds={paidUserIds}
+        showPaymentStatus={showPaymentStatus}
+        membersWithRoles={membersWithRoles}
+        captainUserId={captainUserId}
+        captainChildId={captainChildId}
+        potmUserId={potmUserId}
+        potmChildId={potmChildId}
+        gkUserIds={gkUserIds}
+        gkChildIds={gkChildIds}
+        recentlyReminded={recentlyReminded}
+        recentReminderMap={recentReminderMap}
+        miniLeagueAdults={miniLeagueAdults}
+        allChildrenOnTeam={allChildrenOnTeam}
+        individualRemindMutation={individualRemindMutation}
+        adminRsvpMutation={adminRsvpMutation}
+        rsvpForChildMutation={rsvpForChildMutation}
+        rsvpForMemberMutation={rsvpForMemberMutation}
+        togglePaymentMutation={togglePaymentMutation}
+        adminUpdateRsvpMutation={adminUpdateRsvpMutation}
+        handleShareReminderLink={handleShareReminderLink}
+      />
+    );
+  })();
 
   return (
     <div className="py-6 space-y-6">
@@ -1609,572 +1667,7 @@ export default function EventDetailPage() {
       <Separator />
 
       {/* Unified Attendance section — replaces standalone Responses + Event Views */}
-      {(() => {
-        // Attendance read failed and we have nothing cached: show the alert +
-        // retry instead of an empty roster (which would read as "no responses").
-        if (attendanceUnavailable) return attendanceAlert;
-        // Initial load: attendance-specific loading state, never a zero count.
-        if (!rsvps && attendanceInitialLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading attendance…
-            </div>
-          );
-        }
-
-        // Get player user IDs for filtering
-        const playerUserIds = new Set(playerMembers?.map((m: any) => m.id) || []);
-
-        // Audience gate for the DEFAULT (players-only) view.
-        //
-        // `parents_only` events have no player responders at all — the adults
-        // ARE the audience, so their self-RSVPs must show without the toggle.
-        // On every other audience (including `players_and_parents`) the default
-        // list stays players/children only: non-player adults appear only when
-        // "Show all roles" is checked.
-        const attendanceAudience = resolveRsvpAudience(
-          (event as any)?.rsvp_audience,
-          (event as any)?.teams?.default_rsvp_audience,
-        );
-        const adultsAreTheAudience = attendanceAudience === "parents_only";
-
-        // Targeted club-wide event: only attendees inside the event audience
-        // may appear in any bucket. Also hydrate child names from the scoped
-        // roster so authorised managers never see "Unknown".
-        const scopedChildIds = new Set((allChildrenOnTeam || []).map((c: any) => c.id));
-        const scopedAdultIds = new Set((attendanceMembers || []).map((m: any) => m.id));
-        // Parents/guardians of in-scope children are part of the event audience
-        // even when they hold no team-scoped role — without this their RSVPs
-        // vanish from the buckets (only "certain parents" appeared).
-        (allChildrenOnTeam || []).forEach((c: any) => {
-          if (c.parent_id) scopedAdultIds.add(c.parent_id);
-        });
-        (childGuardiansOnTeam || []).forEach((cg: any) => {
-          if (cg.guardian_id) scopedAdultIds.add(cg.guardian_id);
-        });
-        const isTargetedScope = !!targetTeamIdsForFetch;
-        const { goingRsvps, maybeRsvps, notGoingRsvps } = buildEventRsvpBuckets({
-          rsvps,
-          effectiveShowAll,
-          isMiniLeagueEvent,
-          adultsAreTheAudience,
-          playerUserIds,
-          isTargetedScope,
-          scopedChildIds,
-          scopedAdultIds,
-          scopedChildNames,
-        });
-
-
-        const respondedUserIds = new Set(rsvps?.filter(r => !r.child_id).map(r => r.user_id) || []);
-        const respondedChildIds = new Set(rsvps?.filter(r => r.child_id).map(r => r.child_id) || []);
-        const respondedMiniLeaguePlayerIds = new Set(
-          rsvps?.filter(r => r.mini_league_player_id).map(r => r.mini_league_player_id) || []
-        );
-
-        let notResponded: any[] = [];
-        let notRespondedChildren: any[] = [];
-
-        if (isMiniLeagueEvent && miniLeaguePlayers) {
-          notRespondedChildren = miniLeaguePlayers.filter((player: any) => {
-            // A player only counts as "responded" if an RSVP exists for that specific
-            // player (mini_league_player_id) or for their linked child (child_id).
-            // The parent's own adult RSVP says nothing about whether the player is
-            // attending, so do NOT hide the player just because their parent_user_id
-            // has any RSVP on the event.
-            if (respondedMiniLeaguePlayerIds.has(player.id)) return false;
-            if (player.child_id && respondedChildIds.has(player.child_id)) return false;
-            return true;
-          });
-          // Adults bucket only when "Show all roles" is on.
-          if (effectiveShowAll) {
-            notResponded = (miniLeagueAdults || []).filter(
-              (adult: any) => !respondedUserIds.has(adult.id),
-            );
-          }
-        } else {
-          // "Show all roles" must include every parent/guardian of an in-scope
-          // child — including those with no role row on this team (they are
-          // fetched separately as `linkedAdultProfiles`).
-          const baseMembersToShow = effectiveShowAll ? attendanceMembers : attendancePlayerMembers;
-          const adultPool = [...(members || []), ...(linkedAdultProfiles || [])];
-          const membersToShow = effectiveShowAll
-            ? [
-                ...(baseMembersToShow || []),
-                ...(adultPool.filter(
-                  (m: any, i: number) =>
-                    scopedAdultIds.has(m.id) &&
-                    !(baseMembersToShow || []).some((b: any) => b.id === m.id) &&
-                    adultPool.findIndex((a: any) => a.id === m.id) === i,
-                )),
-              ]
-            : baseMembersToShow;
-          // A child's response only covers the parent when the parent is a pure
-          // proxy (players_only). On `players_and_parents` / `parents_only` the
-          // adult owes their OWN response, so they must stay in "Not responded"
-          // until they answer — otherwise they silently disappear from the list.
-          const parentCoveredByChild = attendanceAudience === "players_only";
-          const parentIdsWithRespondedChildren = new Set<string>();
-          if (parentCoveredByChild) {
-            (allChildrenOnTeam || []).forEach((child: any) => {
-              if (child.parent_id && respondedChildIds.has(child.id)) {
-                parentIdsWithRespondedChildren.add(child.parent_id);
-              }
-            });
-            (childGuardiansOnTeam || []).forEach((cg: any) => {
-              if (cg.guardian_id && respondedChildIds.has(cg.child_id)) {
-                parentIdsWithRespondedChildren.add(cg.guardian_id);
-              }
-            });
-          }
-          notResponded = membersToShow?.filter((m: any) =>
-            !respondedUserIds.has(m.id) && !parentIdsWithRespondedChildren.has(m.id)
-          ) || [];
-
-          notRespondedChildren = allChildrenOnTeam?.filter((child: any) => !respondedChildIds.has(child.id)) || [];
-        }
-
-        const totalNotResponded = isMiniLeagueEvent
-          ? notRespondedChildren.length + notResponded.length
-          : notResponded.length + notRespondedChildren.length;
-
-        // Always derive non-responder IDs from ALL members (not filtered by "Show all roles")
-        // so admins can always send reminders, regardless of the visible roster filter.
-        const allNotRespondedForReminders = isMiniLeagueEvent
-          ? (miniLeagueAdults || []).filter((adult: any) => !respondedUserIds.has(adult.id))
-          : (reminderMembers?.filter((m: any) =>
-              !respondedUserIds.has(m.id) &&
-              !(new Set<string>([
-                ...((allChildrenOnTeam || [])
-                  .filter((c: any) => respondedChildIds.has(c.id))
-                  .map((c: any) => c.parent_id)
-                  .filter(Boolean)),
-                ...((childGuardiansOnTeam || [])
-                  .filter((cg: any) => respondedChildIds.has(cg.child_id))
-                  .map((cg: any) => cg.guardian_id)
-                  .filter(Boolean)),
-              ])).has(m.id)
-            ) || []);
-
-
-        const renderAttendee = (rsvp: any, status: RsvpStatus) => (
-          <EventAttendeeCard
-            key={rsvp.id}
-            rsvp={rsvp}
-            hasPaid={status !== "not_going" ? paidUserIds.has(rsvp.user_id) : undefined}
-            isAdmin={canManageEvent}
-            showPrice={status !== "not_going" && !!showPaymentStatus}
-            onTogglePayment={status !== "not_going" ? () => togglePaymentMutation.mutate({
-              userId: rsvp.user_id,
-              isPaid: paidUserIds.has(rsvp.user_id)
-            }) : undefined}
-            isPending={togglePaymentMutation.isPending || adminUpdateRsvpMutation.isPending}
-            isMiniLeague={isMiniLeagueEvent}
-            currentStatus={status}
-            onChangeStatus={(newStatus) => adminUpdateRsvpMutation.mutate({
-              rsvpId: rsvp.id,
-              status: newStatus,
-              playerName: rsvp.mini_league_player_id
-                ? rsvp.mini_league_players?.name
-                : (rsvp.child_id ? rsvp.children?.name : rsvp.profiles?.display_name)
-            })}
-            memberRole={!rsvp.child_id && !rsvp.mini_league_player_id
-              ? (() => {
-                  const member = membersWithRoles?.find((m: any) => m.id === rsvp.user_id);
-                  // Always resolve against the event's team scope — a "player"
-                  // role on a different team must never label them here.
-                  return resolveEventAttendeeRoleLabel(member, event);
-                })()
-              : undefined}
-
-
-            isCaptain={
-              isGameEvent && (
-                (!!rsvp.user_id && rsvp.user_id === captainUserId) ||
-                (!!rsvp.child_id && rsvp.child_id === captainChildId)
-              )
-            }
-            isPotm={
-              isGameEvent && (
-                (!!rsvp.user_id && rsvp.user_id === potmUserId) ||
-                (!!rsvp.child_id && rsvp.child_id === potmChildId)
-              )
-            }
-            isGoalkeeper={
-              isGameEvent && (
-                (!!rsvp.user_id && gkUserIds.has(rsvp.user_id)) ||
-                (!!rsvp.child_id && gkChildIds.has(rsvp.child_id))
-              )
-            }
-          />
-        );
-
-        const guestNodes = eventGuests?.map((guest: any) => (
-          <AttendanceRow
-            key={guest.id}
-            name={guest.guest_name}
-            roleLabel="Guest"
-            roleTone="guest"
-            secondaryLine={`Guest of ${guest.added_by_name}`}
-          />
-        ));
-
-        // Group key for an RSVP row. Prefer child_id (including linked
-        // mini-league players) so parents responding on behalf of a child
-        // land in that child's team/level group, not the parent's.
-        const rsvpGroupKey = (rsvp: any) => {
-          const childId = rsvp.child_id || rsvp.mini_league_players?.child_id || null;
-          return groupMap.groupOf({
-            userId: childId ? null : rsvp.user_id,
-            childId,
-          });
-        };
-
-        const renderBucket = (rsvpList: any[], status: RsvpStatus, includeGuests = false) => {
-          if (!groupMap.isActive) {
-            return (
-              <div className="divide-y divide-border/50">
-                {rsvpList.map((rsvp: any) => renderAttendee(rsvp, status))}
-                {includeGuests && guestNodes}
-              </div>
-            );
-          }
-          const buckets = new Map<string, any[]>();
-          for (const r of rsvpList) {
-            const g = rsvpGroupKey(r);
-            if (!g) continue; // out of the event audience — never show
-            const arr = buckets.get(g.key) ?? [];
-            arr.push(r);
-            buckets.set(g.key, arr);
-          }
-          return (
-            <div className="space-y-3">
-              {groupMap.orderedGroups.map((g) => {
-                const items = buckets.get(g.key) ?? [];
-                if (items.length === 0) return null;
-                return (
-                  <div key={g.key}>
-                    <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {g.label} <span className="text-muted-foreground/70">({items.length})</span>
-                    </div>
-                    <div className="divide-y divide-border/50">
-                      {items.map((rsvp: any) => renderAttendee(rsvp, status))}
-                    </div>
-                  </div>
-                );
-              })}
-              {includeGuests && (guestNodes?.length ?? 0) > 0 && (
-                <div>
-                  <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Guests
-                  </div>
-                  <div className="divide-y divide-border/50">{guestNodes}</div>
-                </div>
-              )}
-            </div>
-          );
-        };
-
-
-        const renderNotRespondedChild = (child: any) => {
-              // For mini-league players: parent_user_id may be null; we still allow remind via
-              // the linked child (children.parent_id + child_guardians).
-              const isPendingChild = isMiniLeagueEvent ? !!child.is_pending : false;
-              const remindParentId: string | undefined = isMiniLeagueEvent ? child.parent_user_id : child.parent_id;
-              const remindChildId: string | undefined = isMiniLeagueEvent ? child.child_id : (child.child_id || child.id);
-              const recipientKey = remindParentId || remindChildId || child.id;
-              // No one to remind if the child is pending (no parent has accepted the app yet).
-              const canRemind = !isPendingChild && !!(remindParentId || remindChildId);
-              const remindBtn = canManageEvent && canRemind ? (() => {
-                const isLoadingThis = individualRemindMutation.isPending && individualRemindMutation.variables?.userId === remindParentId && individualRemindMutation.variables?.childId === remindChildId;
-                const lastRemindedAt = recentlyReminded.get(recipientKey) || (remindParentId ? recentReminderMap?.get(remindParentId) : null) || null;
-                const wasReminded = !!lastRemindedAt;
-                const remindedLabel = lastRemindedAt ? `Reminded ${formatRelativePast(lastRemindedAt)}` : "Reminded";
-                const isProBlocked = !canSendReminders && !wasReminded;
-                return (
-                  <Button
-                    variant={wasReminded ? "secondary" : isProBlocked ? "outline" : "default"}
-                    size="sm"
-                    className={`h-8 px-2.5 shrink-0 gap-1 ${isProBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
-                    onClick={() => {
-                      if (!gateReminders()) return;
-                      individualRemindMutation.mutate({ userId: remindParentId, displayName: child.name || "Unknown", childId: remindChildId });
-                    }}
-                    disabled={isLoadingThis || wasReminded}
-                    title={wasReminded ? remindedLabel : isProBlocked ? "Pro required — upgrade to send reminders" : "Remind all parents"}
-                  >
-                    {isLoadingThis ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : wasReminded ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : isProBlocked ? (
-                      <Lock className="h-3.5 w-3.5" />
-                    ) : (
-                      <Bell className="h-3.5 w-3.5" />
-                    )}
-                    <span className="text-xs">{wasReminded ? remindedLabel : isProBlocked ? "Pro" : "Remind"}</span>
-                  </Button>
-                );
-              })() : null;
-
-
-              const editBtn = canManageEvent ? (
-                <AdminRsvpChanger
-                  currentStatus={null}
-                  playerName={child.name || "Unknown"}
-                  onChangeStatus={(status) => {
-                    if (isMiniLeagueEvent) {
-                      adminRsvpMutation.mutate({
-                        playerId: child.id,
-                        playerName: child.name,
-                        childId: child.child_id,
-                        parentUserId: child.parent_user_id,
-                        status,
-                      });
-                    } else {
-                      rsvpForChildMutation.mutate({
-                        childId: child.id,
-                        childName: child.name,
-                        parentUserId: child.parent_id,
-                        status,
-                      });
-                    }
-                  }}
-                  isPending={adminRsvpMutation.isPending || rsvpForChildMutation.isPending}
-                />
-              ) : null;
-              return (
-                <AttendanceRow
-                  key={`child-${child.id}`}
-                  name={child.name || "Unknown"}
-                  roleLabel={!isMiniLeagueEvent ? "Child" : null}
-                  roleTone="child"
-                  isPending={isPendingChild}
-                  rightSlot={
-                    <>
-                      {remindBtn}
-                      {editBtn}
-                    </>
-                  }
-                />
-              );
-        };
-
-        const renderNotRespondedAdult = (member: any) => {
-              const remindBtn = canManageEvent ? (() => {
-                const isLoadingThis = individualRemindMutation.isPending && individualRemindMutation.variables?.userId === member.id;
-                const lastRemindedAt = recentlyReminded.get(member.id) || recentReminderMap?.get(member.id) || null;
-                const wasReminded = !!lastRemindedAt;
-                const remindedLabel = lastRemindedAt ? `Reminded ${formatRelativePast(lastRemindedAt)}` : "Reminded";
-                const isProBlocked = !canSendReminders && !wasReminded;
-                return (
-                  <Button
-                    variant={wasReminded ? "secondary" : isProBlocked ? "outline" : "default"}
-                    size="sm"
-                    className={`h-8 px-2.5 shrink-0 gap-1 ${isProBlocked ? "opacity-60 cursor-not-allowed" : ""}`}
-                    onClick={() => {
-                      if (!gateReminders()) return;
-                      individualRemindMutation.mutate({ userId: member.id, displayName: member.display_name || "Unknown" });
-                    }}
-                    disabled={isLoadingThis || wasReminded}
-                    title={wasReminded ? remindedLabel : isProBlocked ? "Pro required — upgrade to send reminders" : "Send reminder"}
-                  >
-                    {isLoadingThis ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : wasReminded ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : isProBlocked ? (
-                      <Lock className="h-3.5 w-3.5" />
-                    ) : (
-                      <Bell className="h-3.5 w-3.5" />
-                    )}
-                    <span className="text-xs">{wasReminded ? remindedLabel : isProBlocked ? "Pro" : "Remind"}</span>
-                  </Button>
-                );
-              })() : null;
-              const editBtn = canManageEvent ? (
-                <AdminRsvpChanger
-                  currentStatus={null}
-                  playerName={member.display_name || "Unknown"}
-                  onChangeStatus={(status) => rsvpForMemberMutation.mutate({
-                    memberId: member.id,
-                    memberName: member.display_name,
-                    status,
-                  })}
-                  isPending={rsvpForMemberMutation.isPending}
-                />
-              ) : null;
-              return (
-                <AttendanceRow
-                  key={member.id}
-                  name={member.display_name || "Unknown"}
-                  avatarUrl={member.avatar_url}
-                  roleLabel={(() => {
-                    const label = resolveEventAttendeeRoleLabel(member, event);
-                    return label ? String(label).replace(/_/g, " ") : null;
-                  })()}
-
-                  roleTone="neutral"
-                  rightSlot={
-                    <>
-                      {remindBtn}
-                      {editBtn}
-                    </>
-                  }
-                />
-              );
-        };
-
-        const childGroupKey = (child: any) => {
-          const childId = isMiniLeagueEvent ? (child.child_id || child.id) : child.id;
-          return groupMap.groupOf({ childId, userId: null });
-        };
-        const adultGroupKey = (member: any) =>
-          groupMap.groupOf({ userId: member.id, childId: null });
-
-        const notRespondedNode = groupMap.isActive ? (() => {
-          const childBuckets = new Map<string, any[]>();
-          for (const c of notRespondedChildren) {
-            const g = childGroupKey(c);
-            if (!g) continue;
-            const arr = childBuckets.get(g.key) ?? [];
-            arr.push(c);
-            childBuckets.set(g.key, arr);
-          }
-          const adultBuckets = new Map<string, any[]>();
-          for (const m of notResponded) {
-            const g = adultGroupKey(m);
-            if (!g) continue;
-            const arr = adultBuckets.get(g.key) ?? [];
-            arr.push(m);
-            adultBuckets.set(g.key, arr);
-          }
-          return (
-            <div className="space-y-3">
-              {groupMap.orderedGroups.map((g) => {
-                const kids = childBuckets.get(g.key) ?? [];
-                const adults = adultBuckets.get(g.key) ?? [];
-                const total = kids.length + adults.length;
-                if (total === 0) return null;
-                return (
-                  <div key={g.key}>
-                    <div className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {g.label} <span className="text-muted-foreground/70">({total})</span>
-                    </div>
-                    <div className="divide-y divide-border/50">
-                      {kids.map(renderNotRespondedChild)}
-                      {adults.map(renderNotRespondedAdult)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })() : (
-          <div className="divide-y divide-border/50">
-            {notRespondedChildren.map(renderNotRespondedChild)}
-            {notResponded.map(renderNotRespondedAdult)}
-          </div>
-        );
-
-
-        const goingTotal = goingRsvps.length + (eventGuests?.length || 0);
-        const trackableMembers = (members?.length || 0);
-
-        return (
-          <div className="space-y-3">
-            {/* "Show all" filter retained for training/game events */}
-            {!isSocialEvent && (
-              <div className="flex items-center justify-end gap-2">
-                <Checkbox
-                  id="showAllRoles"
-                  checked={showAllRoles}
-                  onCheckedChange={(checked) => setShowAllRoles(checked === true)}
-                />
-                <Label htmlFor="showAllRoles" className="text-xs cursor-pointer text-muted-foreground">Show all roles</Label>
-              </div>
-            )}
-            {/* Phase 2: Confirmed vs Auto split for coaches on trainings */}
-            {canManageEvent && event.type === "training" && goingRsvps.length > 0 && (() => {
-              const auto = goingRsvps.filter((r: any) => r.source === "default").length;
-              const confirmed = goingRsvps.length - auto;
-              return (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    {confirmed} confirmed
-                  </span>
-                  {auto > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2 py-1">
-                      <span className="h-2 w-2 rounded-full border border-primary" />
-                      {auto} on default
-                    </span>
-                  )}
-                </div>
-              );
-            })()}
-            {/* Grouped attendance failed to load (e.g. permission denied) —
-                never present a failed response as a valid empty roster. */}
-            {(groupMap.isActive && groupMap.isError) || (isTargetedScope && scopedRosterQuery.isError) ? (
-              <div
-                role="alert"
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
-              >
-                <span>Grouped attendance couldn’t be loaded. The list below may be incomplete.</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7"
-                  onClick={() => {
-                    if (groupMap.isError) groupMap.refetch();
-                    if (scopedRosterQuery.isError) scopedRosterQuery.refetch();
-                  }}
-                >
-                  Retry
-                </Button>
-              </div>
-            ) : null}
-            {/* Grouping (by age level or team) is folded into each bucket
-                inside AttendanceSection below — no separate breakdown card. */}
-
-            <AttendanceSection
-              eventId={id!}
-              isAdmin={canManageEvent}
-              hasMembers={trackableMembers > 0 || (allChildrenOnTeam?.length || 0) > 0}
-              counts={{
-                going: goingTotal,
-                maybe: maybeRsvps.length,
-                notGoing: notGoingRsvps.length,
-                notResponded: totalNotResponded,
-              }}
-              goingContent={renderBucket(goingRsvps, "going", true)}
-              maybeContent={renderBucket(maybeRsvps, "maybe")}
-              notGoingContent={renderBucket(notGoingRsvps, "not_going")}
-              notRespondedContent={notRespondedNode}
-              notRespondedUserIds={allNotRespondedForReminders.map((m: any) => m.id)}
-              canSendReminders={canSendReminders}
-              trackableMembersCount={isMiniLeagueEvent ? (miniLeagueAdults?.length ?? 0) : trackableMembers}
-              addressableMembers={(() => {
-                if (isMiniLeagueEvent) return miniLeagueAdults ?? [];
-                const restricted = (event as any)?.restricted_to_roles as string[] | null | undefined;
-                if (restricted && restricted.length > 0) {
-                  const allowed = new Set(restricted);
-                  return (members ?? []).filter((m: any) =>
-                    (m.roles ?? []).some((r: string) =>
-                      allowed.has(r) || r === "club_admin" || r === "app_admin",
-                    ),
-                  );
-                }
-                return members;
-              })()}
-              onShareLink={handleShareReminderLink}
-              onProRequired={gateReminders}
-              eventType={event.type}
-            />
-          </div>
-        );
-      })()}
+      {attendanceContent}
 
 
       <EventMatchAwardsSection
