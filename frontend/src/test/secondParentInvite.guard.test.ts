@@ -8,7 +8,10 @@ import {
   SECOND_PARENT_EMAIL_REQUIRED,
 } from "@/features/membership/secondParentInvite";
 
-const sheet = readFileSync("src/components/AddTeamMemberSheet.tsx", "utf8");
+const sheet = [
+  "src/components/AddTeamMemberSheet.tsx",
+  "src/hooks/useAddExistingTeamMemberMutation.ts",
+].map((path) => readFileSync(path, "utf8")).join("\n");
 
 /**
  * Production incident: a second parent (Zoe Schultz) was entered, no

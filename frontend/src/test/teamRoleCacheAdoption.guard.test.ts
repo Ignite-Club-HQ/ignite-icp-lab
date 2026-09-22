@@ -7,7 +7,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 const exactCompletionConsumers = [
   "src/pages/ManageTeamRolesPage.tsx",
   "src/components/TeamCaptainCard.tsx",
-  "src/components/AddTeamMemberSheet.tsx",
+  "src/hooks/useAddExistingTeamMemberMutation.ts",
   "src/components/ManageRolesDialog.tsx",
   "src/components/PromoteToTeamAdminDialog.tsx",
   "src/components/AddRoleToMemberDialog.tsx",
