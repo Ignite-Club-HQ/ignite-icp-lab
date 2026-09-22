@@ -7,7 +7,11 @@ const dialogSource = readFileSync(
   resolve(__dirname, "../components/event/EventDetailActionDialogs.tsx"),
   "utf8",
 );
-const source = `${pageSource}\n${dialogSource}`;
+const rsvpResponseSource = readFileSync(
+  resolve(__dirname, "../components/event/EventRsvpResponseSection.tsx"),
+  "utf8",
+);
+const source = `${pageSource}\n${dialogSource}\n${rsvpResponseSource}`;
 
 /**
  * Event Detail attendance failure handling.
