@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
-import { UserPlus, Search, Loader2, Mail, X, CheckCircle2, Check, Send, Users, Plus, Trash2, Upload, Baby, MessageSquare, Copy, AlertTriangle, Share2, Pencil, ChevronDown } from "lucide-react";
+import { UserPlus, Search, Loader2, Mail, X, CheckCircle2, Check, Send, Users, Plus, Trash2, Upload, Baby, MessageSquare, AlertTriangle, Share2, Pencil, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TeamJoinLinkCard from "@/components/invite/TeamJoinLinkCard";
 import { parseRecipients, looksLikeMultiRecipient } from "@/components/invite/recipientParser";
-import { Capacitor } from "@capacitor/core";
-import { Share } from "@capacitor/share";
 const MemberCSVImportDialog = lazyWithRetry(() => import("@/components/MemberCSVImportDialog").then(m => ({ default: m.MemberCSVImportDialog })));
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +51,11 @@ import {
   ParentInviteFields,
   type ParentInviteSuggestion,
 } from "@/components/membership/ParentInviteFields";
+import {
+  AddTeamMemberBulkSuccessSheet,
+  AddTeamMemberInviteSuccessSheet,
+  type BulkMemberResult,
+} from "@/components/members/AddTeamMemberSuccessSheets";
 
 type ExistingTeamChildRow = {
   id: string;
@@ -244,7 +247,7 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
   const [bulkMembers, setBulkMembers] = useState<BulkMember[]>([
     { id: crypto.randomUUID(), name: "", email: "", role: "parent", children: [], selectedUser: null },
   ]);
-  const [bulkResults, setBulkResults] = useState<{ name: string; email: string; link: string; sent: boolean; role?: string; childrenCount?: number }[]>([]);
+  const [bulkResults, setBulkResults] = useState<BulkMemberResult[]>([]);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [customMessage, setCustomMessage] = useState("");
   const [showMessageEditor, setShowMessageEditor] = useState(false);
@@ -2238,267 +2241,59 @@ export default function AddTeamMemberSheet({ teamId, teamName, clubId, teamType 
   // If we have bulk results, show bulk success state
   if (bulkResults.length > 0) {
     return (
-      <Sheet open={open} onOpenChange={handleClose}>
-        {triggerVariant !== "none" && (
-          <SheetTrigger asChild>
-            {triggerVariant === "icon" ? (
-              <Button variant="ghost" size="icon" className="h-9 w-9" data-invite-trigger onClick={() => setOpen(true)}>
-                <UserPlus className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button size="sm" data-invite-trigger onClick={() => setOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Invite to Team
-              </Button>
-            )}
-          </SheetTrigger>
-        )}
-        <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl overflow-y-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle2 className="h-5 w-5" />
-              {bulkResults.length} Member{bulkResults.length > 1 ? "s" : ""} Added
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="space-y-4 pb-6">
-            {bulkResults.map((result, idx) => (
-              <div key={idx} className="p-3 rounded-lg border bg-muted/30">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-sm">{result.name}</p>
-                    {result.email && (
-                      <p className="text-xs text-muted-foreground">{result.email}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {result.sent ? (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                        <Mail className="h-3 w-3 mr-1" />
-                        Sent
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
-                        {result.email ? "Failed" : "Link only"}
-                      </Badge>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(result.link);
-                          toast({
-                            title: "Invite link copied",
-                            description: `Share ${result.name}'s invite link wherever you like.`,
-                          });
-                        } catch {
-                          toast({
-                            title: "Could not copy link",
-                            description: "Please try again.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5 mr-1" />
-                      Copy link
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => {
-                setBulkResults([]);
-                setBulkMembers([{ id: crypto.randomUUID(), name: "", email: "", role: getDefaultRole(), children: [] }]);
-              }}>
-                Add More
-              </Button>
-              <Button className="flex-1" onClick={handleDone}>
-                Done
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AddTeamMemberBulkSuccessSheet
+        open={open}
+        onOpenChange={handleClose}
+        onTriggerOpen={() => setOpen(true)}
+        triggerVariant={triggerVariant}
+        results={bulkResults}
+        onAddMore={() => {
+          setBulkResults([]);
+          setBulkMembers([{ id: crypto.randomUUID(), name: "", email: "", role: getDefaultRole(), children: [] }]);
+        }}
+        onDone={handleDone}
+        toast={toast}
+      />
     );
   }
 
   // If we have a pending invite link (single mode), show success state
   if (inviteLink) {
     return (
-      <Sheet open={open} onOpenChange={handleClose}>
-        {triggerVariant !== "none" && (
-          <SheetTrigger asChild>
-            {triggerVariant === "icon" ? (
-              <Button variant="ghost" size="icon" className="h-9 w-9" data-invite-trigger onClick={() => setOpen(true)}>
-                <UserPlus className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button size="sm" data-invite-trigger onClick={() => setOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Invite to Team
-              </Button>
-            )}
-          </SheetTrigger>
-        )}
-        <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl">
-          <SheetHeader className="mb-6">
-            <SheetTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle2 className="h-5 w-5" />
-              Member Added
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="space-y-6 pb-6">
-            <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20">
-              <p className="font-medium mb-1">{nameInput}</p>
-              {selectedRole === "parent" && singleChildren.filter(c => c.name.trim()).length > 0 ? (
-                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <Baby className="h-3.5 w-3.5" />
-                  {singleChildren.filter(c => c.name.trim()).length === 1
-                    ? `${singleChildren.find(c => c.name.trim())!.name.trim()} added to ${teamName || "the team"}`
-                    : `${singleChildren.filter(c => c.name.trim()).map(c => c.name.trim()).join(", ")} added to ${teamName || "the team"}`}
-                </p>
-              ) : null}
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Mail className="h-3.5 w-3.5" />
-                {customEmail ? `Invite sent to ${customEmail}` : "Invite link created — share it with them"}
-              </p>
-            </div>
-
-            {/* Share invite via other channels */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-center">Share invite via</p>
-
-              {/* Optional phone — used only to pre-fill SMS / WhatsApp on this device.
-                  Not stored anywhere. */}
-              <div className="space-y-1.5">
-                <Label htmlFor="share-phone" className="text-xs text-muted-foreground">
-                  Phone number (optional — opens SMS or WhatsApp)
-                </Label>
-                <Input
-                  id="share-phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="off"
-                  placeholder="e.g. +61 412 345 678"
-                  value={sharePhone}
-                  onChange={(e) => setSharePhone(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Not saved — used only to open your messaging app.
-                </p>
-              </div>
-
-              {(() => {
-                const msg = buildInviteShareMessage().trim();
-                const cleanedPhone = sharePhone.replace(/[^\d+]/g, "");
-                // wa.me requires digits only (no +)
-                const waPhone = cleanedPhone.replace(/^\+/, "");
-                const hasPhone = cleanedPhone.length >= 4;
-                const smsHref = hasPhone
-                  ? `sms:${cleanedPhone}${/android/i.test(navigator.userAgent) ? "?" : "&"}body=${encodeURIComponent(msg)}`
-                  : `sms:?body=${encodeURIComponent(msg)}`;
-                const waHref = hasPhone
-                  ? `https://reference.invalid)}`
-                  : `https://reference.invalid)}`;
-                return (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => { window.location.href = smsHref; }}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        SMS
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => { window.open(waHref, "_blank"); }}
-                      >
-                        <Share2 className="h-4 w-4 mr-2" />
-                        WhatsApp
-                      </Button>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={async () => {
-                          if (Capacitor.isNativePlatform()) {
-                            try {
-                              await Share.share({
-                                title: `Join ${clubBranding?.name || teamName}`,
-                                text: msg,
-                                dialogTitle: `Share invite`,
-                              });
-                              return;
-                            } catch {
-                              // cancelled
-                            }
-                          }
-                          window.open(`https://reference.invalid)}`, "_blank");
-                        }}
-                      >
-                        <Share2 className="h-4 w-4 mr-2" />
-                        More
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(inviteShareLink || inviteLink || "");
-                            toast({ title: "Invite link copied!" });
-                          } catch {
-                            toast({ title: "Failed to copy link", variant: "destructive" });
-                          }
-                        }}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Link
-                      </Button>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <p className="text-sm text-muted-foreground text-center">
-              When they accept the invite, their name will be pre-filled as "{nameInput}"
-            </p>
-
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => {
-                setInviteLink(null);
-                setInviteShareLink(null);
-                setNameInput("");
-                setNameConfirmed(false);
-                setCustomEmail("");
-                setSharePhone("");
-                setDeliveryMethod("share");
-                setSingleChildren([]);
-                setSecondParentName("");
-                setSecondParentEmail("");
-                setSecondParentSearch("");
-                setSelectedSecondParent(null);
-                setCustomMessage("");
-                setShowMessageEditor(false);
-              }}>
-                Add Another
-              </Button>
-              <Button className="flex-1" onClick={handleDone}>
-                Done
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AddTeamMemberInviteSuccessSheet
+        open={open}
+        onOpenChange={handleClose}
+        onTriggerOpen={() => setOpen(true)}
+        triggerVariant={triggerVariant}
+        name={nameInput}
+        selectedRole={selectedRole}
+        children={singleChildren}
+        teamName={teamName}
+        clubName={clubBranding?.name}
+        email={customEmail}
+        sharePhone={sharePhone}
+        onSharePhoneChange={setSharePhone}
+        inviteLink={inviteShareLink || inviteLink}
+        shareMessage={buildInviteShareMessage()}
+        onAddAnother={() => {
+          setInviteLink(null);
+          setInviteShareLink(null);
+          setNameInput("");
+          setNameConfirmed(false);
+          setCustomEmail("");
+          setSharePhone("");
+          setDeliveryMethod("share");
+          setSingleChildren([]);
+          setSecondParentName("");
+          setSecondParentEmail("");
+          setSecondParentSearch("");
+          setSelectedSecondParent(null);
+          setCustomMessage("");
+          setShowMessageEditor(false);
+        }}
+        onDone={handleDone}
+        toast={toast}
+      />
     );
   }
 
