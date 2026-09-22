@@ -12,6 +12,7 @@ const sheet = [
   "src/components/AddTeamMemberSheet.tsx",
   "src/hooks/useAddExistingTeamMemberMutation.ts",
   "src/hooks/useAddPendingTeamMemberMutation.ts",
+  "src/hooks/useAddBulkTeamMembersMutation.ts",
 ]
   .map((path) => readFileSync(path, "utf8"))
   .join("\n");

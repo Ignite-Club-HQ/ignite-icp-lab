@@ -9,7 +9,13 @@ const source = (path: string) =>
 describe("role and membership surface behavior before consolidation", () => {
   const clubRoles = () => source("src/pages/ManageRolesPage.tsx");
   const teamRoles = () => source("src/pages/ManageTeamRolesPage.tsx");
-  const teamInvite = () => source("src/components/AddTeamMemberSheet.tsx");
+  const teamInvite = () =>
+    [
+      "src/components/AddTeamMemberSheet.tsx",
+      "src/hooks/useAddExistingTeamMemberMutation.ts",
+      "src/hooks/useAddPendingTeamMemberMutation.ts",
+      "src/hooks/useAddBulkTeamMembersMutation.ts",
+    ].map(source).join("\n");
   const miniLeagueInvite = () => source("src/components/AddMiniLeagueMemberSheet.tsx");
 
   it("keeps club and team query scopes independently keyed", () => {
