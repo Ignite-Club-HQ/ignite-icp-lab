@@ -8,6 +8,9 @@ const vaultPageSource = readFileSync(join(pagesDirectory, "VaultPage.tsx"), "utf
 const rendererSource = existsSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"))
   ? readFileSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"), "utf8")
   : "";
+const topSectionSource = existsSync(join(pagesDirectory, "../components/vault/VaultTopSection.tsx"))
+  ? readFileSync(join(pagesDirectory, "../components/vault/VaultTopSection.tsx"), "utf8")
+  : "";
 const trashWorkflowSource = existsSync(join(pagesDirectory, "../features/vault/useVaultTrashWorkflow.ts"))
   ? readFileSync(join(pagesDirectory, "../features/vault/useVaultTrashWorkflow.ts"), "utf8")
   : "";
@@ -20,7 +23,7 @@ const vaultReadRepositorySource = existsSync(join(pagesDirectory, "../features/v
 const uploadWorkflowSource = existsSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"))
   ? readFileSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"), "utf8")
   : "";
-const source = `${vaultPageSource}\n${rendererSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}\n${uploadWorkflowSource}`;
+const source = `${vaultPageSource}\n${rendererSource}\n${topSectionSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}\n${uploadWorkflowSource}`;
 
 describe("VaultPage rendering and provider-boundary characterization", () => {
   it("keeps club, team, and mini-league scope branches distinct", () => {
@@ -63,8 +66,8 @@ describe("VaultPage rendering and provider-boundary characterization", () => {
   it("preserves storage projection and the provider-specific page boundary", () => {
     expect(vaultPageSource).toContain("currentTeamStorageUsed");
     expect(source).toContain("byTeam.slice(0, 5)");
-    expect(vaultPageSource).toContain("VaultStorageTeamProjection");
-    expect(vaultPageSource).toContain("VaultStorageBreakdown");
+    expect(source).toContain("VaultStorageTeamProjection");
+    expect(source).toContain("VaultStorageBreakdown");
     expect(vaultPageSource).toContain("function SupabaseVaultPage");
     expect(vaultPageSource).toContain("resolveLocalAuthMode");
     expect(vaultPageSource).toContain("IcpUnavailablePage");

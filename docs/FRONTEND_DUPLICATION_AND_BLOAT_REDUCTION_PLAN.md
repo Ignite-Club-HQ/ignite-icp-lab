@@ -1226,11 +1226,83 @@ smaller than the Drive/Add Link result — not evidence of a runtime
 improvement, just line movement between chunks. No request, subscription,
 render-count, or interaction-latency evidence was collected, and no
 runtime-performance claim is made — this is a maintainability/safety
-extraction only. This completes every Vault cluster named in the Phase 4A
-Vault responsibility map (trash/recovery, export/large-files, lightbox, bulk
-selection/delete, folder/file management, Drive/Add Link, and now
-upload/file-name); no further Phase 4A Vault extraction target remains
-identified in this plan.
+extraction only. This completes every workflow cluster named in the original
+Phase 4A Vault responsibility map (trash/recovery, export/large-files,
+lightbox, bulk selection/delete, folder/file management, Drive/Add Link, and
+upload/file-name). The subsequently authorized header/storage/action-toolbar
+presentation extraction is recorded separately below.
+
+### Phase 4A Vault header/storage/action-toolbar result (2026-09-22)
+
+The presentation-only follow-up moved the visible root/inner header, breadcrumb
+hierarchy, compact and expanded storage panel, selection/export controls, and
+Upload/Add/More toolbars into the statically imported
+[`VaultTopSection.tsx`](../frontend/src/components/vault/VaultTopSection.tsx).
+Its public contract groups the inputs into header, storage,
+selection/export, and primary-action models rather than exposing a flat list
+of boolean props. Internal `VaultPageHeader`, `VaultStoragePanel`,
+`VaultActionToolbar`, and `VaultMoreMenuItems` sections keep each rendering
+responsibility local and remove the duplicated More-menu item markup.
+
+[`VaultPage.tsx`](../frontend/src/pages/VaultPage.tsx) still owns
+`currentView`, every query and workflow hook, the storage data and quota
+inputs, upload/Drive/export/bulk-delete/folder/trash actions, and all dialogs.
+The page computes and passes the hierarchy returned by `getHierarchyNodes`;
+the presentation module wires the existing node callbacks and `goBack`
+adapter. The Drive allowlist and iOS gate moved with the menu presentation,
+but the Drive workflow, OAuth handling, title resolution, folder linking, and
+mutations did not.
+
+The before state is commit `99d3b55b8`. Measurements use the same non-test
+Vault package scope and 50-token/5-line jscpd command as the preceding Vault
+round:
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,548 | 2,114 |
+| `VaultTopSection.tsx` raw lines | 0 | 646 |
+| Complete Vault source package (non-test, same scope) | 12,064 | 12,276 |
+| `VaultPage.tsx` local `useState` declarations | 10 | 10 |
+| Same-scope jscpd duplicated lines / groups / percent | 235 / 19 / 1.9479% | 235 / 19 / 1.9143% |
+| Product Vault route chunk | 128,050 bytes | 129,860 bytes |
+| Product JavaScript total / chunks | 8,866,544 bytes / 502 | 8,868,354 bytes / 502 |
+| Lazy-loading boundary | route plus existing interaction-gated dialogs/breakdown | unchanged |
+
+The local-state count is a direct count of `const [...] = useState...`
+declarations in the page at both revisions. It corrects the earlier upload
+round's table entry of four; this presentation extraction intentionally owns
+no state and does not change the actual count of ten. The main file decreased
+by 434 lines (17.0%). The explicit typed presentation boundary makes the
+complete package 212 lines larger. Counted duplicated lines and clone groups
+are unchanged; the percentage decrease is denominator-only and is not claimed
+as duplication removal.
+
+[`VaultPage.top-section.characterization.test.ts`](../frontend/src/pages/VaultPage.top-section.characterization.test.ts)
+adds eight source-contract tests. They were run against the original inline
+page before extraction and again afterward (73 tests across the eight Vault
+characterization files both times). The contract covers root and inner
+headers, `getHierarchyNodes`/`goBack` navigation, storage calculations and
+labels, expanded breakdowns, selection/export/download/delete enablement,
+Upload/Add/More visibility, Drive allowlist/iOS/admin gates and callbacks, the
+large-file threshold, purchase CTA, page-owned workflows/current view/dialogs,
+and unchanged lazy boundaries.
+
+Post-extraction validation passed 283 tests across all 32 Vault test files and
+the full legacy suite passed 4,372 tests across 456 files (one existing skip).
+Lab typecheck and isolation passed. Product typecheck returned only the 14
+known unrelated `StartDMDialog`/`ClubDetailPage` diagnostics and no Vault
+diagnostic. Product build, bundle budget (8,868,354 / 9,800,000 JavaScript
+bytes; largest chunk 1,112,842 / 1,500,000 bytes), quality ratchet,
+duplication ratchet, and diff checks passed.
+
+`VaultTopSection` is a static import. Existing `VaultPage` route lazy loading,
+`UploadFilesDialog`, `VaultStorageBreakdown`, storage-purchase, and other
+interaction-gated lazy imports retain their prior boundaries. The 1,810-byte
+route increase is bundle-budget evidence, not a runtime improvement. No
+request, subscription, render-count, interaction-latency, or user-perceived
+performance evidence was collected. This is a maintainability/safety result
+only, with no runtime-performance claim. Phase 4A stops after this
+presentation extraction; data-model extraction is not started.
 
 ## Phase 5 - runtime efficiency and redundant data work
 

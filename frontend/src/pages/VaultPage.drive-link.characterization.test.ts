@@ -7,6 +7,7 @@ const pagesDirectory = dirname(fileURLToPath(import.meta.url));
 const vaultPageSource = readFileSync(join(pagesDirectory, "VaultPage.tsx"), "utf8");
 const driveHookPath = join(pagesDirectory, "../features/vault/useVaultDriveLinkWorkflow.ts");
 const driveDialogsPath = join(pagesDirectory, "../components/vault/VaultDriveLinkDialogs.tsx");
+const topSectionPath = join(pagesDirectory, "../components/vault/VaultTopSection.tsx");
 const driveTitleResolutionSource = readFileSync(
   join(pagesDirectory, "../features/vault/driveTitleResolution.ts"),
   "utf8",
@@ -17,12 +18,13 @@ const mutationRepositorySource = readFileSync(
 );
 const driveHookSource = existsSync(driveHookPath) ? readFileSync(driveHookPath, "utf8") : "";
 const driveDialogsSource = existsSync(driveDialogsPath) ? readFileSync(driveDialogsPath, "utf8") : "";
+const topSectionSource = existsSync(topSectionPath) ? readFileSync(topSectionPath, "utf8") : "";
 // Combine every source that could plausibly own this cluster so assertions
 // below hold whether the state/effects/mutation are still inline in the page
 // or have been extracted into the typed hook/dialogs module (and, for the
 // add-link insert, whether it is still inlined or reuses the tested
 // `createVaultLinkFile` repository function).
-const clusterSource = `${vaultPageSource}\n${driveHookSource}\n${driveDialogsSource}\n${mutationRepositorySource}`;
+const clusterSource = `${vaultPageSource}\n${driveHookSource}\n${driveDialogsSource}\n${topSectionSource}\n${mutationRepositorySource}`;
 
 describe("Vault Add Link / Google Drive import/link/title-resolution behavior contract", () => {
   it("clears a saved OAuth error, warns the user, and drops the matching import-pending flag", () => {
@@ -132,8 +134,8 @@ describe("Vault Add Link / Google Drive import/link/title-resolution behavior co
   });
 
   it("gates the Add-dropdown and More-dropdown Drive menu items to the allowed clubs, non-iOS, club admins", () => {
-    expect(vaultPageSource).toContain("DRIVE_IMPORT_ALLOWED_CLUB_IDS");
-    expect(vaultPageSource).toMatch(/isClubAdmin && Capacitor\.getPlatform\(\) !== 'ios' && 'clubId' in currentView && DRIVE_IMPORT_ALLOWED_CLUB_IDS\.has\(currentView\.clubId\)/);
+    expect(clusterSource).toContain("DRIVE_IMPORT_ALLOWED_CLUB_IDS");
+    expect(clusterSource).toMatch(/isClubAdmin && Capacitor\.getPlatform\(\) !== 'ios' && 'clubId' in currentView && DRIVE_IMPORT_ALLOWED_CLUB_IDS\.has\(currentView\.clubId\)/);
   });
 
   it("leaves upload/file-name flow, folder/file management, export/large-files, trash/recovery, lightbox, and bulk-delete untouched", () => {

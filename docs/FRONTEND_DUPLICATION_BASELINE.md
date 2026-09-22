@@ -924,6 +924,56 @@ The extracted module is statically imported and the route chunk is 67 bytes
 smaller than the Drive/Add Link result — line movement between chunks, not a
 runtime claim. No request, subscription, render-count, or interaction-latency
 evidence was collected, and no runtime-performance claim is made — this is a
-maintainability/safety extraction only. This completes every Vault cluster
-named in the Phase 4A Vault responsibility map; no further Phase 4A Vault
-extraction target remains identified in this plan.
+maintainability/safety extraction only. This completes every workflow cluster
+named in the original Phase 4A Vault responsibility map. The subsequently
+authorized presentation-only top-section extraction is recorded below.
+
+## Phase 4A Vault header/storage/action-toolbar result (2026-09-22)
+
+Starting from commit `99d3b55b8`, the root/inner header, hierarchy
+breadcrumbs, compact and expanded storage display, selection/export controls,
+and Upload/Add/More toolbars moved from
+[`VaultPage.tsx`](../frontend/src/pages/VaultPage.tsx) into the grouped typed
+presentation boundary in
+[`VaultTopSection.tsx`](../frontend/src/components/vault/VaultTopSection.tsx).
+Queries, `currentView`, storage and quota inputs, workflow hooks, mutations,
+dialog ownership, and provider behavior remain in the page.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,548 | 2,114 |
+| `VaultTopSection.tsx` raw lines | 0 | 646 |
+| Complete Vault source package (non-test) | 12,064 | 12,276 |
+| `VaultPage.tsx` local `useState` declarations | 10 | 10 |
+| Same-scope jscpd duplicated lines | 235 | 235 |
+| Same-scope jscpd clone groups | 19 | 19 |
+| Same-scope jscpd percentage | 1.9479% | 1.9143% |
+| Product Vault route chunk | 128,050 bytes | 129,860 bytes |
+| Product JavaScript total / chunks | 8,866,544 bytes / 502 | 8,868,354 bytes / 502 |
+| Lazy-loading boundary | route plus existing interaction-gated boundaries | unchanged |
+
+The direct local-state recount corrects the preceding upload round's reported
+value of four: there are ten page-local `useState` declarations in both the
+before and after source, and this presentation module owns none. The page
+shrinks by 434 lines (17.0%), while the complete package grows by 212 lines
+for explicit grouped models and presentation adapters. Duplicated lines and
+groups are unchanged; the percentage movement comes only from the larger
+denominator, so this result makes no duplication-removal claim.
+
+The eight new tests in
+[`VaultPage.top-section.characterization.test.ts`](../frontend/src/pages/VaultPage.top-section.characterization.test.ts)
+passed against the inline before state and the extracted after state. The
+eight characterization files passed 73 tests before and after. All 32 Vault
+test files passed 283 tests; the full legacy suite passed 4,372 tests across
+456 files with one existing skip. Lab typecheck and isolation passed. Product
+typecheck had only the 14 known unrelated `StartDMDialog`/`ClubDetailPage`
+diagnostics. Product build, bundle budget, quality ratchet, duplication
+ratchet, and diff checks passed.
+
+The new presentation module is statically imported. The existing route,
+`UploadFilesDialog`, `VaultStorageBreakdown`, storage-purchase, and other lazy
+boundaries are unchanged. The route chunk increased by 1,810 bytes, and no
+request, subscription, render-count, interaction, or latency benchmark was
+performed. This is maintainability/safety evidence only, not a runtime-
+performance claim. Work stops at this presentation extraction; no data-model
+extraction was started.

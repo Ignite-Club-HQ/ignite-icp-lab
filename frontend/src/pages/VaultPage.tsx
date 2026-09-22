@@ -4,31 +4,19 @@ import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { FolderOpen, FileText, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, FolderPlus, Plus, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, FileImage, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { FolderOpen, Lock, Crown, ChevronRight, ArrowLeft, Loader2, X, Search } from "lucide-react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const UploadFilesDialog = lazyWithRetry(() => import("@/components/vault/UploadFilesDialog").then(m => ({ default: m.UploadFilesDialog })));
-const VaultStorageBreakdown = lazyWithRetry(() => import("@/components/vault/VaultStorageBreakdown").then(m => ({ default: m.VaultStorageBreakdown })));
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { getFolderColorClass } from "@/components/TeamFoldersManager";
-import { VaultStorageBarRow } from "@/components/vault/VaultStorageBarRow";
 import { fuzzyFilter } from "@/lib/fuzzySearch";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VaultLightbox } from "@/components/vault/VaultLightbox";
@@ -51,6 +39,7 @@ import { VaultBulkDeleteDialog } from "@/components/vault/VaultBulkDeleteDialog"
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
 import { VaultFolderManagementDialogs } from "@/components/vault/VaultFolderManagementDialogs";
 import { VaultDriveLinkDialogs } from "@/components/vault/VaultDriveLinkDialogs";
+import { VaultTopSection, type VaultTopSectionProps } from "@/components/vault/VaultTopSection";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -76,19 +65,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-} from "@/components/ui/sheet";
-
-// Clubs allowed to use Google Drive import / sync features.
-const DRIVE_IMPORT_ALLOWED_CLUB_IDS = new Set<string>([
-  "966bdaec-ebf1-46da-b2b3-cc53bf05c422", // Bridgewater Soccer Club
-  "493ee2e3-c834-487d-93be-d1c8a0dbc4a8", // Basket Range Cricket Club
-  "36231b76-5313-478e-b8d5-23ac4f5e8b10", // Riverside FC
-]);
-
 import { IcpUnavailablePage } from "@/components/IcpUnavailablePage";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import { VaultContentRenderer, VaultStorageTeamProjection, type ContentSectionProps, type TrashSectionProps } from "@/components/vault/VaultContentRenderer";
+import { VaultContentRenderer, type ContentSectionProps, type TrashSectionProps } from "@/components/vault/VaultContentRenderer";
 import { invalidateVaultCache } from "@/features/vault/vaultQueryKeys";
 import {
   canAccessVault as resolveVaultAccess,
@@ -1561,484 +1540,72 @@ function SupabaseVaultPage() {
     ? { mode: "trash" as const, trash: trashRendererProps }
     : { mode: "content" as const, content: contentRendererProps };
 
+  const topSectionProps: VaultTopSectionProps = {
+    header: {
+      currentView,
+      hierarchyNodes: currentView.type === "root" ? [] : getHierarchyNodes(),
+      onRootBack: () => navigate(-1),
+      onInnerBack: goBack,
+    },
+    storage: {
+      visible: !!currentClub,
+      PRO_STORAGE_LIMIT,
+      totalClubStorageUsed,
+      purchasedStorageGb,
+      isStorageLimitReached,
+      currentTeamStorageUsed,
+      storageBreakdown,
+      formatStorageSize,
+      isClubAdmin,
+      actions: {
+        openLargeFiles,
+        setStoragePurchaseDialogOpen,
+      },
+    },
+    selectionExport: {
+      photoCount: photos?.length || 0,
+      fileCount: files?.length || 0,
+      subfolderCount: subfolders?.length || 0,
+      showTrash,
+      selectionMode,
+      selectedCount,
+      isExporting,
+      exportProgress,
+      isClubAdmin,
+      isAppAdmin: !!isAppAdmin,
+      actions: {
+        setSelectionMode,
+        selectAll,
+        exitSelectionMode,
+        initiateExport,
+        cancelExport,
+        setBulkDeleteDialogOpen,
+        setShowTrash,
+      },
+    },
+    primaryActions: {
+      canUpload,
+      isClubAdmin,
+      currentView,
+      resolvingDriveTitles,
+      actions: {
+        setUploadDialogOpen,
+        setNewFolderDialogOpen,
+        setAddLinkDialogOpen,
+        setGoogleDriveImportOpen,
+        setLinkDriveFolderOpen,
+        handleResolveDriveTitles,
+      },
+    },
+  };
+
   return (
     <div className={currentView.type === "root" ? "py-6 space-y-6" : "pt-3 pb-6 space-y-4"}>
-      {/* Header - different for root vs inner views */}
-      {currentView.type === "root" ? (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 h-10 w-10"
-              onClick={() => navigate(-1)}
-              aria-label="Go back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FolderOpen className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold">Vault</h1>
-                <p className="text-xs text-muted-foreground">Club file storage</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {(() => {
-            const nodes = getHierarchyNodes();
-            const current = nodes[nodes.length - 1];
-            const parents = nodes.slice(0, -1);
-            return (
-              <div className="flex items-center gap-1 min-w-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 -ml-2 h-10 w-10"
-                  onClick={goBack}
-                  aria-label="Go back"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-lg font-semibold leading-tight truncate">
-                    {current?.label ?? "Vault"}
-                  </h1>
-                  {parents.length > 0 && (
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-                      {parents.map((node, i) => (
-                        <span key={node.key} className="flex items-center gap-1 min-w-0">
-                          <button
-                            type="button"
-                            onClick={node.onClick}
-                            className="px-1.5 py-0.5 -mx-1 rounded-md hover:bg-muted active:bg-muted/70 transition-colors max-w-[160px] truncate text-foreground/70 hover:text-foreground touch-manipulation"
-                          >
-                            {node.label}
-                          </button>
-                          {i < parents.length - 1 && (
-                            <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+      <VaultTopSection {...topSectionProps} />
 
-
-        
-          {/* Compact Storage Bar - always visible */}
-          {currentClub && (
-            <Collapsible className="w-full">
-              <div className="bg-card border rounded-lg p-3">
-                {(() => {
-                  const storagePercentage = PRO_STORAGE_LIMIT > 0 
-                    ? Math.min(100, Math.max(0, (totalClubStorageUsed / PRO_STORAGE_LIMIT) * 100))
-                    : 0;
-                  return (
-                    <VaultStorageBarRow
-                      storagePercentage={storagePercentage}
-                      usageLabel={`${formatStorageSize(totalClubStorageUsed)} / ${5 + (purchasedStorageGb || 0)} GB`}
-                      isStorageLimitReached={isStorageLimitReached}
-                      actions={
-                        <>
-
-
-                      {/* More Dropdown - shown here when user can't upload (so it's not alone in toolbar) */}
-                      {!canUpload && !selectionMode && !isExporting && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Storage actions">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover">
-                            {(photos?.length > 0 || files?.length > 0) && !showTrash && (
-                              <DropdownMenuItem onClick={() => setSelectionMode(true)}>
-                                <CheckSquare className="h-4 w-4 mr-2" />
-                                Select
-                              </DropdownMenuItem>
-                            )}
-                            {(photos?.length > 0 || files?.length > 0 || subfolders?.length > 0) && (
-                              <>
-                                <DropdownMenuItem onClick={() => initiateExport('zip')}>
-                                  <FileArchive className="h-4 w-4 mr-2" />
-                                  Export as ZIP
-                                </DropdownMenuItem>
-                                {(subfolders && subfolders.length > 0) && (
-                                  <DropdownMenuItem onClick={() => initiateExport('zipAll')}>
-                                    <FolderDown className="h-4 w-4 mr-2" />
-                                    ZIP All (with subfolders)
-                                  </DropdownMenuItem>
-                                )}
-                              </>
-                            )}
-                            {(isClubAdmin || isAppAdmin) && (
-                              <DropdownMenuItem onClick={() => setShowTrash(!showTrash)}>
-                                {showTrash ? (
-                                  <>
-                                    <FolderOpen className="h-4 w-4 mr-2" />
-                                    View Files
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    View Trash
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                        </>
-                      }
-                    />
-
-                  );
-                })()}
-
-                
-                <CollapsibleContent className="mt-3 pt-3 border-t">
-                  {/* Expanded storage details */}
-                  <div className="space-y-3">
-                    {/* Team-specific storage - only shown in team view */}
-                    {currentView.type === "team" && currentTeamStorageUsed > 0 && (
-                      <div className="pb-3 border-b">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                          <span className="font-medium text-foreground">This Team</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-base font-semibold text-foreground">
-                            {formatStorageSize(currentTeamStorageUsed)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({Math.round((currentTeamStorageUsed / totalClubStorageUsed) * 100)}% of club storage)
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Recharts only loads after the storage details are opened. */}
-                    {storageBreakdown && (storageBreakdown.photos > 0 || storageBreakdown.documents > 0) && (
-                      <Suspense fallback={null}>
-                        <VaultStorageBreakdown
-                          photos={storageBreakdown.photos}
-                          documents={storageBreakdown.documents}
-                          formatStorageSize={formatStorageSize}
-                        />
-                      </Suspense>
-                    )}
-                    
-                    <VaultStorageTeamProjection
-                      byTeam={storageBreakdown?.byTeam || []}
-                      totalStorage={totalClubStorageUsed}
-                      formatStorageSize={formatStorageSize}
-                    />
-                    
-                    {/* Compact action icons row */}
-                    {(isClubAdmin || (totalClubStorageUsed / PRO_STORAGE_LIMIT) >= 0.8) && (
-                      <div className="pt-3 border-t flex items-center gap-2">
-                        {/* Large Files - only when storage >= 80% */}
-                        {(totalClubStorageUsed / PRO_STORAGE_LIMIT) >= 0.8 && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={openLargeFiles}
-                                >
-                                  <HardDrive className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Manage Large Files</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        
-                        {/* Buy/Manage Storage */}
-                        {isClubAdmin && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setStoragePurchaseDialogOpen(true)}
-                                >
-                                  <ShoppingCart className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>{purchasedStorageGb > 0 ? "Manage Storage" : "Buy Storage"}</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
-          
-          <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
-            <TooltipProvider>
-              {/* Selection Mode Controls - visible when there's content */}
-              {(photos?.length > 0 || files?.length > 0) && !showTrash && selectionMode && (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={selectAll}
-                      >
-                        <CheckSquare className="h-4 w-4 mr-1" />
-                        Select All
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Select all photos and files</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={exitSelectionMode}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Exit selection mode</TooltipContent>
-                  </Tooltip>
-                  {selectedCount > 0 && (
-                    <>
-                      {isExporting ? (
-                        <>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            disabled
-                            className="min-w-[80px]"
-                          >
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            <span className="text-xs">{exportProgress.current}/{exportProgress.total}</span>
-                          </Button>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
-                                onClick={cancelExport}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Cancel export</TooltipContent>
-                          </Tooltip>
-                        </>
-                      ) : (
-                        <>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={() => initiateExport('zip')}
-                              >
-                                <FileArchive className="h-4 w-4 mr-1" />
-                                Export ({selectedCount})
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Export {selectedCount} selected items as ZIP</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => initiateExport('download')}
-                              >
-                                <Download className="h-4 w-4 mr-1" />
-                                Download ({selectedCount})
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Download {selectedCount} selected items individually</TooltipContent>
-                          </Tooltip>
-                          {(isClubAdmin || isAppAdmin) && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
-                                onClick={() => setBulkDeleteDialogOpen(true)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Delete ({selectedCount})
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Delete {selectedCount} selected items</TooltipContent>
-                          </Tooltip>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-              
-              {/* Export progress when exporting */}
-              {!selectionMode && isExporting && (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    disabled
-                    className="min-w-[80px]"
-                  >
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    <span className="text-xs">{exportProgress.current}/{exportProgress.total}</span>
-                  </Button>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        onClick={cancelExport}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Cancel export</TooltipContent>
-                  </Tooltip>
-                </>
-              )}
-
-              {/* Main toolbar - only when not in selection mode or exporting */}
-              {!selectionMode && !isExporting && (
-                <>
-                  {/* Primary Upload Button - always visible */}
-                  {canUpload && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
-                          <Upload className="h-4 w-4 mr-1" /> Upload
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Upload photos or files</TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {/* Add Dropdown - New Folder, Add Link, Import from Drive */}
-                  {canUpload && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-popover">
-                        <DropdownMenuItem onClick={() => setNewFolderDialogOpen(true)}>
-                          <FolderPlus className="h-4 w-4 mr-2" />
-                          New Folder
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setAddLinkDialogOpen(true)}>
-                          <Link2 className="h-4 w-4 mr-2" />
-                          Add Link
-                        </DropdownMenuItem>
-                        {isClubAdmin && Capacitor.getPlatform() !== 'ios' && 'clubId' in currentView && DRIVE_IMPORT_ALLOWED_CLUB_IDS.has(currentView.clubId) && (
-                          <DropdownMenuItem onClick={() => setGoogleDriveImportOpen(true)}>
-                            <CloudDownload className="h-4 w-4 mr-2" />
-                            Import from Drive
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-
-                  {/* More Dropdown - Export, ZIP All, View Trash - only shown here when user can upload */}
-                  {canUpload && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-9 w-9">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-popover">
-                        {(photos?.length > 0 || files?.length > 0) && !showTrash && (
-                          <DropdownMenuItem onClick={() => setSelectionMode(true)}>
-                            <CheckSquare className="h-4 w-4 mr-2" />
-                            Select
-                          </DropdownMenuItem>
-                        )}
-                        {(photos?.length > 0 || files?.length > 0 || subfolders?.length > 0) && (
-                          <>
-                            <DropdownMenuItem onClick={() => initiateExport('zip')}>
-                              <FileArchive className="h-4 w-4 mr-2" />
-                              Export as ZIP
-                            </DropdownMenuItem>
-                            {(subfolders && subfolders.length > 0) && (
-                              <DropdownMenuItem onClick={() => initiateExport('zipAll')}>
-                                <FolderDown className="h-4 w-4 mr-2" />
-                                ZIP All (with subfolders)
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        )}
-                        {(isClubAdmin || isAppAdmin) && (
-                          <DropdownMenuItem onClick={() => setShowTrash(!showTrash)}>
-                            {showTrash ? (
-                              <>
-                                <FolderOpen className="h-4 w-4 mr-2" />
-                                View Files
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                View Trash
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                        )}
-                        {isClubAdmin && Capacitor.getPlatform() !== 'ios' && 'clubId' in currentView && DRIVE_IMPORT_ALLOWED_CLUB_IDS.has(currentView.clubId) && (
-                          <DropdownMenuItem onClick={() => setLinkDriveFolderOpen(true)}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Sync with Drive folder
-                          </DropdownMenuItem>
-                        )}
-                        {isClubAdmin && (
-                          <DropdownMenuItem
-                            onClick={handleResolveDriveTitles}
-                            disabled={resolvingDriveTitles}
-                          >
-                            {resolvingDriveTitles ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Sheet className="h-4 w-4 mr-2" />
-                            )}
-                            Fetch real Google titles
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </>
-              )}
-            </TooltipProvider>
-
-            {/* Dialogs - always rendered */}
-            <Suspense fallback={null}>
+      {currentView.type !== "root" && (
+        <>
+          <Suspense fallback={null}>
             <UploadFilesDialog
               open={uploadDialogOpen}
               onOpenChange={setUploadDialogOpen}
@@ -2046,21 +1613,20 @@ function SupabaseVaultPage() {
               isUploading={uploading}
               targetName={currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.type === "club" ? currentView.clubName : "Vault")}
             />
-            </Suspense>
+          </Suspense>
 
-            <VaultDriveLinkDialogs
-              currentView={currentView}
-              addLinkDialogOpen={addLinkDialogOpen}
-              onAddLinkDialogOpenChange={setAddLinkDialogOpen}
-              addLinkMutation={addLinkMutation}
-              googleDriveImportOpen={googleDriveImportOpen}
-              onGoogleDriveImportOpenChange={setGoogleDriveImportOpen}
-              linkDriveFolderOpen={linkDriveFolderOpen}
-              onLinkDriveFolderOpenChange={setLinkDriveFolderOpen}
-              onDriveChanged={handleDriveChanged}
-            />
-          </div>
-        </div>
+          <VaultDriveLinkDialogs
+            currentView={currentView}
+            addLinkDialogOpen={addLinkDialogOpen}
+            onAddLinkDialogOpenChange={setAddLinkDialogOpen}
+            addLinkMutation={addLinkMutation}
+            googleDriveImportOpen={googleDriveImportOpen}
+            onGoogleDriveImportOpenChange={setGoogleDriveImportOpen}
+            linkDriveFolderOpen={linkDriveFolderOpen}
+            onLinkDriveFolderOpenChange={setLinkDriveFolderOpen}
+            onDriveChanged={handleDriveChanged}
+          />
+        </>
       )}
 
       {/* Search bar — filter folders, files, and photos in the current view */}
