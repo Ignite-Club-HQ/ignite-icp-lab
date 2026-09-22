@@ -1243,3 +1243,43 @@ not change, and no request/subscription/render/latency measurement was
 collected. Future work should treat the remaining scheduler/controller as a
 separate high-risk migration rather than continue line-count-driven
 extraction.
+
+## Phase 4A AutoSub scheduler relocation (2026-09-22, follow-up)
+
+`AutoSubPlanDialog.tsx` was still 3,882 lines because `createSubPlan`,
+`createSubPlanInternal`, `createMiniLeagueSubPlan`, and their private
+constants/helpers (~3,050 lines, zero React dependency) remained in the
+dialog file. This step moved that block verbatim into a new
+`planner/scheduler.ts` module — no logic, ordering, or decision rules were
+changed, only file location and imports. The dialog re-exports
+`createSubPlan`, `createMiniLeagueSubPlan`, and the `Player` /
+`SubstitutionEvent` / `MiniLeagueTeams` types so every existing import path
+(dialog default export, scheduler functions, `isPlanPlayableFromPlayers`,
+`calculateTimeForecasts`, `normalizeRotationSpeed`,
+`AutoSubAdvancedOverrides`) is unchanged.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `AutoSubPlanDialog.tsx` raw lines | 3,882 | 883 |
+| `planner/scheduler.ts` raw lines | 0 (new) | 3,020 |
+| Complete non-test pitch package | 42,214 | 42,233 |
+| Product AutoSub lazy chunk | 77,730 bytes | 77,730 bytes (unchanged) |
+| Product JavaScript total / chunks | 8,870,648 bytes / 502 | 8,870,648 bytes / 502 (unchanged) |
+
+The dialog is a further 3,010 lines (77.5%) smaller. Because this was a pure
+relocation with no logic change, the product bundle byte totals are
+byte-identical before and after, and the non-test package line total moved by
+only 19 lines (a header comment) — confirming no behavior or bundle change.
+
+`planner/scheduler.ts` is intentionally left as one 3,020-line module: it is
+the same tightly-coupled scheduler flagged above as needing a dedicated
+responsibility map, compatibility exports, and an independent behavioral
+baseline before further internal decomposition. It was not fragmented here in
+order to avoid creating a second oversized file in place of the first.
+
+Full legacy tests (467 files, 4,471 passed, one skipped), the 240-case
+AutoSub fairness matrix, the full focused planner/AutoSub suite (211 tests
+across 17 files), lab typecheck, direct `tsc` diagnostics on touched files,
+product typecheck (only the pre-existing 14-diagnostic baseline drift in
+`StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
+isolation, quality ratchet, and duplication ratchet all passed.

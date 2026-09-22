@@ -720,6 +720,56 @@ requires its own responsibility map, compatibility exports, and separate
 behavioral baseline; do not continue reducing it by mechanically moving
 functions.
 
+### Phase 4A AutoSub scheduler relocation (2026-09-22, follow-up)
+
+After the above decomposition, `AutoSubPlanDialog.tsx` was still 3,882 lines
+because the tightly coupled scheduler (`createSubPlan`,
+`createSubPlanInternal`, `createMiniLeagueSubPlan`, and their private
+constants/helpers) accounted for ~3,050 of those lines with zero React
+dependency. Rather than the higher-risk work of splitting that algorithm's
+internals (which needs its own responsibility map and behavioral baseline, as
+noted above), this step did a **pure, unmodified relocation**: the entire
+scheduler block moved verbatim into a new `planner/scheduler.ts` module
+alongside the other existing `planner/*` files. No control flow, ordering, or
+decision logic changed — only file location and imports.
+
+`AutoSubPlanDialog.tsx` re-exports `createSubPlan`, `createMiniLeagueSubPlan`,
+and the `Player`/`SubstitutionEvent`/`MiniLeagueTeams` types from
+`planner/scheduler.ts`, preserving every existing import path (dialog default
+export, `createSubPlan`, `createMiniLeagueSubPlan`, `isPlanPlayableFromPlayers`,
+`calculateTimeForecasts`, `normalizeRotationSpeed`, `AutoSubAdvancedOverrides`).
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `AutoSubPlanDialog.tsx` raw lines | 3,882 | 883 |
+| `planner/scheduler.ts` raw lines | 0 (new) | 3,020 |
+| Complete non-test pitch package | 42,214 | 42,233 |
+| Product AutoSub lazy chunk | 77,730 bytes | 77,730 bytes (unchanged) |
+| Product JavaScript total / chunks | 8,870,648 bytes / 502 | 8,870,648 bytes / 502 (unchanged) |
+
+The dialog file is now 883 lines — a further 3,010 lines (77.5%) smaller, and
+below the size of any other file in the pitch package except `PitchBoard.tsx`
+(pre-existing, out of scope) and the new `scheduler.ts` itself. Because the
+move added no logic and no new UI, the bundle byte totals are byte-identical
+before and after, and the package's non-test line total moved by only 19
+lines (a header comment). This confirms the change is a structural relocation,
+not a behavior or bundle change.
+
+`planner/scheduler.ts` is now the second-largest file in the pitch package
+(3,020 lines). It intentionally stays as one module: it is the same
+tightly-coupled scheduler algorithm called out above, and splitting its
+internals still requires a dedicated responsibility map, compatibility
+exports, and an independent behavioral baseline before any further reduction
+— it was not fragmented here to avoid trading one oversized file for another.
+
+Full legacy tests (467 files, 4,471 passed, one skipped), the 240-case
+AutoSub fairness matrix, the full focused planner/AutoSub suite (211 tests
+across 17 files), lab typecheck, direct `tsc` diagnostics on the touched
+files, product typecheck (only the pre-existing 14-diagnostic baseline drift
+in `StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
+isolation, quality ratchet, and duplication ratchet all passed after this
+move.
+
 ### Phase 4A Vault result (2026-09-21)
 
 The initial Vault extraction is complete and is limited to the deleted-item
