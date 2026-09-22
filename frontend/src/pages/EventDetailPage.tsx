@@ -19,19 +19,16 @@ import { defaultMinutesPerHalfForTeamName } from "@/lib/teamAgeDefaults";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, UserPlus, Trash2, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Flame, MoreVertical, Trophy, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, UserPlus, Trash2, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Flame, MoreVertical, Lock } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { TrainingDefaultControl } from "@/components/event/TrainingDefaultControl";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { RecurringEventActionDialog } from "@/components/RecurringEventActionDialog";
 import { CancelEventConfirmDialog } from "@/components/CancelEventConfirmDialog";
 import { RecurringCancelEventDialog } from "@/components/RecurringCancelEventDialog";
-import PlayerOfMatchSelector from "@/components/PlayerOfMatchSelector";
-import MatchCaptainSelector from "@/components/MatchCaptainSelector";
-import MatchGoalkeepersSelector from "@/components/MatchGoalkeepersSelector";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,6 +95,7 @@ import { formatRelativePast } from "@/lib/formatRelativeTime";
 import { EventNoteSection } from "@/components/event/EventNoteSection";
 import { EventOverviewSection } from "@/components/event/EventOverviewSection";
 import { EventDutiesSection } from "@/components/event/EventDutiesSection";
+import { EventMatchAwardsSection } from "@/components/event/EventMatchAwardsSection";
 
 
 // Lazy load PitchBoard for game events
@@ -2625,74 +2623,21 @@ export default function EventDetailPage() {
       })()}
 
 
-      {/* Player of Match Section (only for games) */}
-      {event.type === "game" && event.team_id && (
-        <>
-          <Separator />
-          <MatchCaptainSelector
-            eventId={id!}
-            teamId={event.team_id}
-            isAdmin={canManageEvent}
-            rsvps={rsvps || []}
-          />
-          {(() => {
-            const sport = (event.clubs?.sport || '').toLowerCase();
-            const hasGoalkeeper = ['soccer','football','futsal','netball','hockey','handball','water polo','waterpolo','lacrosse','rugby'].some(k => sport.includes(k));
-            if (!hasGoalkeeper) return null;
-            return (
-              <MatchGoalkeepersSelector
-                eventId={id!}
-                teamId={event.team_id}
-                isAdmin={canManageEvent}
-                rsvps={rsvps || []}
-              />
-            );
-          })()}
-          {canAwardDutyPoints && (
-            <PlayerOfMatchSelector
-              eventId={id!}
-              clubId={event.club_id}
-              teamId={event.team_id}
-              isAdmin={canManageEvent}
-              rsvps={rsvps || []}
-              childrenOnTeam={allChildrenOnTeam || childrenOnTeam}
-            />
-          )}
-        </>
-      )}
-
-      {/* Player of Match Pro upgrade prompt — shown to admins on free clubs */}
-      {event.type === "game" && event.team_id && isAdmin && !isAppAdmin && !isLoadingHasTeamPro && hasTeamPro !== true && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Trophy className="h-5 w-5 text-amber-500" />
-              Player of the Match
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-3">
-            <div className="flex items-start gap-2">
-              <Lock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Player of the Match is a Pro feature</p>
-                <p className="text-xs text-muted-foreground">
-                  Upgrade to Pro to select and award Player of the Match, complete with points, vouchers, and automatic notifications.
-                </p>
-              </div>
-            </div>
-            {event.club_id && (
-              <Button
-                size="sm"
-                onClick={() => navigate(`/clubs/${event.club_id}/upgrade`)}
-                className="gap-1.5"
-              >
-                <Lock className="h-3.5 w-3.5" />
-                Upgrade to Pro
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <EventMatchAwardsSection
+        event={event}
+        eventId={id!}
+        rsvps={rsvps || []}
+        childrenOnTeam={allChildrenOnTeam || childrenOnTeam}
+        canManageEvent={canManageEvent}
+        canAwardDutyPoints={canAwardDutyPoints}
+        showProUpgrade={
+          isAdmin &&
+          !isAppAdmin &&
+          !isLoadingHasTeamPro &&
+          hasTeamPro !== true
+        }
+        onUpgrade={() => navigate(`/clubs/${event.club_id}/upgrade`)}
+      />
 
       <EventDutiesSection
         event={event}
