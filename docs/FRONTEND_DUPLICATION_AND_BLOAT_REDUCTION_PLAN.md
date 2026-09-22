@@ -840,6 +840,31 @@ same pre-existing 14-diagnostic baseline drift in
 `check:isolation` passed; `check:quality-ratchet` passed; `check:duplication`
 improved by 1,683 duplicated lines (the `equalTimeOverride` consolidation).
 
+### Phase 4A fairness planner dead-code cleanup (2026-09-22, follow-up)
+
+A follow-up audit of the extracted `planner/fairnessMode.ts` found that an
+older window-planning and rebalance implementation remained below the active
+planner's unconditional `return`. That 646-line branch could never execute.
+Several setup helpers above the active planner existed only to support that
+unreachable branch. This cleanup deletes the unreachable branch and those
+dead-only helpers instead of moving them into another file.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `planner/fairnessMode.ts` raw lines | 1,594 | 779 |
+| New production modules | 0 | 0 |
+| Product AutoSub lazy chunk | 79,240 bytes | 79,000 bytes |
+| Product JavaScript total / chunks | 8,872,165 bytes / 502 | 8,871,921 bytes / 502 |
+| Duplication ratchet duplicated lines | 15,899 | 15,841 |
+
+This is an 815-line (51.1%) reduction in the fairness planner with no new
+module and no active control-flow change. The three primary planner files are
+now similarly bounded: `scheduler.ts` 666 lines, `practicalMode.ts` 683 lines,
+and `fairnessMode.ts` 779 lines. Focused AutoSub/planner tests (390 across 8
+files, including the 240-case matrix), touched-file TypeScript diagnostics,
+`typecheck:lab`, product build, product bundle budget, isolation, quality
+ratchet, and duplication ratchet all passed.
+
 ### Phase 4A Vault result (2026-09-21)
 
 The initial Vault extraction is complete and is limited to the deleted-item

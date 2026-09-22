@@ -1322,3 +1322,24 @@ diagnostics are unchanged versus a temporarily-reverted baseline), product
 typecheck (same pre-existing 14-diagnostic baseline drift in
 `StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
 isolation, quality ratchet, and duplication ratchet (improved) all passed.
+
+## Phase 4A fairness planner dead-code cleanup (2026-09-22, follow-up)
+
+The extracted `planner/fairnessMode.ts` still contained an older planner and
+rebalance path after the active implementation's unconditional `return`.
+Removing that unreachable 646-line path and the setup helpers used only by it
+reduced the file without creating another module or changing active behavior.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `planner/fairnessMode.ts` raw lines | 1,594 | 779 |
+| New production modules | 0 | 0 |
+| Product AutoSub lazy chunk | 79,240 bytes | 79,000 bytes |
+| Product JavaScript total / chunks | 8,872,165 bytes / 502 | 8,871,921 bytes / 502 |
+| Duplication ratchet duplicated lines | 15,899 | 15,841 |
+
+Focused AutoSub/planner tests (390 across 8 files, including the 240-case
+matrix), touched-file TypeScript diagnostics, `typecheck:lab`, product build,
+product bundle budget, isolation, quality ratchet, and duplication ratchet all
+passed. The resulting planner sizes are `scheduler.ts` 666 lines,
+`practicalMode.ts` 683 lines, and `fairnessMode.ts` 779 lines.
