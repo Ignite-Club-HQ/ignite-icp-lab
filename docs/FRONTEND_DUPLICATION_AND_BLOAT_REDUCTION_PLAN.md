@@ -658,6 +658,68 @@ runtime improvement must have measured evidence of lower route bytes, requests,
 subscriptions, renders, or interaction latency. Pure file organization is
 reported as maintainability and safety progress only.
 
+### Phase 4A AutoSub dialog result (2026-09-22)
+
+`src/components/pitch/AutoSubPlanDialog.tsx` had accumulated the AutoSub
+scheduler, forecast calculations, fairness analysis, threshold tuning, coach
+fix recommendations, DnD forecast rows, and all forecast presentation in one
+5,585-line module. This round retained the scheduler's public exports and
+orchestration in the dialog, while moving bounded presentation and pure
+decision responsibilities to small typed modules:
+
+- `AdvancedSettingsPanel.tsx` (232 lines) and
+  `planner/advancedOverrides.ts` (28) own the expert-control UI and shared
+  override/default contract;
+- `FairnessSimulatorPanel.tsx` (133), `FairnessDiagnostics.tsx` (132), and
+  `PlanForecastSummary.tsx` (349) own independent forecast presentation;
+- `PlayerMinutesPresentation.tsx` (176) owns attention rows and sortable
+  minute rows with structural forecast props;
+- `PlanFixSuggestions.tsx` (94) and `planner/planFixes.ts` (175) separate
+  coach-facing priority presentation from its pure, directly tested decision
+  rules.
+
+The dialog now imports established, already-tested canonical planner helpers
+from `planner/analysis.ts`, `planner/validation.ts`, and
+`planner/standardMode.ts` for forecasts, role inference, rotation-speed
+normalization, plan playability, and starvation repair. Its legacy exports
+remain re-exported from the dialog, preserving current pitch/test import
+paths. This removed duplicated helper implementations rather than creating
+parallel planner modules.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `AutoSubPlanDialog.tsx` raw lines | 5,585 | 3,882 |
+| Complete non-test pitch package | 42,598 | 42,214 |
+| New largest extracted AutoSub module | 0 | 349 |
+| Same-scope jscpd | 2,137 lines / 166 groups / 5.0165% | 2,128 lines / 164 groups / 5.0410% |
+| Product AutoSub lazy chunk | not measured for this exact pre-change commit | 77,730 bytes |
+| Product JavaScript total / chunks | not measured for this exact pre-change commit | 8,870,648 bytes / 502 |
+| Lazy-loading boundary | existing AutoSub dialog lazy import | unchanged |
+
+The dialog is 1,703 lines (30.5%) smaller and the complete pitch package is
+384 lines smaller. The largest new module is 349 lines, well below the
+500–700 line guardrail. The scoped clone count and duplicate lines decrease
+slightly; this was primarily a decomposition and duplicate-helper
+consolidation, not a standalone duplication campaign.
+
+New direct component contracts cover expert-control edits/resets/read-only
+mode, forecast status/mode selection, player-minute flags and DnD affordances,
+fairness diagnostic rendering, plan-fix actions, and clamped plan-fix
+decisions. Existing AutoSub planner/fairness contracts, a 240-case matrix,
+and pitch orchestration simulations remain the primary behavioral protection
+for the scheduler. Full legacy tests (467 files, 4,471 passed, one skipped),
+lab typecheck, product build and bundle budget, isolation, quality/duplication
+ratchets, and diff checks passed.
+
+The 77,730-byte lazy chunk is budget evidence only. No lazy-loading boundary,
+request/subscription count, render count, interaction latency, or
+user-perceived performance measurement changed; this is a maintainability,
+testability, and change-safety result only. The remaining dialog is the
+tightly coupled scheduler/controller. A future scheduler-core migration
+requires its own responsibility map, compatibility exports, and separate
+behavioral baseline; do not continue reducing it by mechanically moving
+functions.
+
 ### Phase 4A Vault result (2026-09-21)
 
 The initial Vault extraction is complete and is limited to the deleted-item

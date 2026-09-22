@@ -1203,3 +1203,43 @@ render-count, interaction, latency, or user-perceived performance
 measurement was collected. Further Vault work should first assess whether
 the separate Google Drive dialogs have a real overlapping responsibility,
 not continue mechanical page/renderer line-count reduction.
+
+## Phase 4A AutoSub dialog result (2026-09-22)
+
+The AutoSub decomposition moved settings, forecast presentation, player-minute
+rows, fairness diagnostics/simulation, and plan-fix UI/decision rules out of
+the dialog while retaining the scheduler/controller and preserving the
+dialog's exported planner helpers through canonical re-exports. The dialog
+now reuses existing tested `planner/analysis.ts`, `planner/validation.ts`, and
+`planner/standardMode.ts` implementations for forecast calculation, player
+role/rotation analysis, plan validation, and no-starvation repair instead of
+carrying duplicate local copies.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `AutoSubPlanDialog.tsx` raw lines | 5,585 | 3,882 |
+| Complete non-test pitch package | 42,598 | 42,214 |
+| Largest new AutoSub module | 0 | 349 |
+| Same-scope jscpd | 2,137 lines / 166 groups / 5.0165% | 2,128 lines / 164 groups / 5.0410% |
+| Product AutoSub lazy chunk | not measured for this exact pre-change commit | 77,730 bytes |
+| Product JavaScript total / chunks | not measured for this exact pre-change commit | 8,870,648 bytes / 502 |
+
+The dialog is 1,703 lines smaller (30.5%) and the non-test pitch package is
+384 lines smaller. The extracted modules remain bounded: 28–349 lines each.
+The duplicate-line and clone-group reduction is small, so this is reported as
+a maintainability/testability and duplicate-helper consolidation result, not a
+large literal-duplication result.
+
+Focused component contracts cover the moved expert controls, forecast summary,
+player-minute presentation, fairness diagnostics, plan-fix suggestions, and
+clamped recommendation logic. Existing planner tests and the 240-case AutoSub
+matrix continue to protect scheduling behavior. Full legacy tests passed
+(467 files; 4,471 passed; one skipped), as did lab typecheck, product build
+and bundle budget, isolation, quality and duplication ratchets, and
+`git diff --check`.
+
+No runtime-performance claim is made: the existing lazy import boundary did
+not change, and no request/subscription/render/latency measurement was
+collected. Future work should treat the remaining scheduler/controller as a
+separate high-risk migration rather than continue line-count-driven
+extraction.
