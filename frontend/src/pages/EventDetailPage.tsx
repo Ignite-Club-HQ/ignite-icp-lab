@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Suspense, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useDeleteEvent } from "@/hooks/useDeleteEvent";
 import { useEventDutyMutations } from "@/hooks/useEventDutyMutations";
 import { useCancelEventMutation } from "@/hooks/useCancelEventMutation";
@@ -15,11 +15,9 @@ import { abortAllInFlightRestGets } from "@/lib/supabaseAuthRetry";
 import { Share } from "@capacitor/share";
 import { Capacitor } from "@capacitor/core";
 import { getShareUrl } from "@/lib/shareUtils";
-import { defaultMinutesPerHalfForTeamName } from "@/lib/teamAgeDefaults";
-import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, UserPlus, Trash2, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, Flame, MoreVertical, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, UserPlus, Trash2, MessageSquare, Baby, Pencil, XCircle, Bell, DollarSign, Check, Share2, MoreVertical, Lock } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { TrainingDefaultControl } from "@/components/event/TrainingDefaultControl";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
@@ -96,26 +94,13 @@ import { EventNoteSection } from "@/components/event/EventNoteSection";
 import { EventOverviewSection } from "@/components/event/EventOverviewSection";
 import { EventDutiesSection } from "@/components/event/EventDutiesSection";
 import { EventMatchAwardsSection } from "@/components/event/EventMatchAwardsSection";
+import { EventPitchBoardPortal } from "@/components/event/EventPitchBoardPortal";
 
 
-// Lazy load PitchBoard for game events
-const PitchBoard = lazyWithRetry(() => import("@/components/pitch/PitchBoard"));
-// NetballBoard / BasketballBoard archived — football-only build (see archive/sports/)
 import {
-  clearPitchBoardOpenFlag,
   shouldRestorePitchBoardForCurrentPath,
 } from "@/components/pitch/pitchBoardOpenFlag";
-
-// Close handler used by all game-board variants. Clears both the React modal
-// state AND the persisted "open" flag so PitchBoardResumeRedirect won't
-// re-open the board after a phone lock/unlock once the user has explicitly
-// closed it from the event page.
-const closePitchBoardWithFlag = (setShow: (v: boolean) => void) => () => {
-  setShow(false);
-  clearPitchBoardOpenFlag();
-};
 import { hasGameBoardSupport } from "@/lib/sportDetection";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { getLocalEvent, isLocalEventsCanisterUnavailable, listLocalEventRsvps } from "@/lab/localEventsService";
@@ -2673,51 +2658,18 @@ export default function EventDetailPage() {
         assignDutyMutation={assignDutyMutation}
       />
 
-      {/* Pitch Board Modal — soccer */}
-      {showPitchBoard && isSoccerClub && pitchBoardAccessGranted && teamMembers && event?.team_id && createPortal(
-        <Suspense fallback={
-          <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen flex items-center justify-center" style={{ backgroundColor: '#2d5a27', zIndex: 999999 }}>
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-primary">
-                  <Flame className="h-8 w-8 text-primary-foreground" />
-                </div>
-                <span className="text-4xl">⚽</span>
-              </div>
-              <Loader2 className="h-6 w-6 animate-spin text-white" />
-              <p className="text-sm text-white/80">Loading pitch board...</p>
-            </div>
-          </div>
-        }>
-          <PitchBoard
-            teamId={event.team_id}
-            teamName={event.teams?.name || "Team"}
-            members={teamMembers.map(m => ({
-              id: m.user_id,
-              user_id: m.user_id,
-              role: m.role,
-              profiles: m.profiles
-            }))}
-            onClose={closePitchBoardWithFlag(setShowPitchBoard)}
-            disableAutoSubs={teamSubscription?.disable_auto_subs || false}
-            initialRotationSpeed={teamSubscription?.rotation_speed || 1}
-            initialDisablePositionSwaps={teamSubscription?.disable_position_swaps || false}
-            initialDisableBatchSubs={teamSubscription?.disable_batch_subs || false}
-            initialRotateGkAtHalftime={teamSubscription?.rotate_gk_at_halftime ?? true}
-            initialMinutesPerHalf={teamSubscription?.minutes_per_half || defaultMinutesPerHalfForTeamName(event.teams?.name)}
-            initialMaxSpreadMinutes={(teamSubscription as any)?.max_spread_minutes ?? 5}
-            initialTeamSize={teamSubscription?.team_size}
-            initialFormation={teamSubscription?.formation || undefined}
-            initialLinkedEventId={id}
-            initialShowMatchHeader={teamSubscription?.show_match_header ?? true}
-            initialShowLineupPicker={teamSubscription?.show_lineup_picker || false}
-            initialMode={event?.type === "training" ? "training" : "match"}
-            readOnly={!!canViewPitchBoardReadOnly && !isSubsManagerForEvent}
-            isSubsManager={isSubsManagerForEvent}
-          />
-        </Suspense>,
-        document.body
-      )}
+      <EventPitchBoardPortal
+        open={showPitchBoard}
+        event={event}
+        eventId={id}
+        teamMembers={teamMembers}
+        teamSubscription={teamSubscription}
+        isSoccerClub={isSoccerClub}
+        accessGranted={pitchBoardAccessGranted}
+        canViewReadOnly={canViewPitchBoardReadOnly}
+        isSubsManager={isSubsManagerForEvent}
+        setOpen={setShowPitchBoard}
+      />
 
       {/* Netball + Basketball Game Board modals archived — football-only build */}
 
