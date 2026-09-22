@@ -107,7 +107,13 @@ describe("Vault bulk selection/delete behavior contract", () => {
     expect(vaultPageSource).toContain("useVaultLargeFiles(");
     expect(vaultPageSource).toContain("useVaultTrashWorkflow({");
     expect(vaultPageSource).toContain("useVaultLightbox(");
-    expect(vaultPageSource).toContain("GoogleDriveImportDialog");
+    // Phase 4A subsequently moved Google Drive import/link/title resolution
+    // into useVaultDriveLinkWorkflow + VaultDriveLinkDialogs (see
+    // VaultPage.drive-link.characterization.test.ts); the page only consumes
+    // that hook's outputs now.
+    expect(vaultPageSource).toContain("useVaultDriveLinkWorkflow");
+    expect(vaultPageSource).toContain("VaultDriveLinkDialogs");
+    expect(vaultPageSource).not.toContain("GoogleDriveImportDialog");
     // Phase 4A subsequently moved folder/file rename-move into
     // useVaultFolderManagement (see VaultPage.folder-management.characterization.test.ts);
     // the page only consumes that hook's outputs now.

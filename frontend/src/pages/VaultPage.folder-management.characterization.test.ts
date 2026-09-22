@@ -161,10 +161,16 @@ describe("Vault folder/file management and navigation behavior contract", () => 
   it("keeps upload, add-link, Drive import/link/title resolution, storage purchase, export/large-files, trash/recovery, lightbox, and bulk-delete untouched by this cluster", () => {
     expect(vaultPageSource).toContain("uploadPhotoMutation");
     expect(vaultPageSource).toContain("uploadFileMutation");
+    // Add Link / Google Drive import/link/title resolution were later
+    // extracted into their own cluster (`useVaultDriveLinkWorkflow` +
+    // `VaultDriveLinkDialogs`) by a subsequent Phase 4A round; this folder/
+    // file management cluster only needs to not have re-absorbed them.
     expect(vaultPageSource).toContain("addLinkMutation");
-    expect(vaultPageSource).toContain("GoogleDriveImportDialog");
-    expect(vaultPageSource).toContain("LinkDriveFolderDialog");
-    expect(vaultPageSource).toContain("resolveDriveTitlesForClub");
+    expect(vaultPageSource).toContain("useVaultDriveLinkWorkflow");
+    expect(vaultPageSource).toContain("VaultDriveLinkDialogs");
+    expect(vaultPageSource).not.toContain("GoogleDriveImportDialog");
+    expect(vaultPageSource).not.toContain("LinkDriveFolderDialog");
+    expect(vaultPageSource).not.toContain("resolveDriveTitlesForClub");
     expect(vaultPageSource).toContain("StoragePurchaseDialog");
     expect(vaultPageSource).toContain("useVaultExport({");
     expect(vaultPageSource).toContain("useVaultLargeFiles(");

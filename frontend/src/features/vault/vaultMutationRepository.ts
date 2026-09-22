@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { VaultFolderView } from "./types";
+import { getVaultScope } from "./vaultScope";
 
 type IgniteSupabaseClient = SupabaseClient<Database>;
 
@@ -73,6 +74,39 @@ export async function createVaultFolder(
   }
 
   const { error } = await client.from("vault_folders").insert(insert);
+  if (error) throw error;
+}
+
+/**
+ * Inserts an external-link Vault "file" row (`is_external_link: true`,
+ * `file_size: 0` — links have no storage size) scoped to the given view via
+ * the already-tested `getVaultScope`, matching the same club/team/mini-league
+ * scoping the upload flow's file insert uses.
+ */
+export async function createVaultLinkFile(
+  options: {
+    url: string;
+    name: string;
+    userId: string;
+    folderId: string | null;
+    view: VaultFolderView;
+  },
+  client: IgniteSupabaseClient = supabase,
+): Promise<void> {
+  const scope = getVaultScope(options.view);
+  const insert: any = {
+    file_url: options.url,
+    uploaded_by: options.userId,
+    name: options.name,
+    folder_id: options.folderId,
+    is_external_link: true,
+    file_size: 0,
+  };
+  if (scope.clubId) insert.club_id = scope.clubId;
+  if (scope.teamId) insert.team_id = scope.teamId;
+  if (scope.miniLeagueId) insert.mini_league_id = scope.miniLeagueId;
+
+  const { error } = await client.from("vault_files").insert(insert);
   if (error) throw error;
 }
 

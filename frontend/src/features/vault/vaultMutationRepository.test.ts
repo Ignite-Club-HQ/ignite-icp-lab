@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Database } from "@/integrations/supabase/types";
 import {
   createVaultFolder,
+  createVaultLinkFile,
   deleteVaultFolder,
   moveVaultFile,
   permanentlyDeleteVaultFile,
@@ -182,6 +183,116 @@ describe("Vault folder and trash-state mutations", () => {
       created_by: "user-a",
       parent_id: null,
     });
+  });
+
+  it("adds an external link file scoped to a club view", async () => {
+    const fake = lifecycleClient();
+    await createVaultLinkFile({
+      url: "https://reference.invalid/doc",
+      name: "Handbook",
+      userId: "user-a",
+      folderId: "folder-a",
+      view: { type: "club", clubId: "club-a", clubName: "Club A" },
+    }, fake.client);
+    expect(fake.writes).toEqual([{
+      table: "vault_files",
+      kind: "insert",
+      payload: {
+        file_url: "https://reference.invalid/doc",
+        uploaded_by: "user-a",
+        name: "Handbook",
+        folder_id: "folder-a",
+        is_external_link: true,
+        file_size: 0,
+        club_id: "club-a",
+      },
+      filters: [],
+    }]);
+  });
+
+  it("adds exact club and team scope when adding a link inside a team view", async () => {
+    const fake = lifecycleClient();
+    await createVaultLinkFile({
+      url: "https://reference.invalid/doc",
+      name: "Handbook",
+      userId: "user-a",
+      folderId: null,
+      view: {
+        type: "team",
+        clubId: "club-a",
+        clubName: "Club A",
+        teamId: "team-a",
+        teamName: "Team A",
+      },
+    }, fake.client);
+    expect(fake.writes[0]?.payload).toEqual({
+      file_url: "https://reference.invalid/doc",
+      uploaded_by: "user-a",
+      name: "Handbook",
+      folder_id: null,
+      is_external_link: true,
+      file_size: 0,
+      club_id: "club-a",
+      team_id: "team-a",
+    });
+  });
+
+  it("adds exact club and mini-league scope when adding a link inside a mini-league view", async () => {
+    const fake = lifecycleClient();
+    await createVaultLinkFile({
+      url: "https://reference.invalid/doc",
+      name: "Handbook",
+      userId: "user-a",
+      folderId: null,
+      view: {
+        type: "mini-league",
+        clubId: "club-a",
+        clubName: "Club A",
+        miniLeagueId: "league-a",
+        miniLeagueName: "League A",
+      },
+    }, fake.client);
+    expect(fake.writes[0]?.payload).toEqual({
+      file_url: "https://reference.invalid/doc",
+      uploaded_by: "user-a",
+      name: "Handbook",
+      folder_id: null,
+      is_external_link: true,
+      file_size: 0,
+      club_id: "club-a",
+      mini_league_id: "league-a",
+    });
+  });
+
+  it("adds no scope id at all for the root view, matching the upload flow's un-scoped insert", async () => {
+    const fake = lifecycleClient();
+    await createVaultLinkFile({
+      url: "https://reference.invalid/doc",
+      name: "Handbook",
+      userId: "user-a",
+      folderId: null,
+      view: { type: "root" },
+    }, fake.client);
+    expect(fake.writes[0]?.payload).toEqual({
+      file_url: "https://reference.invalid/doc",
+      uploaded_by: "user-a",
+      name: "Handbook",
+      folder_id: null,
+      is_external_link: true,
+      file_size: 0,
+    });
+  });
+
+  it("propagates insert failures for link files", async () => {
+    const denied = { message: "permission denied" };
+    const fake = lifecycleClient(denied);
+    await expect(createVaultLinkFile({
+      url: "https://reference.invalid/doc",
+      name: "Handbook",
+      userId: "user-a",
+      folderId: null,
+      view: { type: "club", clubId: "club-a", clubName: "Club A" },
+    }, fake.client)).rejects.toBe(denied);
   });
 
   it("deletes only the exact folder row", async () => {

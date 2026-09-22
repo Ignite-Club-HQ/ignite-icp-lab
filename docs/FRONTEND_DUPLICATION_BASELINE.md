@@ -807,3 +807,50 @@ benchmark was measured, so this is a maintainability/safety result only and
 makes no runtime-performance claim. The only remaining untouched Vault cluster
 is upload/file-name flow and Google Drive import/link/title resolution.
 
+## Phase 4A Vault Drive/Add Link result (2026-09-21)
+
+The sixth Vault package extraction moved the Google Drive / Add Link / OAuth /
+title-resolution cluster into `useVaultDriveLinkWorkflow` and
+`VaultDriveLinkDialogs`. The page retains `currentView`, folder scope
+ownership, upload/file-name flow, storage purchase state, content rendering,
+and all previously extracted Vault workflow boundaries.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,883 | 2,732 |
+| `VaultPage.tsx` `useState` calls | 12 | 8 |
+| `useVaultDriveLinkWorkflow.ts` | 0 | 190 |
+| `VaultDriveLinkDialogs.tsx` | 0 | 106 |
+| Characterization test | 0 | 147 |
+| Complete Vault source package (non-test) | 11,943 | 12,122 |
+| Same-scope jscpd | 318 lines / 24 groups / 2.66% | 298 lines / 22 groups / 2.46% |
+| Product Vault route chunk | 126,670 bytes | 128,117 bytes |
+| Product JavaScript total / chunks | 8,861,554 bytes / 502 | 8,866,611 bytes / 502 |
+| Lazy-loading boundary | existing dialog lazy boundaries only | existing dialog lazy boundaries retained |
+
+The same-scope scan used jscpd 5.3.0 with 50-token/5-line thresholds and the
+standard test/generated-type exclusions across `VaultPage.tsx`,
+`components/vault`, and `features/vault`. The post-refactor scan reported
+12,122 scanned non-test source lines, 22 clone groups, and 298 duplicated
+lines. The complete source package grows by 179 lines because the hook,
+dialog, and repository contract are explicit; the page itself is 151 lines
+smaller and owns four fewer local state declarations.
+
+`src/pages/VaultPage.drive-link.characterization.test.ts` covers saved OAuth
+error cleanup, OAuth code exchange redirect URI semantics, import-versus-link
+token routing, pending flag cleanup, Add Link scoping and toasts, Drive title
+resolution toasts/cache invalidation, dialog mutation wiring, and dialog target
+scope props. Existing bulk-delete and folder-management characterization tests
+were updated only to assert the new Drive boundary instead of expecting the
+cluster to remain inline. Targeted Vault tests passed (61 tests). Product
+typecheck introduced no Vault diagnostic; its ratchet failure remains limited
+to the known unrelated 14 `StartDMDialog`/`ClubDetailPage` diagnostics. Product
+build, bundle budget, quality ratchet, duplication ratchet, isolation, and
+same-scope jscpd passed.
+
+The extracted modules are statically imported and the route chunk is 1,447
+bytes larger than the folder-management result. No request, subscription,
+render-count, or interaction-latency evidence was collected, and no
+runtime-performance claim is made — this is a maintainability/safety extraction
+only. The main remaining high-line-count Vault cluster is upload/file-name
+flow.

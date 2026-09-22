@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "rea
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { getShareUrl } from "@/lib/shareUtils";
-import { resolveDriveTitlesForClub } from "@/features/vault/driveTitleResolution";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { FolderOpen, FileText, Lock, Crown, ChevronRight, ChevronDown, ArrowLeft, Upload, Trash2, Download, FolderPlus, Plus, Pencil, FolderDown, Loader2, FileArchive, X, CheckSquare, Square, FileImage, HardDrive, ShoppingCart, RotateCcw, ExternalLink, Sheet, FileSpreadsheet, Link2, CloudDownload, MoreVertical, RefreshCw, Search } from "lucide-react";
@@ -13,10 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
-const GoogleDriveImportDialog = lazyWithRetry(() => import("@/components/vault/GoogleDriveImportDialog").then(m => ({ default: m.GoogleDriveImportDialog })));
-const LinkDriveFolderDialog = lazyWithRetry(() => import("@/components/vault/LinkDriveFolderDialog").then(m => ({ default: m.LinkDriveFolderDialog })));
 const UploadFilesDialog = lazyWithRetry(() => import("@/components/vault/UploadFilesDialog").then(m => ({ default: m.UploadFilesDialog })));
-const AddLinkDialog = lazyWithRetry(() => import("@/components/vault/AddLinkDialog").then(m => ({ default: m.AddLinkDialog })));
 const VaultStorageBreakdown = lazyWithRetry(() => import("@/components/vault/VaultStorageBreakdown").then(m => ({ default: m.VaultStorageBreakdown })));
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,10 +50,12 @@ import { useVaultLargeFiles } from "@/features/vault/useVaultLargeFiles";
 import { useVaultLightbox } from "@/features/vault/useVaultLightbox";
 import { useVaultBulkDeleteWorkflow } from "@/features/vault/useVaultBulkDeleteWorkflow";
 import { useVaultFolderManagement } from "@/features/vault/useVaultFolderManagement";
+import { useVaultDriveLinkWorkflow } from "@/features/vault/useVaultDriveLinkWorkflow";
 import { VaultExportDialogs } from "@/components/vault/VaultExportDialogs";
 import { VaultBulkDeleteDialog } from "@/components/vault/VaultBulkDeleteDialog";
 import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog";
 import { VaultFolderManagementDialogs } from "@/components/vault/VaultFolderManagementDialogs";
+import { VaultDriveLinkDialogs } from "@/components/vault/VaultDriveLinkDialogs";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -143,44 +141,6 @@ function SupabaseVaultPage() {
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
   const [restoreItemType, setRestoreItemType] = useState<"photo" | "file">("photo");
   const [storagePurchaseDialogOpen, setStoragePurchaseDialogOpen] = useState(false);
-  const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
-  const [addingLink, setAddingLink] = useState(false);
-  const [googleDriveImportOpen, setGoogleDriveImportOpen] = useState(false);
-  const [linkDriveFolderOpen, setLinkDriveFolderOpen] = useState(false);
-  const [resolvingDriveTitles, setResolvingDriveTitles] = useState(false);
-
-  const handleResolveDriveTitles = async () => {
-    const clubId = currentView.type !== "root" ? currentView.clubId : undefined;
-    if (!clubId) return;
-    setResolvingDriveTitles(true);
-    const toastId = toast.loading("Fetching real Google Drive titles…");
-    try {
-      const summary = await resolveDriveTitlesForClub(
-        clubId,
-        (name, options) => supabase.functions.invoke(name, options),
-      );
-      if (!summary || summary.scanned === 0) {
-        toast.success("No Google files needed renaming.", { id: toastId });
-      } else {
-        const parts: string[] = [`${summary.updated} renamed`];
-        if (summary.unresolved > 0) parts.push(`${summary.unresolved} unresolved`);
-        if (summary.errors > 0) parts.push(`${summary.errors} errors`);
-        toast.success(parts.join(" · "), {
-          id: toastId,
-          description:
-            summary.unresolved > 0 && !summary.hasOAuth
-              ? "Tip: link a Google Drive folder so private files can be renamed too."
-              : undefined,
-        });
-        invalidateVaultCache(queryClient, ["files"]);
-      }
-    } catch (err: any) {
-      console.error("resolve-drive-titles failed", err);
-      toast.error("Couldn't fetch Drive titles", { id: toastId, description: err?.message });
-    } finally {
-      setResolvingDriveTitles(false);
-    }
-  };
 
   const { data: isAppAdmin, isLoading: isLoadingAppAdmin } = useQuery({
     queryKey: ["is-app-admin", user?.id],
@@ -268,74 +228,6 @@ function SupabaseVaultPage() {
       }
     }
   }, [activeClubFilter, userClubs, currentView.type]);
-
-  // Handle Google OAuth callback from redirect
-  // The OAuth code is now captured in App.tsx before router init
-  // This effect just processes any saved errors
-  useEffect(() => {
-    const savedError = sessionStorage.getItem('googleDriveOAuthError');
-    
-    if (savedError) {
-      console.error("[GoogleDrive OAuth] Error from Google:", savedError);
-      toast.error("Google authentication was cancelled or failed");
-      sessionStorage.removeItem('googleDriveOAuthError');
-      sessionStorage.removeItem('googleDriveImportPending');
-    }
-  }, []);
-  
-  // Process saved OAuth code
-  useEffect(() => {
-    const savedCode = sessionStorage.getItem('googleDriveOAuthCode');
-    
-    if (savedCode) {
-      console.log("[GoogleDrive OAuth] Processing saved code");
-      sessionStorage.removeItem('googleDriveOAuthCode');
-      
-      const exchangeCode = async () => {
-        try {
-          const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
-          const redirectUri = isNative ? 'https://reference.invalid' : `${window.location.origin}/vault`;
-          console.log("[GoogleDrive OAuth] Exchanging code with redirectUri:", redirectUri);
-          
-          const { data, error: exchangeError } = await supabase.functions.invoke('google-drive-import?action=exchange-code', {
-            body: { code: savedCode, redirectUri },
-          });
-          
-          if (exchangeError || data?.error) {
-            console.error("[GoogleDrive OAuth] Token exchange failed:", data?.error || exchangeError);
-            toast.error("Failed to connect to Google Drive");
-            return;
-          }
-          
-          console.log("[GoogleDrive OAuth] Token exchange successful");
-
-          // Determine flow: "link a folder" pending takes precedence over "import"
-          const linkPending = sessionStorage.getItem('driveLinkPending');
-          if (linkPending) {
-            sessionStorage.removeItem('driveLinkPending');
-            sessionStorage.setItem('driveLinkAccessToken', data.accessToken);
-            if (data.refreshToken) sessionStorage.setItem('driveLinkRefreshToken', data.refreshToken);
-            if (data.googleEmail) sessionStorage.setItem('driveLinkGoogleEmail', data.googleEmail);
-            setLinkDriveFolderOpen(true);
-          } else {
-            sessionStorage.setItem('googleDriveAccessToken', data.accessToken);
-            // Also stash refresh token + google email so the import dialog can
-            // optionally create a sync link for any folder the user imports.
-            if (data.refreshToken) sessionStorage.setItem('googleDriveRefreshToken', data.refreshToken);
-            if (data.googleEmail) sessionStorage.setItem('googleDriveGoogleEmail', data.googleEmail);
-            setGoogleDriveImportOpen(true);
-          }
-        } catch (err) {
-          console.error("[GoogleDrive OAuth] Exception:", err);
-          toast.error("Failed to connect to Google Drive");
-        } finally {
-          sessionStorage.removeItem('googleDriveImportPending');
-        }
-      };
-      
-      exchangeCode();
-    }
-  }, []); // Only run on mount after the first effect
 
   // Check if user is a club admin or committee member for the current club (can see all teams)
   const isClubAdminOrCommittee = useMemo(() => {
@@ -1676,38 +1568,23 @@ function SupabaseVaultPage() {
     },
   });
 
-  const addLinkMutation = useMutation({
-    mutationFn: async ({ url, name }: { url: string; name: string }) => {
-      const insertData: any = {
-        file_url: url,
-        uploaded_by: user!.id,
-        name,
-        folder_id: getCurrentFolderId(),
-        is_external_link: true,
-        file_size: 0, // External links have no storage size
-      };
-
-      if (currentView.type === "club") {
-        insertData.club_id = currentView.clubId;
-      } else if (currentView.type === "team") {
-        insertData.club_id = currentView.clubId;
-        insertData.team_id = currentView.teamId;
-      } else if (currentView.type === "mini-league") {
-        insertData.club_id = currentView.clubId;
-        insertData.mini_league_id = currentView.miniLeagueId;
-      }
-
-      const { error: insertError } = await supabase.from("vault_files").insert(insertData);
-      if (insertError) throw insertError;
-    },
-    onSuccess: () => {
-      invalidateVaultCache(queryClient, ["files"]);
-      setAddLinkDialogOpen(false);
-      toast.success("Link added successfully!");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to add link");
-    },
+  const {
+    addLinkDialogOpen,
+    setAddLinkDialogOpen,
+    googleDriveImportOpen,
+    setGoogleDriveImportOpen,
+    linkDriveFolderOpen,
+    setLinkDriveFolderOpen,
+    resolvingDriveTitles,
+    handleResolveDriveTitles,
+    addLinkMutation,
+    handleDriveChanged,
+  } = useVaultDriveLinkWorkflow({
+    currentView,
+    getCurrentFolderId,
+    userId: user?.id,
+    queryClient,
+    invokeFunction: (name, options) => supabase.functions.invoke(name, options),
   });
 
   const {
@@ -2355,45 +2232,17 @@ function SupabaseVaultPage() {
             />
             </Suspense>
 
-            <Suspense fallback={null}>
-            <AddLinkDialog
-              open={addLinkDialogOpen}
-              onOpenChange={setAddLinkDialogOpen}
-              onAddLink={(url, name) => addLinkMutation.mutate({ url, name })}
-              isAdding={addLinkMutation.isPending}
-              targetName={currentView.folderName || (currentView.type === "team" ? currentView.teamName : currentView.type === "club" ? currentView.clubName : "Vault")}
+            <VaultDriveLinkDialogs
+              currentView={currentView}
+              addLinkDialogOpen={addLinkDialogOpen}
+              onAddLinkDialogOpenChange={setAddLinkDialogOpen}
+              addLinkMutation={addLinkMutation}
+              googleDriveImportOpen={googleDriveImportOpen}
+              onGoogleDriveImportOpenChange={setGoogleDriveImportOpen}
+              linkDriveFolderOpen={linkDriveFolderOpen}
+              onLinkDriveFolderOpenChange={setLinkDriveFolderOpen}
+              onDriveChanged={handleDriveChanged}
             />
-            </Suspense>
-
-            <Suspense fallback={null}>
-            <GoogleDriveImportDialog
-              open={googleDriveImportOpen}
-              onOpenChange={setGoogleDriveImportOpen}
-              onImportComplete={() => {
-                invalidateVaultCache(queryClient, ["files"]);
-                queryClient.invalidateQueries({ queryKey: ["vault-folders"] });
-              }}
-              targetFolderId={currentView.type === "team" || currentView.type === "mini-league" ? (currentView.folderId || null) : null}
-              targetTeamId={currentView.type === "team" ? currentView.teamId : null}
-              targetClubId={currentView.clubId}
-            />
-            </Suspense>
-
-            {'clubId' in currentView && (
-              <Suspense fallback={null}>
-              <LinkDriveFolderDialog
-                open={linkDriveFolderOpen}
-                onOpenChange={setLinkDriveFolderOpen}
-                vaultFolderId={currentView.folderId ?? null}
-                clubId={currentView.clubId}
-                teamId={currentView.type === "team" ? currentView.teamId : null}
-                onChanged={() => {
-                  invalidateVaultCache(queryClient, ["files"]);
-                  queryClient.invalidateQueries({ queryKey: ["vault-folders"] });
-                }}
-              />
-              </Suspense>
-            )}
           </div>
         </div>
       )}

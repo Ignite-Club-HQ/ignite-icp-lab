@@ -1068,6 +1068,70 @@ callback contract they already consumed through `VaultContentRenderer`. Phase
 Vault cluster is upload/file-name flow and Google Drive import/link/title
 resolution.
 
+### Phase 4A Vault Drive/Add Link result (2026-09-21)
+
+The Drive/Add Link/OAuth/title-resolution feature cluster in `VaultPage.tsx`
+was extracted into a typed workflow hook and dialog component:
+
+- `src/features/vault/useVaultDriveLinkWorkflow.ts` (190 lines): Add Link
+  dialog state, Google Drive import/link dialog state, Drive title-resolution
+  loading and toast lifecycle, saved OAuth error handling, saved OAuth code
+  exchange, import-versus-link token routing, cache invalidation, and the
+  Add Link mutation.
+- `src/components/vault/VaultDriveLinkDialogs.tsx` (106 lines): Add Link,
+  Google Drive import, and Link Drive Folder dialog wiring, retaining their
+  existing lazy component boundaries.
+- `src/features/vault/vaultMutationRepository.ts`: new
+  `createVaultLinkFile` repository helper, reusing the already-tested
+  `getVaultScope` scoping model instead of leaving club/team/mini-league
+  insert branching inline in the page.
+
+The page retains `currentView`, folder scope ownership, upload/file-name
+flow, storage purchase state, content rendering, and the previously extracted
+trash/recovery, export/large-files, lightbox, bulk-delete, and folder/file
+management boundaries. The Drive workflow receives readonly scope inputs and
+the existing `supabase.functions.invoke` boundary from the page; it does not
+introduce a fallback provider, global state, or a new loading boundary.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,883 | 2,732 |
+| `VaultPage.tsx` `useState` calls | 12 | 8 |
+| `useVaultDriveLinkWorkflow.ts` | 0 | 190 |
+| `VaultDriveLinkDialogs.tsx` | 0 | 106 |
+| Characterization test | 0 | 147 |
+| Complete Vault source package (non-test, same scope) | 11,943 | 12,122 |
+| Same-scope jscpd | 318 lines / 24 groups / 2.66% | 298 lines / 22 groups / 2.46% |
+| Product Vault route chunk | 126,670 bytes | 128,117 bytes |
+| Product JavaScript total / chunks | 8,861,554 bytes / 502 | 8,866,611 bytes / 502 |
+| Lazy-loading boundary | existing dialog lazy boundaries only | existing dialog lazy boundaries retained |
+
+The source package grows by 179 non-test lines because the repository/helper
+contract and hook/dialog boundary are explicit; the page itself is 151 lines
+smaller and has four fewer local state declarations. Unlike the lightbox
+round, this extraction also reduces measured same-scope duplication by 20
+duplicated lines and two clone groups because the page no longer owns all
+Drive/Add Link dialog wiring and insert scoping inline.
+
+Characterization coverage in
+`src/pages/VaultPage.drive-link.characterization.test.ts` covers saved OAuth
+error cleanup, saved code exchange redirect URI semantics, failure handling,
+folder-link versus import token routing, pending-flag cleanup, Add Link
+scoping and toasts, title-resolution toasts/cache invalidation, dialog
+mutation wiring, and Drive dialog target-scope props. Existing bulk-delete
+and folder-management characterization tests were updated only to assert the
+new stable Drive boundary rather than expecting the cluster to remain inline.
+Targeted Vault tests passed (61 tests). Product typecheck introduced no
+Vault diagnostic; its ratchet failure remains the known unrelated 14
+`StartDMDialog`/`ClubDetailPage` diagnostics. Product build, bundle budget,
+quality ratchet, duplication ratchet, isolation, and same-scope jscpd passed.
+
+The extracted modules are statically imported and the route chunk is 1,447
+bytes larger than the folder-management result. No request, subscription,
+render-count, or interaction-latency benchmark was measured, so this is a
+maintainability/safety result only and makes no runtime-performance claim.
+The main remaining high-line-count Vault cluster is upload/file-name flow.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:
