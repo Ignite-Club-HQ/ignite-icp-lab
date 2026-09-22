@@ -40,6 +40,7 @@ import { VaultLargeFilesDialog } from "@/components/vault/VaultLargeFilesDialog"
 import { VaultFolderManagementDialogs } from "@/components/vault/VaultFolderManagementDialogs";
 import { VaultDriveLinkDialogs } from "@/components/vault/VaultDriveLinkDialogs";
 import { VaultTopSection, type VaultTopSectionProps } from "@/components/vault/VaultTopSection";
+import { VaultMainContent } from "@/components/vault/VaultMainContent";
 import {
   emptyVaultStorageBreakdown,
   fetchVaultStorageBreakdown,
@@ -1599,6 +1600,73 @@ function SupabaseVaultPage() {
     },
   };
 
+  const mainContentProps = {
+    currentView,
+    showTrash,
+    search: {
+      query: vaultSearchQuery,
+      isFetchingRecursive,
+      folderMatchCount: displaySubfolders.length,
+      photoMatchCount: displayPhotos.length,
+      fileMatchCount: displayFiles.length,
+      onQueryChange: setVaultSearchQuery,
+    },
+    rootPicker: {
+      isLoadingClubs,
+      clubs: userClubs,
+      activeClubFilter,
+      onSelectClub: (club: { id: string; name: string; is_pro?: boolean | null }) => {
+        if (!club.is_pro) {
+          navigate(`/clubs/${club.id}/upgrade`);
+          return;
+        }
+        setFolderPath([]);
+        setCurrentView({ type: "club", clubId: club.id, clubName: club.name });
+      },
+    },
+    clubNavigation: {
+      teams: clubTeams,
+      teamFolders,
+      miniLeagues: clubMiniLeagues,
+      onSelectTeam: (team: { id: string; name: string }) => {
+        if (currentView.type !== "club") return;
+        setFolderPath([]);
+        setCurrentView({
+          type: "team",
+          clubId: currentView.clubId,
+          clubName: currentView.clubName,
+          teamId: team.id,
+          teamName: team.name,
+        });
+      },
+      onSelectMiniLeague: (league: { id: string; name: string }) => {
+        if (currentView.type !== "club") return;
+        setFolderPath([]);
+        setCurrentView({
+          type: "mini-league",
+          clubId: currentView.clubId,
+          clubName: currentView.clubName,
+          miniLeagueId: league.id,
+          miniLeagueName: league.name,
+        });
+      },
+    },
+    content: {
+      folders: displaySubfolders,
+      searchQuery: normalizedSearch,
+      contentRendererView,
+      miniLeagueContent: miniLeagueContentRendererProps,
+      actions: {
+        onNavigateToFolder: navigateToFolder,
+        onShareFolder: (folder: { id: string }) => shareFolder(folder.id),
+        onExportFolder: openFolderExportDialog,
+        onRenameFolder: startRenameFolder,
+        onDeleteFolder: requestDeleteFolder,
+        canEditFolder: canDeleteFolder,
+      },
+    },
+  };
+
   return (
     <div className={currentView.type === "root" ? "py-6 space-y-6" : "pt-3 pb-6 space-y-4"}>
       <VaultTopSection {...topSectionProps} />
@@ -1629,302 +1697,7 @@ function SupabaseVaultPage() {
         </>
       )}
 
-      {/* Search bar — filter folders, files, and photos in the current view */}
-      {currentView.type !== "root" && !showTrash && (
-        <div className="space-y-2">
-          <div
-            className={`relative rounded-md transition-shadow ${
-              isFetchingRecursive ? "ring-2 ring-primary/40 ring-offset-0 animate-pulse" : ""
-            }`}
-          >
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-              {isFetchingRecursive ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </span>
-            <Input
-              value={vaultSearchQuery}
-              onChange={(e) => setVaultSearchQuery(e.target.value)}
-              placeholder="Search folders and files..."
-              className="pl-9 pr-9"
-              aria-busy={isFetchingRecursive}
-            />
-            {vaultSearchQuery && (
-              <button
-                type="button"
-                onClick={() => setVaultSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-accent"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            )}
-          </div>
-          {vaultSearchQuery.trim() && (
-            <p
-              className="text-xs text-muted-foreground px-1 flex items-center gap-1.5"
-              role="status"
-              aria-live="polite"
-            >
-              {isFetchingRecursive ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span>Searching all nested folders…</span>
-                </>
-              ) : (
-                (() => {
-                  const total = displaySubfolders.length + displayPhotos.length + displayFiles.length;
-                  if (total === 0) {
-                    return <span>No matches for "{vaultSearchQuery}"</span>;
-                  }
-                  return (
-                    <span>
-                      {total} {total === 1 ? "match" : "matches"} across all subfolders
-                    </span>
-                  );
-                })()
-              )}
-            </p>
-          )}
-        </div>
-      )}
-
-      {currentView.type === "root" && (
-        <div className="space-y-3">
-          {isLoadingClubs ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Loading clubs...</p>
-            </div>
-          ) : !userClubs || userClubs.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No clubs found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            (activeClubFilter ? userClubs.filter(c => c.id === activeClubFilter) : userClubs).map((club) => {
-              const isPro = club.is_pro;
-              return (
-                <Card
-                  key={club.id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => {
-                    if (!isPro) {
-                      navigate(`/clubs/${club.id}/upgrade`);
-                      return;
-                    }
-                    setFolderPath([]);
-                    setCurrentView({ type: "club", clubId: club.id, clubName: club.name });
-                  }}
-                >
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <FolderOpen className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{club.name}</p>
-                      {!isPro && (
-                        <p className="text-xs text-muted-foreground">Pro feature — Upgrade to unlock vault</p>
-                      )}
-                    </div>
-                    {!isPro ? (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {currentView.type === "club" && (
-        <div className="space-y-6">
-          {/* Teams grouped by team folders - only show at root of club and not in trash view */}
-          {!showTrash && !currentView.folderId && clubTeams && clubTeams.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Teams</h2>
-              
-              {/* Render team folders with their teams */}
-              {teamFolders && teamFolders.length > 0 && teamFolders.map((folder) => {
-                const teamsInFolder = clubTeams.filter(team => team.folder_id === folder.id);
-                if (teamsInFolder.length === 0) return null;
-                
-                const colorInfo = getFolderColorClass(folder.color);
-                
-                return (
-                  <div key={folder.id} className="space-y-2">
-                    <div className={`flex items-center gap-2 px-2 py-1 rounded-lg ${colorInfo.bgClassName}`}>
-                      <FolderOpen className={`h-4 w-4 ${colorInfo.className}`} />
-                      <span className="text-sm font-medium">{folder.name}</span>
-                      <span className="text-xs text-muted-foreground">({teamsInFolder.length})</span>
-                    </div>
-                    <div className="pl-2 space-y-2">
-                      {teamsInFolder.map((team) => (
-                        <Card
-                          key={team.id}
-                          className="cursor-pointer hover:bg-accent/50 transition-colors"
-                          onClick={() => {
-                            setFolderPath([]);
-                            setCurrentView({ 
-                              type: "team", 
-                              clubId: currentView.clubId, 
-                              clubName: currentView.clubName,
-                              teamId: team.id, 
-                              teamName: team.name 
-                            });
-                          }}
-                        >
-                          <CardContent className="p-3 flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-secondary">
-                              <FolderOpen className="h-4 w-4 text-secondary-foreground" />
-                            </div>
-                            <p className="font-medium flex-1 text-sm">{team.name}</p>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-              
-              {/* Uncategorized teams (no folder_id) */}
-              {(() => {
-                const uncategorizedTeams = clubTeams.filter(team => !team.folder_id);
-                if (uncategorizedTeams.length === 0) return null;
-                
-                // Show header only if there are team folders with teams
-                const hasTeamFolders = teamFolders && teamFolders.some(folder => 
-                  clubTeams.some(team => team.folder_id === folder.id)
-                );
-                
-                return (
-                  <div className="space-y-2">
-                    {hasTeamFolders && (
-                      <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-muted/50">
-                        <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium text-muted-foreground">Other Teams</span>
-                        <span className="text-xs text-muted-foreground">({uncategorizedTeams.length})</span>
-                      </div>
-                    )}
-                    <div className={hasTeamFolders ? "pl-2 space-y-2" : "space-y-2"}>
-                      {uncategorizedTeams.map((team) => (
-                        <Card
-                          key={team.id}
-                          className="cursor-pointer hover:bg-accent/50 transition-colors"
-                          onClick={() => {
-                            setFolderPath([]);
-                            setCurrentView({ 
-                              type: "team", 
-                              clubId: currentView.clubId, 
-                              clubName: currentView.clubName,
-                              teamId: team.id, 
-                              teamName: team.name 
-                            });
-                          }}
-                        >
-                          <CardContent className="p-3 flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-secondary">
-                              <FolderOpen className="h-4 w-4 text-secondary-foreground" />
-                            </div>
-                            <p className="font-medium flex-1 text-sm">{team.name}</p>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Mini-Leagues - only show at root of club and not in trash view */}
-          {!showTrash && !currentView.folderId && clubMiniLeagues && clubMiniLeagues.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Mini-Leagues</h2>
-              <div className="space-y-2">
-                {clubMiniLeagues.map((league) => (
-                  <Card
-                    key={league.id}
-                    className="cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => {
-                      setFolderPath([]);
-                      setCurrentView({ 
-                        type: "mini-league", 
-                        clubId: currentView.clubId, 
-                        clubName: currentView.clubName,
-                        miniLeagueId: league.id, 
-                        miniLeagueName: league.name 
-                      });
-                    }}
-                  >
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-accent">
-                        <FolderOpen className="h-4 w-4 text-accent-foreground" />
-                      </div>
-                      <p className="font-medium flex-1 text-sm">{league.name}</p>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <VaultContentRenderer
-            folders={displaySubfolders || []}
-            searchQuery={normalizedSearch}
-            onNavigateToFolder={(folder) => navigateToFolder(folder)}
-            onShareFolder={(folder) => shareFolder(folder.id)}
-            onExportFolder={(folder) => openFolderExportDialog(folder)}
-            onRenameFolder={startRenameFolder}
-            onDeleteFolder={requestDeleteFolder}
-            canEditFolder={canDeleteFolder}
-            {...contentRendererView}
-          />
-        </div>
-      )}
-
-      {currentView.type === "team" && (
-        <div className="space-y-6">
-          <VaultContentRenderer
-            folders={displaySubfolders || []}
-            searchQuery={normalizedSearch}
-            onNavigateToFolder={(folder) => navigateToFolder(folder)}
-            onShareFolder={(folder) => shareFolder(folder.id)}
-            onExportFolder={(folder) => openFolderExportDialog(folder)}
-            onRenameFolder={startRenameFolder}
-            onDeleteFolder={requestDeleteFolder}
-            canEditFolder={canDeleteFolder}
-            {...contentRendererView}
-          />
-        </div>
-      )}
-
-      {currentView.type === "mini-league" && (
-        <div className="space-y-6">
-          <VaultContentRenderer
-            folders={[]}
-            searchQuery={normalizedSearch}
-            onNavigateToFolder={() => undefined}
-            onShareFolder={() => undefined}
-            onExportFolder={() => undefined}
-            onRenameFolder={() => undefined}
-            onDeleteFolder={() => undefined}
-            canEditFolder={() => false}
-            mode="content"
-            content={miniLeagueContentRendererProps}
-          />
-        </div>
-      )}
+      <VaultMainContent {...mainContentProps} />
 
       {/* Photo Lightbox */}
       <VaultLightbox

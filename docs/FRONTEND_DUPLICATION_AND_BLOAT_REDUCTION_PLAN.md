@@ -1304,6 +1304,44 @@ performance evidence was collected. This is a maintainability/safety result
 only, with no runtime-performance claim. Phase 4A stops after this
 presentation extraction; data-model extraction is not started.
 
+### Phase 4A Vault navigation/search presentation result (2026-09-22)
+
+`src/components/vault/VaultMainContent.tsx` now owns the route presentation
+after `VaultTopSection`: the non-root/non-trash search UI and status, root
+club picker, club team-folder and mini-league panels, and the typed
+club/team/mini-league content-renderer entries. `VaultPage.tsx` retains the
+data/query model, current-view and URL navigation ownership, all mutation and
+workflow boundaries, and page-owned callbacks passed through a narrow typed
+model.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,114 | 1,887 |
+| New presentation module | 0 | 425 |
+| New characterization test | 0 | 177 |
+| Complete Vault source package (non-test) | 12,276 | 12,474 |
+| Same-scope jscpd | 235 lines / 19 groups / 1.91% | 208 lines / 18 groups / 1.67% |
+| Product Vault route chunk | 129,860 bytes | 130,929 bytes |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The page is 227 lines smaller. The explicit package grows by 198 non-test
+lines, but exact-scope duplication also falls by 27 duplicated lines and one
+clone group. Contracts cover search accessibility/status, root club Pro
+upgrade routing, club team/mini-league navigation, grouped-folder rendering,
+and all three content-renderer variants including mini-league's read-only
+file policy. Focused contracts passed (20 tests); the complete legacy suite
+passed 4,384 tests with one pre-existing skip. Build, bundle, quality,
+isolation, duplication, and lab typecheck gates pass. Product typecheck
+remains only at the known unrelated 14 `StartDMDialog`/`ClubDetailPage`
+diagnostics.
+
+This is a static presentation extraction: the route chunk increases by 1,069
+bytes and no request, subscription, render-count, or interaction measurement
+changed. It is therefore a maintainability/safety result only, not a runtime
+performance claim. Further large reduction now requires data/access/query
+model extraction, which is intentionally higher risk and must be separately
+characterized rather than merged into this presentation change.
+
 ## Phase 5 - runtime efficiency and redundant data work
 
 Line-count reduction alone is insufficient. Profile targeted routes for:

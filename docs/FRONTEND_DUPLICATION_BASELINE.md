@@ -977,3 +977,41 @@ request, subscription, render-count, interaction, or latency benchmark was
 performed. This is maintainability/safety evidence only, not a runtime-
 performance claim. Work stops at this presentation extraction; no data-model
 extraction was started.
+
+## Phase 4A Vault navigation/search presentation result (2026-09-22)
+
+The next presentation-only boundary extracted the search status, root club
+picker, club team-folder and mini-league navigation panels, and club/team/
+mini-league `VaultContentRenderer` entries into
+`src/components/vault/VaultMainContent.tsx`. `VaultPage.tsx` retains all
+queries, current-view state, navigation callbacks, provider behavior, workflow
+hooks, and content-renderer data models; the new component receives typed
+models and page-owned actions.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultPage.tsx` raw lines | 2,114 | 1,887 |
+| `VaultMainContent.tsx` | 0 | 425 |
+| Characterization test | 0 | 177 |
+| Complete Vault source package (non-test) | 12,276 | 12,474 |
+| Same-scope jscpd | 235 lines / 19 groups / 1.91% | 208 lines / 18 groups / 1.67% |
+| Product Vault route chunk | 129,860 bytes | 130,929 bytes |
+| Product JavaScript total / chunks | 8,868,354 bytes / 502 | 8,869,423 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The page is 227 lines smaller. The complete source package grows by 198
+non-test lines because the typed presentation model is explicit, but same-scope
+duplication decreases by 27 lines and one clone group. The characterisation
+contract verifies the non-root/non-trash search condition and status copy,
+root picker loading/empty/filter/Pro upgrade behavior, team-folder grouping
+and color classes, uncategorized team behavior, mini-league navigation, and
+the content-renderer contracts including mini-league's read-only file policy.
+
+Focused navigation/top-section contracts passed (20 tests); the full legacy
+suite passed 4,384 tests with one pre-existing skip across 457 files.
+`typecheck:lab`, build, product bundle budget, quality ratchet, isolation, and
+duplication ratchet passed. Product typecheck remains limited to the known
+unrelated `StartDMDialog`/`ClubDetailPage` diagnostics. The presentation module
+is statically imported, so the 1,069-byte route-chunk increase is organization
+overhead. No request, subscription, render-count, interaction, or latency
+benchmark was performed; this is maintainability/safety evidence only.
