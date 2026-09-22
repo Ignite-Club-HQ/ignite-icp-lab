@@ -1283,3 +1283,42 @@ across 17 files), lab typecheck, direct `tsc` diagnostics on touched files,
 product typecheck (only the pre-existing 14-diagnostic baseline drift in
 `StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
 isolation, quality ratchet, and duplication ratchet all passed.
+
+## Phase 4A AutoSub scheduler internal split (2026-09-27, follow-up)
+
+`planner/scheduler.ts` had become the pitch package's second-largest file
+(3,020 lines) after absorbing the prior AutoSub decomposition, so
+`createSubPlanInternal`'s own internals were split apart:
+
+- Deleted ~220 duplicate lines (`naivePlanTotals`, `rebalanceablePlayers`,
+  `planSpreadSeconds`, `EqualTimeOverrideOptions`, `applyEqualTimeOverride`)
+  by rewiring onto the pre-existing, already-tested, previously-unused
+  generic `planner/equalTimeOverride.ts` module.
+- Extracted the self-contained `rotationSpeed === 1` "PRACTICAL MODE" branch
+  into `planner/practicalMode.ts` (`buildPracticalModePlan`).
+- Extracted the `rotationSpeed >= 2` "BALANCED / FREQUENT MODES" branch into
+  `planner/fairnessMode.ts` (`buildFairnessModePlan`).
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `planner/scheduler.ts` raw lines | 3,020 | 666 |
+| `planner/practicalMode.ts` raw lines | 0 (new) | 683 |
+| `planner/fairnessMode.ts` raw lines | 0 (new) | 1,594 |
+| Product AutoSub lazy chunk | 77,730 bytes | 79,240 bytes |
+| Product JavaScript total / chunks | 8,870,648 bytes / 502 | 8,872,165 bytes / 502 |
+| Duplication ratchet duplicated lines | 17,582 | 15,899 (−1,683) |
+
+`fairnessMode.ts` (1,594 lines) is now the largest of the three planner
+files; it was kept as one module (it is the fairness-optimisation branch,
+inherently the most complex part of the algorithm) rather than force-split
+further, per this doc's guardrail against trading one oversized file for
+another.
+
+Full legacy tests (467 files, 4,471 passed, one skipped), the 240-case
+AutoSub fairness matrix plus the focused AutoSub/planner batch (390 tests
+across 8 files, run after each extraction step), lab typecheck, direct `tsc`
+diagnostics on touched files (confirmed the pre-existing 171 product
+diagnostics are unchanged versus a temporarily-reverted baseline), product
+typecheck (same pre-existing 14-diagnostic baseline drift in
+`StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
+isolation, quality ratchet, and duplication ratchet (improved) all passed.

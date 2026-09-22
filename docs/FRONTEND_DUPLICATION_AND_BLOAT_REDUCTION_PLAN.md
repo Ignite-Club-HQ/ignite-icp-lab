@@ -770,6 +770,76 @@ in `StartDMDialog`/`ClubDetailPage`), product build, product bundle budget,
 isolation, quality ratchet, and duplication ratchet all passed after this
 move.
 
+### Phase 4A AutoSub scheduler internal split (2026-09-27, follow-up)
+
+`planner/scheduler.ts` (3,020 lines) had absorbed nearly the entire
+`AutoSubPlanDialog.tsx` decomposition and had become the pitch package's
+second-largest file, so this step pulled apart `createSubPlanInternal`'s own
+internals — the responsibility map called out in the prior phase. Two
+changes were made, both behaviour-preserving:
+
+1. **Duplicate consolidation.** `scheduler.ts` carried local copies of
+   `naivePlanTotals`, `rebalanceablePlayers`, `planSpreadSeconds`,
+   `EqualTimeOverrideOptions`, and `applyEqualTimeOverride` that were
+   near-identical to already-existing, already-tested, but previously unused
+   generic implementations in `planner/equalTimeOverride.ts`
+   (`calculatePlanTotals`, `rebalanceablePlayers`, `calculatePlanSpread`,
+   `EqualTimeOverrideOptions`, `buildEqualTimeOverride`). `scheduler.ts` was
+   rewired onto the canonical module and its local copies (~220 lines) were
+   deleted — a real duplication fix, not just a line-count move.
+2. **Branch extraction.** `createSubPlanInternal`'s two large, mutually
+   exclusive branches — "PRACTICAL MODE" (`rotationSpeed === 1`, a
+   self-contained FIFO planner ending in its own `return`) and
+   "BALANCED / FREQUENT MODES" (`rotationSpeed >= 2`, the fairness-driven
+   planner that runs to the function's final `return`) — were moved into
+   two new sibling modules, `planner/practicalMode.ts` and
+   `planner/fairnessMode.ts`. Each exports a single function
+   (`buildPracticalModePlan` / `buildFairnessModePlan`) taking an explicit
+   context object built from the same setup-phase locals
+   `createSubPlanInternal` already computed; `scheduler.ts` now calls these
+   functions instead of inlining the branch bodies. Extraction used a
+   compiler-driven technique: paste the branch body into the new file behind
+   a stub context type, run `tsc --noEmit -p tsconfig.app.json` directly
+   (not the root composite `tsconfig.json`, which silently skips
+   newly-created files not yet imported anywhere), and add every
+   "Cannot find name" identifier to the context interface until the file
+   compiles cleanly, then wire the real call site.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `planner/scheduler.ts` raw lines | 3,020 | 666 |
+| `planner/practicalMode.ts` raw lines | 0 (new) | 683 |
+| `planner/fairnessMode.ts` raw lines | 0 (new) | 1,594 |
+| `planner/equalTimeOverride.ts` raw lines | 184 (pre-existing, now wired in) | 184 (unchanged) |
+| Product AutoSub lazy chunk | 77,730 bytes | 79,240 bytes (module-boundary overhead only) |
+| Product JavaScript total / chunks | 8,870,648 bytes / 502 | 8,872,165 bytes / 502 |
+| Duplication ratchet duplicated lines | 17,582 | 15,899 (−1,683) |
+
+`scheduler.ts` is no longer the pitch package's largest planner file;
+`fairnessMode.ts` (1,594 lines) is now the largest of the three, reflecting
+that the BALANCED/FREQUENT branch is inherently the most complex part of the
+algorithm (equal-playing-time optimisation, priority-bias ordering, spread
+escalation, equal-time overrides, starved-player smoothing all in one pass).
+It was moved as a single unit rather than force-split further, consistent
+with this plan's guardrail against relocating bloat into another
+equally-oversized file — a further internal split of `fairnessMode.ts` would
+need its own responsibility map before proceeding, the same rule applied to
+`scheduler.ts` in the prior phase.
+
+Verification for this step: `tsc --noEmit -p tsconfig.app.json` clean on all
+three touched/created files (confirmed against a temporarily-reverted
+baseline that the pre-existing 171 product diagnostics are unchanged and
+unrelated); the focused AutoSub/planner batch (240-case fairness matrix,
+acceptance, goalkeeper-rotation regression, mode-contract regression,
+orchestration sims, `equalTimeOverride.test.ts` — 390 tests across 8 files)
+passed after each extraction step; full legacy suite (467 files, 4,471
+passed, 1 skipped); `typecheck:lab` clean; `typecheck:product` (only the
+same pre-existing 14-diagnostic baseline drift in
+`StartDMDialog`/`ClubDetailPage`); `build:product` succeeded;
+`check:product-bundle` within budget (8.87 MB / 9.8 MB total JS budget);
+`check:isolation` passed; `check:quality-ratchet` passed; `check:duplication`
+improved by 1,683 duplicated lines (the `equalTimeOverride` consolidation).
+
 ### Phase 4A Vault result (2026-09-21)
 
 The initial Vault extraction is complete and is limited to the deleted-item
