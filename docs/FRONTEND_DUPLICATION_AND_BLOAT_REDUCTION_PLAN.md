@@ -1903,3 +1903,36 @@ The refactor program is complete only when:
 - product build, lab tests, legacy tests, quality checks, and isolation checks pass;
 - intentional route/provider differences are documented rather than hidden;
 - the vendor handover audit is updated with reproducible final evidence.
+
+## Phase 4A Event detail decomposition result (2026-09-14)
+
+`EventDetailPage.tsx` was decomposed along existing behavior boundaries rather
+than moving the page wholesale. Mutation orchestration now lives in focused
+hooks for duties, cancellation, reminders/invites, checkout, RSVP/admin RSVP,
+local attendance, and parent-managed mini-league RSVP. Presentation was split
+into event overview, action dialogs, duty roster, match awards, and pitch-board
+portal components. The page remains the owner of provider selection, queries,
+permissions, attendance failure/loading policy, derived rosters, dialog state,
+and the unified attendance composition.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `EventDetailPage.tsx` raw lines | 4,613 | 2,574 | -2,039 (-44.2%) |
+| Largest new hook | 0 | 474 (`useEventRsvpMutations.ts`) | +474 |
+| Largest new presentation component | 0 | 347 (`EventOverviewSection.tsx`) | +347 |
+| Event detail source contract | 7 tests | 7 tests | unchanged/passing |
+| Product JavaScript total / chunks | not measured at the exact pre-change commit | 8,877,407 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | not measured at the exact pre-change commit | 1,112,842 bytes | budget passing |
+
+No replacement file approaches the original page size. The attendance failure
+contract now reads the page plus the extracted action dialogs so its
+disabled-action assertions follow the intentional component boundary; the
+failure alert, RSVP query state, loading state, and retry policy remain
+page-owned.
+
+The full legacy suite passed 4,471 tests across 467 files (one existing skip);
+the lab suite passed 1,720 tests across 153 files. `typecheck:lab`, product
+build, product bundle budget, isolation, quality ratchet, duplication ratchet,
+the focused Event Detail/pitch-board guards, and `git diff --check` passed.
+This is a maintainability/safe-change result; no request, subscription,
+render-count, or interaction-latency improvement is claimed.
