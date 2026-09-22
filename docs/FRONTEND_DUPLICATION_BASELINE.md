@@ -1168,3 +1168,38 @@ latency benchmark was performed; this is maintainability/safety evidence
 only. Storage purchase/sizing and the delete/restore/trash workflow itself
 were intentionally left page-owned per this task's scope and remain
 candidates for a separate future round.
+
+## Phase 4A Vault content-renderer decomposition result (2026-09-22)
+
+The previous 946-line `VaultContentRenderer.tsx` is now a 121-line stable
+entry point. It preserves its public imports by re-exporting the moved
+content, trash, photo, and type APIs. The split is bounded:
+`VaultContentSection.tsx` is 396 lines, `VaultTrashSection.tsx` is 254,
+`VaultPhotoItem.tsx` is 173, and `VaultTypes.ts` is 27. The complete
+non-test Vault source package changed from 12,430 to 12,455 lines, a
+25-line increase that avoids creating another oversized replacement module.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| `VaultContentRenderer.tsx` raw lines | 946 | 121 |
+| Complete Vault source package (non-test) | 12,430 | 12,455 |
+| Same-scope jscpd | 199 lines / 17 groups / 1.60097% | 199 lines / 17 groups / 1.59801% |
+| Product Vault route chunk | 132,014 bytes | 132,014 bytes |
+| Product JavaScript total / chunks | 8,870,508 bytes / 502 | 8,870,508 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The split moves photo signed-URL/action UI into `VaultPhotoItem.tsx`,
+content/file presentation and action-sheet state into
+`VaultContentSection.tsx`, and trash recovery/permanent-delete/empty-trash
+presentation into `VaultTrashSection.tsx`. The renderer retains only folder
+routing, storage projection, and compatibility re-exports. Focused
+characterization tests, the full legacy suite (461 files; 4,444 passed; one
+skipped), lab typecheck, product build and bundle budget, isolation,
+quality/duplication ratchets, and `git diff --check` all passed.
+
+This is a maintainability/change-safety result only. Clone count is
+unchanged; no lazy loading was added; and no request, subscription,
+render-count, interaction, latency, or user-perceived performance
+measurement was collected. Further Vault work should first assess whether
+the separate Google Drive dialogs have a real overlapping responsibility,
+not continue mechanical page/renderer line-count reduction.

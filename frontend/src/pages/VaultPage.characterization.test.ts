@@ -8,6 +8,12 @@ const vaultPageSource = readFileSync(join(pagesDirectory, "VaultPage.tsx"), "utf
 const rendererSource = existsSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"))
   ? readFileSync(join(pagesDirectory, "../components/vault/VaultContentRenderer.tsx"), "utf8")
   : "";
+const contentSectionSource = existsSync(join(pagesDirectory, "../components/vault/VaultContentSection.tsx"))
+  ? readFileSync(join(pagesDirectory, "../components/vault/VaultContentSection.tsx"), "utf8")
+  : "";
+const trashSectionSource = existsSync(join(pagesDirectory, "../components/vault/VaultTrashSection.tsx"))
+  ? readFileSync(join(pagesDirectory, "../components/vault/VaultTrashSection.tsx"), "utf8")
+  : "";
 const topSectionSource = existsSync(join(pagesDirectory, "../components/vault/VaultTopSection.tsx"))
   ? readFileSync(join(pagesDirectory, "../components/vault/VaultTopSection.tsx"), "utf8")
   : "";
@@ -23,7 +29,7 @@ const vaultReadRepositorySource = existsSync(join(pagesDirectory, "../features/v
 const uploadWorkflowSource = existsSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"))
   ? readFileSync(join(pagesDirectory, "../features/vault/useVaultUploadWorkflow.ts"), "utf8")
   : "";
-const source = `${vaultPageSource}\n${rendererSource}\n${topSectionSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}\n${uploadWorkflowSource}`;
+const source = `${vaultPageSource}\n${rendererSource}\n${contentSectionSource}\n${trashSectionSource}\n${topSectionSource}\n${trashWorkflowSource}\n${trashRepositorySource}\n${vaultReadRepositorySource}\n${uploadWorkflowSource}`;
 
 describe("VaultPage rendering and provider-boundary characterization", () => {
   it("keeps club, team, and mini-league scope branches distinct", () => {

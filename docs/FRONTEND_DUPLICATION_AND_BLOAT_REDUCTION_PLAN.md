@@ -1514,6 +1514,52 @@ rather than a targeted duplication fix. The `useState` count is unchanged
 (4 before and after) because `showTrash` remained page-owned as instructed;
 only its declaration position moved to precede the new hook call.
 
+### Phase 4A Vault content-renderer decomposition result (2026-09-22)
+
+`src/components/vault/VaultContentRenderer.tsx` no longer combines photo
+loading/action presentation, content/file rendering, file action-sheet state,
+trash recovery, and folder routing. It remains the stable public entry point
+and re-exports the existing `ContentSection`, `TrashSection`, `VaultPhotoItem`,
+and public types so its callers do not need a broad import migration.
+Responsibilities now have bounded modules:
+
+- `VaultPhotoItem.tsx` owns signed-URL image loading/error state, photo
+  selection, and the photo action menu;
+- `VaultContentSection.tsx` owns photo/file content rendering, safe file/link
+  opening, spreadsheet/document handoff actions, selection controls, and the
+  file action sheet;
+- `VaultTrashSection.tsx` owns signed trash thumbnails, recovery/permanent
+  deletion controls, and empty-trash confirmation;
+- `VaultTypes.ts` owns the shared item shapes.
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| `VaultContentRenderer.tsx` raw lines | 946 | 121 |
+| `VaultContentSection.tsx` | 0 | 396 |
+| `VaultTrashSection.tsx` | 0 | 254 |
+| `VaultPhotoItem.tsx` | 0 | 173 |
+| `VaultTypes.ts` | 0 | 27 |
+| Complete Vault source package (non-test) | 12,430 | 12,455 |
+| Same-scope jscpd | 199 lines / 17 groups / 1.60097% | 199 lines / 17 groups / 1.59801% |
+| Product Vault route chunk | 132,014 bytes | 132,014 bytes |
+| Product JavaScript total / chunks | 8,870,508 bytes / 502 | 8,870,508 bytes / 502 |
+| Lazy-loading boundary | unchanged | unchanged |
+
+The source package grows by 25 lines, while the prior 946-line renderer is
+replaced by modules of at most 396 lines. This is a maintainability and
+change-safety result, not a duplication or runtime-performance result:
+duplicate lines and clone groups are unchanged, no lazy-loading boundary was
+introduced, and no request, subscription, render-count, interaction-latency,
+or user-perceived performance benchmark was collected. Focused Vault
+characterization tests, the full legacy suite (461 files, 4,444 passed, one
+skipped), lab typecheck, product build and bundle budget, isolation,
+quality/duplication ratchets, and `git diff --check` passed.
+
+The next Vault priority is not further decomposition of `VaultPage.tsx` or
+the renderer. Any subsequent work must first evaluate the separate
+Google-Drive dialog surfaces for a genuine overlapping responsibility,
+rather than mechanically moving more lines between files.
+
 [`useVaultContentDataModel.test.tsx`](../frontend/src/features/vault/useVaultContentDataModel.test.tsx)
 adds 12 runtime contract tests via `renderHook` against a mocked
 `vaultReadRepository.ts`, covering: no subfolder/file fetch at the root
