@@ -3,7 +3,7 @@ import { prefetchProfiles } from "@/hooks/useProfiles";
 import { cacheProfiles, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Calendar, MessageCircle, Settings, Trash2, UserPlus, Loader2, Crown, Pencil, LayoutGrid, Plus, Target, Timer, RefreshCw, CreditCard, Flame, Building2, Lock, FolderOpen, BarChart3, Archive, ArchiveRestore, ClipboardCheck, Copy, ChevronRight, LogOut, ArrowRightLeft, Trophy, Eye, Radio, MoreVertical, Image as ImageIcon, FileText } from "lucide-react";
+import { ArrowLeft, Users, Calendar, MessageCircle, Settings, Trash2, UserPlus, Loader2, Crown, Pencil, LayoutGrid, Plus, RefreshCw, CreditCard, Flame, Building2, Lock, FolderOpen, BarChart3, Archive, ArchiveRestore, ClipboardCheck, Copy, ChevronRight, LogOut, ArrowRightLeft, Trophy, Eye, Radio, MoreVertical, Image as ImageIcon, FileText } from "lucide-react";
 import { TeamNextEventCard } from "@/components/team/TeamNextEventCard";
 import { TeamRankCard } from "@/components/team/TeamRankCard";
 import { TeamNextStepsCard } from "@/components/team/TeamNextStepsCard";
@@ -24,9 +24,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { markTeamDeleted, unmarkTeamDeleted } from "@/lib/deletedTeamTombstones";
 import { removeTeamFromMessagesPageCache } from "@/lib/messagesPageCache";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,13 +34,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,7 +75,7 @@ import TeamPlayerPositionEditor from "@/components/TeamPlayerPositionEditor";
 import PlayerPositionSheet from "@/components/PlayerPositionSheet";
 import AddRoleToMemberDialog from "@/components/AddRoleToMemberDialog";
 import ChildDetailSheet from "@/components/ChildDetailSheet";
-import PromoteToTeamAdminDialog from "@/components/PromoteToTeamAdminDialog";
+import { TeamAddAdminCard } from "@/components/team/TeamAddAdminCard";
 import TeamCaptainCard from "@/components/TeamCaptainCard";
 
 import { MoveToTeamSheet } from "@/components/MoveToTeamSheet";
@@ -113,19 +103,22 @@ import {
   refreshRemovedTeamMember,
   refreshTeamRoleChange,
 } from "@/lab/teamMembershipCacheCompletion";
+import {
+  TeamJoinRequestCard,
+  type TeamJoinRole,
+} from "@/components/team/TeamJoinRequestCard";
+import {
+  RemoveTeamChildDialog,
+  RemoveTeamMemberDialog,
+} from "@/components/team/TeamRemoveMemberDialogs";
+import { TeamAppAdminProToggleCard } from "@/components/team/TeamAppAdminProToggleCard";
+import { TeamAdminLinkCard } from "@/components/team/TeamAdminLinkCard";
 
 
-type TeamRole = "player" | "parent" | "coach" | "team_admin";
+type TeamRole = TeamJoinRole;
 
 const SOCCER_SPORTS = ["soccer", "football", "futsal"];
 const normalizeDutyName = (name: string | null | undefined) => name?.trim().toLowerCase() ?? "";
-
-const teamRoleOptions: { value: TeamRole; label: string }[] = [
-  { value: "player", label: "Player" },
-  { value: "parent", label: "Parent" },
-  { value: "coach", label: "Coach" },
-  { value: "team_admin", label: "Team Admin" },
-];
 
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -1377,136 +1370,19 @@ export default function TeamDetailPage() {
 
       {/* Join Request Section for Non-members - hidden in class mode (use enrolment page instead) */}
       {!isClassMode && !isUserRoleLoading && !isClubAdminLoading && !isAppAdminLoading && !isMember && !isClubAdmin && (
-        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
-          <CardContent className="p-5 sm:p-6">
-            {existingRequest ? (
-              <div className="flex flex-col items-center text-center space-y-3">
-                <div className="rounded-full bg-warning/10 p-3">
-                  <Timer className="h-6 w-6 text-warning" />
-                </div>
-                <div className="space-y-1">
-                  <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30">
-                    Request Pending
-                  </Badge>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Your request to join as <span className="font-medium text-foreground">{existingRequest.role.replace("_", " ")}</span> is awaiting approval.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Header */}
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/10 p-2.5 shrink-0">
-                    <UserPlus className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base">Join {team.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Select your role and request to become a team member
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Role Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">What's your role?</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {teamRoleOptions.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        aria-pressed={selectedRole === opt.value}
-                        onClick={() => setSelectedRole(opt.value)}
-                        className={`
-                          p-3 rounded-lg border-2 text-left transition-all min-h-[44px]
-                          ${selectedRole === opt.value 
-                            ? 'border-primary bg-primary/10 ring-1 ring-primary/20' 
-                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                          }
-                        `}
-                      >
-                        <span className={`text-sm font-medium ${selectedRole === opt.value ? 'text-primary' : ''}`}>
-                          {opt.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Child selection — required for parent role */}
-                {selectedRole === "parent" && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Which child are you the parent of?</Label>
-                    {teamChildren.length > 0 ? (
-                      <Select
-                        value={selectedChildForLink || ""}
-                        onValueChange={(v) => {
-                          setSelectedChildForLink(v);
-                          if (v !== "__new__") setNewChildName("");
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your child" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teamChildren.map((c: any) => (
-                            <SelectItem key={c.children.id} value={c.children.id}>
-                              {c.children.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__new__">+ Add a new child</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    {(teamChildren.length === 0 || selectedChildForLink === "__new__") && (
-                      <Input
-                        placeholder="Child's full name"
-                        value={newChildName}
-                        onChange={(e) => setNewChildName(e.target.value.slice(0, 100))}
-                        maxLength={100}
-                      />
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Admins need to know who your child is to approve your request.
-                    </p>
-                  </div>
-                )}
-
-                {/* Submit Button */}
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={() => requestRoleMutation.mutate()}
-                  disabled={
-                    requestRoleMutation.isPending ||
-                    (selectedRole === "parent" &&
-                      !(
-                        (selectedChildForLink && selectedChildForLink !== "__new__") ||
-                        newChildName.trim().length > 0
-                      ))
-                  }
-                >
-                  {requestRoleMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Request to Join as {selectedRole.replace("_", " ")}
-                    </>
-                  )}
-                </Button>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  A team admin will review your request
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <TeamJoinRequestCard
+          teamName={team.name}
+          existingRequest={existingRequest}
+          selectedRole={selectedRole}
+          onSelectedRoleChange={setSelectedRole}
+          teamChildren={teamChildren}
+          selectedChildForLink={selectedChildForLink}
+          onSelectedChildForLinkChange={setSelectedChildForLink}
+          newChildName={newChildName}
+          onNewChildNameChange={setNewChildName}
+          isSubmitting={requestRoleMutation.isPending}
+          onSubmit={() => requestRoleMutation.mutate()}
+        />
       )}
 
       {/* Post-creation onboarding nudge — shown to admins until both
@@ -2304,25 +2180,12 @@ export default function TeamDetailPage() {
               <AccordionContent>
                 <div className="space-y-3 pt-2">
                   {/* Quick Action: Add Team Admin */}
-                  <Card className="border-primary/30 bg-primary/5">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/20">
-                          <Crown className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">Team Admin Management</p>
-                          <p className="text-xs text-muted-foreground">Add another admin to help manage the team</p>
-                        </div>
-                        <PromoteToTeamAdminDialog
-                          teamId={id!}
-                          teamName={team.name}
-                          clubId={team.club_id}
-                          members={members}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <TeamAddAdminCard
+                    teamId={id!}
+                    teamName={team.name}
+                    clubId={team.club_id}
+                    members={members}
+                  />
 
                   {/* Captain (senior / mixed teams only) — same management rights as a team admin */}
                   {["senior", "mixed"].includes(String((team as any).team_type || "mixed").toLowerCase()) && (
@@ -2337,74 +2200,30 @@ export default function TeamDetailPage() {
 
                   {/* PlayHQ Link */}
                   <PlayHQTeamLinkCard teamId={id!} clubId={team.club_id} />
-          
-          
-                  <Link to={`/teams/${id}/roles`}>
-            <Card className="hover:border-primary/50 transition-colors">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Settings className="h-5 w-5 text-primary" />
-                </div>
-                <span className="font-medium">Manage Roles</span>
-              </CardContent>
-            </Card>
-          </Link>
-          
-          {isTeamPro ? (
-            <Link to={`/teams/${id}/attendance`}>
-              <Card className="hover:border-primary/50 transition-colors">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <BarChart3 className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <span className="font-medium">Attendance Stats</span>
-                </CardContent>
-              </Card>
-            </Link>
-          ) : (
-            <Link to={`/teams/${id}/upgrade`}>
-              <Card className="hover:border-primary/50 transition-colors opacity-75">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <span className="font-medium text-muted-foreground">Attendance Stats</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    <Lock className="h-3 w-3 mr-1" />
-                    Pro
-                  </Badge>
-                </CardContent>
-              </Card>
-            </Link>
-          )}
 
-          {hasProFootball ? (
-            <Link to={`/reports/player-stats?teamId=${id}`}>
-              <Card className="hover:border-primary/50 transition-colors">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <FileText className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <span className="font-medium">Player Stats Reports</span>
-                </CardContent>
-              </Card>
-            </Link>
-          ) : (
-            <Link to={`/teams/${id}/upgrade`}>
-              <Card className="hover:border-primary/50 transition-colors opacity-75">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <span className="font-medium text-muted-foreground">Player Stats Reports</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    <Lock className="h-3 w-3 mr-1" />
-                    Pro Football
-                  </Badge>
-                </CardContent>
-              </Card>
-            </Link>
-          )}
+                  <TeamAdminLinkCard to={`/teams/${id}/roles`} icon={Settings} label="Manage Roles" />
+
+                  <TeamAdminLinkCard
+                    to={`/teams/${id}/attendance`}
+                    lockedTo={`/teams/${id}/upgrade`}
+                    unlocked={isTeamPro}
+                    lockedBadgeLabel="Pro"
+                    icon={BarChart3}
+                    iconClassName="text-emerald-500"
+                    iconBgClassName="bg-emerald-500/10"
+                    label="Attendance Stats"
+                  />
+
+                  <TeamAdminLinkCard
+                    to={`/reports/player-stats?teamId=${id}`}
+                    lockedTo={`/teams/${id}/upgrade`}
+                    unlocked={hasProFootball}
+                    lockedBadgeLabel="Pro Football"
+                    icon={FileText}
+                    iconClassName="text-emerald-500"
+                    iconBgClassName="bg-emerald-500/10"
+                    label="Player Stats Reports"
+                  />
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -2425,81 +2244,49 @@ export default function TeamDetailPage() {
                   <p className="text-xs text-muted-foreground mb-3">
                     Grant free Pro access. These toggles are for admin-granted access only — they won't reflect promo code or paid subscription status.
                   </p>
-                  <Card>
-                    <CardContent className="p-4 space-y-4">
-                      {/* Pro Toggle */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Crown className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">Free Pro Access</p>
-                            <p className="text-xs text-muted-foreground">Grant free Pro features</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={(teamSubscription as any)?.admin_pro_override || false}
-                          onCheckedChange={async (checked) => {
-                            const { error } = await supabase
-                              .from("team_subscriptions")
-                              .upsert({ 
-                                team_id: id!, 
-                                admin_pro_override: checked,
-                                admin_pro_football_override: checked ? (teamSubscription as any)?.admin_pro_football_override || false : false,
-                                is_pro: teamSubscription?.is_pro || false,
-                                is_pro_football: teamSubscription?.is_pro_football || false,
-                                disable_auto_subs: teamSubscription?.disable_auto_subs || false,
-                                rotation_speed: teamSubscription?.rotation_speed || 1
-                              }, { onConflict: 'team_id' });
-                            if (error) {
-                              toast({ title: "Failed to update", variant: "destructive" });
-                            } else {
-                              queryClient.invalidateQueries({ queryKey: ["team-subscription", id] });
-                              toast({ title: checked ? "Free Pro access granted" : "Free Pro access removed" });
-                            }
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Pro Football Toggle - Only for Soccer Teams */}
-                      {isSoccerClub && (
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <Target className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">Free Pro Football Access</p>
-                              <p className="text-xs text-muted-foreground">Grant free Pro Football features</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={(teamSubscription as any)?.admin_pro_football_override || false}
-                            onCheckedChange={async (checked) => {
-                              const { error } = await supabase
-                                .from("team_subscriptions")
-                                .upsert({ 
-                                  team_id: id!, 
-                                  admin_pro_override: checked ? true : (teamSubscription as any)?.admin_pro_override || false,
-                                  admin_pro_football_override: checked,
-                                  is_pro: teamSubscription?.is_pro || false,
-                                  is_pro_football: teamSubscription?.is_pro_football || false,
-                                  disable_auto_subs: teamSubscription?.disable_auto_subs || false,
-                                  rotation_speed: teamSubscription?.rotation_speed || 1
-                                }, { onConflict: 'team_id' });
-                              if (error) {
-                                toast({ title: "Failed to update", variant: "destructive" });
-                              } else {
-                                queryClient.invalidateQueries({ queryKey: ["team-subscription", id] });
-                                toast({ title: checked ? "Free Pro Football access granted" : "Free Pro Football access removed" });
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <TeamAppAdminProToggleCard
+                    isProOverride={(teamSubscription as any)?.admin_pro_override || false}
+                    onProOverrideChange={async (checked) => {
+                      const { error } = await supabase
+                        .from("team_subscriptions")
+                        .upsert({
+                          team_id: id!,
+                          admin_pro_override: checked,
+                          admin_pro_football_override: checked ? (teamSubscription as any)?.admin_pro_football_override || false : false,
+                          is_pro: teamSubscription?.is_pro || false,
+                          is_pro_football: teamSubscription?.is_pro_football || false,
+                          disable_auto_subs: teamSubscription?.disable_auto_subs || false,
+                          rotation_speed: teamSubscription?.rotation_speed || 1
+                        }, { onConflict: 'team_id' });
+                      if (error) {
+                        toast({ title: "Failed to update", variant: "destructive" });
+                      } else {
+                        queryClient.invalidateQueries({ queryKey: ["team-subscription", id] });
+                        toast({ title: checked ? "Free Pro access granted" : "Free Pro access removed" });
+                      }
+                    }}
+                    isSoccerClub={!!isSoccerClub}
+                    isProFootballOverride={(teamSubscription as any)?.admin_pro_football_override || false}
+                    onProFootballOverrideChange={async (checked) => {
+                      const { error } = await supabase
+                        .from("team_subscriptions")
+                        .upsert({
+                          team_id: id!,
+                          admin_pro_override: checked ? true : (teamSubscription as any)?.admin_pro_override || false,
+                          admin_pro_football_override: checked,
+                          is_pro: teamSubscription?.is_pro || false,
+                          is_pro_football: teamSubscription?.is_pro_football || false,
+                          disable_auto_subs: teamSubscription?.disable_auto_subs || false,
+                          rotation_speed: teamSubscription?.rotation_speed || 1
+                        }, { onConflict: 'team_id' });
+                      if (error) {
+                        toast({ title: "Failed to update", variant: "destructive" });
+                      } else {
+                        queryClient.invalidateQueries({ queryKey: ["team-subscription", id] });
+                        toast({ title: checked ? "Free Pro Football access granted" : "Free Pro Football access removed" });
+                      }
+                    }}
+                  />
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -2922,52 +2709,39 @@ export default function TeamDetailPage() {
           onOpenChange={(open) => { if (!open) setAddRoleMember(null); }}
         />
       )}
-      <AlertDialog open={!!removeMember} onOpenChange={(open) => { if (!open) setRemoveMember(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove {removeMember?.name} from the team. They can request to join again.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (!removeMember || !id) return;
-                if (useIcpLab) {
-                  toast({ title: "Member removal is unavailable in ICP lab mode", variant: "destructive" });
-                  setRemoveMember(null);
-                  return;
-                }
-                // Use scoped RPC so team role, child assignments to this team,
-                // and team-chat group memberships are revoked atomically.
-                // child_guardians and access to unrelated teams are preserved.
-                const { error } = await supabase.rpc("remove_team_member", {
-                  _team_id: id,
-                  _user_id: removeMember.userId,
-                });
-                if (error) {
-                  toast({ title: "Failed to remove member", description: error.message, variant: "destructive" });
-                } else {
-                  await supabase.from("notifications").insert({
-                    user_id: removeMember.userId,
-                    type: "membership",
-                    message: `You have been removed from ${team?.name || "the team"}`,
-                    related_id: id,
-                  });
-                  refreshRemovedTeamMember(queryClient, id);
-                  toast({ title: "Member removed" });
-                }
-                setRemoveMember(null);
-              }}
-              className="bg-destructive text-destructive-foreground"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RemoveTeamMemberDialog
+        memberName={removeMember?.name}
+        open={!!removeMember}
+        onOpenChange={(open) => { if (!open) setRemoveMember(null); }}
+        onConfirm={async () => {
+          if (!removeMember || !id) return;
+          if (useIcpLab) {
+            toast({ title: "Member removal is unavailable in ICP lab mode", variant: "destructive" });
+            setRemoveMember(null);
+            return;
+          }
+          // Use scoped RPC so team role, child assignments to this team,
+          // and team-chat group memberships are revoked atomically.
+          // child_guardians and access to unrelated teams are preserved.
+          const { error } = await supabase.rpc("remove_team_member", {
+            _team_id: id,
+            _user_id: removeMember.userId,
+          });
+          if (error) {
+            toast({ title: "Failed to remove member", description: error.message, variant: "destructive" });
+          } else {
+            await supabase.from("notifications").insert({
+              user_id: removeMember.userId,
+              type: "membership",
+              message: `You have been removed from ${team?.name || "the team"}`,
+              related_id: id,
+            });
+            refreshRemovedTeamMember(queryClient, id);
+            toast({ title: "Member removed" });
+          }
+          setRemoveMember(null);
+        }}
+      />
       {selectedMember && (
         <Suspense fallback={null}>
         <MemberDetailSheet
@@ -3035,54 +2809,29 @@ export default function TeamDetailPage() {
           onRemove={(isAdmin || isClubAdmin) && !selectedChild.isPending ? () => setRemoveChild({ childId: selectedChild.childId, name: selectedChild.childName }) : undefined}
         />
       )}
-      <AlertDialog open={!!removeChild} onOpenChange={(open) => { if (!open) { setRemoveChild(null); setRemoveChildConfirmText(""); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Player?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p>
-                  This will remove <strong>{removeChild?.name}</strong> from the team. Their RSVPs, attendance and stats history for this team will no longer be linked. Their parent can request to rejoin.
-                </p>
-                <p className="text-foreground font-medium">
-                  Type <span className="font-bold text-destructive">"{removeChild?.name}"</span> to confirm:
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Input
-            value={removeChildConfirmText}
-            onChange={(e) => setRemoveChildConfirmText(e.target.value)}
-            placeholder={removeChild?.name || ""}
-            autoFocus
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={removeChildConfirmText.trim().toLowerCase() !== (removeChild?.name || "").trim().toLowerCase()}
-              onClick={async () => {
-                if (!removeChild || !id) return;
-                const { error } = await supabase
-                  .from("child_team_assignments")
-                  .delete()
-                  .eq("child_id", removeChild.childId)
-                  .eq("team_id", id);
-                if (error) {
-                  toast({ title: "Failed to remove player", variant: "destructive" });
-                } else {
-                  refreshRemovedTeamChild(queryClient, id);
-                  toast({ title: "Player removed" });
-                }
-                setRemoveChild(null);
-                setRemoveChildConfirmText("");
-              }}
-              className="bg-destructive text-destructive-foreground"
-            >
-              Remove Player
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RemoveTeamChildDialog
+        childName={removeChild?.name}
+        open={!!removeChild}
+        onOpenChange={(open) => { if (!open) { setRemoveChild(null); setRemoveChildConfirmText(""); } }}
+        confirmText={removeChildConfirmText}
+        onConfirmTextChange={setRemoveChildConfirmText}
+        onConfirm={async () => {
+          if (!removeChild || !id) return;
+          const { error } = await supabase
+            .from("child_team_assignments")
+            .delete()
+            .eq("child_id", removeChild.childId)
+            .eq("team_id", id);
+          if (error) {
+            toast({ title: "Failed to remove player", variant: "destructive" });
+          } else {
+            refreshRemovedTeamChild(queryClient, id);
+            toast({ title: "Player removed" });
+          }
+          setRemoveChild(null);
+          setRemoveChildConfirmText("");
+        }}
+      />
     </div>
   );
 }

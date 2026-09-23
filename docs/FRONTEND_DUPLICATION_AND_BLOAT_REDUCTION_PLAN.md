@@ -1,5 +1,42 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## TeamDetailPage admin and dialog presentation extraction (2026-09-24)
+
+This round extracts five cohesive, typed presentation boundaries from
+`TeamDetailPage.tsx` into `components/team/`: the non-member join-request card
+(`TeamJoinRequestCard`), the "Remove Member?"/"Remove Player?" confirmation
+dialogs (`TeamRemoveMemberDialogs`), the App Admin Pro/Pro-Football override
+toggle card (`TeamAppAdminProToggleCard`), the Team Admin Management quick
+action wrapping `PromoteToTeamAdminDialog` (`TeamAddAdminCard`), and a reusable
+generic quick-link card (`TeamAdminLinkCard`) that replaces three
+near-duplicate inline blocks (Manage Roles, Attendance Stats, Player Stats
+Reports). `TeamDetailPage` remains the owner of all 21 query/mutation hooks,
+Supabase RPC calls, hybrid provider selection, and authorization state; the
+new components receive data and callbacks as props and add no direct Supabase
+imports.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamDetailPage.tsx` raw lines | 3,088 | 2,837 | -251 (-8.1%) |
+| New non-test presentation modules | 0 | 5 | +5 |
+
+Thirteen focused tests cover join-role selection and child linking, the two
+removal confirmation dialogs (including typed-name confirmation), the App
+Admin override toggles, the admin-promotion quick action, and the generic
+admin link card (locked/unlocked variants), plus the existing
+`TeamDetailPage.membershipCompletion.guard.test.ts` source-contract guard,
+which continues to pass unchanged.
+
+Validation passed product and Lab typechecks, the full legacy suite
+(479 files / 4,510 tests + 1 skipped) and the 153-file/1,720-test Lab suite,
+product build/bundle budget (8,898,561 total JavaScript bytes; 1,112,837-byte
+largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,341 fewer
+duplicated lines than baseline), and `git diff --check`. The Members-list
+accordion, Leave Team dialog, and Pitch Settings/Team Sponsor/Team
+Rewards/Subscription Payments accordion sections remain unextracted as
+higher-risk/higher-complexity follow-up candidates.
+
 ## HomePage workflow and dashboard decomposition (2026-09-23)
 
 The deeper `HomePage.tsx` round extracts the team/class/league join dialog,

@@ -1817,3 +1817,39 @@ bundle budget (8,896,179 JavaScript bytes total; 1,112,837-byte largest chunk;
 duplicated lines removed since baseline), and `git diff --check` also passed.
 The Home route chunk increased from approximately 122.68 kB to 124.44 kB, so
 this round makes no loading-performance claim.
+
+## TeamDetailPage admin and dialog presentation extraction (2026-09-24)
+
+The first `TeamDetailPage.tsx` decomposition round moves five cohesive
+presentation boundaries to `components/team/`: the non-member join-request
+card, the "Remove Member?"/"Remove Player?" confirmation dialogs, the App
+Admin Pro/Pro-Football override toggle card, the Team Admin Management quick
+action wrapping `PromoteToTeamAdminDialog`, and a reusable generic quick-link
+card that replaces three near-duplicate inline blocks (Manage Roles,
+Attendance Stats, Player Stats Reports). All 21 query/mutation hooks,
+Supabase RPC calls, hybrid provider selection, and authorization state remain
+in the page; new components receive data and callbacks as props.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamDetailPage.tsx` raw lines | 3,088 | 2,837 | -251 (-8.1%) |
+| New non-test presentation modules | 0 | 5 | +5 |
+
+Thirteen focused tests cover join-role selection/child linking, both removal
+confirmation dialogs (including typed-name confirmation), the App Admin
+override toggles, the admin-promotion quick action, and the generic admin
+link card (locked/unlocked variants). The existing
+`TeamDetailPage.membershipCompletion.guard.test.ts` source-contract guard
+continues to pass unchanged, confirming cache-completion call sites were not
+disturbed.
+
+Product and Lab typechecks, the complete legacy suite (479 files, 4,510 tests
+plus one skip), and the 153-file/1,720-test Lab suite passed. Product build,
+bundle budget (8,898,561 JavaScript bytes total; 1,112,837-byte largest
+chunk; 172,904 CSS bytes), isolation, quality ratchet (direct Supabase
+imports unchanged at 463), duplication ratchet (2,341 fewer duplicated lines
+than baseline), and `git diff --check` also passed. The Members-list
+accordion (role-grouped member list with pending-invite matching), Leave Team
+dialog, and Pitch Settings/Team Sponsor/Team Rewards/Subscription Payments
+accordion sections remain unextracted as higher-risk/higher-complexity
+follow-up candidates.
