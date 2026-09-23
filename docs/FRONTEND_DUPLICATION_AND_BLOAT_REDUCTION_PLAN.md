@@ -2246,3 +2246,39 @@ skip), 153 lab files / 1,720 tests, product type-check (clean), lab
 type-check, product build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
+
+## PitchBoard.tsx interaction-controller extraction (2026-09-23)
+
+After the formation-library extraction, `PitchBoard.tsx` was still 3,342
+lines. A follow-up audit isolated three stateful interaction controllers whose
+only contract with the board is returned state/handlers consumed by the
+existing layout context:
+
+- `usePitchBoardUndo.ts`: bounded undo history, floating-undo timer,
+  concurrency guard, snapshot restore, and cleanup.
+- `usePitchBoardSubAnimation.ts`: substitution-chain animation timers plus
+  two-player swap flash/haptic feedback.
+- `usePitchBoardBenchLongPress.ts`: portrait bench long-press state,
+  document-level touch listeners, pitch/drop detection, and the existing
+  bench-to-substitution handoff.
+
+The returned names and values (`undoHistory`, `showFloatingUndo`,
+`isUndoingRef`, `pushToUndoHistory`, `handleUndo`, `subAnimationPlayers`,
+`swapFlashIds`, `runSubAnimation`, `flashSwapFeedback`, and all bench-drag
+handlers/state) are unchanged at the layout-context boundary. This retains
+the existing behavior while reducing the orchestration component rather than
+changing its UX or data flow.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 3,342 | 3,169 | -173 (-5.2%) |
+| Total Phase-0 reduction | 3,438 | 3,169 | -269 (-7.8%) |
+| New focused hook modules | 0 | 3 | +3 |
+
+Validation passed: product typecheck (clean), pitch component suite (59 files
+/ 798 tests), full legacy suite (467 files / 4,471 tests, one skip), full lab
+suite (153 files / 1,720 tests), clean lab typecheck, product build and
+bundle budget (8,888,146 total JavaScript bytes, 1,112,837-byte largest
+chunk, 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.

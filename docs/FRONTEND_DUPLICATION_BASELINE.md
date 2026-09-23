@@ -1611,3 +1611,33 @@ JavaScript bytes; 1,112,837-byte largest JavaScript chunk; 172,904 CSS
 bytes; 502 JavaScript chunks), isolation and quality ratchets passing
 (`directSupabaseImports` unchanged at 463), duplication ratchet passing with
 2,212 fewer duplicated lines than baseline, and `git diff --check`.
+
+## PitchBoard.tsx interaction-controller extraction (2026-09-23)
+
+The formation-library milestone left `PitchBoard.tsx` at 3,342 raw lines.
+Three additional behavior-preserving seams were extracted:
+
+1. `hooks/usePitchBoardUndo.ts` owns the bounded player-snapshot history,
+   floating undo timer, undo concurrency guard, restore operation, and timer
+   cleanup.
+2. `hooks/usePitchBoardSubAnimation.ts` owns the substitution animation
+   sequence and swap flash/haptic feedback.
+3. `hooks/usePitchBoardBenchLongPress.ts` owns portrait bench long-press
+   state, document touch listeners, pitch/drop checks, and the existing
+   bench-to-substitution dialog handoff.
+
+`PitchBoard.tsx` retains the exact hook-returned field names and passes them
+unchanged to `PitchBoardLayoutContext`, so the landscape and portrait layouts
+retain their pre-existing interface and behavior.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 3,342 | 3,169 | -173 (-5.2%) |
+| Total Phase-0 reduction | 3,438 | 3,169 | -269 (-7.8%) |
+
+Validated with product typecheck, 59-file/798-test focused pitch suite,
+467-file/4,471-test legacy suite (one skip), 153-file/1,720-test lab suite,
+lab typecheck, product build and bundle budget (8,888,146 total JavaScript
+bytes; 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,212 fewer duplicated lines than baseline), and `git diff --check`.

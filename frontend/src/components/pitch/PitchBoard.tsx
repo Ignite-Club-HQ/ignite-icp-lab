@@ -61,7 +61,6 @@ import { useEventGroupSync } from "@/hooks/useEventGroupSync";
 
 import { useEventGoingAttendees } from "@/hooks/useEventGoingAttendees";
 import { useEventLineupHydration } from "./hooks/useEventLineupHydration";
-import { hapticImpactMedium, hapticImpactLight } from "@/lib/haptics";
 
 // Import types and utils from extracted files
 import {
@@ -102,6 +101,9 @@ import { usePitchBoardDrawing } from "./hooks/usePitchBoardDrawing";
 import { usePitchBoardPlanRepair } from "./hooks/usePitchBoardPlanRepair";
 import { usePitchBoardInitialState } from "./hooks/usePitchBoardInitialState";
 import { usePitchBoardFormationLibrary } from "./hooks/usePitchBoardFormationLibrary";
+import { usePitchBoardUndo } from "./hooks/usePitchBoardUndo";
+import { usePitchBoardSubAnimation } from "./hooks/usePitchBoardSubAnimation";
+import { usePitchBoardBenchLongPress } from "./hooks/usePitchBoardBenchLongPress";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -627,14 +629,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
 
 
-  // Undo history for subs and swaps (stores player states)
-  const [undoHistory, setUndoHistory] = useState<{ players: Player[]; description: string }[]>([]);
-  const MAX_UNDO_HISTORY = 10;
-  
-  // Floating undo button visibility (30 second timer after sub/swap)
-  const [showFloatingUndo, setShowFloatingUndo] = useState(false);
-  const floatingUndoTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isUndoingRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
   const [benchCollapsed, setBenchCollapsed] = useState(true);
   
@@ -1223,6 +1217,17 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     console.log("[PitchState] useState init - using realPlayers as fallback");
     return realPlayers;
   });
+  const {
+    undoHistory,
+    showFloatingUndo,
+    isUndoingRef,
+    pushToUndoHistory,
+    handleUndo,
+  } = usePitchBoardUndo({
+    isLandscape,
+    setPlayers,
+    toast,
+  });
 
   // Keep playersRef in sync with players state (for use in effects with stale closures)
   playersRef.current = players;
@@ -1295,53 +1300,13 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     return player.teamSide === "a" ? miniLeagueTeams.teamAColor : miniLeagueTeams.teamBColor;
   }, [miniLeagueTeams]);
 
-  // Substitution mode selection + derived sets now live in usePitchBoardSubSelection.
-  // (Hook call placed after swapMode/swapPlayer1 are declared, since it depends on them.)
-  const [subAnimationPlayers, setSubAnimationPlayers] = useState<{ in: string | null; out: string | null; swap: string | null }>({ in: null, out: null, swap: null });
-  const subAnimationTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // Brief visual + haptic feedback when two pitch players swap positions via drag.
-  const [swapFlashIds, setSwapFlashIds] = useState<string[]>([]);
-  const swapFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flashSwapFeedback = useCallback((idA: string, idB: string) => {
-    if (swapFlashTimerRef.current) clearTimeout(swapFlashTimerRef.current);
-    setSwapFlashIds([idA, idB]);
-    hapticImpactLight();
-    swapFlashTimerRef.current = setTimeout(() => {
-      setSwapFlashIds([]);
-      swapFlashTimerRef.current = null;
-    }, 600);
-  }, []);
-
-  // Sequential chain animation helper
-  const runSubAnimation = useCallback((playerOutId: string, playerInId: string, swapPlayerId?: string) => {
-    // Clear any existing animation timers
-    subAnimationTimers.current.forEach(t => clearTimeout(t));
-    subAnimationTimers.current = [];
-
-    // Step 1: Immediately highlight player going off
-    setSubAnimationPlayers({ in: null, out: playerOutId, swap: null });
-
-    // Step 2: After 500ms, show player coming on
-    const t1 = setTimeout(() => {
-      setSubAnimationPlayers({ in: playerInId, out: playerOutId, swap: null });
-    }, 500);
-    subAnimationTimers.current.push(t1);
-
-    // Step 3: After 1000ms, show swap player moving (if applicable)
-    if (swapPlayerId) {
-      const t2 = setTimeout(() => {
-        setSubAnimationPlayers({ in: playerInId, out: playerOutId, swap: swapPlayerId });
-      }, 1000);
-      subAnimationTimers.current.push(t2);
-    }
-
-    // Step 4: Clear all animations
-    const tClear = setTimeout(() => {
-      setSubAnimationPlayers({ in: null, out: null, swap: null });
-      subAnimationTimers.current = [];
-    }, swapPlayerId ? 2500 : 1800);
-    subAnimationTimers.current.push(tClear);
-  }, []);
+  // Substitution feedback effects are isolated from the selection flow.
+  const {
+    subAnimationPlayers,
+    swapFlashIds,
+    flashSwapFeedback,
+    runSubAnimation,
+  } = usePitchBoardSubAnimation();
 
   // Refs for deferred dependencies (defined later, but used inside hook callbacks)
   const pushToUndoHistoryRef_autoSubs = useRef<((description: string, snapshot: Player[]) => void) | null>(null);
@@ -1432,6 +1397,22 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     benchToSubPlayer,
     setBenchToSubPlayer,
   } = usePitchBoardBenchToSub();
+  const {
+    benchDragPlayer,
+    benchDragPos,
+    benchLongPressTimer,
+    handleBenchLongPressStart,
+    handleBenchLongPressMove,
+    handleBenchLongPressEnd,
+  } = usePitchBoardBenchLongPress({
+    readOnly,
+    subMode,
+    swapMode,
+    setBenchToSubPlayer,
+    setBenchToSubOpen,
+    setPortraitSheetOpen,
+    setToolbarCollapsed,
+  });
 
   // Step 8b — manual-sub confirm dialog flow (state + handlers + trigger effect)
   const {
@@ -1444,10 +1425,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     handleBenchToSubSelect,
     manualSubDepsRef,
   } = usePitchBoardManualSub();
-  const [benchDragPlayer, setBenchDragPlayer] = useState<string | null>(null);
-  const [benchDragPos, setBenchDragPos] = useState<{ x: number; y: number } | null>(null);
-  const benchLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const benchDragStartTouch = useRef<{ x: number; y: number } | null>(null);
   const [subAfterSwapDialogOpen, setSubAfterSwapDialogOpen] = useState(false);
   const [resetGameConfirmOpen, setResetGameConfirmOpen] = useState(false);
   const [cancelPlanConfirmOpen, setCancelPlanConfirmOpen] = useState(false);
@@ -1718,77 +1695,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     fabricModule,
   });
   void createArrow; // currently unused outside the hook — keep handle for future external triggers
-
-  // Push current player state to undo history before making changes
-  const pushToUndoHistory = useCallback((description: string, currentPlayers: Player[]) => {
-    console.log("[Undo] pushToUndoHistory called:", { description, playerCount: currentPlayers.length, isLandscape });
-    setUndoHistory(prev => {
-      const newHistory = [...prev, { players: JSON.parse(JSON.stringify(currentPlayers)), description }];
-      console.log("[Undo] New history length:", newHistory.length, "isLandscape:", isLandscape);
-      if (newHistory.length > MAX_UNDO_HISTORY) {
-        return newHistory.slice(-MAX_UNDO_HISTORY);
-      }
-      return newHistory;
-    });
-    
-    // Show floating undo button for 30 seconds
-    console.log("[Undo] Setting showFloatingUndo to true");
-    setShowFloatingUndo(true);
-    if (floatingUndoTimerRef.current) {
-      clearTimeout(floatingUndoTimerRef.current);
-    }
-    floatingUndoTimerRef.current = setTimeout(() => {
-      console.log("[Undo] Timer expired, hiding floating undo");
-      setShowFloatingUndo(false);
-    }, isLandscape ? 30000 : 5000);
-  }, [isLandscape]);
-
-  // Undo last sub or swap
-  const handleUndo = useCallback(() => {
-    // Guard against concurrent calls
-    if (isUndoingRef.current) return;
-    if (undoHistory.length === 0) return;
-    
-    isUndoingRef.current = true;
-    
-    const lastState = undoHistory[undoHistory.length - 1];
-    
-    // Restore players from the saved state
-    setPlayers(lastState.players);
-    
-    // Remove the last item from history
-    setUndoHistory(prev => {
-      const newHistory = prev.slice(0, -1);
-      // Hide floating undo if no more history
-      if (newHistory.length === 0) {
-        setShowFloatingUndo(false);
-        if (floatingUndoTimerRef.current) {
-          clearTimeout(floatingUndoTimerRef.current);
-          floatingUndoTimerRef.current = null;
-        }
-      }
-      return newHistory;
-    });
-    
-    toast({ 
-      title: "Undo successful", 
-      description: `Reverted: ${lastState.description}` 
-    });
-    
-    // Reset the flag after effects have processed
-    requestAnimationFrame(() => {
-      isUndoingRef.current = false;
-    });
-  }, [toast, undoHistory]);
-  
-  // Cleanup floating undo timer on unmount
-  useEffect(() => {
-    return () => {
-      if (floatingUndoTimerRef.current) {
-        clearTimeout(floatingUndoTimerRef.current);
-      }
-    };
-  }, []);
 
   // handleFormationChange now lives in usePitchBoardLineup (declared at top).
 
@@ -2985,85 +2891,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
   // definitions (TDZ avoidance). See the assignment after those `useMemo`s.
 
 
-
-  // Portrait bench long-press drag handlers
-  const handleBenchLongPressStart = useCallback((playerId: string, e: React.TouchEvent) => {
-    if (readOnly || subMode || swapMode) return;
-    const touch = e.touches[0];
-    benchDragStartTouch.current = { x: touch.clientX, y: touch.clientY };
-    benchLongPressTimer.current = setTimeout(() => {
-      setBenchDragPlayer(playerId);
-      setBenchDragPos({ x: touch.clientX, y: touch.clientY });
-      hapticImpactMedium();
-    }, 400);
-  }, [readOnly, subMode, swapMode]);
-
-  const handleBenchLongPressMove = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (benchLongPressTimer.current && benchDragStartTouch.current) {
-      const dx = touch.clientX - benchDragStartTouch.current.x;
-      const dy = touch.clientY - benchDragStartTouch.current.y;
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        clearTimeout(benchLongPressTimer.current);
-        benchLongPressTimer.current = null;
-      }
-    }
-    if (benchDragPlayer) {
-      e.preventDefault();
-      setBenchDragPos({ x: touch.clientX, y: touch.clientY });
-    }
-  }, [benchDragPlayer]);
-
-  const handleBenchLongPressEnd = useCallback(() => {
-    if (benchLongPressTimer.current) {
-      clearTimeout(benchLongPressTimer.current);
-      benchLongPressTimer.current = null;
-    }
-    if (benchDragPlayer && benchDragPos) {
-      // Check both portrait and landscape pitch areas
-      const pitchEl = document.getElementById('portrait-pitch-area') || document.getElementById('landscape-pitch-area');
-      if (pitchEl) {
-        const rect = pitchEl.getBoundingClientRect();
-        const isOnPitch = benchDragPos.x >= rect.left && benchDragPos.x <= rect.right &&
-          benchDragPos.y >= rect.top && benchDragPos.y <= rect.bottom;
-        const elAtPoint = document.elementFromPoint(benchDragPos.x, benchDragPos.y);
-        const isOnDrawer = elAtPoint?.closest('#pitch-bench-portrait') || 
-                           elAtPoint?.closest('#pitch-bench-landscape') ||
-                           elAtPoint?.closest('[data-portrait-drawer]');
-        
-        if (isOnPitch && !isOnDrawer) {
-          setBenchToSubPlayer(benchDragPlayer);
-          setBenchToSubOpen(true);
-          setPortraitSheetOpen(false);
-          setToolbarCollapsed(true);
-        }
-      }
-    }
-    setBenchDragPlayer(null);
-    setBenchDragPos(null);
-    benchDragStartTouch.current = null;
-  }, [benchDragPlayer, benchDragPos]);
-
-  // Document-level touch listeners for bench drag (so drag works outside the bench container)
-  useEffect(() => {
-    if (!benchDragPlayer) return;
-    const onMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      setBenchDragPos({ x: touch.clientX, y: touch.clientY });
-    };
-    const onEnd = () => {
-      handleBenchLongPressEnd();
-    };
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onEnd);
-    return () => {
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onEnd);
-    };
-  }, [benchDragPlayer, handleBenchLongPressEnd]);
 
   // Memoize derived player lists to prevent recalculation on every render
   const playersOnPitch = useMemo(() => players.filter(p => p.position !== null), [players]);
