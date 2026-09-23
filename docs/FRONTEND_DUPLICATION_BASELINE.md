@@ -1405,7 +1405,7 @@ No runtime-performance claim is made.
 ## Phase 4A VirtualizedChatMessageList result (2026-09-22)
 
 `src/components/chat/VirtualizedChatMessageList.tsx` decreased from 2,833 to
-1,962 raw lines (-871, -30.7%). Unlike the prior Phase 4A targets, this step
+1,268 raw lines (-1,565, -55.2%). Unlike the prior Phase 4A targets, this step
 was a wiring/relocation fix rather than a fresh extraction: an earlier
 product-source port had already produced independent, tested modules for the
 row-height/signature/native-environment math
@@ -1428,10 +1428,17 @@ them. This step:
   header/footer, scroller/item wrappers, row measurement/cache wrapper, debug
   row probe, memoized row adapter, and jump hydration skeleton) into a new
   `chatVirtuosoRows.tsx` (379 lines).
+- relocated the remaining bounded controller seams into focused hooks:
+  imperative scroll API (`useChatScrollActions.ts`, 196 lines),
+  startReached/prepend pagination gating (`useChatPrependPagination.ts`, 206
+  lines), cold-open/bottom-follow pinning (`useChatBottomFollow.ts`, 179
+  lines), and the post-reveal jump-anchor watcher (`useChatJumpAnchor.ts`,
+  111 lines).
 
 No row-height, signature, native-environment-detection, or prepend-motion-
-timing, row measurement, or skeleton rendering logic changed; this is a pure
-relocation and wiring change.
+timing, row measurement, skeleton rendering, pagination-gate, bottom-follow,
+or post-reveal jump-anchor logic changed; this is a pure relocation and
+wiring change.
 
 Validation evidence: the full chat component suite (30 files / 212 tests,
 including the `chatJumpHydrationDeadline` and `chatPostRevealAnchor` raw-
@@ -1439,7 +1446,8 @@ source guards), 467 legacy files / 4,471 passing tests (one skip), 153 lab
 files / 1,720 passing tests, product typecheck (only the pre-existing
 14-diagnostic `StartDMDialog`/`ClubDetailPage` baseline drift), clean lab
 typecheck, successful product build, product bundle within budget (8,882,854
-total JavaScript bytes; 1,112,842-byte largest JavaScript chunk; 172,904 CSS
+total JavaScript bytes in the row-presentation checkpoint and 8,884,442 after
+the controller-hook split; 1,112,842-byte largest JavaScript chunk; 172,904 CSS
 bytes; unchanged chunk count), isolation and quality ratchets passing, and
 duplication ratchet unchanged at 1,847 fewer duplicated lines than baseline.
 No runtime-performance claim is made.

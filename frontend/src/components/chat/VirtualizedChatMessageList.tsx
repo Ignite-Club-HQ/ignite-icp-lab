@@ -2,7 +2,6 @@ import {
   forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -16,13 +15,11 @@ import {
   debugLogDuplicate,
   debugLogEvent,
   debugLogFirstItemIndex,
-  debugLogStartReached,
   isChatVirtDebugEnabled,
 } from "./chatVirtDebug";
 import { prefetchChatImageAspectRatio } from "@/lib/chatImageAspectCache";
 import {
   installChatScrollIntentTracking,
-  isViewportTouching,
   isViewportUserActive,
 } from "@/lib/chatScrollIntent";
 import { BasicChatMessageList } from "./BasicChatMessageList";
@@ -35,14 +32,9 @@ import { chatJumpLifecycleRemaining, getChatJumpLifecycle } from "@/lib/chatJump
 
 import { getChatBottomPaddingOffset } from "@/lib/chatBottomPadding";
 import { createChatRowSignature } from "./chatRowSignature";
-import { escapeChatCssAttributeValue } from "./chatVirtuosoEnvironment";
 import {
-  markPrependUserInput,
-  setPrependVirtuosoScrolling,
-  markPrependUpwardMotion,
   useDeferPrependsWhileScrolling,
   setPrependScrollerElementGetter,
-  isPrependUserDrivenScrollActive,
 } from "./useDeferChatPrepends";
 import {
   ChatRowAdapter,
@@ -53,6 +45,10 @@ import {
   JumpHydrationSkeleton,
   type ChatVirtuosoContext,
 } from "./chatVirtuosoRows";
+import { useChatScrollActions } from "./useChatScrollActions";
+import { useChatPrependPagination } from "./useChatPrependPagination";
+import { useChatBottomFollow } from "./useChatBottomFollow";
+import { useChatJumpAnchor } from "./useChatJumpAnchor";
 
 /**
  * Virtualised chat message list.
@@ -182,113 +178,22 @@ function VirtualizedChatMessageListInner<TMessage extends { id: string }>(
   // resumes.
   const PREPEND_TRUST_WINDOW_MS = 800;
   const messagesLengthRef = useRef(messages.length);
-  const hasOlderRef = useRef(hasOlder);
-  const isLoadingOlderRef = useRef(isLoadingOlder);
-  const onLoadOlderRef = useRef(onLoadOlder);
-  
-  hasOlderRef.current = hasOlder;
-  isLoadingOlderRef.current = isLoadingOlder;
-  onLoadOlderRef.current = onLoadOlder;
-  // Synchronous in-flight guard for `startReached`. The parent's
-  // `isLoadingOlder` state flips via setState, so two `startReached` events
-  // fired in the same frame on a fast upward flick both see `false` and
-  // double-fetch — the prepended page is then merged twice into the data
-  // array, producing duplicate IDs and "ghost" rows in Virtuoso.
-  const loadingOlderInFlightRef = useRef(false);
-  // `userHasScrolledAfterPinRef` is intentionally sticky for first-open pin
-  // suppression, but it must NOT be used as permission to keep paginating.
-  // After a fast flick stops, Virtuoso can re-fire `startReached` while it is
-  // reconciling prepended row measurements; requiring a very recent upward
-  // scroll event prevents those render-owned callbacks from queueing another
-  // older-page fetch after the user's thumb/inertia has actually settled.
-  const lastObservedScrollTopRef = useRef<number | null>(null);
-  const lastUserUpwardScrollAtRef = useRef(0);
-  // Tightened from 220 → 100ms: the trailing 120ms of the window was firing
-  // `startReached` right as a fast fling decelerated, landing a prepend
-  // page just after the user stopped — visible as "rows keep moving after I
-  // stop". 100ms still covers a genuine continuous upward gesture (Virtuoso
-  // re-fires startReached on every page boundary at ~60fps); it only drops
-  // the tail-end fire that has no live finger or live momentum behind it.
-  // The edge-pin fallback below still requires an active touch.
-  const PREPEND_USER_SCROLL_ACTIVE_MS = 100;
-  const hasRecentUserUpwardScroll = useCallback(() => {
-    if (performance.now() - lastUserUpwardScrollAtRef.current <= PREPEND_USER_SCROLL_ACTIVE_MS) {
-      return true;
-    }
-    // Edge-pin fallback: once scrollTop hits 0 the browser stops emitting
-    // upward scroll deltas. Only treat this as continuing upward intent if a
-    // finger is STILL on the glass — using the broader `isViewportUserActive`
-    // cooldown (600ms) caused `startReached` to keep firing after release,
-    // which surfaced as "messages keep moving after I stopped".
-    const el = scrollerElRef.current;
-    if (el && el.scrollTop <= 4 && isViewportTouching(el)) return true;
-    return false;
-  }, []);
-
-  // Min gap between two prepend fetches. After a page lands, fast upward
-  // flings can immediately retrigger `startReached` / `atTopStateChange`
-  // before the browser has rasterised the newly-mounted rows — producing a
-  // visible flicker as Virtuoso prepends a second page on top of an
-  // unsettled layout. We enforce a short cooldown so each prepend has time
-  // to paint before the next one is allowed.
-  // 600ms (was 350ms): on Android WebView a fast upward fling can land a
-  // prepend page before the previous one's freshly-mounted rows have
-  // rasterised. Stacking two `firstItemIndex` shifts inside that window is
-  // the dominant cause of the "flicker on fast scroll-up" reports — the
-  // second page's estimate→measured paddingTop correction lands on top of
-  // an already-unsettled layout. 600ms gives the previous prepend a full
-  // ~36-frame window to settle before another is allowed. Genuine repeat
-  // upward gestures past the cooldown still trigger `startReached` /
-  // `atTopStateChange` naturally, so this only suppresses the back-to-back
-  // case, not normal pagination.
-  const PREPEND_COOLDOWN_MS = 600;
-  const lastPrependLandedAtRef = useRef(0);
-  // Once messages.length grows, the prepend has landed — release the guard.
-  useEffect(() => {
-    if (messages.length > messagesLengthRef.current) {
-      loadingOlderInFlightRef.current = false;
-      lastPrependLandedAtRef.current = performance.now();
-    }
-    // Diagnostic: a wholesale window collapse (e.g. 270 → 100 rows) means a
-    // parent replaced the rendered array — the precursor to the post-scroll
-    // "teleport to bottom" jolt seen in field telemetry.
-    if (messages.length < messagesLengthRef.current - 5) {
-      debugLogEvent("window-shrink", {
-        prevLen: messagesLengthRef.current,
-        nextLen: messages.length,
-      });
-    }
-    messagesLengthRef.current = messages.length;
-  }, [messages.length]);
-
-  // Diagnostic: full remounts re-run the initial bottom pin at revision 0 and
-  // teleport a history-reading user back to LAST. Log mount/unmount so a
-  // field dump can distinguish remount from in-place anchor reset.
-  useEffect(() => {
-    debugLogEvent("list-mount", { messagesLen: messagesLengthRef.current });
-    return () => {
-      debugLogEvent("list-unmount", { messagesLen: messagesLengthRef.current });
-    };
-  }, []);
-
-  // Also release the guard whenever the parent's `isLoadingOlder` flag
-  // transitions back to `false`. The length-grew effect above ONLY fires on
-  // a successful prepend; if an older-page fetch errors, returns zero rows,
-  // or hits the 25s abort timeout, `messages.length` never grows and the
-  // synchronous guard would otherwise stay `true` forever — silently blocking
-  // every subsequent `startReached` with "in-flight-guard" and making the
-  // chat appear to stop scrolling at whatever boundary it last reached.
-  // This was the root cause of "team admins/coaches can only scroll back to
-  // <date>" — one transient older-page failure permanently disabled upward
-  // pagination for the rest of the session.
-  const prevIsLoadingOlderRef = useRef(isLoadingOlder);
-  useEffect(() => {
-    if (prevIsLoadingOlderRef.current && !isLoadingOlder) {
-      loadingOlderInFlightRef.current = false;
-      lastPrependLandedAtRef.current = performance.now();
-    }
-    prevIsLoadingOlderRef.current = isLoadingOlder;
-  }, [isLoadingOlder]);
+  const {
+    handleStartReached,
+    handleAtTopStateChange,
+    handleScroll,
+    handleIsScrollingChange,
+  } = useChatPrependPagination({
+    messagesLength: messages.length,
+    messagesLengthRef,
+    hasOlder,
+    isLoadingOlder,
+    onLoadOlder,
+    scrollerElRef,
+    bottomPinReadyRef,
+    bottomPinReadyAtRef,
+    userHasScrolledAfterPinRef,
+  });
 
 
   // Virtuoso's anchored-prepend trick: keep `firstItemIndex` tied to the
@@ -384,187 +289,29 @@ function VirtualizedChatMessageListInner<TMessage extends { id: string }>(
   }, []);
 
 
-  const safeScrollToIndex = useCallback(
-    (payload: any, reason: string) => {
-      if (messagesLengthRef.current <= 0) {
-        debugLogEvent("scroll-to-index-skipped-empty", { reason });
-        return false;
-      }
-      try {
-        virtuosoRef.current?.scrollToIndex(payload);
-        return true;
-      } catch (error) {
-        console.warn("[VirtualizedChatMessageList] scrollToIndex skipped", { reason, error });
-        return false;
-      }
-    },
-    [],
-  );
-
-  /**
-   * CANONICAL bottom pin: park at TRUE max scrollTop (footer included).
-   *
-   * Root cause of the "thread moves up and down after skeleton reveal"
-   * bounce: two different "bottom" targets were being written by competing
-   * pin paths —
-   *   A) `scrollToIndex({ index: "LAST", align: "end" })` parks the last
-   *      ROW flush against the viewport bottom, i.e. scrollTop =
-   *      maxTop - footerHeight (the bottomPadding footer sits below the
-   *      viewport).
-   *   B) direct `scrollTop = scrollHeight - clientHeight` writes (RO
-   *      stay-pinned guard, open-pin window, scrollToBottom's rAF
-   *      follow-up) park at maxTop — 32px further.
-   * A reveal that ended with (A) followed by any (B) writer (or the
-   * scrollToIndex-then-rAF-maxTop sequence inside `scrollToBottom`)
-   * visibly jumped the whole thread up/down by the footer height.
-   *
-   * From now on EVERY bottom pin converges on (B) in a single synchronous
-   * write, so there is no intermediate paint at the end-align position and
-   * no disagreement between writers. Virtuoso tolerates direct scrollTop
-   * jumps (same mechanism as scrollbar drags); bottom pins are only ever
-   * issued at/near the bottom where the tail rows are already mounted
-   * (initial mount anchors at LAST, overscan bottom = 600px).
-   */
-  // NEVER animate this write. A `behavior: "smooth"` glide is cancelled by the
-  // next synchronous `scrollTop =` write (own-message pin, bottom-padding
-  // re-pin, stay-pinned guard) and the truncated glide + instant jump is the
-  // post-send "shake". Every bottom pin is a single instant write; calmness
-  // comes from landing the row, composer collapse and footer in ONE frame,
-  // not from animating between them.
-  const pinToTrueBottom = useCallback(
-    (reason: string, _behavior: "auto" | "smooth" = "auto") => {
-      if (messagesLengthRef.current <= 0) return false;
-      if (isChatJumpActive()) return false;
-      const el = scrollerElRef.current;
-      if (!el) return false;
-      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      const delta = Math.abs(el.scrollTop - maxTop);
-      if (delta <= 1) return true;
-      debugLogEvent("pin-to-true-bottom", { reason, from: Math.round(el.scrollTop), to: Math.round(maxTop) });
-      el.scrollTop = maxTop;
-      markChatScrollWrite();
-      return true;
-    },
-    [],
-  );
-
-
-  /**
-   * Exact-DOM alignment for a mounted row. Single implementation shared by the
-   * imperative `scrollToMessageId` handle and the jump reveal fail-safe, so
-   * "one final exact-DOM alignment" is guaranteed to be the same correction
-   * the jump itself applies.
-   */
-  const alignMessageIdInView = useCallback(
-    (messageId: string, align: "start" | "center" | "end" = "center") => {
-      const el = scrollerElRef.current;
-      if (!el) return false;
-      const escapedId = escapeChatCssAttributeValue(messageId);
-      const row = el.querySelector<HTMLElement>(`[data-row-id="${escapedId}"]`);
-      if (!row) return false;
-      const rowRect = row.getBoundingClientRect();
-      const scrollerRect = el.getBoundingClientRect();
-      // ALWAYS read the LIVE composer inset. Reading a closed-over
-      // `bottomPadding` let the initial reveal align against the 56px composer
-      // floor while the overlay gate aligned against the measured height, so the
-      // two gates computed different offsets and each "corrected" the other —
-      // the visible down-then-up settle after the skeleton reveal.
-      const reservedBottom =
-        align === "end" ? getChatBottomPaddingOffset(bottomPaddingRef.current) : 0;
-      const targetTop =
-        align === "end"
-          ? el.scrollTop + rowRect.bottom - scrollerRect.bottom + reservedBottom
-          : align === "start"
-          ? el.scrollTop + rowRect.top - scrollerRect.top
-          : el.scrollTop + rowRect.top - scrollerRect.top - Math.max(0, (el.clientHeight - rowRect.height) / 2);
-      const previousScrollTop = el.scrollTop;
-      const nextScrollTop = Math.max(0, targetTop);
-      // Epsilon no-op: sub-pixel/1px differences are invisible but a real
-      // scroll write re-arms the OTHER reveal gate's quiet window (its
-      // scroll/mutation observers see a new geometry signature), producing a
-      // late third correction after the user already reads the list as settled.
-      if (Math.abs(nextScrollTop - previousScrollTop) < 2) return true;
-      el.scrollTo({ top: nextScrollTop, behavior: "auto" });
-      markChatScrollWrite();
-      console.log("[jumpToMessage] exact DOM correction", {
-        messageId,
-        align,
-        previousScrollTop,
-        targetTop: nextScrollTop,
-        rowTop: rowRect.top,
-        rowBottom: rowRect.bottom,
-        scrollerTop: scrollerRect.top,
-        scrollerBottom: scrollerRect.bottom,
-      });
-      return true;
-    },
-    [],
-  );
-
+  const {
+    safeScrollToIndex,
+    pinToTrueBottom,
+    alignMessageIdInView,
+    bottomPaddingRef,
+    bottomPaddingQuiet,
+    jumpAlignOwnedByContentGateRef,
+    postJumpAnchorRef,
+    jumpAnchorNonce,
+    setJumpAnchorNonce,
+  } = useChatScrollActions({
+    ref,
+    virtuosoRef,
+    scrollerElRef,
+    messagesLengthRef,
+    atBottomRef,
+    bottomPadding,
+  });
   // Latest-render mirrors for the mount-once jump overlay effect (deps: []).
   const alignMessageIdInViewRef = useRef(alignMessageIdInView);
   alignMessageIdInViewRef.current = alignMessageIdInView;
-  const bottomPaddingRef = useRef(bottomPadding);
-  const bottomPaddingChangedAtRef = useRef(0);
-  // Set during render (BEFORE the new footer height hits the DOM) when the
-  // viewport was sitting at the bottom. The layout effect below then re-pins
-  // in the same commit, so a shrinking/growing composer footer can never paint
-  // a frame where the thread has slid up (or down) and then snapped back —
-  // that pair of frames is the post-send "jump".
-  const repinAfterPaddingRef = useRef(false);
-  if (bottomPaddingRef.current !== bottomPadding) {
-    bottomPaddingRef.current = bottomPadding;
-    const el = scrollerElRef.current;
-    if (el) {
-      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      repinAfterPaddingRef.current = maxTop - el.scrollTop <= 24;
-    }
-    // The composer inset is measured in staggered passes (80/180/360/700ms) and
-    // is rendered as an in-flow Virtuoso footer, so every change physically
-    // moves the message column. Revealing between those passes is exactly the
-    // "moves down then up" artefact — record the change so the reveal gate can
-    // wait for the inset to go quiet.
-    bottomPaddingChangedAtRef.current =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
-  }
-  /** True once the composer inset has been unchanged for `quietMs`. */
-  const bottomPaddingQuiet = useCallback((quietMs = 180) => {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    return now - bottomPaddingChangedAtRef.current >= quietMs;
-  }, []);
-  // Same-commit re-pin for composer-footer height changes. Runs before paint,
-  // so the shrink/grow of the footer and the corrected scrollTop land in ONE
-  // frame instead of "slide + snap back".
-  useLayoutEffect(() => {
-    if (!repinAfterPaddingRef.current) return;
-    repinAfterPaddingRef.current = false;
-    if (messagesLengthRef.current <= 0) return;
-    if (isChatJumpActive()) return;
-    const el = scrollerElRef.current;
-    if (!el) return;
-    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-    if (Math.abs(el.scrollTop - maxTop) <= 1) return;
-    el.scrollTop = maxTop;
-    markChatScrollWrite();
-  }, [bottomPadding]);
-  // Single-owner guard for the exact-DOM correction: while the initial
-  // deep-link reveal gate is running, the overlay gate must NOT issue its own
-  // competing `finalAlign` for the same target.
-  const jumpAlignOwnedByContentGateRef = useRef<string | null>(null);
-  // Post-reveal anchor: set by the deep-link content gate the moment it
-  // unmasks, consumed by the anchor watcher below. The two bottom-pin guards
-  // (stay-pinned RO / open-pin window) are gated on `initialBottomPinned`,
-  // which every deep-link page passes as `false` — so without this, rows that
-  // hydrate AFTER a notification-jump reveal (read receipts land 2-4s in on a
-  // cold start, reactions, link previews, image decode) resize in plain sight
-  // and the just-revealed thread visibly shifts.
-  const postJumpAnchorRef = useRef<{ id: string; at: number } | null>(null);
-  const [jumpAnchorNonce, setJumpAnchorNonce] = useState(0);
-
   const jumpOverlayTargetRef = useRef<string | null>(initialTargetMessageId ?? null);
   jumpOverlayTargetRef.current = initialTargetMessageId ?? null;
-
-
 
 
   useEffect(() => {
@@ -966,159 +713,6 @@ function VirtualizedChatMessageListInner<TMessage extends { id: string }>(
   );
 
 
-  const handleStartReached = useCallback(() => {
-    if (!bottomPinReadyRef.current) {
-      debugLogStartReached(false, "bottom-pin-not-ready");
-      return;
-    }
-    const userInitiatedTopReach = hasRecentUserUpwardScroll();
-    // Trust window: suppress the very first upward fetch right after the
-    // initial bottom pin so a cold-open scroll-up cannot trigger a prepend
-    // that visually teleports the viewport to older messages the user
-    // hasn't scrolled through yet.
-    const sincePin = performance.now() - bottomPinReadyAtRef.current;
-    if (sincePin < PREPEND_TRUST_WINDOW_MS) {
-      debugLogStartReached(false, "trust-window-suppressed");
-      return;
-    }
-    if (!userInitiatedTopReach) {
-      debugLogStartReached(false, "no-user-scroll");
-      return;
-    }
-    if (!hasOlder) {
-      debugLogStartReached(false, "no-older");
-      return;
-    }
-    if (isLoadingOlder) {
-      debugLogStartReached(false, "already-loading");
-      return;
-    }
-    if (loadingOlderInFlightRef.current) {
-      debugLogStartReached(false, "in-flight-guard");
-      return;
-    }
-    const sinceLastPrepend = performance.now() - lastPrependLandedAtRef.current;
-    if (
-      lastPrependLandedAtRef.current > 0 &&
-      sinceLastPrepend < PREPEND_COOLDOWN_MS
-    ) {
-      // Cooldown: a prepend just landed; suppress (do NOT retry). A queued
-      // fetch firing after the user stops reads as "messages keep moving
-      // after I stopped" — the next genuine upward gesture will retrigger
-      // `startReached` naturally.
-      debugLogStartReached(false, "cooldown-suppressed");
-      return;
-    }
-    loadingOlderInFlightRef.current = true;
-    debugLogStartReached(true, "fetch");
-    onLoadOlder();
-  }, [hasOlder, isLoadingOlder, onLoadOlder, hasRecentUserUpwardScroll]);
-
-  // When the scroller is already pinned at scrollTop≈0, iOS/Android often do
-  // not emit another scroll event for a repeated upward-history gesture. That
-  // means neither `startReached` nor `atTopStateChange` fires, so the chat can
-  // appear hard-stuck at a page boundary even though older rows exist. Listen
-  // directly for edge pull intent and route it through the same guarded loader.
-  useEffect(() => {
-    const el = scrollerElRef.current;
-    if (!el) return;
-
-    let lastTouchY: number | null = null;
-    let frame: number | null = null;
-    const requestEdgeLoad = () => {
-      markPrependUpwardMotion({ explicitGesture: true });
-      lastUserUpwardScrollAtRef.current = performance.now();
-      if (frame !== null) return;
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        if (scrollerElRef.current && scrollerElRef.current.scrollTop <= 8) handleStartReached();
-      });
-    };
-    const onTouchStart = (event: TouchEvent) => {
-      markPrependUserInput();
-      lastTouchY = event.touches[0]?.clientY ?? null;
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      markPrependUserInput();
-      const y = event.touches[0]?.clientY ?? null;
-      if (y === null || lastTouchY === null) {
-        lastTouchY = y;
-        return;
-      }
-      const deltaY = y - lastTouchY;
-      lastTouchY = y;
-      if (deltaY > 3 && el.scrollTop <= 8) requestEdgeLoad();
-    };
-    const onWheel = (event: WheelEvent) => {
-      markPrependUserInput();
-      if (event.deltaY < -3 && el.scrollTop <= 8) requestEdgeLoad();
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: true });
-    el.addEventListener("wheel", onWheel, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("wheel", onWheel);
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, [handleStartReached]);
-
-  // Belt-and-braces upward pagination trigger. With top overscan,
-  // `startReached` can fail to refire after a successful prepend because the
-  // rendered range still spans data index 0 — the user scrolls up but
-  // Virtuoso never sees a transition INTO the start. `atTopStateChange`
-  // fires on every transition into/out of the top edge, so we use it to
-  // re-invoke the same load logic. The `handleStartReached` body is fully
-  // idempotent (trust window + cooldown + in-flight guard + `hasOlder`
-  // check), so calling it from both paths is safe. We coalesce rapid
-  // re-fires via rAF so a fast flick that produces multiple
-  // atTop=true→false→true transitions inside a single frame collapses to
-  // one call. We also ignore atTop transitions that fire without an
-  // accompanying active user gesture — those are caused by the
-  // `firstItemIndex` shift after a prepend lands and would otherwise keep
-  // queueing new prepends after the user has stopped scrolling.
-  const atTopRafRef = useRef<number | null>(null);
-  const handleAtTopStateChange = useCallback(
-    (atTop: boolean) => {
-      if (!atTop) return;
-      if (!hasRecentUserUpwardScroll()) return;
-      if (atTopRafRef.current !== null) return;
-      atTopRafRef.current = requestAnimationFrame(() => {
-        atTopRafRef.current = null;
-        handleStartReached();
-      });
-    },
-    [handleStartReached, hasRecentUserUpwardScroll],
-  );
-
-
-  const handleScroll = useCallback(() => {
-    if (!bottomPinReadyRef.current) return;
-    const el = scrollerElRef.current;
-    const currentTop = el?.scrollTop ?? 0;
-    const previousTop = lastObservedScrollTopRef.current;
-    lastObservedScrollTopRef.current = currentTop;
-    // Only treat a scroll event as "user scrolled away" when there is a real
-    // user gesture behind it. Programmatic `scrollToIndex` snaps (initial
-    // pin, stay-pinned re-anchor, follow-output) also dispatch scroll events
-    // and would otherwise permanently disable the post-reveal stay-pinned
-    // guard — leaving the last message hidden behind the composer after
-    // late avatar/image hydration on first cold-cache open.
-    const userDrivenScroll = isViewportUserActive(el) || isPrependUserDrivenScrollActive();
-    if (!userDrivenScroll) return;
-    if (previousTop !== null && currentTop < previousTop - 2) {
-      markPrependUpwardMotion();
-      lastUserUpwardScrollAtRef.current = performance.now();
-    }
-    userHasScrolledAfterPinRef.current = true;
-  }, []);
-
-  const handleIsScrollingChange = useCallback((scrolling: boolean) => {
-    setPrependVirtuosoScrolling(scrolling);
-  }, []);
-
   // Prepend anchoring is handled entirely by Virtuoso's `firstItemIndex`
   // shift (see anchorRef math above). We deliberately do NOT run a manual
   // scrollTop-restore loop here: writing scrollTop frame-after-frame while
@@ -1239,317 +833,29 @@ function VirtualizedChatMessageListInner<TMessage extends { id: string }>(
     };
   }, [initialRevealReady, bottomPinRevision, initialBottomPinned]);
 
-  // POST-REVEAL JUMP ANCHOR (deep-link / notification path). The stay-pinned
-  // RO guard and the open-pin window above both early-return when
-  // `initialBottomPinned` is false — which it always is on deep-link pages —
-  // so after a jump reveal there was NO writer compensating the late
-  // hydration that cold starts deliver over the next several seconds (read
-  // receipts at 2-4s, reactions, link previews, image decode). Those resizes
-  // played out in plain sight as the "messages keep moving after the skeleton
-  // reveal" jolt. For the same 6s settle window, keep the jump target glued
-  // to its revealed position using the SAME exact-DOM alignment the reveal
-  // gate used (live composer inset, 2px epsilon no-op), so any late reflow is
-  // absorbed invisibly instead of extending the skeleton (which historically
-  // caused multi-second blank chats). Retires on the first real user scroll
-  // gesture — it must never fight someone scrolling away from the target.
-  useEffect(() => {
-    if (!initialRevealReady) return;
-    const anchor = postJumpAnchorRef.current;
-    if (!anchor) return;
-    if (typeof ResizeObserver === "undefined") return;
-    const viewport = scrollerElRef.current;
-    if (!viewport) return;
-    const inner = viewport.firstElementChild as HTMLElement | null;
-    if (!inner) return;
+  useChatJumpAnchor({
+    initialRevealReady,
+    jumpAnchorNonce,
+    postJumpAnchorRef,
+    scrollerElRef,
+    userHasScrolledAfterPinRef,
+    alignMessageIdInViewRef,
+  });
 
-    // Same window as STAY_PINNED_MS so late-hydrating read receipts are
-    // compensated before the guard retires.
-    const ANCHOR_WINDOW_MS = 6000;
-    const retireAt = anchor.at + ANCHOR_WINDOW_MS;
-    const remaining = retireAt - performance.now();
-    if (remaining <= 0) return;
-
-    let cancelled = false;
-    let lastSignature = "";
-    let resizeObserver: ResizeObserver | null = null;
-    let mutationObserver: MutationObserver | null = null;
-
-    const retire = () => {
-      if (cancelled) return;
-      cancelled = true;
-      resizeObserver?.disconnect();
-      mutationObserver?.disconnect();
-      window.clearTimeout(stopTimer);
-    };
-
-    const reanchor = () => {
-      if (cancelled) return;
-      if (performance.now() > retireAt) {
-        retire();
-        return;
-      }
-      // Hard guards: never re-align from an observer callback while the user
-      // is actively scrolling or has scrolled away from the revealed target.
-      if (isViewportUserActive(viewport)) {
-        retire();
-        return;
-      }
-      if (userHasScrolledAfterPinRef.current) {
-        retire();
-        return;
-      }
-      // Geometry-signature gate: mutation noise that doesn't move anything
-      // (class flips, text ticks) must not even run the DOM measurement.
-      const signature = `${Math.round(viewport.scrollTop)}:${Math.round(viewport.scrollHeight)}:${Math.round(viewport.clientHeight)}`;
-      if (signature === lastSignature) return;
-      lastSignature = signature;
-      // alignMessageIdInView is idempotent here: live composer inset, 2px
-      // epsilon no-op, and a single synchronous write — no intermediate paint.
-      alignMessageIdInViewRef.current?.(anchor.id, "end");
-    };
-
-    resizeObserver = new ResizeObserver(reanchor);
-    resizeObserver.observe(viewport);
-    resizeObserver.observe(inner);
-    mutationObserver = new MutationObserver(reanchor);
-    mutationObserver.observe(viewport, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-    const stopTimer = window.setTimeout(retire, remaining + 50);
-
-    return () => {
-      cancelled = true;
-      resizeObserver?.disconnect();
-      mutationObserver?.disconnect();
-      window.clearTimeout(stopTimer);
-    };
-  }, [initialRevealReady, jumpAnchorNonce]);
-
-
-  // Cold-open data refresh guard. On a fresh login we often render cached
-  // messages first, then replace/extend them with the network-fresh latest
-  // page. `followOutput` only follows when Virtuoso still reports bottom;
-  // first-open measurement drift can make that false, leaving the real latest
-  // message below the viewport. During the first few seconds only, keep
-  // pinning to LAST while there has been no user scroll gesture.
-  useLayoutEffect(() => {
-    if (!initialRevealReady || !lastMessageId) return;
-    if (!initialBottomPinned) return;
-    if (openPinStartedAtRef.current === null) openPinStartedAtRef.current = performance.now();
-
-    const previousLastMessageId = openPinLastMessageIdRef.current;
-    openPinLastMessageIdRef.current = lastMessageId;
-
-    const OPEN_PIN_WINDOW_MS = 6000;
-    const withinOpenWindow = performance.now() - openPinStartedAtRef.current <= OPEN_PIN_WINDOW_MS;
-    if (!withinOpenWindow) return;
-    // NOTE: do NOT early-return when lastMessageId is unchanged. On first
-    // login the cached page often shares its last message id with the
-    // network-fresh page, but the fresh page extends/replaces older rows,
-    // which shifts the bottom row's pixel position. We still need to
-    // re-pin to LAST in that case — relying on lastMessageId alone misses
-    // the jolt entirely. Suppress only when the bottom is already nailed
-    // AND messages haven't grown since the last pass.
-    const messagesLengthChanged = openPinMessagesLengthRef.current !== messages.length;
-    openPinMessagesLengthRef.current = messages.length;
-    if (
-      previousLastMessageId === lastMessageId &&
-      !messagesLengthChanged &&
-      bottomPinReadyRef.current
-    ) return;
-    // PREPEND GUARD: when lastMessageId is unchanged but length grew, an
-    // older page just landed (Load More / startReached). This is ALWAYS a
-    // prepend — never re-pin to LAST regardless of atBottomRef, because the
-    // 120px atBottomThreshold keeps atBottomRef=true for the first ~120px
-    // of an upward fling. Without this, a fast scroll-up from the bottom
-    // that triggers startReached snaps the viewport back to LAST mid-fling
-    // (the reported "I scroll up fast and it pins me back to bottom" bug,
-    // especially visible in DMs where new realtime messages keep the
-    // OPEN_PIN_WINDOW alive).
-    if (
-      messagesLengthChanged &&
-      previousLastMessageId === lastMessageId
-    ) return;
-
-    const run = () => {
-      const viewport = scrollerElRef.current;
-      if (!viewport) return;
-      if (isChatJumpActive()) return;
-      if (isViewportUserActive(viewport)) return;
-      // Pure pixel-distance gate (atBottomRef has a 120px threshold and is
-      // unreliable mid-fling — see RO guard above).
-      const distanceFromBottom =
-        viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
-      if (distanceFromBottom > 4) return;
-      if (userHasScrolledAfterPinRef.current && distanceFromBottom > 4) return;
-      if (isRecentChatScrollWrite(80)) return;
-      // Silent scrollTop write rather than `scrollToIndex` — the latter
-      // triggers a visible Virtuoso recompute/jump every time it fires,
-      // which on first-open stacks into a multi-step flicker as cached
-      // messages get replaced/extended by the network refresh.
-      const maxTop = viewport.scrollHeight - viewport.clientHeight;
-      if (Math.abs(viewport.scrollTop - maxTop) > 1) {
-        viewport.scrollTop = maxTop;
-        markChatScrollWrite();
-      }
-    };
-
-
-    // SYNCHRONOUS first pass — commits in the same paint frame as the
-    // cached→fresh message swap, so the browser never paints a frame where
-    // the bottom row is partially scrolled off. Without this, Android WebView
-    // shows a single-frame "jolt" right after first login as the fresh page
-    // replaces the cached one. The rAF + delayed passes below remain as a
-    // safety net for late-hydrating row heights (avatars, link previews).
-    if (!isChatJumpActive()) run();
-    const r = requestAnimationFrame(() => requestAnimationFrame(run));
-    // Two follow-up passes are enough to absorb the network-fresh page
-    // landing on top of cached messages. The previous 5-timer barrage
-    // (160/420/900/1600/2600 ms) caused a visible series of jolts on
-    // cold opens.
-    const timers = [200, 600].map((delay) => window.setTimeout(run, delay));
-    return () => {
-      cancelAnimationFrame(r);
-      timers.forEach((timer) => window.clearTimeout(timer));
-    };
-
-  }, [initialRevealReady, lastMessageId, messages.length, bottomPinRevision, initialBottomPinned]);
-
-  // OWN-MESSAGE SEND PIN. When the newest appended message belongs to the
-  // current user, they just hit Send — the freshly sent bubble MUST be
-  // visible regardless of `followOutput`'s atBottom state, the open-pin
-  // window, or a stale jump flag. With the keyboard open Virtuoso often
-  // reports atBottom=false (the visual viewport shrank under it), so
-  // `followOutput` silently skips the append and the sent bubble lands
-  // clipped behind the composer. The page-level `onMutate` scrollToBottom
-  // can also be swallowed when `isChatJumpActive()` was left set — sending
-  // a message is an explicit intent change, so release the jump and pin.
-  const prevOwnPinLastIdRef = useRef<string | null>(lastMessageId);
-  useLayoutEffect(() => {
-    const prevId = prevOwnPinLastIdRef.current;
-    prevOwnPinLastIdRef.current = lastMessageId;
-    if (!lastMessageId || lastMessageId === prevId) return;
-    const last = messages[messages.length - 1] as { author_id?: string | null } | undefined;
-    if (!currentUserId || !last || last.author_id !== currentUserId) return;
-    if (isChatJumpActive()) setChatJumpActive(false);
-
-    const pin = () => {
-      const el = scrollerElRef.current;
-      if (!el) return;
-      // NOTE: do NOT bail on `isViewportTouching` here. On Android, sending a
-      // message keeps the soft keyboard open and the composer/viewport keeps
-      // resizing for several hundred ms after send; any of those resize
-      // gestures can leave the touch-tracker hot and silently swallow the
-      // pin, leaving the freshly-sent bubble clipped behind the composer.
-      // Send is an explicit intent change, so always honour it.
-      const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      if (Math.abs(el.scrollTop - maxTop) > 1) {
-        el.scrollTop = maxTop;
-        markChatScrollWrite();
-      }
-    };
-    pin();
-    const r = requestAnimationFrame(() => requestAnimationFrame(pin));
-    // Trailing passes absorb composer collapse (reply pill clears, textarea
-    // shrinks back to one line), optimistic bubble height settling, and on
-    // Android the soft-keyboard / visualViewport reflow that can land 600ms+
-    // after send commits.
-    const timers = [80, 200, 360, 560, 820, 1200].map((delay) => window.setTimeout(pin, delay));
-    return () => {
-      cancelAnimationFrame(r);
-      timers.forEach((t) => window.clearTimeout(t));
-    };
-  }, [lastMessageId, messages, currentUserId]);
-
-
-  // Only auto-follow new outgoing messages when the user is already at the
-  // bottom — never yank a finger reading history.
-  const followOutput = useCallback((isAtBottom: boolean) => {
-    return isAtBottom ? ("auto" as const) : false;
-  }, []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      scrollToBottom: (behavior = "auto", options) => {
-        // Defer to the next two animation frames. Send mutations call
-        // scrollToBottom synchronously inside `onMutate` — BEFORE React has
-        // committed the optimistic message into the cache and BEFORE
-        // Virtuoso has rendered the new row. Scrolling to "LAST" right
-        // then would land on the previous last message and leave the
-        // freshly-sent bubble below the viewport. Waiting one paint lets
-        // the new item mount; the second rAF guarantees Virtuoso has
-        // measured it so `index: "LAST"` resolves to the correct row.
-        //
-        // We then schedule additional re-pins across the next ~500ms to
-        // absorb composer reflow that lands AFTER send commits: the reply
-        // pill clears, edit mode exits, the textarea collapses back to a
-        // single line, and the optimistic bubble's own height settles
-        // (image decode, link preview hydrate). Each of these shrinks or
-        // grows the bottomPadding (which mirrors composer height) AFTER
-        // the initial scroll, so without follow-up pins the freshly sent
-        // bubble ends up clipped behind the fixed composer.
-        const run = () => {
-          if (messagesLengthRef.current <= 0) return;
-          if (isChatJumpActive()) return;
-          const viewport = scrollerElRef.current;
-          if (options?.force ? isViewportTouching(viewport) : isViewportUserActive(viewport)) return;
-          // NOTE: do NOT pass `offset` here. The bottomPadding is already
-          // rendered as Virtuoso's Footer inside the list, so it already
-          // reserves the composer space above the scroll viewport bottom.
-          // Passing offset would apply the composer padding twice and push
-          // the last message (and the composer's visual baseline) high up
-          // the screen.
-          //
-          // Single synchronous write to TRUE max scrollTop — no
-          // `scrollToIndex(LAST, end)` intermediate frame. The end-align
-          // position parks the last row footer-height (32px) above true
-          // bottom, so a scrollToIndex-then-maxTop sequence painted two
-          // different bottoms a frame apart (the "thread moves up and down
-          // after reveal" bounce). pinToTrueBottom is the single canonical
-          // target shared by every bottom-pin writer.
-          pinToTrueBottom("imperative-scroll-to-bottom", behavior);
-        };
-        run();
-        requestAnimationFrame(() => requestAnimationFrame(run));
-        // Trailing re-pins. Each is independently guarded so an active
-        // user gesture (finger drag / momentum) cancels them.
-        window.setTimeout(run, 200);
-        window.setTimeout(run, 400);
-        window.setTimeout(run, 650);
-      },
-
-      scrollToIndex: (index, align = "center") => {
-        if (messagesLengthRef.current <= 0) return;
-        const last = Math.max(0, messagesLengthRef.current - 1);
-        const dataIndex = Math.max(0, Math.min(index, last));
-        const offset = align === "end" && dataIndex !== last ? getChatBottomPaddingOffset(bottomPadding) : 0;
-        // `scrollToIndex` expects the zero-based DATA index even when
-        // `firstItemIndex` is used for reverse/prepend anchoring. Passing the
-        // shifted absolute index gets clamped by Virtuoso to LAST, which is why
-        // notification jumps highlighted the right row but kept the viewport at
-        // the bottom of the committee chat.
-        safeScrollToIndex({
-          index: dataIndex,
-          align,
-          offset,
-          behavior: "auto",
-        }, "imperative-scroll-to-index");
-      },
-      scrollToMessageId: (messageId, align = "center") => alignMessageIdInView(messageId, align),
-
-      isAtBottom: () => atBottomRef.current,
-      isNearBottom: (thresholdPx: number) => {
-        const el = scrollerElRef.current;
-        if (!el) return true;
-        const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-        return distance <= Math.max(0, thresholdPx);
-      },
-    }),
-    [bottomPadding, safeScrollToIndex, alignMessageIdInView],
-  );
+  const { followOutput } = useChatBottomFollow({
+    initialRevealReady,
+    initialBottomPinned,
+    lastMessageId,
+    messages,
+    bottomPinRevision,
+    currentUserId,
+    scrollerElRef,
+    bottomPinReadyRef,
+    userHasScrolledAfterPinRef,
+    openPinStartedAtRef,
+    openPinLastMessageIdRef,
+    openPinMessagesLengthRef,
+  });
 
   // O(1) id → index map AND defensive de-duplication. Pagination races (two
   // `startReached` events firing before React flushes `isLoadingOlder=true`)

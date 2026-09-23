@@ -1995,7 +1995,10 @@ self-contained Virtuoso row presentation layer (stable header/footer,
 scroller/item wrappers, row measurement/cache wrapper, debug row probe,
 memoized row adapter, and jump hydration skeleton) into
 `chatVirtuosoRows.tsx`, leaving the large file focused on the scroll/jump
-controller.
+controller. A final controller pass moved the imperative scroll API,
+startReached/prepend pagination gate, cold-open/bottom-follow pinning, and
+post-reveal jump-anchor watcher into focused hooks while keeping their
+existing order-sensitive refs in the main component.
 
 These changes are pure relocations/wiring: no row-height, signature, native-
 environment-detection, prepend-motion-timing, row measurement, or skeleton
@@ -2006,11 +2009,12 @@ main component keeps working across the new file boundary.
 
 | Measure | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| `VirtualizedChatMessageList.tsx` raw lines | 2,833 | 1,962 | -871 (-30.7%) |
+| `VirtualizedChatMessageList.tsx` raw lines | 2,833 | 1,268 | -1,565 (-55.2%) |
 | `chatVirtuosoRows.tsx` (new) | 0 | 379 | +379 |
 | `useDeferChatPrepends.ts` (new) | 0 | 171 | +171 |
+| Controller hooks (`useChatScrollActions`, `useChatPrependPagination`, `useChatBottomFollow`, `useChatJumpAnchor`) | 0 | 692 | +692 |
 | `chatRowHeightEstimator.ts` / `chatRowSignature.ts` / `chatRowPreviewEstimate.ts` / `chatVirtuosoEnvironment.ts` | already present, unwired | wired in, unchanged | 0 |
-| Product JavaScript total / chunks | 8,882,693 bytes / 502 | 8,882,854 bytes / 502 | budget passing |
+| Product JavaScript total / chunks | 8,882,693 bytes / 502 | 8,884,442 bytes / 502 | budget passing |
 | Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | unchanged |
 
 Validation passed the full chat component suite (30 files / 212 tests,

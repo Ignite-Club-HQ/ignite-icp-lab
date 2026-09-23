@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 
-const list = readFileSync("src/components/chat/VirtualizedChatMessageList.tsx", "utf8");
+const list = [
+  "src/components/chat/VirtualizedChatMessageList.tsx",
+  "src/components/chat/useChatJumpAnchor.ts",
+].map((path) => readFileSync(path, "utf8")).join("\n");
 
 describe("chat post-reveal jump anchor (notification tap settle)", () => {
   it("arms the anchor in the content-gate reveal before unmasking", () => {
