@@ -1,5 +1,35 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## HomePage rewards and loading presentation extraction (2026-09-23)
+
+The first `HomePage.tsx` decomposition round moves the complete rewards
+presentation cluster to `components/home/HomeRewardsSection.tsx` and the two
+static loading placeholders to `components/home/HomeLoadingSkeletons.tsx`.
+`HomePage` retains reward queries and mutations, ICP-lab fail-closed checks,
+authorization and entitlement decisions, idempotency-ref ownership, cache
+invalidation, navigation, and all Next Up data ownership.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `HomePage.tsx` raw lines | 3,127 | 2,722 | -405 (-13.0%) |
+| New non-test presentation modules | 0 | 698 | +698 |
+| Complete Home target source | 3,127 | 3,420 | +293 |
+
+The explicit typed component contract makes this a maintainability and
+safe-change boundary rather than an aggregate source-line reduction. Four new
+interaction tests cover unlocked and Pro-locked summary routing, reward
+affordability, and per-attempt redemption idempotency. Existing Next Up,
+legacy-workflow-removal, and role-surface source contracts remain green.
+
+Validation passed product typecheck, 40 focused Home/rewards/source-contract
+tests, the 469-file/4,479-test legacy suite (one skip), 153-file/1,720-test lab
+suite, lab typecheck, product build/bundle budget (8,896,179 total JavaScript
+bytes; 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet (2,332
+fewer duplicated lines than baseline), and `git diff --check`. The Home route
+chunk is 124.44 kB versus approximately 122.68 kB before extraction; the
+1.76 kB increase is typed boundary overhead, not a runtime-performance gain.
+
 ## PitchBoard.tsx player-placement extraction (2026-09-23)
 
 The final low-risk `PitchBoard.tsx` reduction moves the two pure formation

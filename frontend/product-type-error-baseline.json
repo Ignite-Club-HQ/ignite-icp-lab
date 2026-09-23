@@ -1284,7 +1284,7 @@
     },
     {
       "file": "src/pages/HomePage.tsx",
-      "line": 607,
+      "line": 534,
       "column": 9,
       "code": "TS2347",
       "message": "Untyped function calls may not accept type arguments.",
@@ -1292,7 +1292,7 @@
     },
     {
       "file": "src/pages/HomePage.tsx",
-      "line": 818,
+      "line": 745,
       "column": 36,
       "code": "TS2345",
       "message": "Argument of type '{ type: \"game\"; title: string; club_id: string; team_id: string; event_date: string; teams: { name: string; default_match_arrival_minutes: number; }; clubs: { name: string; sport: string; }; is_cancelled: boolean; ... 15 more ...; status: \"active\" | ... 2 more ... | \"cancelled\"; }[] | Event[]' is not assignable to parameter of type 'Event[]'.",

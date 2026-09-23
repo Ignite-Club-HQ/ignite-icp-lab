@@ -5,12 +5,11 @@ import { Capacitor } from "@capacitor/core";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SoccerBall from "@/components/pitch/SoccerBall";
-import { X, CheckCircle2, HelpCircle, Minus, Loader2, Flame, Gift, Lock, FolderOpen, Crown, ChevronRight } from "lucide-react";
+import { X, CheckCircle2, HelpCircle, Minus, Loader2, Flame, FolderOpen, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 // Lazy-loaded to keep them out of the HomePage critical path. Each is only
 // mounted when the user opens a specific dialog / lands on a banner-eligible
 // state, so the chunk fetch happens on demand.
-const RewardClaimQRDialog = lazyWithRetry(() => import("@/components/RewardClaimQRDialog").then(m => ({ default: m.RewardClaimQRDialog })));
 const AccountRecoveryBanner = lazyWithRetry(() => import("@/components/AccountRecoveryBanner").then(m => ({ default: m.AccountRecoveryBanner })));
 const NativeAppDownloadBanner = lazyWithRetry(() => import("@/components/NativeAppDownloadBanner").then(m => ({ default: m.NativeAppDownloadBanner })));
 const HomeInviteFlow = lazyWithRetry(() => import("@/components/HomeInviteFlow"));
@@ -32,15 +31,6 @@ if (typeof window !== "undefined") {
     window.setTimeout(warm, 2500);
   }
 }
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { PageLoading } from "@/components/ui/page-loading";
 
 // Lazy load PitchBoard - it's a heavy 4k+ line component with Fabric.js
@@ -63,16 +53,8 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { MobileCardSelect } from "@/components/MobileCardSelect";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -119,6 +101,14 @@ import { ContactClubButton } from "@/components/ContactClubButton";
 import { HomeQuickActionsFab } from "@/components/HomeQuickActionsFab";
 import { DesktopActionBar } from "@/components/home/DesktopActionBar";
 import { HomeWelcomeGetStarted } from "@/components/home/HomeWelcomeGetStarted";
+import {
+  HomeRewardsSection,
+  type HomeReward,
+} from "@/components/home/HomeRewardsSection";
+import {
+  HomeInitialSkeleton,
+  HomeMyTeamsSkeleton,
+} from "@/components/home/HomeLoadingSkeletons";
 import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 
 import { LazyMount } from "@/components/LazyMount";
@@ -128,69 +118,6 @@ import { lazyWithRetry } from "@/lib/lazyWithRetry";
 type EventType = "game" | "training" | "social";
 type TeamRole = "player" | "parent" | "coach" | "team_admin";
 type LeagueRole = "league_admin" | "parent";
-
-function HomeMyTeamsSkeleton() {
-  return (
-    <section className="space-y-2.5" aria-hidden="true">
-      <h2 className="text-xl font-bold px-1 tracking-tight">My Teams</h2>
-      <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-3 pb-2 pr-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="shrink-0 w-[85vw] max-w-[320px] h-[212px] rounded-lg bg-card border border-border/60 p-4 space-y-3 animate-pulse">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-muted shrink-0" />
-                <div className="flex-1 space-y-2 pt-1">
-                  <div className="h-4 w-2/3 rounded bg-muted" />
-                  <div className="h-3 w-1/2 rounded bg-muted/80" />
-                </div>
-              </div>
-              <div className="rounded-md bg-muted/40 h-[62px] p-3 space-y-2">
-                <div className="h-3 w-4/5 rounded bg-muted" />
-                <div className="h-3 w-3/5 rounded bg-muted/80" />
-              </div>
-              <div className="flex items-center gap-2 pt-3 border-t border-border/40 h-[36px]">
-                <div className="h-7 w-7 rounded-full bg-muted" />
-                <div className="h-3 w-24 rounded bg-muted/80" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HomeInitialSkeleton() {
-  return (
-    <div className="space-y-5" aria-hidden="true">
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="h-6 w-24 rounded bg-muted animate-pulse" />
-          <div className="h-4 w-16 rounded bg-muted animate-pulse" />
-        </div>
-        <div className="h-[340px] overflow-hidden rounded-lg bg-card border border-border/50 p-4 space-y-3 animate-pulse">
-          <div className="ml-auto h-5 w-16 rounded-full bg-muted" />
-          <div className="h-7 w-2/3 rounded bg-muted" />
-          <div className="h-4 w-4/5 rounded bg-muted/80" />
-          <div className="h-4 w-3/5 rounded bg-muted/80" />
-          <div className="h-4 w-full rounded bg-muted/70" />
-          <div className="pt-28 space-y-2">
-            <div className="h-4 w-1/2 rounded bg-muted/70" />
-            <div className="grid grid-cols-3 gap-2">
-              <div className="h-9 rounded-full bg-muted" />
-              <div className="h-9 rounded-full bg-muted" />
-              <div className="h-9 rounded-full bg-muted" />
-            </div>
-            <div className="h-12 rounded-xl bg-muted/50" />
-          </div>
-        </div>
-        {/* Reserve dot row so My Teams below stays at a stable Y position. */}
-        <div className="h-[24px]" aria-hidden="true" />
-      </section>
-      <HomeMyTeamsSkeleton />
-    </div>
-  );
-}
 
 interface MiniLeague {
   id: string;
@@ -418,7 +345,7 @@ export default function HomePage() {
   const [selectedUpgradeClub, setSelectedUpgradeClub] = useState<string>("");
   const [rewardsDialogOpen, setRewardsDialogOpen] = useState(false);
   const [selectedRewardClubId, setSelectedRewardClubId] = useState<string | null>(null);
-  const [selectedReward, setSelectedReward] = useState<any>(null);
+  const [selectedReward, setSelectedReward] = useState<HomeReward | null>(null);
   const [confirmRedeemDialogOpen, setConfirmRedeemDialogOpen] = useState(false);
   const [selectedRedeemFor, setSelectedRedeemFor] = useState<string>("myself");
 
@@ -2634,350 +2561,62 @@ export default function HomePage() {
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      <section aria-label="Points and rewards">
-      <Card className={`border overflow-hidden cursor-pointer ${isRewardsProLocked ? 'bg-muted/30 border-dashed' : 'bg-primary/[0.06]'}`} role="button" tabIndex={0} aria-label={isRewardsProLocked ? "Upgrade to Pro to unlock club rewards" : "View points and rewards"} onClick={() => isRewardsProLocked ? handleUpgradeClick() : navigate("/profile?section=points-history")} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isRewardsProLocked ? handleUpgradeClick() : navigate("/profile?section=points-history"); } }}>
-        <CardContent className="px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-1.5 rounded-lg shrink-0 ${isRewardsProLocked ? 'bg-muted' : 'bg-primary/15'}`}>
-              {isRewardsProLocked ? <Lock className="h-4 w-4 text-muted-foreground" /> : <Flame className="h-4 w-4 text-primary" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              {latestPendingRedemption && !isRewardsProLocked ? (
-                <p className="text-sm font-semibold leading-tight text-primary truncate">
-                  🎁 Ready to claim: {latestPendingRedemption.club_rewards?.name}
-                </p>
-              ) : minRewardThreshold !== null && myPoints >= minRewardThreshold && !isRewardsProLocked ? (
-                <p className="text-sm font-semibold leading-tight text-primary">
-                  🎉 Rewards Available
-                </p>
-              ) : (
-              <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold leading-tight">
-                    {isRewardsProLocked ? 'Member Rewards' : ((userClubs[0] as any)?.points_display_name || 'Reward Points')}
-                  </p>
-                  {isRewardsProLocked && (
-                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">Pro Only</Badge>
-                  )}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                {isRewardsProLocked
-                  ? 'Earn points for RSVPs, volunteering & participation'
-                  : myPointsLoading
-                    ? (<span className="inline-block h-3 w-16 align-middle rounded bg-muted animate-pulse" aria-label="Loading points" />)
-                    : `${myPoints} Point${myPoints === 1 ? '' : 's'}${showProBadge ? ' · Pro' : ''}`}
-              </p>
-            </div>
-            {latestPendingRedemption && !isRewardsProLocked ? (
-              <Button
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5 h-8 text-xs font-medium shrink-0"
-                onClick={(e) => { e.stopPropagation(); setClaimDialogOpen(true); }}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Claim
-              </Button>
-            ) : isRewardsProLocked ? (
-              <Button
-                size="sm"
-                className="gap-1 h-8 text-xs font-medium shrink-0 px-2"
-                onClick={(e) => { e.stopPropagation(); handleUpgradeClick(); }}
-              >
-                <Crown className="h-3.5 w-3.5" />
-                Upgrade
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1 h-8 text-xs font-medium text-primary shrink-0 px-2"
-                onClick={(e) => { e.stopPropagation(); handleBrowseRewards(); }}
-              >
-                View Rewards
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      </section>
-
-      {/* Reward Claim QR Dialog */}
-      {latestPendingRedemption && user && rewardQROpen && (
-        <Suspense fallback={null}>
-          <RewardClaimQRDialog
-            open={rewardQROpen}
-            onOpenChange={setRewardQROpen}
-            rewardName={latestPendingRedemption.club_rewards?.name || "Reward"}
-            clubName={latestPendingRedemption.clubs?.name || "Club"}
-            redemptionId={latestPendingRedemption.id}
-            qrCodeUrl={latestPendingRedemption?.club_rewards?.qr_code_url || null}
-            userName={profile?.display_name || undefined}
-            userId={user.id}
-          />
-        </Suspense>
-      )}
-
-      {/* Rewards Browse Dialog */}
-      <ResponsiveDialog 
-        open={rewardsDialogOpen} 
-        onOpenChange={(open) => {
-          setRewardsDialogOpen(open);
-          if (!open) {
-            setSelectedRewardClubId(null);
-          }
+      <HomeRewardsSection
+        isRewardsProLocked={isRewardsProLocked}
+        latestPendingRedemption={latestPendingRedemption}
+        minRewardThreshold={minRewardThreshold}
+        myPoints={myPoints}
+        myPointsLoading={myPointsLoading}
+        showProBadge={showProBadge}
+        pointsDisplayName={(userClubs[0] as any)?.points_display_name || "Reward Points"}
+        rewardQROpen={rewardQROpen}
+        rewardsDialogOpen={rewardsDialogOpen}
+        selectedRewardClubId={selectedRewardClubId}
+        rewardsLoading={rewardsLoading}
+        availableRewards={availableRewards}
+        rewardClubs={rewardClubs}
+        isAppAdmin={isAppAdmin}
+        userChildren={userChildren}
+        selectedReward={selectedReward}
+        confirmRedeemDialogOpen={confirmRedeemDialogOpen}
+        selectedRedeemFor={selectedRedeemFor}
+        redeemPending={redeemMutation.isPending}
+        hasProAccess={hasProAccess}
+        userRoles={userRoles}
+        userClubs={userClubs}
+        upgradeDialogOpen={upgradeDialogOpen}
+        selectedUpgradeClub={selectedUpgradeClub}
+        claimDialogOpen={claimDialogOpen}
+        claimPending={claimMutation.isPending}
+        user={user}
+        userName={profile?.display_name || undefined}
+        redeemAttemptKeyRef={redeemAttemptKeyRef}
+        childPointsFor={childPointsFor}
+        onOpenPointsHistory={() => navigate("/profile?section=points-history")}
+        onUpgrade={handleUpgradeClick}
+        onBrowseRewards={handleBrowseRewards}
+        onRewardQROpenChange={setRewardQROpen}
+        onClaimDialogOpenChange={setClaimDialogOpen}
+        onRewardsDialogOpenChange={setRewardsDialogOpen}
+        onSelectedRewardClubIdChange={setSelectedRewardClubId}
+        onSelectReward={(reward) => {
+          setSelectedReward(reward);
+          setRewardsDialogOpen(false);
+          setTimeout(() => setConfirmRedeemDialogOpen(true), 300);
         }}
-      >
-        <ResponsiveDialogContent className="max-w-md sm:max-h-[85vh]">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle className="flex items-center gap-2">
-              <Gift className="h-5 w-5" />
-              {selectedRewardClubId ? "Available Rewards" : "Select Club"}
-            </ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              {selectedRewardClubId 
-                ? `You have ${myPoints} points${userChildren.length > 0 ? " (+ children's points)" : ""}`
-                : "Choose a club to view rewards"
-              }
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          
-          <div className="flex-1 overflow-y-auto space-y-3 pt-2 pb-4">
-            {!selectedRewardClubId ? (
-              // Club selection view
-              <div className="space-y-2">
-                {rewardClubs.filter((club: any) => isAppAdmin || club.hasPro).map((club: any) => (
-                  <button
-                    key={club.id}
-                    onClick={() => setSelectedRewardClubId(club.id)}
-                    className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left"
-                  >
-                    <span className="font-medium">{club.name}</span>
-                    <Gift className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))}
-                {rewardClubs.filter((club: any) => isAppAdmin || club.hasPro).length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    No clubs with Pro subscription found.
-                  </p>
-                )}
-              </div>
-            ) : rewardsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : availableRewards.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No rewards available yet. Check back later!
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {availableRewards.map((reward: any) => {
-                  const currentPoints = myPoints;
-                  const canAfford = currentPoints >= reward.points_required ||
-                    userChildren.some((c: any) => childPointsFor(c) >= reward.points_required);
-                  
-                  return (
-                    <button
-                      key={reward.id}
-                      onClick={() => {
-                        if (canAfford) {
-                          setSelectedReward(reward);
-                          setRewardsDialogOpen(false);
-                          setTimeout(() => setConfirmRedeemDialogOpen(true), 300);
-                        }
-                      }}
-                      disabled={!canAfford}
-                      className={`flex items-center justify-between w-full p-3 rounded-lg text-left transition-colors ${
-                        canAfford
-                          ? "bg-muted/50 hover:bg-muted cursor-pointer"
-                          : "bg-muted/20 opacity-60 cursor-not-allowed"
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{reward.name}</span>
-                          {reward.sponsors?.name && (
-                            <Badge variant="outline" className="text-xs">
-                              {reward.sponsors.name}
-                            </Badge>
-                          )}
-                        </div>
-                        {reward.description && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{reward.description}</p>
-                        )}
-                      </div>
-                      <Badge variant={canAfford ? "default" : "secondary"} className="ml-2 shrink-0">
-                        {reward.points_required} pts
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-
-      {/* Confirm Redeem Dialog */}
-      <AlertDialog 
-        open={confirmRedeemDialogOpen} 
-        onOpenChange={(open) => {
-          if (!redeemMutation.isPending) {
-            setConfirmRedeemDialogOpen(open);
-            if (!open) {
-              setSelectedReward(null);
-              setSelectedRedeemFor("myself");
-              redeemAttemptKeyRef.current = null;
-
-            }
-          }
+        onConfirmRedeemDialogOpenChange={setConfirmRedeemDialogOpen}
+        onClearSelectedReward={() => setSelectedReward(null)}
+        onSelectedRedeemForChange={setSelectedRedeemFor}
+        onRedeem={(input) => redeemMutation.mutate(input)}
+        onUpgradeDialogOpenChange={setUpgradeDialogOpen}
+        onSelectedUpgradeClubChange={setSelectedUpgradeClub}
+        onContinueUpgrade={() => {
+          if (!selectedUpgradeClub) return;
+          navigate(`/clubs/${selectedUpgradeClub}/upgrade`);
+          setUpgradeDialogOpen(false);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Redeem Reward?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confirm redemption of <strong>{selectedReward?.name}</strong> for{" "}
-              <strong>{selectedReward?.points_required} points</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {userChildren.filter((child: any) => childPointsFor(child) >= (selectedReward?.points_required || 0)).length > 0 && (
-            <div className="space-y-2 py-2">
-              <Label>Redeem for</Label>
-              <Select value={selectedRedeemFor} onValueChange={setSelectedRedeemFor}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="myself">
-                    Myself ({myPoints} pts)
-                  </SelectItem>
-                  {userChildren
-                    .filter((child: any) => childPointsFor(child) >= (selectedReward?.points_required || 0))
-                    .map((child: any) => (
-                    <SelectItem key={child.id} value={child.id}>
-                      {child.name} ({childPointsFor(child)} pts)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={redeemMutation.isPending}>Cancel</AlertDialogCancel>
-            <Button
-              onClick={() => {
-                if (selectedReward) {
-                  const forChildId = selectedRedeemFor === "myself" ? null : selectedRedeemFor;
-                  if (!redeemAttemptKeyRef.current) {
-                    redeemAttemptKeyRef.current =
-                      typeof crypto !== "undefined" && "randomUUID" in crypto
-                        ? crypto.randomUUID()
-                        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-                  }
-                  redeemMutation.mutate({
-                    reward: selectedReward,
-                    forChildId,
-                    idempotencyKey: redeemAttemptKeyRef.current,
-                  });
-                }
-              }}
-              disabled={redeemMutation.isPending}
-            >
-              {redeemMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Gift className="h-4 w-4 mr-2" />
-              )}
-              {redeemMutation.isPending ? "Redeeming..." : "Confirm"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Pro Upgrade Card */}
-      {hasProAccess === false && userRoles && userRoles.length > 0 && userClubs.length > 0 && (() => {
-        const isAnyAdmin = userRoles.some(r => r.role === "club_admin" || r.role === "team_admin");
-        return (
-          <Card className="border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-primary/20">
-                    <Crown className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-semibold">
-                      {isAnyAdmin ? "Unlock Pro Features" : "Pro Features Available"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isAnyAdmin 
-                        ? "Get access to Vault, Media, Rewards & more"
-                        : "Contact your club or team admin to unlock Pro features"
-                      }
-                    </p>
-                  </div>
-                </div>
-                {isAnyAdmin && (
-                  <Button size="sm" className="shrink-0" onClick={handleUpgradeClick}>
-                    Upgrade
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* Club Selection Dialog for Upgrade */}
-      <ResponsiveDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Select Club to Upgrade</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              Choose which club you'd like to upgrade to Pro.
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Select Club</Label>
-              <Select value={selectedUpgradeClub} onValueChange={setSelectedUpgradeClub}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a club..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {userClubs.map((club) => (
-                    <SelectItem key={club.id} value={club.id}>
-                      <span className="flex items-center gap-2">
-                        <span>{getSportEmoji(club.sport)}</span>
-                        {club.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <ResponsiveDialogFooter>
-            <Button
-              className="w-full sm:w-auto"
-              onClick={() => {
-                if (selectedUpgradeClub) {
-                  navigate(`/clubs/${selectedUpgradeClub}/upgrade`);
-                  setUpgradeDialogOpen(false);
-                }
-              }}
-              disabled={!selectedUpgradeClub}
-            >
-              Continue to Upgrade
-            </Button>
-          </ResponsiveDialogFooter>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-
+        onClaim={(input) => claimMutation.mutate(input)}
+      />
 
       {/* Club Sponsor Section — mounted eagerly (not LazyMount'd) so its
           Supabase query fires in parallel with above-the-fold content and
@@ -3076,50 +2715,6 @@ export default function HomePage() {
         </Suspense>
       )}
 
-      {/* Claim Reward Confirmation Dialog */}
-      <AlertDialog 
-        open={claimDialogOpen} 
-        onOpenChange={(open) => {
-          if (!claimMutation.isPending) {
-            setClaimDialogOpen(open);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Mark Reward as Claimed?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confirm that <strong>{latestPendingRedemption?.club_rewards?.name}</strong> has been given to the member.
-              <br /><br />
-              This will mark the reward as fulfilled and cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={claimMutation.isPending}>Cancel</AlertDialogCancel>
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (latestPendingRedemption) {
-                  claimMutation.mutate({
-                    id: latestPendingRedemption.id,
-                    club_id: latestPendingRedemption.club_id,
-                    reward_name: latestPendingRedemption.club_rewards?.name || "reward",
-                  });
-                }
-              }}
-              disabled={claimMutation.isPending}
-            >
-              {claimMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-              )}
-              {claimMutation.isPending ? "Confirming..." : "Confirm Claimed"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
         </div>
       )}
     </div>

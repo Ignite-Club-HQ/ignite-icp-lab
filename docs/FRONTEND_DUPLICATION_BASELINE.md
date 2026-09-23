@@ -1769,3 +1769,28 @@ lab typecheck, product build/bundle budget (8,895,576 total JavaScript bytes;
 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,218 fewer
 duplicated lines than baseline), and `git diff --check`.
+## HomePage rewards and loading presentation extraction (2026-09-23)
+
+`HomePage.tsx` now delegates its rewards card, browse/redeem/claim/upgrade
+dialogs, Pro upgrade card, reward QR presentation, and static loading
+placeholders to typed modules under `components/home`. Data fetching,
+Supabase/ICP provider selection, mutations, authorization, cache invalidation,
+idempotency ownership, and navigation remain in the page adapter.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `HomePage.tsx` raw lines | 3,127 | 2,722 | -405 (-13.0%) |
+| `HomeRewardsSection.tsx` | 0 | 634 | +634 |
+| `HomeLoadingSkeletons.tsx` | 0 | 64 | +64 |
+| Complete Home target source | 3,127 | 3,420 | +293 |
+
+Product typecheck and 40 focused Home/rewards/source-contract tests passed.
+The two pre-existing Home diagnostics retain their exact messages and were
+re-anchored in the product type-error baseline after source-line movement.
+The complete legacy suite passed 4,479 tests across 469 files (one skip); the
+lab suite passed 1,720 tests across 153 files. Lab typecheck, product build,
+bundle budget (8,896,179 JavaScript bytes total; 1,112,837-byte largest chunk;
+172,904 CSS bytes), isolation, quality ratchet, duplication ratchet (2,332
+duplicated lines removed since baseline), and `git diff --check` also passed.
+The Home route chunk increased from approximately 122.68 kB to 124.44 kB, so
+this round makes no loading-performance claim.
