@@ -1663,6 +1663,26 @@ lab typecheck, product build/bundle budget (8,889,703 total JavaScript bytes;
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
 
+## PitchBoard.tsx geometry, mock, and injury controller extraction (2026-09-23)
+
+Three further controllers were extracted: pitch coordinate/hit-test/drag-swap
+behavior (`usePitchBoardPitchGeometry.ts`), mock roster plus preferred-position
+sync (`usePitchBoardMockPlayers.ts`), and injury actions plus plan repair
+handoff (`usePitchBoardInjuries.ts`). The existing drag/drop dependency-ref
+surface and all layout-context callback names remain unchanged.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,623 | 2,304 | -319 (-12.2%) |
+| Total Phase-0 reduction | 3,438 | 2,304 | -1,134 (-33.0%) |
+
+Validated with product typecheck, 59-file/798-test pitch suite,
+467-file/4,471-test legacy suite (one skip), 153-file/1,720-test lab suite,
+lab typecheck, product build/bundle budget (8,894,078 total JavaScript bytes;
+1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx formation-management extraction (2026-09-23)
 
 `hooks/usePitchBoardFormationManagement.ts` now owns formation reset and

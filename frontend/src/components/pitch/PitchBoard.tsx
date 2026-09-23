@@ -108,6 +108,9 @@ import { usePitchBoardSwapSubstitution } from "./hooks/usePitchBoardSwapSubstitu
 import { usePitchBoardResetGame } from "./hooks/usePitchBoardResetGame";
 import { usePitchBoardUnlinkEvent } from "./hooks/usePitchBoardUnlinkEvent";
 import { usePitchBoardFormationManagement } from "./hooks/usePitchBoardFormationManagement";
+import { usePitchBoardPitchGeometry } from "./hooks/usePitchBoardPitchGeometry";
+import { usePitchBoardMockPlayers } from "./hooks/usePitchBoardMockPlayers";
+import { usePitchBoardInjuries } from "./hooks/usePitchBoardInjuries";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -654,16 +657,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     handlePortraitTimerTouchStart,
   } = useDraggableTimer();
 
-  // Helper to get pinch distance
-  const getPinchDist = (touches: React.TouchList | TouchList) => {
-    const t0 = touches[0];
-    const t1 = touches[1];
-    const dx = t1.clientX - t0.clientX;
-    const dy = t1.clientY - t0.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-
   // Swipe gestures for bench in landscape mode
   const benchSwipeHandlers = useSwipeGesture({
     onSwipeLeft: () => setBenchCollapsed(true),
@@ -755,23 +748,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
   const handleUpdateGoal = useCallback((updatedGoal: Goal) => {
     setGoals(prev => prev.map(g => g.id === updatedGoal.id ? updatedGoal : g));
-  }, []);
-
-  // Generate mock players with positions
-  const generateMockPlayers = useCallback((count: number): Player[] => {
-    const mockNames = [
-      "Alex Smith", "Jordan Lee", "Casey Brown", "Taylor Wilson", "Morgan Davis",
-      "Riley Johnson", "Quinn Anderson", "Avery Thomas", "Cameron White", "Drew Martinez",
-      "Jamie Garcia", "Peyton Robinson", "Skyler Clark", "Dakota Lewis", "Reese Walker"
-    ];
-    return Array.from({ length: count }, (_, i) => ({
-      id: `mock-${i + 1}`,
-      name: mockNames[i] || `Player ${i + 1}`,
-      number: i + 1,
-      position: null,
-      assignedPositions: [], // Empty = eligible for all positions
-      minutesPlayed: 0,
-    }));
   }, []);
 
   // RSVP'd-going filter — when the board is linked to a fixture, only players
@@ -1620,99 +1596,18 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
 
 
-  // Sync player position preferences from database when they change
-  // This ensures updated preferences are reflected even when using saved state from localStorage
-  useEffect(() => {
-    if (!teamPlayerPositions || mockMode) return;
-    
-    setPlayers(prev => prev.map(player => {
-      const dbPosition = teamPlayerPositions.find(p => p.user_id === player.id || p.child_id === player.id);
-      if (dbPosition) {
-        const newAssignedPositions = (dbPosition.preferred_positions || []) as PitchPosition[];
-        const newNumber = dbPosition.jersey_number ?? player.number;
-        
-        // Only update if there's actually a change
-        const positionsChanged = JSON.stringify(player.assignedPositions) !== JSON.stringify(newAssignedPositions);
-        const numberChanged = player.number !== newNumber;
-        
-        if (positionsChanged || numberChanged) {
-          return {
-            ...player,
-            assignedPositions: newAssignedPositions,
-            number: newNumber,
-          };
-        }
-      }
-      return player;
-    }));
-  }, [teamPlayerPositions, mockMode]);
-
-  // Handle player position assignment update
-  const handleUpdatePositions = useCallback((playerId: string, positions: PitchPosition[]) => {
-    setPlayers(prev => prev.map(p => 
-      p.id === playerId ? { ...p, assignedPositions: positions } : p
-    ));
-  }, []);
-
-  // Handle mock mode toggle - auto-apply formation when enabled
-  const handleMockModeChange = useCallback((enabled: boolean) => {
-    setMockMode(enabled);
-    if (enabled) {
-      const neededPlayers = parseInt(teamSize);
-      // Generate exactly teamSize players for pitch + 2 for bench
-      const mockPlayers = generateMockPlayers(neededPlayers + 2);
-      
-      // Auto-apply current formation with eligibility checking
-      const updatedPlayers = autoPlacePlayersOnPitch(mockPlayers, teamSize, selectedFormation);
-      setPlayers(updatedPlayers);
-      // Ensure state gets saved by marking as initialized
-      hasLoadedRef.current = true;
-      setHasInitialized(true);
-    } else {
-      const freshRealPlayers = members
-        .filter(m => m.role === "player")
-        .map((m, index) => ({
-          id: m.user_id,
-          name: m.profiles?.display_name || `Player ${index + 1}`,
-          number: index + 1,
-          position: null as { x: number; y: number } | null,
-          assignedPositions: [] as PitchPosition[],
-          currentPitchPosition: undefined as PitchPosition | undefined,
-          minutesPlayed: 0,
-        }));
-      setPlayers(freshRealPlayers);
-    }
-  }, [teamSize, selectedFormation, generateMockPlayers, members]);
-
-  // Track previous team size to detect changes (not initial load)
-  const prevTeamSizeRef = useRef<TeamSize | null>(null);
-  const prevFormationRef = useRef<number | null>(null);
-  
-  // Update mock players when team size or formation changes - but NOT on initial mount
-  useEffect(() => {
-    if (mockMode) {
-      // Skip initial mount - only react to actual changes
-      if (prevTeamSizeRef.current === null) {
-        prevTeamSizeRef.current = teamSize;
-        prevFormationRef.current = selectedFormation;
-        return;
-      }
-      
-      // Only regenerate if team size or formation actually changed
-      if (prevTeamSizeRef.current !== teamSize || prevFormationRef.current !== selectedFormation) {
-        const neededPlayers = parseInt(teamSize);
-        // Generate exactly teamSize players for pitch + 2 for bench
-        const mockPlayers = generateMockPlayers(neededPlayers + 2);
-        
-        // Auto-apply current formation with eligibility checking
-        const updatedPlayers = autoPlacePlayersOnPitch(mockPlayers, teamSize, selectedFormation);
-        setPlayers(updatedPlayers);
-        
-        prevTeamSizeRef.current = teamSize;
-        prevFormationRef.current = selectedFormation;
-      }
-    }
-  }, [teamSize, mockMode, selectedFormation, generateMockPlayers]);
+  const { handleUpdatePositions, handleMockModeChange } = usePitchBoardMockPlayers({
+    teamPlayerPositions,
+    teamSize,
+    selectedFormation,
+    members,
+    mockMode,
+    setMockMode,
+    setPlayers,
+    hasLoadedRef,
+    setHasInitialized,
+    autoPlacePlayersOnPitch,
+  });
 
   // Arrow drawing state (refs owned by usePitchBoardDrawing below)
 
@@ -2137,180 +2032,25 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
       toast,
     });
 
-  const getPinchDistance = (touches: React.TouchList): number | null => {
-    if (touches.length < 2) return null;
-    return getPinchDist(touches);
-  };
-
-  const clampPitchPosition = useCallback((x: number, y: number) => ({
-    x: Math.max(5, Math.min(95, x)),
-    y: Math.max(5, Math.min(95, y)),
-  }), []);
-
-  const capturePlayerDragOffset = useCallback((playerId: string, clientX: number, clientY: number) => {
-    if (!containerRef.current) {
-      playerDragOffsetRef.current = null;
-      return;
-    }
-    const player = playersRef.current.find(p => p.id === playerId);
-    if (!player?.position) {
-      playerDragOffsetRef.current = null;
-      return;
-    }
-    const rect = containerRef.current.getBoundingClientRect();
-    playerDragOffsetRef.current = {
-      x: ((clientX - rect.left) / rect.width) * 100 - player.position.x,
-      y: ((clientY - rect.top) / rect.height) * 100 - player.position.y,
-    };
-  }, []);
-
-  const getClientPitchPosition = useCallback((clientX: number, clientY: number) => {
-    if (!containerRef.current) return null;
-    const rect = containerRef.current.getBoundingClientRect();
-    const offset = playerDragOffsetRef.current;
-    const x = ((clientX - rect.left) / rect.width) * 100 - (offset?.x ?? 0);
-    const y = ((clientY - rect.top) / rect.height) * 100 - (offset?.y ?? 0);
-    return clampPitchPosition(x, y);
-  }, [clampPitchPosition]);
-
-  const getClientPointFromPitchPosition = useCallback((position: { x: number; y: number }) => {
-    if (!containerRef.current) return null;
-    const rect = containerRef.current.getBoundingClientRect();
-    return {
-      x: rect.left + (position.x / 100) * rect.width,
-      y: rect.top + (position.y / 100) * rect.height,
-    };
-  }, []);
-
-  const getPitchPlayerAtPoint = useCallback((clientX: number, clientY: number, excludedPlayerId?: string) => {
-    const elements = typeof document.elementsFromPoint === "function"
-      ? document.elementsFromPoint(clientX, clientY)
-      : [document.elementFromPoint(clientX, clientY)].filter(Boolean) as Element[];
-
-    for (const element of elements) {
-      const tokenEl = (element as HTMLElement).closest?.('[data-player-variant="pitch"][data-player-id]') as HTMLElement | null;
-      const playerId = tokenEl?.getAttribute("data-player-id") || null;
-      if (playerId && playerId !== excludedPlayerId) return playerId;
-    }
-
-    let nearest: { id: string; distance: number } | null = null;
-    document.querySelectorAll<HTMLElement>('[data-player-variant="pitch"][data-player-id]').forEach(tokenEl => {
-      const playerId = tokenEl.getAttribute("data-player-id");
-      if (!playerId || playerId === excludedPlayerId) return;
-      const player = playersRef.current.find(p => p.id === playerId);
-      if (!player?.position) return;
-      if (miniLeagueTeams && selectedTeamForSettings !== "both" && player.teamSide !== selectedTeamForSettings) return;
-      const rect = tokenEl.getBoundingClientRect();
-      const hitSlop = 24;
-      if (clientX < rect.left - hitSlop || clientX > rect.right + hitSlop || clientY < rect.top - hitSlop || clientY > rect.bottom + hitSlop) return;
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const distance = Math.hypot(clientX - centerX, clientY - centerY);
-      if (!nearest || distance < nearest.distance) nearest = { id: playerId, distance };
-    });
-
-    if (nearest) return nearest.id;
-
-    const pitchRect = containerRef.current?.getBoundingClientRect();
-    if (pitchRect) {
-      const hitRadius = Math.max(38, Math.min(58, Math.min(pitchRect.width, pitchRect.height) * 0.1));
-      playersRef.current.forEach(player => {
-        if (!player.position || player.id === excludedPlayerId) return;
-        if (miniLeagueTeams && selectedTeamForSettings !== "both" && player.teamSide !== selectedTeamForSettings) return;
-        const centerX = pitchRect.left + (player.position.x / 100) * pitchRect.width;
-        const centerY = pitchRect.top + (player.position.y / 100) * pitchRect.height;
-        const distance = Math.hypot(clientX - centerX, clientY - centerY);
-        if (distance <= hitRadius && (!nearest || distance < nearest.distance)) {
-          nearest = { id: player.id, distance };
-        }
-      });
-    }
-
-    if (nearest) return nearest.id;
-
-    return null;
-  }, [miniLeagueTeams, selectedTeamForSettings]);
-
-  const getPitchPlayerOverlappingDragged = useCallback((draggedPlayerId: string, clientX: number, clientY: number) => {
-    const draggedEl = Array.from(document.querySelectorAll<HTMLElement>('[data-player-variant="pitch"][data-player-id]'))
-      .find(el => el.getAttribute("data-player-id") === draggedPlayerId);
-    const draggedRect = draggedEl?.getBoundingClientRect();
-    if (!draggedRect) return getPitchPlayerAtPoint(clientX, clientY, draggedPlayerId);
-
-    const draggedCenterX = draggedRect.left + draggedRect.width / 2;
-    const draggedCenterY = draggedRect.top + draggedRect.height / 2;
-    const rectMatchesDropPoint = Math.hypot(clientX - draggedCenterX, clientY - draggedCenterY) <= Math.max(draggedRect.width, draggedRect.height);
-    if (!rectMatchesDropPoint) return getPitchPlayerAtPoint(clientX, clientY, draggedPlayerId);
-
-    let best: { id: string; score: number } | null = null;
-    document.querySelectorAll<HTMLElement>('[data-player-variant="pitch"][data-player-id]').forEach(tokenEl => {
-      const playerId = tokenEl.getAttribute("data-player-id");
-      if (!playerId || playerId === draggedPlayerId) return;
-      const player = playersRef.current.find(p => p.id === playerId);
-      if (!player?.position) return;
-      if (miniLeagueTeams && selectedTeamForSettings !== "both" && player.teamSide !== selectedTeamForSettings) return;
-
-      const rect = tokenEl.getBoundingClientRect();
-      const slop = 14;
-      const overlapX = Math.max(0, Math.min(draggedRect.right, rect.right + slop) - Math.max(draggedRect.left, rect.left - slop));
-      const overlapY = Math.max(0, Math.min(draggedRect.bottom, rect.bottom + slop) - Math.max(draggedRect.top, rect.top - slop));
-      const overlapArea = overlapX * overlapY;
-      if (overlapArea <= 0) return;
-
-      const targetCenterX = rect.left + rect.width / 2;
-      const targetCenterY = rect.top + rect.height / 2;
-      const distance = Math.hypot(clientX - targetCenterX, clientY - targetCenterY);
-      const score = overlapArea - distance;
-      if (!best || score > best.score) best = { id: playerId, score };
-    });
-
-    return best?.id ?? getPitchPlayerAtPoint(clientX, clientY, draggedPlayerId);
-  }, [getPitchPlayerAtPoint, miniLeagueTeams, selectedTeamForSettings]);
-
-  const getDraggedPlayerPositionType = useCallback((player: Player, position: { x: number; y: number }) => {
-    const y = miniLeagueTeams && player.teamSide === "b" ? 100 - position.y : position.y;
-    return getPositionFromCoords(y, teamSize);
-  }, [miniLeagueTeams, teamSize]);
-
-  const updateDraggedPlayerPosition = useCallback((playerId: string, position: { x: number; y: number }) => {
-    setPlayers(prev => prev.map(p =>
-      p.id === playerId
-        ? { ...p, position, currentPitchPosition: getDraggedPlayerPositionType(p, position) }
-        : p
-    ));
-  }, [getDraggedPlayerPositionType]);
-
-  const swapPitchPlayers = useCallback((sourcePlayerId: string, targetPlayerId: string) => {
-    if (sourcePlayerId === targetPlayerId) return false;
-
-    const snapshot = playersRef.current;
-    const source = snapshot.find(p => p.id === sourcePlayerId);
-    const target = snapshot.find(p => p.id === targetPlayerId);
-    const sourceStart = playerDragStartRef.current?.playerId === sourcePlayerId ? playerDragStartRef.current : null;
-    const sourcePosition = sourceStart?.position ?? source?.position;
-
-    if (!source || !target?.position || !sourcePosition) return false;
-    if (miniLeagueTeams && source.teamSide && target.teamSide && source.teamSide !== target.teamSide) return false;
-
-    const sourcePitchPosition = sourceStart?.currentPitchPosition ?? source.currentPitchPosition;
-    const targetPosition = { ...target.position };
-    const targetPitchPosition = target.currentPitchPosition;
-    const sourceName = source.name;
-    const targetName = target.name;
-
-    pushToUndoHistory(`Swap: ${sourceName} ↔ ${targetName}`, snapshot);
-    setPlayers(prev => prev.map(p => {
-      if (p.id === sourcePlayerId) {
-        return { ...p, position: targetPosition, currentPitchPosition: targetPitchPosition };
-      }
-      if (p.id === targetPlayerId) {
-        return { ...p, position: { ...sourcePosition }, currentPitchPosition: sourcePitchPosition };
-      }
-      return p;
-    }));
-    flashSwapFeedback(sourcePlayerId, targetPlayerId);
-    return true;
-  }, [miniLeagueTeams, pushToUndoHistory, flashSwapFeedback]);
+  const {
+    capturePlayerDragOffset,
+    getClientPitchPosition,
+    getClientPointFromPitchPosition,
+    getPitchPlayerOverlappingDragged,
+    updateDraggedPlayerPosition,
+    swapPitchPlayers,
+  } = usePitchBoardPitchGeometry({
+    containerRef,
+    playersRef,
+    playerDragOffsetRef,
+    playerDragStartRef,
+    miniLeagueTeams,
+    selectedTeamForSettings,
+    teamSize,
+    setPlayers,
+    pushToUndoHistory,
+    flashSwapFeedback,
+  });
 
   const handlePitchTouchStart = (e: React.TouchEvent) => {
     // Don't handle if drawing tool is active
@@ -2403,73 +2143,14 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
 
 
-  // Toggle player injury status
-  const togglePlayerInjury = useCallback((playerId: string) => {
-    if (readOnly) return;
-    setPlayers(prev => prev.map(p =>
-      p.id === playerId ? { ...p, isInjured: !p.isInjured } : p
-    ));
-    const player = players.find(p => p.id === playerId);
-    const newInjuredState = !player?.isInjured;
-    toast({
-      title: newInjuredState ? "Player marked as injured" : "Player marked as fit",
-      description: `${player?.name} ${newInjuredState ? "will not be available for substitutions" : "is now available for substitutions"}`,
-    });
-
-    if (newInjuredState) {
-      const updatedPlayers = players.map(p =>
-        p.id === playerId ? { ...p, isInjured: true } : p
-      );
-      recalcPlanForInjury(updatedPlayers, playerId);
-    }
-  }, [readOnly, players, toast, recalcPlanForInjury]);
-
-  // Mark a pitch player as injured: sub them off, bring a bench player on, regenerate plan
-  const handleMarkInjuredOnPitch = useCallback((playerId: string, replacementId?: string) => {
-    if (readOnly) return;
-    const player = players.find(p => p.id === playerId);
-    if (!player || player.position === null) return;
-
-    const injuredPosition = player.position;
-    const injuredPitchPos = player.currentPitchPosition;
-
-    const replacement = replacementId ? players.find(p => p.id === replacementId) : null;
-
-    pushToUndoHistory("Injury sub off", players);
-
-    setPlayers(prev => prev.map(p => {
-      if (p.id === playerId) {
-        return { ...p, position: null, currentPitchPosition: undefined, isInjured: true };
-      }
-      if (replacement && p.id === replacement.id) {
-        return { ...p, position: injuredPosition, currentPitchPosition: injuredPitchPos };
-      }
-      return p;
-    }));
-
-    if (replacement) {
-      toast({
-        title: "Injury substitution made",
-        description: `${player.name} injured → ${replacement.name} subbed on`,
-      });
-    } else {
-      toast({
-        title: "Player injured & subbed off",
-        description: `${player.name} moved to bench (no bench players available to replace)`,
-      });
-    }
-
-    const updatedPlayers = players.map(p => {
-      if (p.id === playerId) {
-        return { ...p, position: null, currentPitchPosition: undefined, isInjured: true };
-      }
-      if (replacement && p.id === replacement.id) {
-        return { ...p, position: injuredPosition, currentPitchPosition: injuredPitchPos };
-      }
-      return p;
-    });
-    recalcPlanForInjury(updatedPlayers, playerId, replacement?.id);
-  }, [readOnly, players, toast, pushToUndoHistory, recalcPlanForInjury]);
+  const { togglePlayerInjury, handleMarkInjuredOnPitch } = usePitchBoardInjuries({
+    readOnly,
+    players,
+    setPlayers,
+    pushToUndoHistory,
+    recalcPlanForInjury,
+    toast,
+  });
 
 
 

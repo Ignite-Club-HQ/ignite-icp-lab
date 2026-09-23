@@ -2247,6 +2247,37 @@ type-check, product build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
 
+## PitchBoard.tsx geometry, mock, and injury controller extraction (2026-09-23)
+
+This milestone completed the next three bounded controller seams:
+
+- `hooks/usePitchBoardPitchGeometry.ts`: coordinate conversion, drag offset
+  capture, pitch-token hit testing, overlap targeting, position classification,
+  player movement, and drag-based player swaps.
+- `hooks/usePitchBoardMockPlayers.ts`: mock roster creation/regeneration,
+  preferred-position and jersey-number sync from team-player positions, and
+  mock-mode toggle behavior.
+- `hooks/usePitchBoardInjuries.ts`: bench/pitch injury actions, undo snapshots,
+  replacement movement, notifications, and auto-sub plan repair handoff.
+
+The drag/drop hook keeps its existing dependency-ref contract, and both layouts
+continue to receive the same board callbacks through `PitchBoardLayoutContext`.
+The extraction therefore changes implementation ownership, not gesture,
+roster, or layout behavior.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,623 | 2,304 | -319 (-12.2%) |
+| Total Phase-0 reduction | 3,438 | 2,304 | -1,134 (-33.0%) |
+
+Validation passed: product typecheck (clean), pitch component suite (59 files
+/ 798 tests), full legacy suite (467 files / 4,471 tests, one skip), full lab
+suite (153 files / 1,720 tests), clean lab typecheck, product build and
+bundle budget (8,894,078 total JavaScript bytes, 1,112,837-byte largest
+chunk, 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx formation-management extraction (2026-09-23)
 
 The remaining formation-reset and team-size-change controller was moved to
