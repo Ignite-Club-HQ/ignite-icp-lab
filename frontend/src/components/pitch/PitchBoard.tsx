@@ -104,6 +104,7 @@ import { usePitchBoardFormationLibrary } from "./hooks/usePitchBoardFormationLib
 import { usePitchBoardUndo } from "./hooks/usePitchBoardUndo";
 import { usePitchBoardSubAnimation } from "./hooks/usePitchBoardSubAnimation";
 import { usePitchBoardBenchLongPress } from "./hooks/usePitchBoardBenchLongPress";
+import { usePitchBoardSwapMode } from "./hooks/usePitchBoardSwapMode";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -1354,8 +1355,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
   // manualSubConfirmOpen + pendingManualSub now live in usePitchBoardManualSub (declared below).
 
-
-  // Position swap mode state (swapping two players on pitch without substitution)
+  // Swap-mode state must be declared before selection derives compatible targets.
   const [swapMode, setSwapMode] = useState(false);
   const [swapPlayer1, setSwapPlayer1] = useState<string | null>(null);
   const [swapPlayer2, setSwapPlayer2] = useState<string | null>(null);
@@ -1377,6 +1377,46 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     swapMode,
     swapPlayer1,
     miniLeagueTeams,
+  });
+  const {
+    handlePlayerClick,
+    toggleSwapMode,
+    handleConfirmPitchSwap,
+    handleCancelPitchSwap,
+    handleConfirmPitchSwapWithAccommodation,
+    toggleSubMode,
+  } = usePitchBoardSwapMode({
+    readOnly,
+    swapMode,
+    setSwapMode,
+    swapPlayer1,
+    setSwapPlayer1,
+    swapPlayer2,
+    setSwapPlayer2,
+    pitchSwapConfirmOpen,
+    setPitchSwapConfirmOpen,
+    players,
+    playersRef,
+    miniLeagueTeams,
+    subMode,
+    setSubMode,
+    selectedOnPitch,
+    setSelectedOnPitch,
+    setSelectedOnBench,
+    getValidSwapPlayerIds,
+    setPlayers,
+    pushToUndoHistory,
+    autoSubActive,
+    regeneratePlanRef,
+    toast,
+    setDrawingTool,
+    setShowFloatingDrawToolbar,
+    setPortraitSheetOpen,
+    setBenchCollapsed,
+    isLandscape,
+    setSheetHeightPct,
+    setToolbarCollapsed,
+    setBottomSheetTab,
   });
 
 
@@ -2070,255 +2110,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     setSelectedOnBench(null);
     setSubMode(false);
   }, [pendingSwapBasedSub, players, handleCancelSwapBasedSub, toast, pushToUndoHistory]);
-  // Handle player click in sub mode or swap mode
-  const handlePlayerClick = (playerId: string, isOnPitch: boolean) => {
-    // Block all interactions in read-only mode
-    if (readOnly) return;
-    
-    // Handle swap mode (only for pitch players)
-    if (swapMode && isOnPitch) {
-      if (!swapPlayer1) {
-        setSwapPlayer1(playerId);
-      } else if (swapPlayer1 === playerId) {
-        // Deselect if same player clicked
-        setSwapPlayer1(null);
-      } else {
-        // Block swap if target player is not in the valid set
-        if (!getValidSwapPlayerIds.has(playerId)) {
-          const selectedPlayer = players.find(p => p.id === swapPlayer1);
-          const targetPlayer = players.find(p => p.id === playerId);
-          const isCrossTeam = miniLeagueTeams && selectedPlayer?.teamSide && targetPlayer?.teamSide && selectedPlayer.teamSide !== targetPlayer.teamSide;
-          toast({
-            title: "Cannot swap",
-            description: isCrossTeam 
-              ? "You can only swap players on the same team."
-              : "Players are not eligible to play in each other's positions based on their position preferences.",
-            variant: "destructive",
-          });
-          return;
-        }
-        // Second player selected - show confirmation
-        setSwapPlayer2(playerId);
-        setPitchSwapConfirmOpen(true);
-      }
-      return;
-    }
-    
-    if (!subMode) {
-      // Single tap = no-op so the player can be freely dragged/repositioned.
-      // Use double-click (or the action menu) to open the substitution picker.
-      return;
-    }
-
-    if (isOnPitch) {
-      console.log('[PlayerClick] Pitch player clicked:', playerId);
-      const newSelected = selectedOnPitch === playerId ? null : playerId;
-      setSelectedOnPitch(newSelected);
-    } else {
-      console.log('[PlayerClick] Bench player clicked:', playerId);
-      setSelectedOnBench(prev => prev === playerId ? null : playerId);
-    }
-  };
-
-  // Toggle swap mode
-  const toggleSwapMode = () => {
-    if (readOnly) return;
-    const newSwapMode = !swapMode;
-    setSwapMode(newSwapMode);
-    setSwapPlayer1(null);
-    setSwapPlayer2(null);
-    
-    // Exit sub mode if entering swap mode
-    if (newSwapMode && subMode) {
-      setSubMode(false);
-      setSelectedOnPitch(null);
-      setSelectedOnBench(null);
-    }
-    
-    // Deactivate drawing tools when entering swap mode
-    if (newSwapMode) {
-      setDrawingTool("none");
-      setShowFloatingDrawToolbar(false);
-      // Close bottom drawer so pitch is fully visible
-      setPortraitSheetOpen(false);
-    }
-  };
-
-  // Confirm position swap between two pitch players
-  const handleConfirmPitchSwap = useCallback(() => {
-    if (!swapPlayer1 || !swapPlayer2) return;
-    
-    const player1 = players.find(p => p.id === swapPlayer1);
-    const player2 = players.find(p => p.id === swapPlayer2);
-    
-    if (!player1?.position || !player2?.position) {
-      setPitchSwapConfirmOpen(false);
-      setSwapPlayer1(null);
-      setSwapPlayer2(null);
-      return;
-    }
-    
-    const pos1 = { ...player1.position };
-    const pos2 = { ...player2.position };
-    const pitchPos1 = player1.currentPitchPosition;
-    const pitchPos2 = player2.currentPitchPosition;
-    
-    // Push to undo history before making changes
-    pushToUndoHistory(`Swap: ${player1.name} ↔ ${player2.name}`, playersRef.current);
-    
-    // Swap positions
-    setPlayers(prev => prev.map(p => {
-      if (p.id === swapPlayer1) {
-        return { ...p, position: pos2, currentPitchPosition: pitchPos2 };
-      }
-      if (p.id === swapPlayer2) {
-        return { ...p, position: pos1, currentPitchPosition: pitchPos1 };
-      }
-      return p;
-    }));
-    
-    toast({ 
-      title: "Positions swapped", 
-      description: `${player1.name} ↔ ${player2.name}` 
-    });
-    
-    setPitchSwapConfirmOpen(false);
-    setSwapPlayer1(null);
-    setSwapPlayer2(null);
-    setSwapMode(false);
-
-    // Auto-regenerate the plan if auto-subs are active
-    if (autoSubActive) {
-      setTimeout(() => {
-        regeneratePlanRef.current?.();
-        toast({ title: "Auto-sub plan updated", description: "Plan regenerated to account for position swap" });
-      }, 200);
-    }
-  }, [swapPlayer1, swapPlayer2, players, toast, pushToUndoHistory, autoSubActive]);
-
-  // Cancel position swap
-  const handleCancelPitchSwap = useCallback(() => {
-    setPitchSwapConfirmOpen(false);
-    setSwapPlayer1(null);
-    setSwapPlayer2(null);
-  }, []);
-
-  // Confirm pitch swap with accommodation (a third player moves to make the swap work)
-  const handleConfirmPitchSwapWithAccommodation = useCallback((accommodatorId: string, accommodatorNewPosition: string) => {
-    if (!swapPlayer1 || !swapPlayer2) return;
-    
-    const player1 = players.find(p => p.id === swapPlayer1);
-    const player2 = players.find(p => p.id === swapPlayer2);
-    const accommodator = players.find(p => p.id === accommodatorId);
-    
-    if (!player1?.position || !player2?.position || !accommodator?.position) {
-      setPitchSwapConfirmOpen(false);
-      setSwapPlayer1(null);
-      setSwapPlayer2(null);
-      return;
-    }
-    
-    const pos1 = { ...player1.position };
-    const pos2 = { ...player2.position };
-    const accPos = { ...accommodator.position };
-    const pitchPos1 = player1.currentPitchPosition;
-    const pitchPos2 = player2.currentPitchPosition;
-    const accPitchPos = accommodator.currentPitchPosition;
-    
-    pushToUndoHistory(`Swap: ${player1.name} ↔ ${player2.name} (${accommodator.name} accommodates)`, playersRef.current);
-    
-    // Determine who goes where based on accommodation:
-    // The accommodator takes the position that the mismatched player can't fill
-    // The mismatched player takes the accommodator's old position
-    setPlayers(prev => prev.map(p => {
-      if (p.id === swapPlayer1 && accommodatorNewPosition === pitchPos2) {
-        // player1 couldn't play pos2, so player1 takes accommodator's old position
-        return { ...p, position: accPos, currentPitchPosition: accPitchPos };
-      } else if (p.id === swapPlayer1) {
-        return { ...p, position: pos2, currentPitchPosition: pitchPos2 };
-      }
-      if (p.id === swapPlayer2 && accommodatorNewPosition === pitchPos1) {
-        // player2 couldn't play pos1, so player2 takes accommodator's old position
-        return { ...p, position: accPos, currentPitchPosition: accPitchPos };
-      } else if (p.id === swapPlayer2) {
-        return { ...p, position: pos1, currentPitchPosition: pitchPos1 };
-      }
-      if (p.id === accommodatorId) {
-        // Accommodator moves to the position they're covering
-        if (accommodatorNewPosition === pitchPos2) {
-          return { ...p, position: pos2, currentPitchPosition: pitchPos2 as any };
-        } else {
-          return { ...p, position: pos1, currentPitchPosition: pitchPos1 as any };
-        }
-      }
-      return p;
-    }));
-    
-    toast({ 
-      title: "Positions swapped with accommodation", 
-      description: `${player1.name} ↔ ${player2.name} (${accommodator.name} moved to ${accommodatorNewPosition})` 
-    });
-    
-    setPitchSwapConfirmOpen(false);
-    setSwapPlayer1(null);
-    setSwapPlayer2(null);
-    setSwapMode(false);
-
-    // Auto-regenerate the plan if auto-subs are active
-    if (autoSubActive) {
-      setTimeout(() => {
-        regeneratePlanRef.current?.();
-        toast({ title: "Auto-sub plan updated", description: "Plan regenerated to account for position swap" });
-      }, 200);
-    }
-  }, [swapPlayer1, swapPlayer2, players, toast, pushToUndoHistory, autoSubActive]);
-
-  // Cancel sub mode
-  const toggleSubMode = () => {
-    if (readOnly) return;
-    const newSubMode = !subMode;
-    
-    // Check if there are any available bench players (not injured)
-    if (newSubMode) {
-      const availableBenchPlayers = players.filter(p => p.position === null && !p.isInjured);
-      if (availableBenchPlayers.length === 0) {
-        toast({
-          title: "No subs available",
-          description: players.some(p => p.position === null)
-            ? "All bench players are currently injured."
-            : "There are no players on the bench to bring on.",
-        });
-        return;
-      }
-    }
-    
-    setSubMode(newSubMode);
-    setSelectedOnPitch(null);
-    setSelectedOnBench(null);
-    
-    // Exit swap mode if entering sub mode
-    if (newSubMode && swapMode) {
-      setSwapMode(false);
-      setSwapPlayer1(null);
-      setSwapPlayer2(null);
-    }
-    
-    // When entering sub mode, expand bench and toolbar so users can access both pitch players and bench
-    if (newSubMode) {
-      setBenchCollapsed(false);
-      if (isLandscape) {
-        setSheetHeightPct(50);
-        setToolbarCollapsed(false);
-        setBottomSheetTab("bench");
-      }
-      // Deactivate drawing tools when entering sub mode
-      setDrawingTool("none");
-      setShowFloatingDrawToolbar(false);
-      // Close bottom drawer so pitch is fully visible
-      setPortraitSheetOpen(false);
-    }
-  };
-
   // Keep refs in sync for the auto-sub hook
   pushToUndoHistoryRef_autoSubs.current = pushToUndoHistory;
   runSubAnimationRef_autoSubs.current = runSubAnimation;

@@ -1641,3 +1641,24 @@ lab typecheck, product build and bundle budget (8,888,146 total JavaScript
 bytes; 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality
 ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,212 fewer duplicated lines than baseline), and `git diff --check`.
+
+## PitchBoard.tsx swap-mode controller extraction (2026-09-23)
+
+`PitchBoard.tsx` still contained the manual substitution and pitch-swap
+controller after the interaction-controller round. It was extracted to
+`hooks/usePitchBoardSwapMode.ts`, retaining the existing component-owned
+state setters and context values. The hook owns compatible-target checks,
+mode transitions, confirmed direct/accommodated swaps, undo snapshots,
+auto-sub regeneration, and the established UI transitions.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 3,169 | 2,960 | -209 (-6.6%) |
+| Total Phase-0 reduction | 3,438 | 2,960 | -478 (-13.9%) |
+
+Validation passed product typecheck, 59-file/798-test pitch suite,
+467-file/4,471-test legacy suite (one skip), 153-file/1,720-test lab suite,
+lab typecheck, product build/bundle budget (8,889,703 total JavaScript bytes;
+1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.

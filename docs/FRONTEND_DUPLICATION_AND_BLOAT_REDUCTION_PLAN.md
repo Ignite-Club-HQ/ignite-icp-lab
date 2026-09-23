@@ -2282,3 +2282,31 @@ bundle budget (8,888,146 total JavaScript bytes, 1,112,837-byte largest
 chunk, 172,904 CSS bytes), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
+
+## PitchBoard.tsx swap-mode controller extraction (2026-09-23)
+
+The next audit found the interactive manual substitution and pitch-swap flow
+still embedded in `PitchBoard.tsx`, despite its selection and confirmation
+neighbors already using dedicated hooks. The pitch-swap mode was moved to
+`hooks/usePitchBoardSwapMode.ts`, including compatible-target validation,
+sub-mode/pitch-swap state transitions, confirmed direct and accommodated
+swaps, undo snapshots, auto-sub plan regeneration, and the existing
+bench/toolbar/drawing-mode transitions.
+
+The controller continues to use the same state and callback names at the
+layout-context boundary. Its inputs are the existing selection hook values
+and board setters; no user-visible workflow, roster payload, or layout API
+was changed.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 3,169 | 2,960 | -209 (-6.6%) |
+| Total Phase-0 reduction | 3,438 | 2,960 | -478 (-13.9%) |
+
+Validation passed: product typecheck (clean), pitch component suite (59 files
+/ 798 tests), full legacy suite (467 files / 4,471 tests, one skip), full lab
+suite (153 files / 1,720 tests), clean lab typecheck, product build and
+bundle budget (8,889,703 total JavaScript bytes, 1,112,837-byte largest
+chunk, 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
