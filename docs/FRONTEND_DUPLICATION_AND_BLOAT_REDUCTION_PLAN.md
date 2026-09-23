@@ -1976,3 +1976,43 @@ quality ratchet, duplication ratchet, and `git diff --check`. The first full
 lab run had one transient external-worker provider-registry failure; its
 isolated rerun and the complete suite rerun both passed. No runtime-performance
 claim is made.
+
+## Phase 4A VirtualizedChatMessageList result (2026-09-22)
+
+`VirtualizedChatMessageList.tsx` was the last file on the original Phase 4A
+target list. Auditing it found that an earlier product-source port had
+already produced independent, fully tested extraction modules for its row-
+height math and native-environment helpers
+(`chatRowHeightEstimator.ts`, `chatRowSignature.ts`,
+`chatRowPreviewEstimate.ts`, `chatVirtuosoEnvironment.ts`), but the component
+itself still carried a byte-for-byte duplicate of that logic inline and never
+imported the ported modules. This step wired the component to the existing
+modules instead of re-extracting the same logic, and additionally relocated
+the self-contained prepend-scroll-motion deferral mechanism (module-level
+scroll-gesture gating plus the `useDeferPrependsWhileScrolling` hook) into a
+new `useDeferChatPrepends.ts` file.
+
+Both changes are pure relocations/wiring: no row-height, signature, native-
+environment-detection, or prepend-motion-timing logic changed. The only
+non-mechanical addition is a small setter/getter API
+(`setPrependScrollerElementGetter`, `isPrependUserDrivenScrollActive`)
+replacing direct reads/writes of what was a raw module-level variable, so the
+main component keeps working across the new file boundary.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `VirtualizedChatMessageList.tsx` raw lines | 2,833 | 2,339 | -494 (-17.4%) |
+| `useDeferChatPrepends.ts` (new) | 0 | 161 | +161 |
+| `chatRowHeightEstimator.ts` / `chatRowSignature.ts` / `chatRowPreviewEstimate.ts` / `chatVirtuosoEnvironment.ts` | already present, unwired | wired in, unchanged | 0 |
+| Product JavaScript total / chunks | 8,882,693 bytes / 502 | 8,882,854 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | unchanged |
+
+Validation passed the full chat component suite (30 files / 212 tests,
+including the `chatJumpHydrationDeadline` and `chatPostRevealAnchor` raw-
+source guards), 467 legacy files / 4,471 tests (one skip), 153 lab files /
+1,720 tests, product type-check (only the pre-existing 14-diagnostic
+`StartDMDialog`/`ClubDetailPage` baseline drift), lab type-check, product
+build, product bundle budget, isolation, quality ratchet, duplication
+ratchet, and `git diff --check`. Because this was a pure relocation/wiring
+change, no request, render, subscription, or interaction behavior changed and
+no runtime-performance claim is made.

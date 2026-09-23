@@ -1401,3 +1401,40 @@ and duplication ratchet at 15,735 counted duplicated lines (1,847 below
 baseline). The initial lab run's single external-worker provider-registry
 failure passed both its isolated rerun and the subsequent complete suite rerun.
 No runtime-performance claim is made.
+
+## Phase 4A VirtualizedChatMessageList result (2026-09-22)
+
+`src/components/chat/VirtualizedChatMessageList.tsx` decreased from 2,833 to
+2,339 raw lines (-494, -17.4%). Unlike the prior Phase 4A targets, this step
+was a wiring/relocation fix rather than a fresh extraction: an earlier
+product-source port had already produced independent, tested modules for the
+row-height/signature/native-environment math
+(`chatRowHeightEstimator.ts`, `chatRowSignature.ts`,
+`chatRowPreviewEstimate.ts`, `chatVirtuosoEnvironment.ts`), but the component
+still carried a duplicate inline copy of that same logic and never imported
+them. This step:
+
+- replaced the inline `isAndroidNativeWebView`, `escapeCssAttributeValue`,
+  `estimateChatRowHeight`, `chatRowSignature`, `estimateVisibleText`,
+  `estimateExternalPreviewHeight`, and `PREVIEW_HEIGHT_BY_TOKEN` logic with
+  imports from the already-tested modules above;
+- replaced the inline `window.addEventListener("error", ...)` ResizeObserver
+  guard with a call to the modules' `installVirtuosoResizeObserverErrorGuard()`;
+- relocated the self-contained prepend-scroll-motion deferral mechanism
+  (module-level scroll-gesture gating plus `useDeferPrependsWhileScrolling`)
+  verbatim into a new `useDeferChatPrepends.ts` (161 lines), replacing a raw
+  module-level scroller-element variable with a small setter/getter API.
+
+No row-height, signature, native-environment-detection, or prepend-motion-
+timing logic changed; this is a pure relocation and wiring change.
+
+Validation evidence: the full chat component suite (30 files / 212 tests,
+including the `chatJumpHydrationDeadline` and `chatPostRevealAnchor` raw-
+source guards), 467 legacy files / 4,471 passing tests (one skip), 153 lab
+files / 1,720 passing tests, product typecheck (only the pre-existing
+14-diagnostic `StartDMDialog`/`ClubDetailPage` baseline drift), clean lab
+typecheck, successful product build, product bundle within budget (8,882,854
+total JavaScript bytes; 1,112,842-byte largest JavaScript chunk; 172,904 CSS
+bytes; unchanged chunk count), isolation and quality ratchets passing, and
+duplication ratchet unchanged at 1,847 fewer duplicated lines than baseline.
+No runtime-performance claim is made.
