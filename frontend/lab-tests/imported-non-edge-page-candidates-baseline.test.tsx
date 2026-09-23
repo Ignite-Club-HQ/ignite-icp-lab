@@ -536,6 +536,6 @@ test("VaultPage keeps club-root access fail-closed and only grants a Pro role it
 test("HomePage delegates account-recovery invalidation to the bounded feature policy", () => {
   const source = readFileSync(resolve(__dirname, "../src/pages/HomePage.tsx"), "utf8");
   expect(source).toContain("@/features/home/accountRecoveryCompletion");
-  expect(source).toContain("onRecovered={() => completeHomeAccountRecovery(queryClient)}");
+  expect(source).toContain("onAccountRecovered={() => completeHomeAccountRecovery(queryClient)}");
   expect(source).not.toMatch(/queryClient\.invalidateQueries\(\s*\)/);
 });

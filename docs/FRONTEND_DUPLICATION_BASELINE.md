@@ -1769,6 +1769,29 @@ lab typecheck, product build/bundle budget (8,895,576 total JavaScript bytes;
 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,218 fewer
 duplicated lines than baseline), and `git diff --check`.
+## HomePage workflow and dashboard decomposition (2026-09-23)
+
+The second Home round moves join-flow presentation, pitch-board access and
+restoration coordination, pitch/timer runtime presentation, dashboard overview,
+Next Up selection helpers, and sponsor/ad rendering to typed modules under
+`components/home`. Query and mutation ownership, hybrid provider decisions,
+authorization, and navigation remain in `HomePage.tsx`.
+
+| Measure | Before deeper round | After deeper round | Change |
+| --- | ---: | ---: | ---: |
+| `HomePage.tsx` raw lines | 2,722 | 1,993 | -729 (-26.8%) |
+| New non-test workflow modules | 0 | 1,210 | +1,210 |
+| Complete Home target source | 3,420 | 3,901 | +481 |
+| `HomePage.tsx` versus original | 3,127 | 1,993 | -1,134 (-36.3%) |
+
+Product and Lab typechecks, 58 focused tests, and the 153-file/1,720-test Lab
+suite passed. Product build/bundle budget passed at 8,898,053 JavaScript bytes
+total, a 1,112,837-byte largest chunk, and 172,904 CSS bytes. Isolation and
+quality ratchets passed with direct Supabase imports unchanged at 463;
+duplication remains 2,346 lines below baseline. The Home route is 126.75 kB,
+versus 124.44 kB after the first extraction, reflecting typed boundary overhead
+within the same route chunk rather than a loading-performance improvement.
+
 ## HomePage rewards and loading presentation extraction (2026-09-23)
 
 `HomePage.tsx` now delegates its rewards card, browse/redeem/claim/upgrade

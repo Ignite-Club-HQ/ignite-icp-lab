@@ -1,20 +1,9 @@
-import { useState, lazy, Suspense, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useScheduleBroadcastListener } from "@/hooks/useScheduleBroadcastListener";
 import { Capacitor } from "@capacitor/core";
-import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import SoccerBall from "@/components/pitch/SoccerBall";
-import { X, CheckCircle2, HelpCircle, Minus, Loader2, Flame, FolderOpen, ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-// Lazy-loaded to keep them out of the HomePage critical path. Each is only
-// mounted when the user opens a specific dialog / lands on a banner-eligible
-// state, so the chunk fetch happens on demand.
-const AccountRecoveryBanner = lazyWithRetry(() => import("@/components/AccountRecoveryBanner").then(m => ({ default: m.AccountRecoveryBanner })));
-const NativeAppDownloadBanner = lazyWithRetry(() => import("@/components/NativeAppDownloadBanner").then(m => ({ default: m.NativeAppDownloadBanner })));
-const HomeInviteFlow = lazyWithRetry(() => import("@/components/HomeInviteFlow"));
-const QuickRSVPDialog = lazyWithRetry(() => import("@/components/QuickRSVPDialog").then(m => ({ default: m.QuickRSVPDialog })));
-
+import { X, CheckCircle2, HelpCircle, Minus } from "lucide-react";
 // Warm the dialog chunks after first paint so opening them feels instant.
 // idle callback keeps this off the critical path.
 if (typeof window !== "undefined") {
@@ -33,28 +22,7 @@ if (typeof window !== "undefined") {
 }
 import { PageLoading } from "@/components/ui/page-loading";
 
-// Lazy load PitchBoard - it's a heavy 4k+ line component with Fabric.js
-const PitchBoard = lazyWithRetry(() => import("@/components/pitch/PitchBoard"));
-const GameTimerWidget = lazyWithRetry(() => import("@/components/pitch/GameTimerWidget"));
-import { clearPitchBoardOpenFlag } from "@/components/pitch/pitchBoardOpenFlag";
-// CourtBoardResumeCard archived (basketball/netball only) — soccer resume handled by GameTimerWidget
-
-import { MiniLeagueGameWidgets } from "@/components/MiniLeagueGameWidgets";
-import { APP_STORE_URL, PLAY_STORE_URL } from "@/components/AppStoreDownloadGuide";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
-import { MobileCardSelect } from "@/components/MobileCardSelect";
-import { SearchableSelect } from "@/components/SearchableSelect";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,52 +40,45 @@ import { completeHomeAccountRecovery } from "@/features/home/accountRecoveryComp
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logHomeOpenLatency, resetHomeOpenLog } from "@/lib/homeOpenLatency";
 import { recordPointsHistory } from "@/lib/pointsHistory";
-import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { getSportEmoji } from "@/lib/sportEmojis";
 import { findNearbyGameEvent } from "@/hooks/useNearbyGameEvent";
 import { useClubTheme, hasClubThemeCached } from "@/hooks/useClubTheme";
 import { useUserClubPoints, useChildrenClubPoints } from "@/hooks/useClubPoints";
-import { ClubSponsorSection } from "@/components/ClubSponsorSection";
-import { MultiClubSponsorCarousel } from "@/components/MultiClubSponsorCarousel";
-import { SponsorOrAdCarousel } from "@/components/SponsorOrAdCarousel";
-import { UpcomingClassesWidget } from "@/components/UpcomingClassesWidget";
-// Eager prefetch: kick the chunk request off at module-eval time so it's in flight
-// before the section becomes visible. Still lazy() so it doesn't block first paint.
-const myTeamsCarouselImport = () =>
-  import("@/components/MyTeamsPremiumCarousel").then((m) => ({ default: m.MyTeamsPremiumCarousel }));
-// Fire the request immediately (don't await — let it stream alongside other resources).
-myTeamsCarouselImport();
-const MyTeamsPremiumCarousel = lazy(myTeamsCarouselImport);
-// Eagerly imported: these render alongside the rest of the first Home paint —
-// a lazy chunk made them appear noticeably after everything else.
-import ClubLinksSection from "@/components/home/ClubLinksSection";
-import ClubNewsSection from "@/components/home/ClubNewsSection";
-
-
-import { NextUpCarousel } from "@/components/NextUpCarousel";
 import { getCachedNextUp, setCachedNextUp, clearCachedNextUp } from "@/lib/nextUpEventsCache";
-import { ContactClubButton } from "@/components/ContactClubButton";
-
-import { HomeQuickActionsFab } from "@/components/HomeQuickActionsFab";
-import { DesktopActionBar } from "@/components/home/DesktopActionBar";
-import { HomeWelcomeGetStarted } from "@/components/home/HomeWelcomeGetStarted";
 import {
   HomeRewardsSection,
   type HomeReward,
 } from "@/components/home/HomeRewardsSection";
 import {
-  HomeInitialSkeleton,
-  HomeMyTeamsSkeleton,
-} from "@/components/home/HomeLoadingSkeletons";
-import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
+  HomeJoinTeamDialog,
+  type HomeLeagueRole,
+  type HomeTeamRole,
+} from "@/components/home/HomeJoinTeamDialog";
+import {
+  HomePitchBoardRuntime,
+} from "@/components/home/HomePitchBoardRuntime";
+import { useHomePitchBoard } from "@/components/home/useHomePitchBoard";
+import { HomeDashboardOverview } from "@/components/home/HomeDashboardOverview";
+import {
+  getEventLocalDateKey,
+  getEventStartMs,
+  getLocalDateKey,
+  isStillUpcomingForNextUp,
+  selectVisibleHomeEvents,
+} from "@/components/home/homeEventSelection";
+import { HomeSponsorSections } from "@/components/home/HomeSponsorSections";
 
-import { LazyMount } from "@/components/LazyMount";
-import { readHomeSponsorHint } from "@/lib/homeSponsorHint";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
+export {
+  getEventLocalDateKey,
+  getEventStartMs,
+  getLocalDateKey,
+  isStillUpcomingForNextUp,
+  selectVisibleHomeEvents,
+};
 
 type EventType = "game" | "training" | "social";
-type TeamRole = "player" | "parent" | "coach" | "team_admin";
-type LeagueRole = "league_admin" | "parent";
+type TeamRole = HomeTeamRole;
+type LeagueRole = HomeLeagueRole;
 
 interface MiniLeague {
   id: string;
@@ -161,121 +122,6 @@ interface Team {
   name: string;
   club_id: string;
   clubs: { name: string; sport: string | null };
-}
-
-const eventTypeColors: Record<EventType, string> = {
-  game: "bg-destructive/20 text-destructive",
-  training: "bg-primary/20 text-primary",
-  social: "bg-warning/20 text-warning",
-};
-
-const teamRoleOptions: { value: TeamRole; label: string }[] = [
-  { value: "player", label: "Player" },
-  { value: "parent", label: "Parent" },
-  { value: "coach", label: "Coach" },
-  { value: "team_admin", label: "Team Admin" },
-];
-
-const leagueRoleOptions: { value: LeagueRole; label: string }[] = [
-  { value: "league_admin", label: "League Admin" },
-  { value: "parent", label: "Parent" },
-];
-
-export function formatEventDate(dateStr: string) {
-  const date = parseISO(dateStr);
-  if (isToday(date)) return `Today at ${format(date, "h:mm a")}`;
-  if (isTomorrow(date)) return `Tomorrow at ${format(date, "h:mm a")}`;
-  return format(date, "EEE, MMM d 'at' h:mm a");
-}
-
-export function getLocalDateKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-export function getEventLocalDateKey(dateStr: string) {
-  // Treat any timestamp with a time component (ISO "T" or Postgres space form
-  // like "2026-06-06 23:30:00+00") as an absolute instant and convert to the
-  // viewer's local date. Only date-only strings ("YYYY-MM-DD") are taken at
-  // face value. Without this, a UTC-evening event reads as "yesterday" in
-  // AEST and gets dropped from Next Up.
-  const hasTimeComponent = dateStr.includes("T") || /\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(dateStr);
-  if (hasTimeComponent) {
-    const parsed = new Date(dateStr);
-    if (!Number.isNaN(parsed.getTime())) {
-      return getLocalDateKey(parsed);
-    }
-  }
-  return dateStr.slice(0, 10);
-}
-
-export function getEventStartMs(event: Pick<Event, "event_date" | "start_time">) {
-  // Prefer event_date when it already carries a time component — for recurring
-  // occurrences this is the canonical per-instance kickoff. `start_time` on a
-  // recurring child often retains the *series template's* original date
-  // (e.g. "2026-04-29 06:15:00+00" for a June 10 training), which would make
-  // the event look like it kicked off months ago and get filtered out of
-  // Next Up before its real kickoff arrives.
-  const eventDateHasTime =
-    !!event.event_date && /\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(event.event_date);
-
-  if (event.start_time) {
-    const isFullTimestamp = /\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(event.start_time);
-    if (isFullTimestamp) {
-      // If start_time's local date disagrees with event_date's local date,
-      // trust event_date (the per-instance kickoff) and ignore the stale
-      // series-template date carried on start_time.
-      if (eventDateHasTime) {
-        const eventLocal = getEventLocalDateKey(event.event_date);
-        const startLocal = getEventLocalDateKey(event.start_time);
-        if (eventLocal !== startLocal) {
-          const ed = new Date(event.event_date);
-          return Number.isNaN(ed.getTime()) ? Number.NaN : ed.getTime();
-        }
-      }
-      const start = new Date(event.start_time);
-      return start.getTime();
-    }
-    // Time-only string ("19:30") — combine with the event's local date.
-    const start = new Date(`${getEventLocalDateKey(event.event_date)}T${event.start_time}`);
-    return start.getTime();
-  }
-
-  const parsed = new Date(event.event_date);
-  return Number.isNaN(parsed.getTime()) ? Number.NaN : parsed.getTime();
-}
-
-export function isStillUpcomingForNextUp(event: Pick<Event, "event_date" | "start_time">, nowMs: number) {
-  const todayKey = getLocalDateKey(new Date(nowMs));
-  const eventKey = getEventLocalDateKey(event.event_date);
-  if (eventKey < todayKey) return false;
-
-  const startMs = getEventStartMs(event);
-  if (eventKey === todayKey && !Number.isNaN(startMs) && startMs + 30 * 60 * 1000 < nowMs) {
-    return false;
-  }
-
-  return true;
-}
-
-export function selectVisibleHomeEvents(
-  allEvents: Event[] | undefined,
-  activeClubFilter: string | null,
-  nowMs: number,
-  limit = 10,
-) {
-  if (!allEvents) return [];
-
-  const freshEvents = allEvents.filter((event) =>
-    isStillUpcomingForNextUp(event, nowMs)
-  );
-
-  if (!activeClubFilter) {
-    return freshEvents.slice(0, limit);
-  }
-
-  return freshEvents
-    .filter((event) => event.club_id === activeClubFilter)
-    .slice(0, limit);
 }
 
 export default function HomePage() {
@@ -334,8 +180,6 @@ export default function HomePage() {
   // Track if user selected a league (prefixed with "league_") or team in the unified dropdown
   const isLeagueSelected = selectedTeam.startsWith("league_");
   const actualLeagueId = isLeagueSelected ? selectedTeam.replace("league_", "") : null;
-  const [pitchBoardTeam, setPitchBoardTeam] = useState<{ id: string; name: string; members: Array<{ id: string; user_id: string; role: string; profiles: { display_name: string | null; avatar_url: string | null } | null }>; readOnly: boolean; linkedEventId?: string | null } | null>(null);
-  const [pitchBoardLoading, setPitchBoardLoading] = useState(false);
   const [pitchBoardsExpanded, setPitchBoardsExpanded] = useState(false);
   const [quickRsvpEvent, setQuickRsvpEvent] = useState<Event | null>(null);
   const [rewardQROpen, setRewardQROpen] = useState(false);
@@ -742,7 +586,11 @@ export default function HomePage() {
 
   // Filter events by active club theme
   const events = useMemo(() => {
-    return selectVisibleHomeEvents(allEvents, activeClubFilter, nowTick);
+    return selectVisibleHomeEvents<Event>(
+      allEvents,
+      activeClubFilter,
+      nowTick,
+    );
   }, [allEvents, activeClubFilter, nowTick]);
 
   useEffect(() => {
@@ -1595,50 +1443,41 @@ export default function HomePage() {
   // Only show last 2 used pitch boards (or all if expanded)
   const displayedTeams = pitchBoardsExpanded ? sortedTeams : sortedTeams.slice(0, 2);
 
-  // Function to open pitch board for a team - requires Pro Football subscription
-  const openPitchBoard = async (teamId: string, teamName: string, readOnly: boolean = false) => {
-    setPitchBoardLoading(true);
-    try {
-      // Check Pro Football subscription before opening
-      const { data: teamSub } = await supabase
+  const {
+    pitchBoardTeam,
+    pitchBoardLoading,
+    openPitchBoard,
+    closePitchBoard,
+  } = useHomePitchBoard({
+    isAppAdmin: !!isAppAdmin,
+    notifyProRequired: () =>
+      toast({
+        title: "Pro Football Required",
+        description: "Pitch Board requires a Pro Football subscription.",
+        variant: "destructive",
+      }),
+    hasProFootballAccess: async (teamId) => {
+      const { data: teamSubscription } = await supabase
         .from("team_subscriptions")
         .select("is_pro_football")
         .eq("team_id", teamId)
         .maybeSingle();
-      
-      let hasProFootball = teamSub?.is_pro_football || false;
-      
-      // If team doesn't have Pro Football, check club level
-      if (!hasProFootball) {
-        const { data: team } = await supabase
-          .from("teams")
-          .select("club_id")
-          .eq("id", teamId)
-          .single();
-        
-        if (team?.club_id) {
-          const { data: clubSub } = await supabase
-            .from("club_subscriptions")
-            .select("is_pro_football")
-            .eq("club_id", team.club_id)
-            .maybeSingle();
-          
-          hasProFootball = clubSub?.is_pro_football || false;
-        }
-      }
-      
-      // Allow if user is app admin or has pro football subscription
-      if (!hasProFootball && !isAppAdmin) {
-        toast({
-          title: "Pro Football Required",
-          description: "Pitch Board requires a Pro Football subscription.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Fetch roster and check for nearby game in parallel
-      const [membersResult, childrenResult, nearbyEventId] = await Promise.all([
+      if (teamSubscription?.is_pro_football) return true;
+      const { data: team } = await supabase
+        .from("teams")
+        .select("club_id")
+        .eq("id", teamId)
+        .single();
+      if (!team?.club_id) return false;
+      const { data: clubSubscription } = await supabase
+        .from("club_subscriptions")
+        .select("is_pro_football")
+        .eq("club_id", team.club_id)
+        .maybeSingle();
+      return !!clubSubscription?.is_pro_football;
+    },
+    loadRoster: async (teamId) => {
+      const [membersResult, childrenResult] = await Promise.all([
         supabase
           .from("user_roles")
           .select("*, profiles (display_name, avatar_url)")
@@ -1646,142 +1485,22 @@ export default function HomePage() {
         supabase.rpc("get_team_children_for_pitch_board", {
           p_team_id: teamId,
         }),
-        findNearbyGameEvent(teamId)
       ]);
-
-      // STRICT match-day filter: when launched in the context of a match
-      // (linkedEventId), only include players whose RSVP for that event is
-      // "going". Adults (staff) are always included so they can run the
-      // board. Without an event link we keep the full roster.
-      let goingChildIds: Set<string> | null = null;
-      let goingAdultIds: Set<string> | null = null;
-      if (nearbyEventId) {
-        const { data: rsvpRows } = await supabase
-          .from("rsvps")
-          .select("user_id, child_id, status")
-          .eq("event_id", nearbyEventId)
-          .eq("status", "going");
-        goingChildIds = new Set(
-          (rsvpRows || []).map(r => r.child_id).filter((v): v is string => !!v)
-        );
-        goingAdultIds = new Set(
-          (rsvpRows || []).map(r => r.user_id).filter((v): v is string => !!v)
-        );
-      }
-
-      const STAFF_ROLES = new Set(["team_admin", "coach", "club_admin", "app_admin"]);
-      const teamMembers = (membersResult.data || [])
-        .filter((member) =>
-          !goingAdultIds
-            ? true
-            : STAFF_ROLES.has(member.role) || goingAdultIds.has(member.user_id)
-        )
-        .map((member) => ({
-          id: member.id,
-          user_id: member.user_id,
-          role: member.role,
-          profiles: member.profiles,
-        }));
-
-      const teamChildren = (childrenResult.data || [])
-        .filter((child) => (goingChildIds ? goingChildIds.has(child.child_id) : true))
-        .map((child) => ({
-          id: `child-${child.child_id}`,
-          user_id: child.child_id,
-          role: "player",
-          profiles: {
-            display_name: child.child_name,
-            avatar_url: null,
-          },
-        }));
-      
-      setPitchBoardTeam({ 
-        id: teamId, 
-        name: teamName, 
-        members: [...teamMembers, ...teamChildren], 
-        readOnly,
-        linkedEventId: nearbyEventId 
-      });
-    } finally {
-      setPitchBoardLoading(false);
-    }
-  };
-
-  // Listen for notification-triggered pitch board opens
-  useEffect(() => {
-    const handleOpenPitchBoard = () => {
-      try {
-        const timerStateRaw = localStorage.getItem('pitch-board-timer-state');
-        if (!timerStateRaw) return;
-        const parsed = JSON.parse(timerStateRaw);
-        if (parsed?.teamId && parsed?.teamName) {
-          openPitchBoard(parsed.teamId, parsed.teamName, false);
-        }
-      } catch { /* ignore */ }
-    };
-    window.addEventListener('open-pitch-board', handleOpenPitchBoard);
-    return () => window.removeEventListener('open-pitch-board', handleOpenPitchBoard);
-  }, []);
-
-  // Cold-start / warm-resume restore: if the pitch board was open as a
-  // modal on home when the WebView was torn down (phone lock/unlock kills
-  // iOS WebView; Android may kill the process under memory pressure),
-  // re-open it now using the persisted context. We listen for both mount
-  // and `appStateChange isActive=true` so a warm resume that lost in-memory
-  // React state (but kept localStorage) is also recovered.
-  useEffect(() => {
-    let cancelled = false;
-
-    const tryRestore = () => {
-      if (cancelled) return;
-      if (pitchBoardTeam) return; // already open
-      try {
-        const flag = localStorage.getItem('ignite-pitch-board-open');
-        if (flag !== 'true') return;
-        const storedPath = localStorage.getItem('ignite-pitch-board-open-path');
-        // Only auto-open the modal when the persisted path is home — if it's
-        // an event route, PitchBoardResumeRedirect will navigate there instead.
-        if (storedPath && storedPath !== '/' && storedPath !== '/home' && !storedPath.startsWith('/?') && !storedPath.startsWith('/home?')) return;
-        const ctxRaw = localStorage.getItem('ignite-pitch-board-last-context');
-        if (!ctxRaw) return;
-        const ctx = JSON.parse(ctxRaw);
-        if (ctx?.teamId && ctx?.teamName) {
-          openPitchBoard(ctx.teamId, ctx.teamName, !!ctx.readOnly);
-        }
-      } catch { /* ignore */ }
-    };
-
-    tryRestore();
-
-    let removeListener: (() => void) | undefined;
-    void (async () => {
-      try {
-        const { Capacitor } = await import('@capacitor/core');
-        if (!Capacitor.isNativePlatform()) return;
-        const { App } = await import('@capacitor/app');
-        const handle = await App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) tryRestore();
-        });
-        if (cancelled) {
-          void handle.remove();
-        } else {
-          removeListener = () => { void handle.remove(); };
-        }
-      } catch { /* native unavailable */ }
-    })();
-
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') tryRestore();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      cancelled = true;
-      document.removeEventListener('visibilitychange', onVisibility);
-      removeListener?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      return {
+        members: membersResult.data || [],
+        children: childrenResult.data || [],
+      };
+    },
+    findNearbyEvent: findNearbyGameEvent,
+    loadGoingRsvps: async (eventId) => {
+      const { data } = await supabase
+        .from("rsvps")
+        .select("user_id, child_id")
+        .eq("event_id", eventId)
+        .eq("status", "going");
+      return data || [];
+    },
+  });
 
 
 
@@ -2125,441 +1844,76 @@ export default function HomePage() {
 
   return (
     <div className="py-6 space-y-5">
-      {/* Welcome Header */}
-      <div className="px-1 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-foreground">
-            Welcome, {firstName}! 👋
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Here's what's coming up{activeClubName ? ` @ ${activeClubName}` : ''}
-          </p>
-        </div>
-        {!isNewUserEmptyState && (
-          <div className="lg:hidden">
-            <HomeQuickActionsFab
-              onInvite={() => setMemberInviteOpen(true)}
-              onJoinTeam={() => setTeamDialogOpen(true)}
-              hasTeams={!!userRoles?.some(r => r.team_id)}
-              canCreateTeam={!!userRoles?.some(r => (r.role === "club_admin" && (!activeClubFilter || r.club_id === activeClubFilter)) || r.role === "app_admin")}
-              canCreateEvent={!!userRoles?.some(r => ["app_admin", "club_admin", "team_admin", "coach", "committee_member"].includes(r.role))}
-              canAccessVault={canAccessVault}
-              isAppAdmin={isAppAdmin}
-              activeClubFilter={activeClubFilter}
-              activeClubName={activeClubName}
-              hasProContext={activeClubFilter ? !!rewardClubs[0]?.hasPro : !!hasProAccess}
-            />
-          </div>
-        )}
-
-      </div>
-
-      {/* Desktop-only action bar — surfaces the quick actions as real buttons */}
-      {!isNewUserEmptyState && (
-        <DesktopActionBar
-          onInvite={() => setMemberInviteOpen(true)}
-          onJoinTeam={() => setTeamDialogOpen(true)}
-          hasTeams={!!userRoles?.some(r => r.team_id)}
-          canCreateTeam={!!userRoles?.some(r => (r.role === "club_admin" && (!activeClubFilter || r.club_id === activeClubFilter)) || r.role === "app_admin")}
-          canCreateEvent={!!userRoles?.some(r => ["app_admin", "club_admin", "team_admin", "coach", "committee_member"].includes(r.role))}
-          isAppAdmin={isAppAdmin}
-          activeClubFilter={activeClubFilter}
-        />
-      )}
-
-      {/* New-user empty state — no clubs, no team memberships yet */}
-      {isNewUserEmptyState && (
-        <HomeWelcomeGetStarted
-          firstName={firstName}
-          email={user?.email}
-          onFindOrJoin={() => setTeamDialogOpen(true)}
-        />
-      )}
-
-      {/* Setup progress moved to Club page only — do not surface on Home once
-          a club exists (per product decision). */}
-
-
-      <div className="relative [overflow-anchor:none]">
-        {!showContent && <HomeInitialSkeleton />}
-        <div
-          className={showContent ? "space-y-5 soft-reveal" : "absolute inset-x-0 top-0 space-y-5 opacity-0 pointer-events-none"}
-          aria-hidden={!showContent}
-        >
-
-          {/* Next Up Carousel - unified event section */}
-          <NextUpCarousel events={events || []} isLoading={isLoading || waitingForNextUpResolution} onReadyChange={handleNextUpReadyChange} />
-
-          {/* My Teams & Leagues - keep directly below Next Up so later async widgets cannot push it down. */}
-          <Suspense fallback={<HomeMyTeamsSkeleton />}>
-            <MyTeamsPremiumCarousel onReadyChange={handleMyTeamsReadyChange} />
-          </Suspense>
-
-          {/* Club News - compact latest-post card; renders nothing when the club has no posts */}
-          <Suspense fallback={null}>
-            <ClubNewsSection />
-          </Suspense>
-
-          {/* Club Info & Links - collapsible tile grid directly below the teams carousel */}
-          <Suspense fallback={null}>
-            <ClubLinksSection />
-          </Suspense>
-
-          {/* Club Files - first-class entry point to the File Vault for permitted roles.
-              Synchronous (role-based only) so it never causes a post-reveal layout shift. */}
-          {canAccessVault && (
-            <Card
-              className="border overflow-hidden cursor-pointer bg-card"
-              role="button"
-              tabIndex={0}
-              aria-label="Open club files"
-              onClick={() => navigate("/vault")}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate("/vault"); } }}
-            >
-              <CardContent className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary shrink-0">
-                    <FolderOpen className="h-5 w-5" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-foreground">Club Files</p>
-                    <p className="text-[12px] text-muted-foreground truncate">Forms, policies & documents</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-        </div>
-      </div>
+      <HomeDashboardOverview
+        firstName={firstName}
+        email={user?.email}
+        activeClubName={activeClubName}
+        activeClubFilter={activeClubFilter}
+        isNewUserEmptyState={isNewUserEmptyState}
+        userRoles={userRoles}
+        canAccessVault={canAccessVault}
+        isAppAdmin={!!isAppAdmin}
+        hasProContext={
+          activeClubFilter ? !!rewardClubs[0]?.hasPro : !!hasProAccess
+        }
+        showContent={showContent}
+        events={events || []}
+        eventsLoading={isLoading || waitingForNextUpResolution}
+        onNextUpReadyChange={handleNextUpReadyChange}
+        onMyTeamsReadyChange={handleMyTeamsReadyChange}
+        onInvite={() => setMemberInviteOpen(true)}
+        onJoinTeam={() => setTeamDialogOpen(true)}
+        onOpenVault={() => navigate("/vault")}
+        editableTeams={mySoccerTeams}
+        readOnlyTeams={readOnlySoccerTeams}
+        onOpenPitchBoard={openPitchBoard}
+        userId={user?.id}
+        onAccountRecovered={() => completeHomeAccountRecovery(queryClient)}
+        memberInviteOpen={memberInviteOpen}
+        onMemberInviteOpenChange={setMemberInviteOpen}
+      />
 
       {showContent && (
         <div className="space-y-5">
-
-      {/* Game Timer Widget - shown when game in progress */}
-      {/* Only members of the SPECIFIC team with active timer can see this widget */}
-      {/* Only coaches/team_admins of that team can edit, others view read-only */}
-      {(() => {
-        // Check if there's a timer running
-        const timerStateRaw = typeof window !== 'undefined' ? localStorage.getItem('pitch-board-timer-state') : null;
-        if (!timerStateRaw) {
-          return null;
+      <HomeJoinTeamDialog
+        open={teamDialogOpen}
+        activeClubFilter={activeClubFilter}
+        clubs={clubs}
+        teams={teams}
+        miniLeagues={miniLeagues}
+        selectedClubForTeam={selectedClubForTeam}
+        selectedTeam={selectedTeam}
+        isLeagueSelected={isLeagueSelected}
+        isAlreadyTeamMember={isAlreadyTeamMember}
+        existingTeamRoles={existingTeamRoles}
+        pendingTeamRequests={pendingTeamRequests}
+        additionalAccessPending={requestAdditionalAccessMutation.isPending}
+        additionalAccessRole={requestAdditionalAccessMutation.variables}
+        selectedLeagueRole={selectedLeagueRole}
+        selectedTeamRole={selectedTeamRole}
+        showChildLinker={showChildLinker}
+        teamChildren={teamChildren}
+        selectedChildForLink={selectedChildForLink}
+        newChildName={newChildName}
+        hasExistingTeamRole={hasExistingTeamRole}
+        hasExistingLeagueRole={hasExistingLeagueRole}
+        submitPending={teamRequestMutation.isPending}
+        onOpenChange={setTeamDialogOpen}
+        onSelectedClubForTeamChange={(clubId) => {
+          setSelectedClubForTeam(clubId);
+          setSelectedTeam("");
+          setSelectedChildForLink("");
+        }}
+        onSelectedTeamChange={setSelectedTeam}
+        onSelectedLeagueRoleChange={setSelectedLeagueRole}
+        onSelectedTeamRoleChange={setSelectedTeamRole}
+        onSelectedChildForLinkChange={setSelectedChildForLink}
+        onNewChildNameChange={setNewChildName}
+        onRequestAdditionalAccess={(role) =>
+          requestAdditionalAccessMutation.mutate(role)
         }
-        
-        // Parse timer state to get the team ID
-        let timerTeamId: string | null = null;
-        try {
-          const parsed = JSON.parse(timerStateRaw);
-          timerTeamId = parsed.teamId;
-        } catch {
-          return null; // Invalid timer state
-        }
-        
-        if (!timerTeamId) {
-          return null; // No team associated with timer
-        }
-        
-        // Check if user is a member of THIS SPECIFIC team (any role counts for viewing)
-        const isTeamMember = userRoles?.some(r => r.team_id === timerTeamId);
-        
-        // Club admins of the club that owns this team can also view
-        // Find the team to get its club_id
-        const timerTeamData = mySoccerTeams?.find(t => t.id === timerTeamId) || 
-                              readOnlySoccerTeams?.find(t => t.id === timerTeamId);
-        const isClubAdminOfTeam = timerTeamData && userRoles?.some(r => 
-          r.role === 'club_admin' && r.club_id === timerTeamData.club_id
-        );
-        
-        // Only show to: app admins, actual team members, or club admins of that team's club
-        const canViewWidget = isAppAdmin || isTeamMember || isClubAdminOfTeam;
-        
-        if (!canViewWidget) {
-          return null;
-        }
-        
-        // Check if user has EDIT access (coach or team_admin of THIS team, club_admin of team's club, or app_admin)
-        const hasEditAccess = isAppAdmin || isClubAdminOfTeam || userRoles?.some(r => 
-          r.team_id === timerTeamId && (r.role === "coach" || r.role === "team_admin")
-        );
-        
-        return (
-          <Suspense fallback={null}>
-            <GameTimerWidget
-              onOpenPitchBoard={(teamId, teamName) => openPitchBoard(teamId, teamName, !hasEditAccess)}
-              readOnly={!hasEditAccess}
-            />
-          </Suspense>
-        );
-
-      })()}
-
-      {/* Court-sport resume card archived — soccer resume handled by GameTimerWidget above. */}
-
-      {/* Mini League Live Matches Widget */}
-      <MiniLeagueGameWidgets activeClubFilter={activeClubFilter} />
-
-      {/* Account Recovery Banner */}
-      {user && (
-        <Suspense fallback={null}>
-          <AccountRecoveryBanner
-            userId={user.id}
-            onRecovered={() => completeHomeAccountRecovery(queryClient)}
-          />
-        </Suspense>
-      )}
-
-      {/* Native App Download Banner - for mobile browser users */}
-      <Suspense fallback={null}>
-        <NativeAppDownloadBanner />
-      </Suspense>
-
-
-      {memberInviteOpen && (
-        <Suspense fallback={null}>
-          <HomeInviteFlow open={memberInviteOpen} onOpenChange={setMemberInviteOpen} />
-        </Suspense>
-      )}
-
-      {/* Upcoming Classes Widget - for parents with enrolled children */}
-      <LazyMount minHeight={60}>
-        <UpcomingClassesWidget />
-      </LazyMount>
-
-      {/* Contact Club - quick DM to club admin (Pro only) */}
-      <LazyMount minHeight={48}>
-        <ContactClubButton clubFilter={activeClubFilter} compact />
-      </LazyMount>
-
-
-
-      <ResponsiveDialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>
-              {activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled ? "Request to Join Class" : "Request to Join Team"}
-            </ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              {activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled
-                ? "Select a class and role to request membership."
-                : "Select a team and role to request membership."}
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <div className="space-y-4 pt-4">
-            {/* Only show club filter if not in club mode */}
-            {!activeClubFilter && (
-              <MobileCardSelect
-                value={selectedClubForTeam || "all"}
-                onValueChange={(v) => {
-                  setSelectedClubForTeam(v);
-                  setSelectedTeam(""); // Reset selection when club changes
-                  setSelectedChildForLink("");
-                }}
-                options={[
-                  { value: "all", label: "All clubs" },
-                  ...(clubs?.map((club) => ({
-                    value: club.id,
-                    label: club.name,
-                    icon: <span>{getSportEmoji(club.sport)}</span>,
-                  })) || [])
-                ]}
-                label="Select Club (optional)"
-                placeholder="All clubs..."
-                searchable
-                searchPlaceholder="Search clubs..."
-                emptyMessage="No clubs found."
-              />
-            )}
-            <MobileCardSelect
-              value={selectedTeam}
-              onValueChange={setSelectedTeam}
-              options={[
-                // Teams section
-                ...(teams
-                  ?.filter(team => {
-                    if (activeClubFilter) {
-                      return team.club_id === activeClubFilter;
-                    }
-                    return !selectedClubForTeam || selectedClubForTeam === "all" || team.club_id === selectedClubForTeam;
-                  })
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((team) => ({
-                    value: team.id,
-                    label: activeClubFilter ? team.name : `${team.name} (${team.clubs?.name})`,
-                    icon: <span>{getSportEmoji(team.clubs?.sport)}</span>,
-                  })) || []),
-                // Mini Leagues section - prefixed with "league_" to distinguish from teams
-                ...(miniLeagues
-                  ?.filter(league => {
-                    if (activeClubFilter) {
-                      return league.club_id === activeClubFilter;
-                    }
-                    return !selectedClubForTeam || selectedClubForTeam === "all" || league.club_id === selectedClubForTeam;
-                  })
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((league) => ({
-                    value: `league_${league.id}`,
-                    label: activeClubFilter 
-                      ? `⭐ ${league.name} (League)` 
-                      : `⭐ ${league.name} (${league.clubs?.name}) - League`,
-                    icon: <span>⭐</span>,
-                  })) || []),
-              ]}
-              label={activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled ? "Select Class" : "Select Team"}
-              placeholder={activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled ? "Choose a class..." : "Choose a team..."}
-              searchable
-              searchPlaceholder={activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled ? "Search classes..." : "Search teams..."}
-              emptyMessage={activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled ? "No classes found." : "No teams found."}
-            />
-            {isAlreadyTeamMember && !isLeagueSelected ? (
-              <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">You're already on this team</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {existingTeamRoles.map((r) => (
-                      <Badge key={r} variant="secondary" className="text-xs">{teamRoleLabel(r)}</Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    No need to rejoin. Request elevated access below and a team admin will review it.
-                  </p>
-                </div>
-
-                {(["coach", "team_admin"] as TeamRole[])
-                  .filter((r) => !existingTeamRoles.includes(r))
-                  .map((r) => {
-                    const isPending = pendingTeamRequests?.includes(r);
-                    const isSubmitting = requestAdditionalAccessMutation.isPending && requestAdditionalAccessMutation.variables === r;
-                    return (
-                      <div key={r} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">Request {teamRoleLabel(r)} Access</p>
-                          <p className="text-xs text-muted-foreground">
-                            {r === "coach"
-                              ? "Manage training, line-ups and player performance."
-                              : "Manage roster, events and team settings."}
-                          </p>
-                        </div>
-                        {isPending ? (
-                          <Badge variant="outline" className="shrink-0">Pending</Badge>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0"
-                            onClick={() => requestAdditionalAccessMutation.mutate(r)}
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? "Sending…" : "Request"}
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                {(["coach", "team_admin"] as TeamRole[]).every((r) => existingTeamRoles.includes(r)) && (
-                  <p className="text-xs text-muted-foreground">
-                    You already have the highest-level access available on this team.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <>
-                {isLeagueSelected ? (
-                  <MobileCardSelect
-                    value={selectedLeagueRole}
-                    onValueChange={(v) => setSelectedLeagueRole(v as LeagueRole)}
-                    options={leagueRoleOptions}
-                    label="Select Role"
-                    placeholder="Choose a role..."
-                  />
-                ) : (
-                  <MobileCardSelect
-                    value={selectedTeamRole}
-                    onValueChange={(v) => setSelectedTeamRole(v as TeamRole)}
-                    options={teamRoleOptions}
-                    label="Select Role"
-                    placeholder="Choose a role..."
-                  />
-                )}
-                {/* Required child linking when parent role selected */}
-                {showChildLinker && (
-                  <>
-                    <MobileCardSelect
-                      value={selectedChildForLink || (teamChildren && teamChildren.length > 0 ? "" : "__new__")}
-                      onValueChange={(v) => setSelectedChildForLink(v)}
-                      options={[
-                        ...((teamChildren || []).map((child) => ({
-                          value: child.id,
-                          label: child.name,
-                        }))),
-                        { value: "__new__", label: "➕ Add new child" },
-                      ]}
-                      label="Link to Your Child"
-                      placeholder="Select your child..."
-                      searchable
-                      searchPlaceholder="Search children..."
-                      emptyMessage="No existing children — add one below."
-                    />
-                    {(selectedChildForLink === "__new__" || (!selectedChildForLink && (!teamChildren || teamChildren.length === 0))) && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">Child's name</label>
-                        <input
-                          type="text"
-                          value={newChildName}
-                          onChange={(e) => setNewChildName(e.target.value)}
-                          placeholder="Enter your child's full name"
-                          className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-          <ResponsiveDialogFooter>
-            {isAlreadyTeamMember && !isLeagueSelected ? (
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setTeamDialogOpen(false)}
-              >
-                Done
-              </Button>
-            ) : (
-              <>
-                {(hasExistingTeamRole || hasExistingLeagueRole) && (
-                  <p className="text-sm text-destructive mb-2">
-                    You already have this role in this {isLeagueSelected ? "league" : "team"}
-                  </p>
-                )}
-                <Button
-                  className="w-full sm:w-auto"
-                  onClick={() => teamRequestMutation.mutate()}
-                  disabled={
-                    !selectedTeam ||
-                    teamRequestMutation.isPending ||
-                    hasExistingTeamRole ||
-                    hasExistingLeagueRole ||
-                    (showChildLinker && (
-                      (selectedChildForLink === "__new__" || !selectedChildForLink)
-                        ? !newChildName.trim()
-                        : false
-                    ))
-                  }
-                >
-                  {teamRequestMutation.isPending ? "Submitting..." : "Submit Request"}
-                </Button>
-              </>
-            )}
-          </ResponsiveDialogFooter>
-
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+        onSubmit={() => teamRequestMutation.mutate()}
+      />
 
       <HomeRewardsSection
         isRewardsProLocked={isRewardsProLocked}
@@ -2618,102 +1972,19 @@ export default function HomePage() {
         onClaim={(input) => claimMutation.mutate(input)}
       />
 
-      {/* Club Sponsor Section — mounted eagerly (not LazyMount'd) so its
-          Supabase query fires in parallel with above-the-fold content and
-          the tile appears at the same time as Next Up / Rewards / Teams
-          instead of after a scroll. Reserved min-height prevents shift. */}
-      {(() => {
-        const sponsorHint = readHomeSponsorHint(user?.id, activeClubFilter);
-        const sponsorMinHeight = sponsorHint === "none" ? 0 : 120;
-        const inClassMode = !!(activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled);
-        return (
-          <div style={{ minHeight: sponsorMinHeight }}>
-            {activeClubFilter ? (
-              !inClassMode && <ClubSponsorSection clubId={activeClubFilter} />
-            ) : (
-              <MultiClubSponsorCarousel />
-            )}
-          </div>
-        );
-      })()}
+      <HomeSponsorSections
+        userId={user?.id}
+        activeClubFilter={activeClubFilter}
+        clubs={clubs}
+      />
 
-      {/* App Ads — same reasoning: mount eagerly so the tier query runs in
-          parallel and the ad renders alongside the other home sections. */}
-      {!(activeClubFilter && clubs?.find(c => c.id === activeClubFilter)?.class_mode_enabled) && (
-        <div style={{ minHeight: 112 }}>
-          <SponsorOrAdCarousel location="home" activeClubFilter={activeClubFilter} />
-        </div>
-      )}
-
-      {/* Pitch Board Loading Overlay */}
-      {pitchBoardLoading && createPortal(
-         <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="status" aria-label="Loading Pitch Board" style={{ backgroundColor: '#2d5a27' }}>
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-primary">
-                <Flame className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div className="animate-bounce">
-                <SoccerBall size={48} readOnly />
-              </div>
-            </div>
-            <Loader2 className="h-6 w-6 animate-spin text-white" />
-            <p className="text-lg font-medium text-white">Loading Pitch Board...</p>
-          </div>
-        </div>,
-        document.body
-      )}
-      {/* Pitch Board Modal - Lazy loaded */}
-      {pitchBoardTeam && (
-        <Suspense fallback={
-          createPortal(
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center" role="status" aria-label="Loading Pitch Board" style={{ backgroundColor: '#2d5a27' }}>
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary">
-                    <Flame className="h-8 w-8 text-primary-foreground" />
-                  </div>
-                  <div className="animate-bounce">
-                    <SoccerBall size={48} readOnly />
-                  </div>
-                </div>
-                <Loader2 className="h-6 w-6 animate-spin text-white" />
-                <p className="text-lg font-medium text-white">Loading Pitch Board...</p>
-              </div>
-            </div>,
-            document.body
-          )
-        }>
-          <PitchBoard
-            teamId={pitchBoardTeam.id}
-            teamName={pitchBoardTeam.name}
-            members={pitchBoardTeam.members}
-            onClose={() => { clearPitchBoardOpenFlag(); setPitchBoardTeam(null); }}
-            readOnly={pitchBoardTeam.readOnly}
-            initialLinkedEventId={pitchBoardTeam.linkedEventId}
-          />
-        </Suspense>
-      )}
-
-
-      {quickRsvpEvent && (
-        <Suspense fallback={null}>
-        <QuickRSVPDialog
-          open={!!quickRsvpEvent}
-          onOpenChange={(open) => !open && setQuickRsvpEvent(null)}
-          eventId={quickRsvpEvent.id}
-          eventTitle={quickRsvpEvent.title}
-          eventDate={quickRsvpEvent.event_date}
-          eventType={quickRsvpEvent.type}
-          teamId={quickRsvpEvent.team_id}
-          suburb={quickRsvpEvent.suburb}
-          opponent={quickRsvpEvent.opponent}
-          clubId={quickRsvpEvent.club_id}
-          clubName={quickRsvpEvent.clubs?.name || "Your club"}
-          eventAmount={quickRsvpEvent.amount}
-        />
-        </Suspense>
-      )}
+      <HomePitchBoardRuntime
+        loading={pitchBoardLoading}
+        pitchBoardTeam={pitchBoardTeam}
+        quickRsvpEvent={quickRsvpEvent}
+        onClosePitchBoard={closePitchBoard}
+        onCloseQuickRsvp={() => setQuickRsvpEvent(null)}
+      />
 
         </div>
       )}

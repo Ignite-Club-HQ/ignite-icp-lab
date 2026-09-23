@@ -41,19 +41,22 @@ describe("role-based UI workflows across critical club surfaces", () => {
 
   it("keeps event creation limited to club and team event managers", () => {
     const eventsPage = source("src/pages/EventsPage.tsx");
-    const homePage = source("src/pages/HomePage.tsx");
+    const homeSurface = [
+      source("src/pages/HomePage.tsx"),
+      source("src/components/home/HomeDashboardOverview.tsx"),
+    ].join("\n");
 
     for (const role of ["club_admin", "team_admin", "coach", "committee_member"]) {
       expect(eventsPage).toContain(`\"${role}\"`);
-      expect(homePage).toContain(`\"${role}\"`);
+      expect(homeSurface).toContain(`\"${role}\"`);
     }
 
     // These exact gates protect both the Events page action and Home shortcut.
     expect(eventsPage).toMatch(
       /\["club_admin",\s*"team_admin",\s*"coach",\s*"committee_member"\]\.includes\(r\.role\)/,
     );
-    expect(homePage).toContain(
-      '["app_admin", "club_admin", "team_admin", "coach", "committee_member"].includes(r.role)',
+    expect(homeSurface).toMatch(
+      /\["app_admin",\s*"club_admin",\s*"team_admin",\s*"coach",\s*"committee_member"\]\.includes\(\s*role\.role,\s*\)/,
     );
   });
 

@@ -1,5 +1,39 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## HomePage workflow and dashboard decomposition (2026-09-23)
+
+The deeper `HomePage.tsx` round extracts the team/class/league join dialog,
+pitch-board access/restoration controller and runtime, dashboard overview,
+Next Up event-selection helpers, and sponsor/ad presentation into typed modules
+under `components/home`. `HomePage` remains the data and mutation owner:
+Supabase/ICP provider selection, consolidated membership/event fetching,
+authorization inputs, cache invalidation, and navigation are unchanged. The new
+pitch-board hook receives data operations from the page rather than importing
+Supabase, so the direct-Supabase count remains fixed.
+
+| Measure | Before deeper round | After deeper round | Change |
+| --- | ---: | ---: | ---: |
+| `HomePage.tsx` raw lines | 2,722 | 1,993 | -729 (-26.8%) |
+| New non-test workflow modules | 0 | 1,210 | +1,210 |
+| Complete Home target source | 3,420 | 3,901 | +481 |
+| `HomePage.tsx` versus original | 3,127 | 1,993 | -1,134 (-36.3%) |
+
+Fifty-eight focused tests cover rewards, join eligibility and role requests,
+pitch-board access/restoration and timer permissions, established/new-user
+dashboard actions, Club Files keyboard behavior, readiness callbacks, event
+date/grace-period selection, and the existing Home source contracts. The typed
+boundaries deliberately trade aggregate source lines for smaller responsibility
+units and direct tests; this remains maintainability work rather than a claim
+that the route payload shrank.
+
+Validation passed product and Lab typechecks, the 153-file/1,720-test Lab suite,
+product build/bundle budget (8,898,053 total JavaScript bytes; 1,112,837-byte
+largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,346 fewer
+duplicated lines than baseline), and `git diff --check`. The Home route is
+126.75 kB, up from 124.44 kB after the first round because the extracted typed
+boundaries remain in the same route chunk.
+
 ## HomePage rewards and loading presentation extraction (2026-09-23)
 
 The first `HomePage.tsx` decomposition round moves the complete rewards

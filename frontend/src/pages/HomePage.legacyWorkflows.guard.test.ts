@@ -10,6 +10,11 @@ import { join } from "node:path";
  * is re-introduced into HomePage.
  */
 const src = readFileSync(join(__dirname, "HomePage.tsx"), "utf8");
+const joinDialogSrc = readFileSync(
+  join(__dirname, "../components/home/HomeJoinTeamDialog.tsx"),
+  "utf8",
+);
+const homeJoinSource = `${src}\n${joinDialogSrc}`;
 
 describe("HomePage legacy workflow removal", () => {
   const obsolete = [
@@ -53,6 +58,6 @@ describe("HomePage legacy workflow removal", () => {
 
   it("still exposes the live team/league join flow", () => {
     expect(src).toMatch(/\bteamDialogOpen\b/);
-    expect(src).toMatch(/teamRequestMutation|Request to Join Team/);
+    expect(homeJoinSource).toMatch(/teamRequestMutation|Request to Join Team/);
   });
 });
