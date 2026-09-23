@@ -1727,6 +1727,27 @@ lab typecheck, product build/bundle budget (8,892,413 total JavaScript bytes;
 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
+## PitchBoard.tsx player-placement extraction (2026-09-23)
+
+The pure standard-formation and mini-league placement algorithms now live in
+`hooks/usePitchBoardPlayerPlacement.ts`. The board consumes the same stable
+callbacks and retains all state, initialization, persistence, provider, and
+layout-context responsibilities. Dedicated tests cover specialist priority,
+overflow benching, opposing team halves, formation repositioning with bench
+preservation, and on-pitch-first team-size adjustment.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,187 | 1,923 | -264 (-12.1%) |
+| Total Phase-0 reduction | 3,438 | 1,923 | -1,515 (-44.1%) |
+
+Validation passed product typecheck, the expanded 60-file/802-test focused
+pitch suite, 468-file/4,475-test legacy suite (one skip), 153-file/1,720-test
+lab suite, lab typecheck, product build/bundle budget (8,894,424 total
+JavaScript bytes; 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,313 fewer duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx roster reconciliation extraction (2026-09-24)
 
 The event-aware roster derivation and later live-roster reconciliation effects

@@ -1,5 +1,27 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## PitchBoard.tsx player-placement extraction (2026-09-23)
+
+The final low-risk `PitchBoard.tsx` reduction moves the two pure formation
+placement algorithms to `hooks/usePitchBoardPlayerPlacement.ts`. It preserves
+specialist-first assignment, flexible-player fallback, overflow benching,
+mini-league opposing-half scaling, team-size adjustment, and formation changes
+that retain existing pitch/bench membership. No state, effect, provider,
+network, or layout-context ownership moved.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,187 | 1,923 | -264 (-12.1%) |
+| Total Phase-0 reduction | 3,438 | 1,923 | -1,515 (-44.1%) |
+
+Validated with product typecheck, the expanded 60-file/802-test focused pitch
+suite, 468-file/4,475-test legacy suite (one skip), 153-file/1,720-test lab
+suite, lab typecheck, product build/bundle budget (8,894,424 total JavaScript
+bytes; 1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet (2,313
+fewer duplicated lines than baseline), and `git diff --check`. Four focused
+placement tests cover the extracted algorithm modes.
+
 ## PitchBoard.tsx roster reconciliation extraction (2026-09-24)
 
 `hooks/usePitchBoardRosterReconciliation.ts` now owns the event-aware roster
