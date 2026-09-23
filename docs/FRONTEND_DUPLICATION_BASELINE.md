@@ -1536,3 +1536,38 @@ product bundle within budget (8,885,992 total JavaScript bytes;
 chunks), isolation and quality ratchets passing (`directSupabaseImports`
 unchanged at 463), duplication ratchet passing with 2,174 fewer duplicated
 lines than baseline, and `git diff --check`.
+
+## GroupChatPage message/group lifecycle follow-up (2026-09-24)
+
+`src/pages/GroupChatPage.tsx` decreased further from 2,083 to 2,002 raw
+lines (-81, -3.9%). Two small mutation extractions:
+
+- `src/features/messaging/thread/useGroupMessageEditDelete.ts` (104 lines):
+  `updateMessageMutation` (edit) and `deleteMessageMutation` (hard delete),
+  including the `messages-page-cache`/`removeMessageFromCache` cleanup on
+  delete success.
+- `src/features/messaging/thread/useGroupDeleteChat.ts` (56 lines):
+  `deleteGroupMutation`, soft-deleting the group for Supabase or clearing
+  local ICP lab query caches, then navigating to `/messages`.
+
+Both follow the existing `GroupChatSupabaseClient`-parameter pattern, so the
+quality ratchet's direct-Supabase-import count is unaffected. The
+page-unused `removeMessageFromCache` import was pruned (`shouldRefetchMessages`
+from the same module is still used elsewhere and was kept).
+
+`sendMessageMutation` (~150 lines) was evaluated and left inline: it shares
+over a dozen page-scoped dependencies with the composer (reply/edit state,
+the virtualized-list handle ref, poll/news pending-id setters, offline
+queueing, Vault delivery sync), so extracting it would trade a bounded
+line-count reduction for materially higher risk of a composer-state
+regression. Not pursued.
+
+Validation evidence: focused GroupChat/chat guards (legacy config: 35
+passing tests; lab config: 54 passing tests), 467 legacy files / 4,471
+passing tests (one skip), 153 lab files / 1,720 passing tests, product
+typecheck (clean), clean lab typecheck, successful product build, product
+bundle within budget (8,886,501 total JavaScript bytes; 1,112,837-byte
+largest JavaScript chunk; 172,904 CSS bytes; 502 JavaScript chunks),
+isolation and quality ratchets passing (`directSupabaseImports` unchanged at
+463), duplication ratchet passing with 2,196 fewer duplicated lines than
+baseline, and `git diff --check`.

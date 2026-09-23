@@ -2134,3 +2134,51 @@ tests, product type-check (clean against the regenerated baseline), lab
 type-check, product build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,174 fewer
 duplicated lines than baseline), and `git diff --check`.
+
+## GroupChatPage message/group lifecycle follow-up (2026-09-24)
+
+The three remaining small mutation blocks in `GroupChatPage.tsx` were
+extracted:
+
+- `updateMessageMutation` and `deleteMessageMutation` (message edit/hard-
+  delete, cache invalidation, and the `messages-page-cache`/
+  `removeMessageFromCache` cleanup) moved together to
+  `useGroupMessageEditDelete.ts`, since both are simple message-CRUD actions
+  sharing the same `groupId`/`useIcpLab`/`queryClient` inputs.
+- `deleteGroupMutation` (soft-delete for Supabase, hard cache-clear for the
+  ICP lab fixture, then navigate to `/messages`) moved to
+  `useGroupDeleteChat.ts`.
+
+Both hooks follow the established `supabaseClient`-parameter pattern, so
+neither adds a new direct Supabase import and the quality ratchet is
+unaffected. The now page-unused `removeMessageFromCache` import was pruned
+(the `shouldRefetchMessages` import from the same module is still used
+elsewhere in the page and was kept).
+
+The larger `sendMessageMutation` block (~150 lines) was evaluated but left
+in place: it is tightly coupled to composer-local state (`replyTo`,
+`editingMessage`, `virtualHandleRef`, poll/news pending-id setters, Vault
+delivery sync, offline queueing) with over a dozen page-scoped dependencies.
+Extracting it would require passing most of the composer's state setters
+across a hook boundary, trading a bounded line-count win for a meaningfully
+higher risk of introducing a subtle composer-state bug — assessed as not
+worth it at this time.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `GroupChatPage.tsx` raw lines | 2,083 | 2,002 | -81 (-3.9%) |
+| `useGroupMessageEditDelete.ts` (new) | 0 | 104 | +104 |
+| `useGroupDeleteChat.ts` (new) | 0 | 56 | +56 |
+| Product JavaScript total / chunks | 8,885,992 bytes / 502 | 8,886,501 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,837 bytes | 1,112,837 bytes | budget passing |
+
+No guard/characterization test needed updating: none of the moved logic is
+asserted against raw page source in `chat-page-orchestration.characterization.test.tsx`,
+`chatReconciliation.guard.test.ts`, or `chatCrossThreadBleed.guard.test.ts`.
+
+Validation passed the focused GroupChat/chat guard set (legacy config: 35
+tests; lab config: 54 tests), 467 legacy files / 4,471 tests (one skip), 153
+lab files / 1,720 tests, product type-check (clean), lab type-check, product
+build, product bundle budget, isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,196 fewer
+duplicated lines than baseline), and `git diff --check`.

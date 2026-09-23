@@ -62,6 +62,8 @@ import {
 } from "@/features/messaging/thread/groupChatData";
 import { useGroupLocalMessagesSync } from "@/features/messaging/thread/useGroupLocalMessagesSync";
 import { useGroupMessagesQuery } from "@/features/messaging/thread/useGroupMessagesQuery";
+import { useGroupDeleteChat } from "@/features/messaging/thread/useGroupDeleteChat";
+import { useGroupMessageEditDelete } from "@/features/messaging/thread/useGroupMessageEditDelete";
 import { useGroupOlderMessagesLoader } from "@/features/messaging/thread/useGroupOlderMessagesLoader";
 import { useGroupReactionToggle } from "@/features/messaging/thread/useGroupReactionToggle";
 import { useGroupRealtimeUpdates } from "@/features/messaging/thread/useGroupRealtimeUpdates";
@@ -121,7 +123,7 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { MessageReadAvatars } from "@/components/chat/MessageReadAvatars";
 import { fetchProfilesWithCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
-import { shouldRefetchMessages, removeMessageFromCache } from "@/lib/messageCache";
+import { shouldRefetchMessages } from "@/lib/messageCache";
 import {
   classifyChatThreadState,
   nextEmptyRetryDelay,
@@ -1157,75 +1159,15 @@ export default function GroupChatPage() {
     },
    });
 
-  // Update message mutation
-  const updateMessageMutation = useMutation({
-    mutationFn: async () => {
-      if (!editingMessage) return;
-      if (useIcpLab) {
-        throw new Error("Editing group messages is not available in the local ICP contract.");
-      }
-      const { error } = await supabase
-        .from("group_messages")
-        .update({ text: message.trim() })
-        .eq("id", editingMessage.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setMessage("");
-      setEditingMessage(null);
-      if (useIcpLab) return;
-      queryClient.invalidateQueries({ queryKey: ["group-messages", groupId] });
-      // silent success
-    },
-    onError: () => {
-      toast.error("Failed to update message");
-    },
-  });
-
-  // Delete message mutation (hard delete)
-  const deleteMessageMutation = useMutation({
-    mutationFn: async (messageId: string) => {
-      if (useIcpLab) {
-        throw new Error("Deleting group messages is not available in the local ICP contract.");
-      }
-      const { error } = await supabase
-        .from("group_messages")
-        .delete()
-        .eq("id", messageId);
-      if (error) throw error;
-    },
-    onMutate: async (messageId: string) => {
-      // Optimistically hide the message
-      await queryClient.cancelQueries({ queryKey: ["group-messages", groupId] });
-      const previousData = queryClient.getQueryData(["group-messages", groupId]);
-      
-      queryClient.setQueryData(["group-messages", groupId], (old: any) => {
-        if (!old) return old;
-        const existingMessages: GroupMessage[] = old?.messages || [];
-        return { ...old, messages: existingMessages.filter(m => m.id !== messageId) };
-      });
-      
-      return { previousData, messageId };
-    },
-    onSuccess: (_, messageId) => {
-      if (useIcpLab) return;
-
-      // Remove from localStorage cache to prevent reappearing
-      removeMessageFromCache("group", groupId!, messageId);
-      // Clear the messagesPage cache
-      try {
-        localStorage.removeItem('messages-page-cache');
-      } catch {}
-      // Invalidate the messages page query so latest message preview updates
-      queryClient.invalidateQueries({ queryKey: ["my-chat-groups-with-messages"] });
-      // Silent success - no toast
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["group-messages", groupId], context.previousData);
-      }
-      toast.error("Failed to delete message");
-    },
+  const { updateMessageMutation, deleteMessageMutation } = useGroupMessageEditDelete({
+    groupId,
+    useIcpLab,
+    message,
+    editingMessage,
+    setMessage,
+    setEditingMessage,
+    queryClient,
+    supabaseClient: supabase,
   });
 
   const toggleReactionMutation = useGroupReactionToggle({
@@ -1423,36 +1365,13 @@ export default function GroupChatPage() {
     return map;
   }, [localMessages, messagesData, reactions]);
 
-  // Delete group mutation
-  const deleteGroupMutation = useMutation({
-    mutationFn: async () => {
-      if (useIcpLab) return;
-
-      // Soft-delete: keep the row so app admins can restore within the retention window.
-      const { error } = await supabase
-        .from("chat_groups")
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: user?.id ?? null,
-        } as any)
-        .eq("id", groupId!);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      if (useIcpLab) {
-        queryClient.removeQueries({ queryKey: ["chat-group", groupId] });
-        queryClient.removeQueries({ queryKey: ["group-messages", groupId] });
-        toast.success("Local chat removed");
-        navigate("/messages");
-        return;
-      }
-
-      toast.success("Chat removed. An app admin can restore it if needed.");
-      queryClient.invalidateQueries({ queryKey: ["my-chat-groups"] });
-      queryClient.invalidateQueries({ queryKey: ["my-chat-groups-with-messages"] });
-      navigate("/messages");
-    },
-    onError: () => toast.error("Failed to delete group"),
+  const deleteGroupMutation = useGroupDeleteChat({
+    groupId,
+    userId: user?.id,
+    useIcpLab,
+    queryClient,
+    supabaseClient: supabase,
+    navigate,
   });
 
   // Live online count for the group — shown in the header sublabel.
