@@ -1663,6 +1663,27 @@ lab typecheck, product build/bundle budget (8,889,703 total JavaScript bytes;
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
 
+## PitchBoard.tsx formation-management extraction (2026-09-23)
+
+`hooks/usePitchBoardFormationManagement.ts` now owns formation reset and
+team-size transition orchestration: two-pass nearest-slot restoration, ball
+reset, mini-league side assignment, change-preview calculation, confirmation
+dialog state handoff, and direct application. The board supplies its existing
+placement/persistence helpers and layouts retain the same two context
+callbacks.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,757 | 2,623 | -134 (-4.9%) |
+| Total Phase-0 reduction | 3,438 | 2,623 | -815 (-23.7%) |
+
+Validated with product typecheck, 59-file/798-test pitch suite,
+467-file/4,471-test legacy suite (one skip), 153-file/1,720-test lab suite,
+lab typecheck, product build/bundle budget (8,893,017 total JavaScript bytes;
+1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx substitution/lifecycle extraction (2026-09-23)
 
 `hooks/usePitchBoardSwapSubstitution.ts` now owns the incompatible-position

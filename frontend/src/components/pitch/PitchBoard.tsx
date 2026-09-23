@@ -107,6 +107,7 @@ import { usePitchBoardSwapMode } from "./hooks/usePitchBoardSwapMode";
 import { usePitchBoardSwapSubstitution } from "./hooks/usePitchBoardSwapSubstitution";
 import { usePitchBoardResetGame } from "./hooks/usePitchBoardResetGame";
 import { usePitchBoardUnlinkEvent } from "./hooks/usePitchBoardUnlinkEvent";
+import { usePitchBoardFormationManagement } from "./hooks/usePitchBoardFormationManagement";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -2118,158 +2119,23 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     }
   }, [handleResetGame]);
 
-  // Reset formation only - snaps each player back to THEIR OWN formation slot
-  // (never re-assigns players to different positions) and ball to center.
-  const handleResetFormation = useCallback(() => {
-    const formation = FORMATIONS[teamSize][selectedFormation];
-    if (!formation) return;
-
-    const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-      Math.hypot(a.x - b.x, a.y - b.y);
-
-    const slots = formation.positions.map((pos) => ({
-      pos,
-      pitchPos: getPositionFromCoords(pos.y, teamSize),
-      taken: false,
-    }));
-
-    const onPitch = players.filter(p => p.position !== null);
-    const onBench = players.filter(p => p.position === null);
-
-    const result: Player[] = [];
-    const unmatched: Player[] = [];
-
-    // Pass 1: each player claims the nearest unused slot matching their own
-    // pitch position type (currentPitchPosition, or derived from where they are).
-    for (const player of onPitch) {
-      const type = player.currentPitchPosition
-        ?? getPositionFromCoords(player.position!.y, teamSize);
-      const candidates = slots.filter(s => !s.taken && s.pitchPos === type);
-      if (candidates.length === 0) {
-        unmatched.push(player);
-        continue;
-      }
-      const slot = candidates.reduce((best, s) =>
-        dist(player.position!, s.pos) < dist(player.position!, best.pos) ? s : best
-      );
-      slot.taken = true;
-      result.push({ ...player, position: slot.pos, currentPitchPosition: slot.pitchPos });
-    }
-
-    // Pass 2: players whose slot type isn't available go to the nearest free
-    // slot but KEEP their own position label; if no slots are free they stay
-    // exactly where they are.
-    for (const player of unmatched) {
-      const free = slots.filter(s => !s.taken);
-      if (free.length === 0) {
-        result.push(player);
-        continue;
-      }
-      const slot = free.reduce((best, s) =>
-        dist(player.position!, s.pos) < dist(player.position!, best.pos) ? s : best
-      );
-      slot.taken = true;
-      result.push({ ...player, position: slot.pos });
-    }
-
-    // Bench players stay on the bench.
-    result.push(...onBench);
-    setPlayers(result);
-
-    // Reset ball to center
-    setBallPosition({ x: 50, y: 50 });
-
-    toast({
-      title: "Formation Reset",
-      description: "Players and ball have been moved back to formation positions.",
+  const { handleResetFormation, handleTeamSizeChange } =
+    usePitchBoardFormationManagement({
+      players,
+      teamSize,
+      selectedFormation,
+      miniLeagueTeams,
+      autoPlacePlayersOnPitch,
+      autoPlaceMiniLeaguePlayers,
+      persistTeamSizeToDb,
+      setPlayers,
+      setTeamSize,
+      setSelectedFormation,
+      setBallPosition,
+      setPendingFormationChange,
+      setFormationChangeDialogOpen,
+      toast,
     });
-  }, [players, teamSize, selectedFormation, toast]);
-
-  // Handle team size change - preview changes and show confirmation
-  const handleTeamSizeChange = useCallback((newSize: TeamSize) => {
-    if (newSize === teamSize) return;
-    
-    // Skip confirmation for mini-league mode (auto-place both teams)
-    if (miniLeagueTeams) {
-      setTeamSize(newSize);
-      setSelectedFormation(0);
-      const playersWithTeamSide = players.map(p => {
-        if (p.teamSide) return p;
-        let teamSide: "a" | "b" | undefined;
-        if (miniLeagueTeams.teamAPlayerIds.includes(p.id)) {
-          teamSide = "a";
-        } else if (miniLeagueTeams.teamBPlayerIds.includes(p.id)) {
-          teamSide = "b";
-        }
-        return { ...p, teamSide };
-      });
-      const placedPlayers = autoPlaceMiniLeaguePlayers(playersWithTeamSide, newSize, true);
-      setPlayers(placedPlayers);
-      persistTeamSizeToDb(newSize);
-      return;
-    }
-    
-    const newFormation = FORMATIONS[newSize][0];
-    if (!newFormation) return;
-    
-    const numPositions = parseInt(newSize);
-    const playersOnPitch = players.filter(p => p.position !== null);
-    const benchPlayers = players.filter(p => p.position === null);
-    const allPlayers = [...playersOnPitch, ...benchPlayers];
-    
-    const positionSwaps: { player: Player; fromPosition: PitchPosition; toPosition: PitchPosition; fromX?: number; toX?: number }[] = [];
-    const benchMoves: { player: Player; direction: "to-pitch" | "to-bench"; position?: PitchPosition }[] = [];
-    
-    const willBeOnPitch = allPlayers.slice(0, numPositions);
-    const willBeOnBench = allPlayers.slice(numPositions);
-    
-    // Players going to bench
-    for (const player of playersOnPitch) {
-      if (willBeOnBench.some(p => p.id === player.id)) {
-        benchMoves.push({ player, direction: "to-bench", position: player.currentPitchPosition });
-      }
-    }
-    
-    // Players coming on from bench
-    for (let i = 0; i < willBeOnPitch.length; i++) {
-      const player = willBeOnPitch[i];
-      if (benchPlayers.some(p => p.id === player.id) && newFormation.positions[i]) {
-        const newPos = getPositionFromCoords(newFormation.positions[i].y, newSize);
-        benchMoves.push({ player, direction: "to-pitch", position: newPos });
-      }
-    }
-    
-    // Position changes for players staying on pitch
-    const minorAdjustments: { player: Player; fromLabel: string; toLabel: string }[] = [];
-    for (let i = 0; i < willBeOnPitch.length; i++) {
-      const player = willBeOnPitch[i];
-      if (player.currentPitchPosition && newFormation.positions[i] && playersOnPitch.some(p => p.id === player.id) && !willBeOnBench.some(p => p.id === player.id)) {
-        const newPosition = getPositionFromCoords(newFormation.positions[i].y, newSize);
-        if (player.currentPitchPosition !== newPosition) {
-          positionSwaps.push({ player, fromPosition: player.currentPitchPosition, toPosition: newPosition, fromX: player.position?.x, toX: newFormation.positions[i].x });
-        } else {
-          const fromLabel = getSpecificPositionLabel(player.position?.x, player.currentPitchPosition);
-          const toLabel = getSpecificPositionLabel(newFormation.positions[i].x, newPosition);
-          if (fromLabel !== toLabel) {
-            minorAdjustments.push({ player, fromLabel, toLabel });
-          }
-        }
-      }
-    }
-    
-    if (positionSwaps.length > 0 || benchMoves.length > 0 || minorAdjustments.length > 0) {
-      setPendingFormationChange({ index: 0, newTeamSize: newSize, positionSwaps, benchMoves, minorAdjustments });
-      setFormationChangeDialogOpen(true);
-      return;
-    }
-    
-    // No changes, apply directly
-    setTeamSize(newSize);
-    setSelectedFormation(0);
-    const placedPlayers = autoPlacePlayersOnPitch(players, newSize, 0);
-    setPlayers(placedPlayers);
-    persistTeamSizeToDb(newSize);
-  }, [players, teamSize, autoPlacePlayersOnPitch, autoPlaceMiniLeaguePlayers, miniLeagueTeams, persistTeamSizeToDb]);
 
   const getPinchDistance = (touches: React.TouchList): number | null => {
     if (touches.length < 2) return null;

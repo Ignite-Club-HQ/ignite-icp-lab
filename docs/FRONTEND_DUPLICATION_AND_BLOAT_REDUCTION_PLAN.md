@@ -2247,6 +2247,30 @@ type-check, product build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
 
+## PitchBoard.tsx formation-management extraction (2026-09-23)
+
+The remaining formation-reset and team-size-change controller was moved to
+`hooks/usePitchBoardFormationManagement.ts`. It preserves the two-pass
+nearest-slot reset algorithm, ball reset, mini-league team-side handling,
+formation-change preview calculation, confirmation dialog handoff, and direct
+team-size placement path. `PitchBoard.tsx` still supplies the same existing
+placement, persistence, state-setter, and toast dependencies, and the layouts
+continue receiving the same `handleResetFormation` and `handleTeamSizeChange`
+callbacks through the context.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,757 | 2,623 | -134 (-4.9%) |
+| Total Phase-0 reduction | 3,438 | 2,623 | -815 (-23.7%) |
+
+Validation passed: product typecheck (clean), pitch component suite (59 files
+/ 798 tests), full legacy suite (467 files / 4,471 tests, one skip), full lab
+suite (153 files / 1,720 tests), clean lab typecheck, product build and
+bundle budget (8,893,017 total JavaScript bytes, 1,112,837-byte largest
+chunk, 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx substitution/lifecycle extraction (2026-09-23)
 
 The incompatible-position substitution sequence was still inline after the
