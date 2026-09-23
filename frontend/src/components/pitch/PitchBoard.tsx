@@ -76,7 +76,6 @@ import {
 } from "./types";
 import ScoreTracker from "./ScoreTracker";
 import {
-  savePitchState,
   clearPitchState,
   loadTimerStateForMinutes,
 } from "./pitchStateUtils";
@@ -105,6 +104,9 @@ import { usePitchBoardUndo } from "./hooks/usePitchBoardUndo";
 import { usePitchBoardSubAnimation } from "./hooks/usePitchBoardSubAnimation";
 import { usePitchBoardBenchLongPress } from "./hooks/usePitchBoardBenchLongPress";
 import { usePitchBoardSwapMode } from "./hooks/usePitchBoardSwapMode";
+import { usePitchBoardSwapSubstitution } from "./hooks/usePitchBoardSwapSubstitution";
+import { usePitchBoardResetGame } from "./hooks/usePitchBoardResetGame";
+import { usePitchBoardUnlinkEvent } from "./hooks/usePitchBoardUnlinkEvent";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -1422,14 +1424,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
 
 
-  // Swap-based substitution state (for sequencing: swap dialog first, then sub dialog)
-  const [pendingSwapBasedSub, setPendingSwapBasedSub] = useState<{
-    pitchPlayerId: string;
-    benchPlayerId: string;
-    swapPlayerId: string;
-  } | null>(null);
-  const [swapBeforeSubDialogOpen, setSwapBeforeSubDialogOpen] = useState(false);
-
   // Step 8c — Bench-to-pitch quick substitution sheet state
   const {
     benchToSubOpen,
@@ -1465,7 +1459,37 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     handleBenchToSubSelect,
     manualSubDepsRef,
   } = usePitchBoardManualSub();
-  const [subAfterSwapDialogOpen, setSubAfterSwapDialogOpen] = useState(false);
+  const {
+    pendingSwapBasedSub,
+    swapBeforeSubDialogOpen,
+    subAfterSwapDialogOpen,
+    handleSwapAndSubstitute,
+    handleSubPreviewSelect,
+    handlePreSwapFromDialog,
+    handleConfirmSwapBeforeSub,
+    handleCancelSwapBasedSub,
+    handleConfirmSubAfterSwap,
+  } = usePitchBoardSwapSubstitution({
+    players,
+    playersRef,
+    playerDragStartRef,
+    pendingSubBenchPlayer,
+    requiredPosition,
+    selectedOnPitch,
+    setPlayers,
+    setPendingSubBenchPlayer,
+    setRequiredPosition,
+    setPositionSwapDialogOpen,
+    setSubPreviewOpen,
+    setSelectedOnPitch,
+    setSelectedOnBench,
+    setSubMode,
+    setPendingManualSub,
+    setManualSubConfirmOpen,
+    pushToUndoHistory,
+    runSubAnimation,
+    toast,
+  });
   const [resetGameConfirmOpen, setResetGameConfirmOpen] = useState(false);
   const [cancelPlanConfirmOpen, setCancelPlanConfirmOpen] = useState(false);
   const [timerFormationDropdownOpen, setTimerFormationDropdownOpen] = useState(false);
@@ -1940,176 +1964,8 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
   };
 
 
-  // Substitution dialog trigger now lives in usePitchBoardManualSub.
-
-  // Handle position swap and substitute
-  const handleSwapAndSubstitute = (playerToRemoveId: string, playerToSwapId: string) => {
-    const playerToRemove = players.find(p => p.id === playerToRemoveId);
-    const playerToSwap = players.find(p => p.id === playerToSwapId);
-    const benchPlayer = players.find(p => p.id === pendingSubBenchPlayer);
-    
-    if (!playerToRemove?.position || !playerToSwap?.position || !benchPlayer || !requiredPosition) return;
-    
-    // Push to undo history before making changes
-    pushToUndoHistory(`Sub: ${benchPlayer.name} for ${playerToRemove.name} (with swap)`, playersRef.current);
-    
-    // Swap positions of the two on-pitch players, then sub in bench player
-    const removePosition = { ...playerToRemove.position };
-    const swapPosition = { ...playerToSwap.position };
-    
-    runSubAnimation(playerToRemoveId, pendingSubBenchPlayer!, playerToSwapId);
-    
-    setPlayers(prev => prev.map(p => {
-      if (p.id === playerToRemoveId) {
-        return { ...p, position: null, currentPitchPosition: undefined };
-      }
-      if (p.id === playerToSwapId) {
-        return { ...p, position: removePosition, currentPitchPosition: requiredPosition };
-      }
-      if (p.id === pendingSubBenchPlayer) {
-        return { ...p, position: swapPosition, currentPitchPosition: playerToSwap.currentPitchPosition };
-      }
-      return p;
-    }));
-    
-    toast({ title: "Substitution made", description: `${benchPlayer.name} comes on, ${playerToRemove.name} off` });
-    
-    setPositionSwapDialogOpen(false);
-    setPendingSubBenchPlayer(null);
-    setRequiredPosition(null);
-  };
-
-  // Handle selection from substitution preview dialog
-  const handleSubPreviewSelect = (benchPlayerId: string, swapPlayerId?: string) => {
-    const pitchPlayer = players.find(p => p.id === selectedOnPitch);
-    const benchPlayer = players.find(p => p.id === benchPlayerId);
-    
-    if (!pitchPlayer?.position || !benchPlayer || !selectedOnPitch) return;
-    
-    const capturedPitchPlayerId = selectedOnPitch;
-    
-    // Close dialog and clear selectedOnPitch to prevent useEffect from reopening it
-    setSubPreviewOpen(false);
-    setSelectedOnPitch(null);
-    
-    if (swapPlayerId) {
-      // Swap-based substitution - show combined confirmation dialog with all steps
-      setTimeout(() => {
-        setPendingManualSub({ pitchPlayerId: capturedPitchPlayerId, benchPlayerId, swapPlayerId });
-        setManualSubConfirmOpen(true);
-      }, 150);
-    } else {
-      // Direct substitution - show confirmation dialog with step-by-step instructions
-      setTimeout(() => {
-        setPendingManualSub({ pitchPlayerId: capturedPitchPlayerId, benchPlayerId });
-        setManualSubConfirmOpen(true);
-      }, 150);
-    }
-  };
-  // Handle pre-swap from substitution preview dialog
-  // This swaps the selected pitch player with another pitch player who can cover their position
-  const handlePreSwapFromDialog = useCallback((pitchPlayerId: string, swapPlayerId: string, opts?: { reopenSubDialog?: boolean }) => {
-    const reopenSubDialog = opts?.reopenSubDialog ?? true;
-    const dragStart = playerDragStartRef.current?.playerId === pitchPlayerId ? playerDragStartRef.current : null;
-    const pitchPlayer = players.find(p => p.id === pitchPlayerId);
-    const swapPlayer = players.find(p => p.id === swapPlayerId);
-
-    if (!pitchPlayer || (!pitchPlayer.position && !dragStart?.position) || !swapPlayer?.position) return;
-
-    const pos1 = dragStart?.position ? { ...dragStart.position } : { ...pitchPlayer.position! };
-    const pos2 = { ...swapPlayer.position };
-    const pitchPos1 = dragStart?.currentPitchPosition ?? pitchPlayer?.currentPitchPosition;
-    const pitchPos2 = swapPlayer.currentPitchPosition;
-
-    pushToUndoHistory(`Swap: ${pitchPlayer.name} ↔ ${swapPlayer.name}`, playersRef.current);
-
-    setPlayers(prev => prev.map(p => {
-      if (p.id === pitchPlayerId) {
-        return { ...p, position: pos2, currentPitchPosition: pitchPos2 };
-      }
-      if (p.id === swapPlayerId) {
-        return { ...p, position: pos1, currentPitchPosition: pitchPos1 };
-      }
-      return p;
-    }));
-
-    toast({
-      title: "Positions swapped",
-      description: `${pitchPlayer.name} ↔ ${swapPlayer.name}`
-    });
-
-    if (!reopenSubDialog) return;
-
-    // In-dialog flow: reopen the substitution picker with updated options.
-    setSubPreviewOpen(false);
-    setSelectedOnBench(null);
-    setSelectedOnPitch(pitchPlayerId);
-    setTimeout(() => {
-      setSubPreviewOpen(true);
-    }, 150);
-  }, [players, toast]);
-
-  // Handle confirming the position swap (first step of swap-based sub)
-  const handleConfirmSwapBeforeSub = useCallback(() => {
-    // Close swap dialog, then open sub confirmation dialog after delay
-    setSwapBeforeSubDialogOpen(false);
-    setTimeout(() => {
-      setSubAfterSwapDialogOpen(true);
-    }, 150);
-  }, []);
-
-  // Handle cancelling the swap-based sub flow
-  const handleCancelSwapBasedSub = useCallback(() => {
-    setSwapBeforeSubDialogOpen(false);
-    setSubAfterSwapDialogOpen(false);
-    setPendingSwapBasedSub(null);
-    setSelectedOnPitch(null);
-    setSelectedOnBench(null);
-  }, []);
-
-  // Handle confirming the final substitution (second step of swap-based sub)
-  const handleConfirmSubAfterSwap = useCallback(() => {
-    if (!pendingSwapBasedSub) return;
-    
-    const pitchPlayer = players.find(p => p.id === pendingSwapBasedSub.pitchPlayerId);
-    const benchPlayer = players.find(p => p.id === pendingSwapBasedSub.benchPlayerId);
-    const swapPlayer = players.find(p => p.id === pendingSwapBasedSub.swapPlayerId);
-    
-    if (!pitchPlayer?.position || !benchPlayer || !swapPlayer?.position) {
-      handleCancelSwapBasedSub();
-      return;
-    }
-    
-    // Push to undo history before making changes
-    pushToUndoHistory(`Sub: ${benchPlayer.name} for ${pitchPlayer.name} (with swap)`, playersRef.current);
-    
-    const pitchPosition = { ...pitchPlayer.position };
-    const pitchPositionType = pitchPlayer.currentPitchPosition;
-    const swapPosition = { ...swapPlayer.position };
-    
-    runSubAnimation(pendingSwapBasedSub.pitchPlayerId, pendingSwapBasedSub.benchPlayerId, pendingSwapBasedSub.swapPlayerId);
-    
-    setPlayers(prev => prev.map(p => {
-      if (p.id === pendingSwapBasedSub.pitchPlayerId) {
-        return { ...p, position: null, currentPitchPosition: undefined };
-      }
-      if (p.id === pendingSwapBasedSub.swapPlayerId) {
-        return { ...p, position: pitchPosition, currentPitchPosition: pitchPositionType };
-      }
-      if (p.id === pendingSwapBasedSub.benchPlayerId) {
-        return { ...p, position: swapPosition, currentPitchPosition: swapPlayer.currentPitchPosition };
-      }
-      return p;
-    }));
-    
-    toast({ title: "Substitution made", description: `${benchPlayer.name} comes on, ${pitchPlayer.name} off` });
-    
-    setSubAfterSwapDialogOpen(false);
-    setPendingSwapBasedSub(null);
-    setSelectedOnPitch(null);
-    setSelectedOnBench(null);
-    setSubMode(false);
-  }, [pendingSwapBasedSub, players, handleCancelSwapBasedSub, toast, pushToUndoHistory]);
+  // Preview, incompatible-position, and swap-then-substitution flows are
+  // coordinated by usePitchBoardSwapSubstitution.
   // Keep refs in sync for the auto-sub hook
   pushToUndoHistoryRef_autoSubs.current = pushToUndoHistory;
   runSubAnimationRef_autoSubs.current = runSubAnimation;
@@ -2186,121 +2042,62 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
 
 
-  const handleUnlinkEvent = useCallback(async () => {
-    setLinkedEventId(null);
-    onUnlinkEvent?.();
+  const handleUnlinkEvent = usePitchBoardUnlinkEvent({
+    teamId,
+    userId: user?.id,
+    players,
+    teamSize,
+    selectedFormation,
+    ballPosition,
+    autoSubPlan,
+    autoSubActive,
+    autoSubPaused,
+    mockMode,
+    goals,
+    setLinkedEventId,
+    onUnlinkEvent,
+    invalidateTeamActiveGame: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-active-game", teamId] });
+    },
+    notifyUnlinked: () => {
+      toast({
+        title: "Game Unlinked",
+        description: "This board is no longer linked to the match.",
+      });
+    },
+  });
 
-    savePitchState(teamId, {
-      players,
-      teamSize,
-      selectedFormation,
-      ballPosition,
-      autoSubPlan,
-      autoSubActive,
-      autoSubPaused,
-      mockMode,
-      linkedEventId: null,
-      goals,
-    });
-
-    if (user?.id && !teamId.startsWith("event-group-")) {
-      await supabase
-        .from("active_games")
-        .update({ is_active: false })
-        .eq("team_id", teamId)
-        .eq("user_id", user.id)
-        .eq("is_active", true);
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["team-active-game", teamId] });
-    toast({
-      title: "Game Unlinked",
-      description: "This board is no longer linked to the match.",
-    });
-  }, [autoSubActive, autoSubPaused, autoSubPlan, ballPosition, goals, mockMode, onUnlinkEvent, players, queryClient, selectedFormation, teamId, teamSize, toast, user?.id]);
-
-  // Reset game - clears all player minutes, timer, and positions.
-  // `preserveLineup` keeps the coach's current positions, settings and
-  // auto-sub plan (used when re-opening Set up game after full time) and only
-  // resets the clock.
-  const handleResetGame = useCallback((silent = false, opts?: { preserveLineup?: boolean }) => {
-    const preserveLineup = opts?.preserveLineup === true;
-
-    // Stop the timer first
-    gameTimerRef.current?.resetTimer();
-
-    if (!preserveLineup) {
-      // Reset pitch settings to last saved team defaults
-      const savedDefaults = savedTeamDefaultsRef.current;
-      setMinutesPerHalf(savedDefaults.minutesPerHalf);
-      setRotationSpeed(savedDefaults.rotationSpeed);
-      setDisablePositionSwaps(savedDefaults.disablePositionSwaps);
-      setDisableBatchSubs(savedDefaults.disableBatchSubs);
-      setRotateGkAtHalftime(savedDefaults.rotateGkAtHalftime);
-      setMaxSpreadMinutes(savedDefaults.maxSpreadMinutes);
-
-      // Reset team size to saved default value
-      const defaultTeamSize: TeamSize = savedDefaults.teamSize;
-      setTeamSize(defaultTeamSize);
-
-      // Reset formation to saved default value for the team size
-      const formations = FORMATIONS[defaultTeamSize];
-      let defaultFormationIndex = 0;
-      if (savedDefaults.formation) {
-        const index = formations.findIndex(f => f.name === savedDefaults.formation);
-        if (index >= 0) defaultFormationIndex = index;
-      }
-      setSelectedFormation(defaultFormationIndex);
-
-      // Reset players - remove temporary fill-ins, clear minutes, and re-place
-      // regular roster players with the default formation. Fill-ins are per-game
-      // only and must not survive Reset Game / Set up game.
-      const resetPlayers = players
-        .filter(p => !p.isFillIn)
-        .map(p => ({
-          ...p,
-          minutesPlayed: 0,
-        }));
-
-      // Re-place players using default formation
-      const placedPlayers = autoPlacePlayersOnPitch(resetPlayers, defaultTeamSize, defaultFormationIndex);
-      setPlayers(placedPlayers);
-
-      // Clear auto-sub plan
-      setAutoSubPlan([]);
-      setAutoSubActive(false);
-      setAutoSubPaused(false);
-    } else {
-      // Keep positions and plan, just zero the clock-derived minutes.
-      setPlayers(prev => prev.map(p => ({ ...p, minutesPlayed: 0 })));
-    }
-
-    // Reset sub mode
-    setSubMode(false);
-    setSelectedOnPitch(null);
-    setSelectedOnBench(null);
-    
-    // Reset game in progress flag so Plan button is enabled again
-    setGameInProgress(false);
-    
-    // Force remount all GameTimer instances to pick up clean state
-    setTimerResetKey(prev => prev + 1);
-    
-    if (!preserveLineup) {
-      // Clear persisted state
-      clearPitchState(teamId);
-
-      // Reset hasLoadedRef so fresh state can be saved
-      hasLoadedRef.current = false;
-    }
-    
-    if (!silent) {
+  const handleResetGame = usePitchBoardResetGame({
+    teamId,
+    players,
+    gameTimerRef,
+    savedTeamDefaultsRef,
+    hasLoadedRef,
+    autoPlacePlayersOnPitch,
+    setMinutesPerHalf,
+    setRotationSpeed,
+    setDisablePositionSwaps,
+    setDisableBatchSubs,
+    setRotateGkAtHalftime,
+    setMaxSpreadMinutes,
+    setTeamSize,
+    setSelectedFormation,
+    setPlayers,
+    setAutoSubPlan,
+    setAutoSubActive,
+    setAutoSubPaused,
+    setSubMode,
+    setSelectedOnPitch,
+    setSelectedOnBench,
+    setGameInProgress,
+    setTimerResetKey,
+    notifyReset: () => {
       toast({
         title: "Game Reset",
         description: "All player minutes and settings have been reset to defaults.",
       });
-    }
-  }, [players, autoPlacePlayersOnPitch, teamId, toast]);
+    },
+  });
 
   // Helper: if the game is at full time, reset the clock before showing the
   // lineup picker — but never wipe the coach's positions or auto-sub plan, so

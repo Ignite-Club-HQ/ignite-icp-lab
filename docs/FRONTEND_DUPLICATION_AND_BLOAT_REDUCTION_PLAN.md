@@ -2247,6 +2247,34 @@ type-check, product build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
 
+## PitchBoard.tsx substitution/lifecycle extraction (2026-09-23)
+
+The incompatible-position substitution sequence was still inline after the
+swap-mode split. `hooks/usePitchBoardSwapSubstitution.ts` now owns the
+position-swap dialog handoff, preview selection, pre-swap/reopen behavior,
+swap-then-sub confirmation, undo snapshots, and its layout-facing dialog
+state. The outputs retain their prior names and shapes.
+
+The audit also found two existing, maintained hook boundaries that were still
+unused by `PitchBoard.tsx`: `usePitchBoardResetGame.ts` and
+`usePitchBoardUnlinkEvent.ts`. The page now reuses these exact implementations
+for reset/setup and unlink behavior instead of keeping duplicated inline
+versions. The board continues to pass its existing setters, notifications,
+query invalidation callback, and persistence payload fields unchanged.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,960 | 2,757 | -203 (-6.9%) |
+| Total Phase-0 reduction | 3,438 | 2,757 | -681 (-19.8%) |
+
+Validation passed: product typecheck (clean), pitch component suite (59 files
+/ 798 tests), full legacy suite (467 files / 4,471 tests, one skip), full lab
+suite (153 files / 1,720 tests), clean lab typecheck, product build and
+bundle budget (8,892,413 total JavaScript bytes, 1,112,837-byte largest
+chunk, 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## PitchBoard.tsx interaction-controller extraction (2026-09-23)
 
 After the formation-library extraction, `PitchBoard.tsx` was still 3,342
