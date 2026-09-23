@@ -1990,19 +1990,25 @@ imported the ported modules. This step wired the component to the existing
 modules instead of re-extracting the same logic, and additionally relocated
 the self-contained prepend-scroll-motion deferral mechanism (module-level
 scroll-gesture gating plus the `useDeferPrependsWhileScrolling` hook) into a
-new `useDeferChatPrepends.ts` file.
+new `useDeferChatPrepends.ts` file. A follow-up extraction then moved the
+self-contained Virtuoso row presentation layer (stable header/footer,
+scroller/item wrappers, row measurement/cache wrapper, debug row probe,
+memoized row adapter, and jump hydration skeleton) into
+`chatVirtuosoRows.tsx`, leaving the large file focused on the scroll/jump
+controller.
 
-Both changes are pure relocations/wiring: no row-height, signature, native-
-environment-detection, or prepend-motion-timing logic changed. The only
-non-mechanical addition is a small setter/getter API
+These changes are pure relocations/wiring: no row-height, signature, native-
+environment-detection, prepend-motion-timing, row measurement, or skeleton
+rendering logic changed. The only non-mechanical addition is a small setter/getter API
 (`setPrependScrollerElementGetter`, `isPrependUserDrivenScrollActive`)
 replacing direct reads/writes of what was a raw module-level variable, so the
 main component keeps working across the new file boundary.
 
 | Measure | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| `VirtualizedChatMessageList.tsx` raw lines | 2,833 | 2,339 | -494 (-17.4%) |
-| `useDeferChatPrepends.ts` (new) | 0 | 161 | +161 |
+| `VirtualizedChatMessageList.tsx` raw lines | 2,833 | 1,962 | -871 (-30.7%) |
+| `chatVirtuosoRows.tsx` (new) | 0 | 379 | +379 |
+| `useDeferChatPrepends.ts` (new) | 0 | 171 | +171 |
 | `chatRowHeightEstimator.ts` / `chatRowSignature.ts` / `chatRowPreviewEstimate.ts` / `chatVirtuosoEnvironment.ts` | already present, unwired | wired in, unchanged | 0 |
 | Product JavaScript total / chunks | 8,882,693 bytes / 502 | 8,882,854 bytes / 502 | budget passing |
 | Largest product JavaScript chunk | 1,112,842 bytes | 1,112,842 bytes | unchanged |

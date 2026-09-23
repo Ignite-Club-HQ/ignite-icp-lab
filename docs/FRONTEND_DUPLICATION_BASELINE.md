@@ -1405,7 +1405,7 @@ No runtime-performance claim is made.
 ## Phase 4A VirtualizedChatMessageList result (2026-09-22)
 
 `src/components/chat/VirtualizedChatMessageList.tsx` decreased from 2,833 to
-2,339 raw lines (-494, -17.4%). Unlike the prior Phase 4A targets, this step
+1,962 raw lines (-871, -30.7%). Unlike the prior Phase 4A targets, this step
 was a wiring/relocation fix rather than a fresh extraction: an earlier
 product-source port had already produced independent, tested modules for the
 row-height/signature/native-environment math
@@ -1422,11 +1422,16 @@ them. This step:
   guard with a call to the modules' `installVirtuosoResizeObserverErrorGuard()`;
 - relocated the self-contained prepend-scroll-motion deferral mechanism
   (module-level scroll-gesture gating plus `useDeferPrependsWhileScrolling`)
-  verbatim into a new `useDeferChatPrepends.ts` (161 lines), replacing a raw
+  verbatim into a new `useDeferChatPrepends.ts` (171 lines), replacing a raw
   module-level scroller-element variable with a small setter/getter API.
+- relocated the self-contained Virtuoso row presentation layer (stable
+  header/footer, scroller/item wrappers, row measurement/cache wrapper, debug
+  row probe, memoized row adapter, and jump hydration skeleton) into a new
+  `chatVirtuosoRows.tsx` (379 lines).
 
 No row-height, signature, native-environment-detection, or prepend-motion-
-timing logic changed; this is a pure relocation and wiring change.
+timing, row measurement, or skeleton rendering logic changed; this is a pure
+relocation and wiring change.
 
 Validation evidence: the full chat component suite (30 files / 212 tests,
 including the `chatJumpHydrationDeadline` and `chatPostRevealAnchor` raw-
