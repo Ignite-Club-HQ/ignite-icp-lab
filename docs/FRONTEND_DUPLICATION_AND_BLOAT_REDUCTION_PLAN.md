@@ -2182,3 +2182,67 @@ lab files / 1,720 tests, product type-check (clean), lab type-check, product
 build, product bundle budget, isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,196 fewer
 duplicated lines than baseline), and `git diff --check`.
+
+## PitchBoard.tsx formation-library extraction (2026-09-24)
+
+`src/components/pitch/PitchBoard.tsx` (3,438 lines, unchanged since the
+Phase 0 baseline — every prior refactor round in this plan targeted other
+oversized files) had already absorbed an extensive multi-step hook
+decomposition (visible in its own "Step 8a–8c"/"Step 9a–9f" comments: timer,
+event-link, drag/drop, ball physics, tactical mode, sub-selection,
+persistence, drawing, and a dozen more concerns each already live in their
+own `hooks/usePitchBoard*.ts` module). The remaining named-formation
+save/load library — a lazy dialog-gated `pitch_formations` query plus save
+and delete mutations plus a `loadFormation` callback and its `handleSaveFormation`
+trigger — was still inline. It moved to a new
+`hooks/usePitchBoardFormationLibrary.ts`, preserving the exact save payload
+shape, the Fabric `.toJSON()`/`.loadFromJSON()` drawing-overlay round-trip,
+and the dialog-gated `enabled` query condition.
+
+**Dead-code finding (not acted on):** while auditing this block's
+dependents, none of `saveDialogOpen`, `loadDialogOpen`, `savedFormations`,
+`loadingFormations`, `saveFormationMutation`, `deleteFormationMutation`,
+`loadFormation`, or `handleSaveFormation` are referenced anywhere else in
+`PitchBoard.tsx`, its layout context (`PitchBoardLayoutContext.tsx`), or
+either layout file (`PitchBoardLandscapeLayout.tsx` /
+`PitchBoardPortraitLayout.tsx`). `saveDialogOpen`/`loadDialogOpen` are never
+set to `true` from any call site, and `PitchToolbar.tsx` — the only
+component whose props include these formation-library fields — is imported
+but never rendered (no `<PitchToolbar` JSX exists) in any of the three files
+that import it. This entire feature therefore appears unreachable from the
+current render tree. Because removing a user-facing feature (even an
+apparently unreachable one) is a product decision, not a mechanical
+relocation, it was **not deleted** — only relocated behavior-for-behavior,
+so the (currently dead) code path is preserved exactly as-is for a future
+decision on whether to reconnect or remove it.
+
+`usePitchBoardFormationLibrary.ts` follows the same
+`supabaseClient`-parameter pattern used for the chat-domain extractions
+(a minimal structural `PitchFormationsSupabaseClient` interface with just
+`from`), even though this package's existing sibling hooks
+(`usePitchBoardEventLink.ts`, `usePitchBoardFormationNotifications.ts`,
+`usePitchBoardPersistence.ts`, `usePitchBoardUnlinkEvent.ts`) import
+`supabase` directly — the parameter pattern was chosen here specifically to
+avoid regressing the quality ratchet's direct-Supabase-import count.
+
+A raw-source security guard,
+`src/test/fabricUpgradeSafety.test.ts` ("keeps Pitch Board persistence on
+JSON rather than executable markup" — the CVE-2026-44311 Fabric-upgrade
+acceptance boundary), asserted `.toJSON(`/`.loadFromJSON(` directly against
+`PitchBoard.tsx` and was updated to concatenate the page with the new hook
+file, following the same pattern used for the GroupChatPage guard updates.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 3,438 | 3,342 | -96 (-2.8%) |
+| `usePitchBoardFormationLibrary.ts` (new) | 0 | 192 | +192 |
+| Product JavaScript total / chunks | 8,886,501 bytes / 502 | 8,887,224 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,837 bytes | 1,112,837 bytes | budget passing |
+
+Validation passed the full pitch package suite (61 files / 817 tests,
+including the updated `fabricUpgradeSafety.test.ts` and the unaffected
+`eventGroupTimerWrite.guard.test.ts`), 467 legacy files / 4,471 tests (one
+skip), 153 lab files / 1,720 tests, product type-check (clean), lab
+type-check, product build, product bundle budget, isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
+duplicated lines than baseline), and `git diff --check`.

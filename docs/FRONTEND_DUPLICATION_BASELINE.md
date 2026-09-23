@@ -1571,3 +1571,43 @@ largest JavaScript chunk; 172,904 CSS bytes; 502 JavaScript chunks),
 isolation and quality ratchets passing (`directSupabaseImports` unchanged at
 463), duplication ratchet passing with 2,196 fewer duplicated lines than
 baseline, and `git diff --check`.
+
+## PitchBoard.tsx formation-library extraction (2026-09-24)
+
+`src/components/pitch/PitchBoard.tsx` decreased from 3,438 (unchanged since
+the Phase 0 baseline) to 3,342 raw lines (-96, -2.8%). This file had already
+absorbed an extensive hook decomposition (dozens of `hooks/usePitchBoard*.ts`
+modules for timer, drag/drop, ball physics, tactical mode, drawing, and
+more); the remaining seam was the named-formation save/load library
+(dialog-gated `pitch_formations` query, save/delete mutations, and
+`loadFormation`/`handleSaveFormation`), moved to a new
+`src/components/pitch/hooks/usePitchBoardFormationLibrary.ts` (192 lines).
+
+While auditing this block's dependents, this feature was found to be
+unreachable from the current render tree: no code ever sets
+`saveDialogOpen`/`loadDialogOpen` to `true`, and `PitchToolbar.tsx` (the only
+component whose props consume these fields) is imported into
+`PitchBoard.tsx` and both layout files but never actually rendered as JSX in
+any of them. This was relocated as-is, not deleted or reconnected — removing
+a feature is a product decision outside the scope of a behavior-preserving
+line-count refactor.
+
+The new hook follows the `supabaseClient`-parameter pattern (a minimal
+`PitchFormationsSupabaseClient` structural interface) rather than importing
+`supabase` directly, even though this package's other existing hooks do
+import it directly, specifically to avoid regressing the quality ratchet's
+direct-Supabase-import count.
+
+`src/test/fabricUpgradeSafety.test.ts` (a CVE-2026-44311 Fabric-upgrade
+security guard asserting `.toJSON(`/`.loadFromJSON(` persistence) read
+`PitchBoard.tsx` raw source directly and was updated to also read the new
+hook file.
+
+Validation evidence: full pitch package suite (61 files / 817 passing
+tests), 467 legacy files / 4,471 passing tests (one skip), 153 lab files /
+1,720 passing tests, product typecheck (clean), clean lab typecheck,
+successful product build, product bundle within budget (8,887,224 total
+JavaScript bytes; 1,112,837-byte largest JavaScript chunk; 172,904 CSS
+bytes; 502 JavaScript chunks), isolation and quality ratchets passing
+(`directSupabaseImports` unchanged at 463), duplication ratchet passing with
+2,212 fewer duplicated lines than baseline, and `git diff --check`.

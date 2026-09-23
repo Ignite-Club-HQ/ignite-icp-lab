@@ -38,9 +38,14 @@ describe("Fabric security and upgrade acceptance boundary", () => {
       join(process.cwd(), "src/components/pitch/PitchBoard.tsx"),
       "utf8",
     );
+    const formationLibrary = readFileSync(
+      join(process.cwd(), "src/components/pitch/hooks/usePitchBoardFormationLibrary.ts"),
+      "utf8",
+    );
+    const text = `${pitchBoard}\n${formationLibrary}`;
 
-    expect(pitchBoard).toContain(".toJSON(");
-    expect(pitchBoard).toContain(".loadFromJSON(");
-    expect(pitchBoard).not.toContain(".toSVG(");
+    expect(text).toContain(".toJSON(");
+    expect(text).toContain(".loadFromJSON(");
+    expect(text).not.toContain(".toSVG(");
   });
 });
