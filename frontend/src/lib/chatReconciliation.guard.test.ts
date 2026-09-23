@@ -13,6 +13,7 @@ import { join } from "node:path";
  */
 describe("chat realtime reconciliation guard", () => {
   const pagesDir = join(__dirname, "..", "pages");
+  const threadDir = join(__dirname, "..", "features", "messaging", "thread");
   const chatPages = [
     "TeamChatPage.tsx",
     "GroupChatPage.tsx",
@@ -21,9 +22,21 @@ describe("chat realtime reconciliation guard", () => {
     "BroadcastChatPage.tsx",
     "DirectMessagePage.tsx",
   ];
+  const sourceForChatPage = (file: string) => {
+    const pageSource = readFileSync(join(pagesDir, file), "utf8");
+    if (file !== "GroupChatPage.tsx") return pageSource;
+    return [
+      pageSource,
+      readFileSync(join(threadDir, "useGroupMessagesQuery.ts"), "utf8"),
+      readFileSync(join(threadDir, "useGroupLocalMessagesSync.ts"), "utf8"),
+      readFileSync(join(threadDir, "useGroupOlderMessagesLoader.ts"), "utf8"),
+      readFileSync(join(threadDir, "useGroupRealtimeUpdates.ts"), "utf8"),
+      readFileSync(join(threadDir, "useGroupTargetWindowHydration.ts"), "utf8"),
+    ].join("\n");
+  };
 
   for (const file of chatPages) {
-    const src = readFileSync(join(pagesDir, file), "utf8");
+    const src = sourceForChatPage(file);
 
     it(`${file} imports the shared reconciliation helper`, () => {
       expect(src).toMatch(/from "@\/lib\/chatMessageReconciliation"/);

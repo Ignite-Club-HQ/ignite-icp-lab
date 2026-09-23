@@ -34,16 +34,23 @@ describe("chat cross-thread bleed guard", () => {
   });
 
   it("GroupChatPage scopes rendered/seeded/merged messages to the active group", () => {
-    const page = src("pages/GroupChatPage.tsx");
-    const scopedGuards = page.match(/group_id !== groupId|m\.group_id === groupId/g) ?? [];
+    const groupChatSource = [
+      src("pages/GroupChatPage.tsx"),
+      src("features/messaging/thread/useGroupMessagesQuery.ts"),
+      src("features/messaging/thread/useGroupLocalMessagesSync.ts"),
+    ].join("\n");
+    const scopedGuards = groupChatSource.match(/group_id !== groupId|m\.group_id === groupId/g) ?? [];
     // render filter + placeholderData reuse check + seed filter + merge filter
     expect(scopedGuards.length).toBeGreaterThanOrEqual(4);
   });
 
   it("GroupChatPage never reuses placeholder data from another group verbatim", () => {
-    const page = src("pages/GroupChatPage.tsx");
-    expect(page).not.toMatch(/^\s*if \(prev\) return prev;\s*$/m);
-    expect(page).toMatch(/prevBelongsToThisGroup/);
+    const groupChatSource = [
+      src("pages/GroupChatPage.tsx"),
+      src("features/messaging/thread/useGroupMessagesQuery.ts"),
+    ].join("\n");
+    expect(groupChatSource).not.toMatch(/^\s*if \(prev\) return prev;\s*$/m);
+    expect(groupChatSource).toMatch(/prevBelongsToThisGroup/);
   });
 
   it("TeamChatPage scopes rendered/seeded/merged/realtime messages to the active team", () => {

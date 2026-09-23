@@ -10,20 +10,13 @@ import { useChatViewportHeight } from "@/hooks/useChatViewportHeight";
 import { ChatMessagesScroller } from "@/components/chat/ChatMessagesScroller";
 import { debugLogEvent } from "@/components/chat/chatVirtDebug";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
-import { findLocalReplyMessage } from "@/lib/chatRealtimeReply";
-import { splitPageWindow } from "@/lib/chatPageWindow";
-import { sortChatMessagesChronologically } from "@/lib/chatMessageOrder";
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import { reconcileFlatReactions, reconcileReactions } from "@/lib/chatReactionReconciliation";
+import { reconcileFlatReactions } from "@/lib/chatReactionReconciliation";
 import {
-  recordRealtimeMutation,
   reconcileMessages,
-  applyMessageUpdate,
-  removeMessage,
-  isTombstoned,
   clearReconciliationScope,
 } from "@/lib/chatMessageReconciliation";
-import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authoritativeMessageExists, findSupersededOptimisticIndex, type FailedSendContext } from "@/lib/failedSendRestore";
+import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authoritativeMessageExists, type FailedSendContext } from "@/lib/failedSendRestore";
 import { deliveredSend, queuedSend, isConfirmedDelivery } from "@/lib/chatSendResult";
 
 import type { VirtualizedChatMessageListHandle } from "@/components/chat/VirtualizedChatMessageList";
@@ -59,6 +52,21 @@ import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSea
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
 import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
 import { GROUP_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
+import {
+  attachReactionsToMessages,
+  EMPTY_REACTIONS,
+  getCachedGroupMessages,
+  normalizeGroupReactionType,
+  REACTION_EMOJIS,
+  type ChatGroup,
+  type GroupMessage,
+  type MessageReaction,
+} from "@/features/messaging/thread/groupChatData";
+import { useGroupLocalMessagesSync } from "@/features/messaging/thread/useGroupLocalMessagesSync";
+import { useGroupMessagesQuery } from "@/features/messaging/thread/useGroupMessagesQuery";
+import { useGroupOlderMessagesLoader } from "@/features/messaging/thread/useGroupOlderMessagesLoader";
+import { useGroupRealtimeUpdates } from "@/features/messaging/thread/useGroupRealtimeUpdates";
+import { useGroupTargetWindowHydration } from "@/features/messaging/thread/useGroupTargetWindowHydration";
 import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 
 import { PageLoading } from "@/components/ui/page-loading";
@@ -112,9 +120,9 @@ import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessag
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { MessageReadAvatars } from "@/components/chat/MessageReadAvatars";
-import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache } from "@/lib/profileCache";
+import { fetchProfilesWithCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
-import { getCachedMessages, cacheMessages, shouldRefetchMessages, removeMessageFromCache } from "@/lib/messageCache";
+import { shouldRefetchMessages, removeMessageFromCache } from "@/lib/messageCache";
 import {
   classifyChatThreadState,
   nextEmptyRetryDelay,
@@ -123,7 +131,7 @@ import {
 
 import { consumeFromNotificationFlag } from "@/lib/notificationPreload";
 import { logChatOpenLatency } from "@/lib/chatOpenLatency";
-import { useChatPerfMarks, markChatFetch } from "@/hooks/useChatPerfMarks";
+import { useChatPerfMarks } from "@/hooks/useChatPerfMarks";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { queueMessage } from "@/lib/messageQueue";
 import { Capacitor } from "@capacitor/core";
@@ -131,7 +139,6 @@ import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
 const AddMiniLeagueMemberSheet = lazyWithRetry(() => import("@/components/AddMiniLeagueMemberSheet").then(m => ({ default: m.AddMiniLeagueMemberSheet })));
 import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
-import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
 import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { useChatStuckWatchdog } from "@/lib/chatStuckWatchdog";
 import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
@@ -144,144 +151,6 @@ const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePol
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 import { orderChatMessagesChronologically } from "@/lab/chatMessageOrdering";
-
-
-
-const REACTION_EMOJIS = ["👍", "❤️", "🔥", "👏", "😂", "😢"];
-
-// Stable empty array reference so rows with no reactions don't bust
-// GroupChatMessageRow's memo on every parent render.
-const EMPTY_REACTIONS: never[] = [];
-
-const GROUP_REACTION_EMOJI_MAP: Record<string, string> = {
-  "❤️": "❤️",
-  "🔥": "🔥",
-  "👏": "👏",
-  "😂": "😂",
-  "👍": "👍",
-  "😢": "😢",
-  "🎉": "🎉",
-  "😮": "😮",
-  like: "❤️",
-  fire: "🔥",
-  clap: "👏",
-  laugh: "😂",
-  thumbsup: "👍",
-  sad: "😢",
-  celebrate: "🎉",
-  wow: "😮",
-};
-
-const normalizeGroupReactionType = (reactionType?: string | null) => {
-  if (!reactionType) return "";
-  return GROUP_REACTION_EMOJI_MAP[reactionType] || reactionType;
-};
-
-interface GroupMessage {
-  id: string;
-  text: string;
-  image_url: string | null;
-  created_at: string;
-  author_id: string;
-  group_id: string;
-  reply_to_id: string | null;
-  is_system_message?: boolean;
-  forwarded_from_user_id?: string | null;
-  forwarded_at?: string | null;
-  forwarded_source_label?: string | null;
-  author?: {
-    display_name: string | null;
-    avatar_url: string | null;
-  };
-  reply_to?: {
-    text: string;
-    author?: {
-      display_name: string | null;
-    };
-  } | null;
-}
-
-interface ChatGroup {
-  id: string;
-  name: string;
-  club_id: string | null;
-  team_id: string | null;
-  mini_league_id: string | null;
-  allowed_roles: string[];
-  created_by: string;
-  membership_mode: string | null;
-  category: string | null;
-  join_policy: string | null;
-  allow_forwarding?: boolean;
-}
-
-interface MessageReaction {
-  id: string;
-  user_id: string;
-  reaction_type: string;
-  group_message_id: string | null;
-}
-
-const attachReactionsToMessages = (
-  messages: GroupMessage[],
-  reactions: MessageReaction[],
-): GroupMessage[] => {
-  if (!messages.length) return messages;
-  if (!reactions.length) return messages;
-  const byMessage = new Map<string, MessageReaction[]>();
-  for (const reaction of reactions) {
-    const key = reaction.group_message_id;
-    if (!key) continue;
-    const list = byMessage.get(key);
-    if (list) list.push(reaction);
-    else byMessage.set(key, [reaction]);
-  }
-  return messages.map((message) => {
-    const own = byMessage.get(message.id);
-    if (!own || own.length === 0) return message;
-    return { ...(message as any), reactions: own } as GroupMessage;
-  });
-};
-
-const getCachedGroupMessages = (groupId: string) => {
-  const cachedMessages = getCachedMessages("group", groupId);
-
-  const messages = cachedMessages.map((cachedMessage) => ({
-    id: cachedMessage.id,
-    text: cachedMessage.text,
-    image_url: cachedMessage.image_url,
-    created_at: cachedMessage.created_at,
-    author_id: cachedMessage.author_id,
-    group_id: groupId,
-    reply_to_id: cachedMessage.reply_to_id,
-    author: cachedMessage.profiles
-      ? {
-          display_name: cachedMessage.profiles.display_name,
-          avatar_url: cachedMessage.profiles.avatar_url,
-        }
-      : null,
-    reply_to: cachedMessage.reply_to
-      ? {
-          text: cachedMessage.reply_to.text,
-          author: cachedMessage.reply_to.author ?? cachedMessage.reply_to.profiles ?? null,
-        }
-      : null,
-  })) as GroupMessage[];
-
-  const reactions = cachedMessages.flatMap((cachedMessage) =>
-    (cachedMessage.reactions || []).map((reaction) => ({
-      id: reaction.id || `cached-${cachedMessage.id}-${reaction.user_id}-${reaction.reaction_type}`,
-      user_id: reaction.user_id,
-      reaction_type: reaction.reaction_type,
-      group_message_id: cachedMessage.id,
-    })),
-  ) as MessageReaction[];
-
-  // Embed reactions on the message rows too, so the very first paint (which is
-  // seeded straight from this cache) already shows existing reactions instead
-  // of waiting for the post-mount merge effect / refetch.
-  return { messages: attachReactionsToMessages(messages, reactions), reactions };
-};
 
 
 export default function GroupChatPage() {
@@ -635,188 +504,15 @@ export default function GroupChatPage() {
     status: messagesStatus,
     fetchStatus: messagesFetchStatus,
     refetch: refetchMessages,
-  } = useQuery({
-    queryKey: ["group-messages", groupId],
-
-    queryFn: async () => {
-      markChatFetch();
-      if (useIcpLab && groupId && user?.id) {
-        const messages = fixtureData.getLocalLabGroupMessages(groupId, user.id) as GroupMessage[];
-        return { messages, hasOlderMessages: false, reactions: [], fromCache: true };
-      }
-
-      // If offline, return cached messages using the shared online manager
-      // so native app resume does not incorrectly fall back to stale cache.
-      if (!isOnline) {
-        const cached = getCachedMessages("group", groupId!);
-        if (cached.length > 0) {
-          // Transform cached messages to GroupMessage format
-          const groupMessages = cached.map(m => ({
-            id: m.id,
-            text: m.text,
-            image_url: m.image_url,
-            created_at: m.created_at,
-            author_id: m.author_id,
-            group_id: groupId!,
-            reply_to_id: m.reply_to_id,
-            author: m.profiles ? { display_name: m.profiles.display_name, avatar_url: m.profiles.avatar_url } : null,
-            reply_to: m.reply_to,
-          })) as GroupMessage[];
-          const cachedReactions = cached.flatMap((message) =>
-            (message.reactions || []).map((reaction) => ({
-              id: reaction.id || `cached-${message.id}-${reaction.user_id}-${reaction.reaction_type}`,
-              user_id: reaction.user_id,
-              reaction_type: reaction.reaction_type,
-              group_message_id: message.id,
-            }))
-          ) as MessageReaction[];
-          return {
-            messages: attachReactionsToMessages(groupMessages, cachedReactions),
-            hasOlderMessages: false,
-            reactions: cachedReactions,
-            fromCache: true,
-          };
-
-        }
-        throw new Error("No cached messages available offline");
-      }
-
-      // Fetch messages WITHOUT profile join to avoid timeout from large avatar_url
-      const { data: rawMessages, error } = await supabase
-        .from("group_messages")
-        .select("id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, deleted_at, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label")
-        .eq("group_id", groupId)
-        .is("deleted_at", null) // Only fetch non-deleted messages
-        .order("created_at", { ascending: false })
-        .limit(MESSAGES_PER_PAGE + 1);
-      if (error) throw error;
-      
-      if (!rawMessages?.length) {
-        return { messages: [] as GroupMessage[], hasOlderMessages: false, reactions: [] as MessageReaction[] };
-      }
-      
-      const { items: dataToDisplay, hasMore } = splitPageWindow(rawMessages, MESSAGES_PER_PAGE);
-      
-      const messageIds = dataToDisplay.map((m) => m.id);
-      const replyToIds = dataToDisplay
-        .filter((m) => m.reply_to_id)
-        .map((m) => m.reply_to_id as string);
-      const authorIds = [...new Set(dataToDisplay.map((m) => m.author_id))];
-
-      // Preserve cached reactions when the reactions query fails transiently
-      const cachedQueryData = queryClient.getQueryData(["group-messages", groupId]) as any;
-      const cachedReactions: MessageReaction[] = cachedQueryData?.reactions || [];
-      const cachedReactionsByMessage = new Map<string, MessageReaction[]>();
-      cachedReactions.forEach((cr) => {
-        const key = cr.group_message_id;
-        if (!cachedReactionsByMessage.has(key)) cachedReactionsByMessage.set(key, []);
-        cachedReactionsByMessage.get(key)!.push(cr);
-      });
-
-      const [reactionsResult, replyToResult, profilesMap] = await Promise.all([
-        supabase
-          .from("message_reactions")
-          .select("id, user_id, reaction_type, group_message_id")
-          .in("group_message_id", messageIds),
-        replyToIds.length > 0
-          ? supabase
-              .from("group_messages")
-              .select("id, text, author_id")
-              .in("id", replyToIds)
-          : Promise.resolve({ data: [] as any[] }),
-        fetchProfilesWithCache(authorIds),
-      ]);
-
-      if (reactionsResult.error) {
-        console.warn("[GroupChat] Failed to fetch reactions, keeping cached reactions", reactionsResult.error);
-      }
-
-      const replyToMap = new Map(
-        (replyToResult.data || []).map((r: any) => [r.id, {
-          ...r,
-          author: profilesMap.get(r.author_id) ? { display_name: profilesMap.get(r.author_id)?.display_name } : null,
-        }])
-      );
-
-      // Map to expected format - use fetched profiles
-      const messages = dataToDisplay.map((msg: any) => {
-        const replyTo = msg.reply_to_id ? replyToMap.get(msg.reply_to_id) || null : null;
-        const profile = profilesMap.get(msg.author_id);
-        return {
-          ...msg,
-          author: profile ? { display_name: profile.display_name, avatar_url: profile.avatar_url } : null,
-          reply_to: replyTo,
-        };
-      }) as GroupMessage[];
-
-      // Cache messages for offline access
-      cacheMessages("group", groupId!, messages.map(m => ({
-        id: m.id,
-        text: m.text,
-        author_id: m.author_id,
-        created_at: m.created_at,
-        image_url: m.image_url,
-        reply_to_id: m.reply_to_id,
-        profiles: m.author ? { display_name: m.author.display_name, avatar_url: m.author.avatar_url } : null,
-        reactions: (reactionsResult.data || []).filter((r: any) => r.group_message_id === m.id),
-        reply_to: m.reply_to,
-      })));
-      
-      const resolvedReactions = (
-        reactionsResult.error ? cachedReactions : (reactionsResult.data || [])
-      ) as MessageReaction[];
-
-      return {
-        // Reactions are embedded on the rows as well as returned flat, so any
-        // render that seeds straight from this payload shows them immediately.
-        messages: attachReactionsToMessages(messages, resolvedReactions),
-        hasOlderMessages: hasMore,
-        reactions: resolvedReactions,
-      };
-
-    },
-    enabled: !!groupId && !!user?.id, // session token is sufficient; don't wait for profile fetch (`authReady`) to unblock first paint
-    staleTime: 1000 * 60 * 5, // 5 minutes - show cache instantly
-    gcTime: 1000 * 60 * 60 * 24,
-    refetchOnMount: "always", // Force refetch on every mount so reactions/messages added while away are picked up (true is a no-op while staleTime is unmet)
-    refetchOnWindowFocus: false,
-    placeholderData: (prev: any) => {
-      if (!groupId) return undefined;
-      // SECURITY (cross-group bleed): `prev` is whatever THIS hook instance
-      // last rendered. When the route param changes without a remount, that is
-      // the PREVIOUS group's message list — returning it verbatim renders
-      // group A's messages under group B's header (and bakes them into group
-      // B's offline cache). Never reuse `prev` unless every row belongs to the
-      // current group.
-      const prevBelongsToThisGroup =
-        !!prev &&
-        Array.isArray(prev.messages) &&
-        prev.messages.length > 0 &&
-        prev.messages.every((m: any) => !m?.group_id || m.group_id === groupId);
-      // From-push freshness: prefer the just-preloaded localStorage cache
-      // over a stale `prev` so the new message renders at first paint —
-      // but only when the cache has a meaningful history window. A single
-      // preloaded row replacing `prev` strands the user with one message
-      // floating at the top of an empty viewport.
-      if (openedFromNotificationRef.current) {
-        const cachedData = getCachedGroupMessages(groupId);
-        // Require a meaningful history window (>=5). The notification preload
-        // writes a SINGLE message into cache before the chat mounts.
-        const cachedHasHistory = cachedData.messages.length >= 5;
-        if (cachedHasHistory) {
-          return { ...cachedData, hasOlderMessages: false, fromCache: true };
-        }
-      }
-      if (prevBelongsToThisGroup) return prev;
-
-
-      const cachedData = getCachedGroupMessages(groupId);
-      // A genuine one-message thread is usable; a notification-preload stub is not.
-      if (!isUsableCachedThread(cachedData.messages as any)) return undefined;
-
-      return { ...cachedData, hasOlderMessages: false, fromCache: true };
-    },
-
+  } = useGroupMessagesQuery({
+    groupId,
+    userId: user?.id,
+    useIcpLab,
+    isOnline,
+    queryClient,
+    openedFromNotificationRef,
+    pageSize: MESSAGES_PER_PAGE,
+    supabaseClient: supabase,
   });
 
   // Scope key for the realtime edit/soft-delete reconciliation registry.
@@ -1143,170 +839,15 @@ export default function GroupChatPage() {
 
   const isAnyRefreshing = isManualRefreshing;
 
-  useLayoutEffect(() => {
-    // Sync local render state with query cache without dropping newer optimistic/realtime reactions.
-    // IMPORTANT: In GroupChatPage, reactions come as a separate top-level array in messagesData,
-    // NOT embedded on each message. We must merge the top-level reactions onto each message here.
-    // Guard: never replace existing messages with an empty array, and only
-    // commit an empty thread once the classifier says it is authoritatively
-    // empty (not paused/pending/recovering).
-    if (!messages || !groupId) return;
-    if (messages.length === 0 && localMessages && localMessages.length > 0) return;
-    if (messages.length === 0 && threadPhase !== "empty") return;
-
-
-    // Build a map of incoming reactions from the top-level reactions array
-    const incomingReactionsByMsg = new Map<string, MessageReaction[]>();
-    reactions.forEach((r: MessageReaction) => {
-      if (!r.group_message_id) return;
-      if (!incomingReactionsByMsg.has(r.group_message_id)) incomingReactionsByMsg.set(r.group_message_id, []);
-      incomingReactionsByMsg.get(r.group_message_id)!.push(r);
-    });
-
-    setLocalMessages((prev) => {
-      const incomingIds = new Set(messages.map((message) => message.id));
-      const realByAuthorText = new Set(
-        messages
-          .filter((m: any) => !m.id.startsWith("temp-") && !m.id.startsWith("queued-"))
-          .map((m: any) => `${m.author_id}::${m.text ?? ""}::${m.image_url ?? ""}`),
-      );
-      const previousOnly = (prev || []).filter((message: any) => {
-        // SECURITY (cross-group bleed): this merge is deliberately fail-open —
-        // it keeps prior rows that are absent from the incoming snapshot. A row
-        // left over from another group's thread (route param changed without a
-        // remount) would otherwise satisfy every keep-condition below and be
-        // merged into THIS group permanently, then persisted to this group's
-        // offline cache. Foreign rows are never kept.
-        if (message.group_id && message.group_id !== groupId) return false;
-        if (incomingIds.has(message.id)) return false;
-        // A soft-deleted row is absent from `messages`; without this guard the
-        // fail-open branch below would re-add it on every sync.
-
-        // fail-open branch below would re-add it on every sync.
-        if (isTombstoned(reconcileScope, message.id)) return false;
-        if (message.id.startsWith("temp-") || message.id.startsWith("queued-")) {
-          const key = `${message.author_id}::${message.text ?? ""}::${message.image_url ?? ""}`;
-          if (realByAuthorText.has(key)) return false;
-        }
-        return true;
-      });
-      const mergedIncomingMessages = messages.map((message) => {
-        // The flat reactions array is only refreshed by fetch + realtime, but
-        // ChatMessage's optimistic add/remove writes to the EMBEDDED
-        // message.reactions in the query cache. Union both sources so a
-        // tap-to-react survives this merge; recorded realtime deletes are
-        // re-applied to the final list below so a stale in-flight fetch can't
-        // revive a removed row.
-        const flatIncoming = incomingReactionsByMsg.get(message.id) || [];
-        const embeddedIncoming = ((message as any).reactions || []) as MessageReaction[];
-        const flatIds = new Set(flatIncoming.map((r) => r.id));
-        const incomingReactions = [
-          ...flatIncoming,
-          ...embeddedIncoming.filter(
-            (r) =>
-              r &&
-              r.id &&
-              !flatIds.has(r.id) &&
-              // One reaction per user per message: once the flat array holds
-              // the confirmed row, drop the user's leftover temp row.
-              !(r.id.startsWith("temp-") && flatIncoming.some((f) => f.user_id === r.user_id)),
-          ),
-        ];
-        const previousMessage = prev?.find((item) => item.id === message.id);
-        const previousReactions: MessageReaction[] = (previousMessage as any)?.reactions || [];
-
-        if (previousReactions.length === 0) {
-          return { ...message, reactions: incomingReactions };
-        }
-
-        const incomingIds = new Set(incomingReactions.map((r) => r.id));
-        const incomingByUser = new Map<string, MessageReaction>();
-        incomingReactions.forEach((r) => incomingByUser.set(r.user_id, r));
-
-        // Only preserve temporary optimistic reactions that have not been
-        // reconciled yet. Keeping confirmed reactions here can revive deleted
-        // group reactions until the next full refresh.
-        const missingFromIncoming = previousReactions.filter((reaction) => {
-          if (incomingIds.has(reaction.id)) return false;
-          if (!reaction.id.startsWith("temp-")) return false;
-          return !incomingByUser.has(reaction.user_id);
-        });
-
-        return {
-          ...message,
-          reactions: [...incomingReactions, ...missingFromIncoming],
-        };
-      });
-      const mergedMessages = (reconcileReactions(
-        reconcileScope,
-        (reconcileMessages(
-          reconcileScope,
-          sortChatMessagesChronologically([...previousOnly, ...mergedIncomingMessages]),
-        ) ?? []) as GroupMessage[],
-      ) ?? []) as GroupMessage[];
-      if (prev && mergedMessages.length < prev.length - 5) {
-        debugLogEvent("local-replace", {
-          cause: "merge-shrink",
-          prevLen: prev.length,
-          nextLen: mergedMessages.length,
-          incomingLen: messages.length,
-        });
-      }
-
-      cacheMessages("group", groupId, mergedMessages.map((m) => ({
-        id: m.id,
-        text: m.text,
-        author_id: m.author_id,
-        created_at: m.created_at,
-        image_url: m.image_url,
-        reply_to_id: m.reply_to_id,
-        profiles: m.author ? { display_name: m.author.display_name, avatar_url: m.author.avatar_url } : null,
-        reactions: ((m as any).reactions || []).map((reaction: any) => ({
-          id: reaction.id,
-          user_id: reaction.user_id,
-          reaction_type: reaction.reaction_type,
-        })),
-        reply_to: m.reply_to,
-      })));
-
-      // Identity bail-out: if merged is structurally identical to prev
-      // (same IDs in same order, same reaction id-set per message, same
-      // text/image_url), return prev so Virtuoso doesn't see a new `data`
-      // reference and doesn't run a re-layout pass that flashes the
-      // viewport blank for a frame on cold-start push taps.
-      if (prev && prev.length === mergedMessages.length) {
-        let identical = true;
-        for (let i = 0; i < prev.length; i++) {
-          const a = prev[i] as any;
-          const b = mergedMessages[i] as any;
-          if (
-            a.id !== b.id ||
-            a.text !== b.text ||
-            a.image_url !== b.image_url ||
-            a.reply_to_id !== b.reply_to_id
-          ) { identical = false; break; }
-          const ar: any[] = a.reactions || [];
-          const br: any[] = b.reactions || [];
-          if (ar.length !== br.length) { identical = false; break; }
-          if (ar.length > 0) {
-            // Compare reaction CONTENT (id + user + type), not just the id set,
-            // so a temp -> confirmed reaction transition with an equal id set
-            // still bails out instead of producing a new array identity on
-            // every pass (React #185 guard).
-            const sig = (list: any[]) =>
-              list
-                .map((r) => `${r.id}::${r.user_id}::${r.reaction_type}`)
-                .sort()
-                .join("|");
-            if (sig(ar) !== sig(br)) { identical = false; break; }
-          }
-        }
-        if (identical) return prev;
-      }
-
-      return mergedMessages;
-    });
-  }, [messages, reactions, groupId, threadPhase]);
+  useGroupLocalMessagesSync({
+    messages,
+    reactions,
+    groupId,
+    threadPhase,
+    reconcileScope,
+    localMessages,
+    setLocalMessages,
+  });
 
   // If messages unexpectedly dropped to 0 but we had cached messages, trigger a refetch
   useEffect(() => {
@@ -1390,438 +931,51 @@ export default function GroupChatPage() {
   // Forward ref so the loader can be referenced before it's defined.
   const loadOlderMessagesRef = useRef<(() => void) | null>(null);
 
-  // Virtuoso owns scroll-anchoring on prepend natively (firstItemIndex +
-  // followOutput). No DOM scrollTop math required — just commit the cache
-  // mutation and let Virtuoso preserve the visible window.
-  const queueAnchoredPrepend = useCallback((commit: () => void) => commit(), []);
-
-  // Load older messages function with timeout protection
-  const loadOlderMessages = useCallback(async () => {
-    const currentMessages = localMessagesRef.current;
-    if (!currentMessages?.length || isLoadingOlder || !hasOlderMessages) return;
-
-    setIsLoadingOlder(true);
-
-    // Create abort controller for timeout. 25s gives slow networks/cold queries
-    // enough headroom; the previous 10s was tripping AbortError on real users.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-    
-    try {
-      const oldestMessage = currentMessages.reduce((oldest, message) =>
-        new Date(message.created_at).getTime() < new Date(oldest.created_at).getTime() ? message : oldest,
-      currentMessages[0]);
-      
-      const { data: olderData, error } = await supabase
-        .from("group_messages")
-        .select("id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label")
-        .eq("group_id", groupId!)
-        .is("deleted_at", null)
-        .lt("created_at", oldestMessage.created_at)
-        .order("created_at", { ascending: false })
-        .limit(MESSAGES_PER_PAGE + 1)
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeoutId);
-
-      if (error) throw error;
-      if (!olderData?.length) {
-        setHasOlderMessages(false);
-        return;
-      }
-
-      const { items: dataToUse, hasMore } = splitPageWindow(olderData, MESSAGES_PER_PAGE);
-      setHasOlderMessages(hasMore);
-
-      // Reverse to get chronological order
-      const reversedOlder = [...dataToUse].reverse();
-      const messageIds = reversedOlder.map((m) => m.id);
-      const replyToIds = reversedOlder.filter((m) => m.reply_to_id).map((m) => m.reply_to_id);
-      const authorIds = [...new Set(reversedOlder.map((m) => m.author_id))];
-
-      // Single-pass enrichment: fetch reactions, reply-to, profiles BEFORE
-      // prepending. Rendering rows first as `reply_to: null` and patching them
-      // a moment later causes reply pills to grow above the user's anchor —
-      // visible as "messages keep moving after I stop scrolling".
-      let reactionsData: any[] = [];
-      let replyToData: any[] = [];
-      const profilesMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
-
-      try {
-        const secondaryController = new AbortController();
-        const secondaryTimeout = setTimeout(() => secondaryController.abort(), 5000);
-
-        const [reactionsResult, replyToResult, cachedProfiles] = await Promise.all([
-          supabase
-            .from("message_reactions")
-            .select("id, user_id, reaction_type, group_message_id")
-            .in("group_message_id", messageIds)
-            .abortSignal(secondaryController.signal),
-          replyToIds.length > 0
-            ? supabase
-                .from("group_messages")
-                .select("id, text, author_id")
-                .in("id", replyToIds)
-                .abortSignal(secondaryController.signal)
-            : Promise.resolve({ data: [] as any[], error: null }),
-          fetchProfilesWithCache(authorIds),
-        ]);
-
-        clearTimeout(secondaryTimeout);
-        reactionsData = reactionsResult.data || [];
-        replyToData = replyToResult.data || [];
-        cachedProfiles.forEach((p, id) => {
-          profilesMap.set(id, { display_name: p.display_name, avatar_url: p.avatar_url });
-        });
-      } catch {
-        // Continue without enrichment if it fails/timeouts.
-      }
-
-      const enrichedOlderMessages = (reconcileMessages(
-        reconcileScope,
-        reversedOlder.map((msg) => ({
-          ...msg,
-          author: profilesMap.get(msg.author_id) || null,
-          reply_to: replyToData.find((r) => r.id === msg.reply_to_id) || null,
-        })) as GroupMessage[],
-      ) ?? []) as GroupMessage[];
-
-      // Prepend + restore scroll anchor synchronously inside flushSync (no jolt).
-      queueAnchoredPrepend(() => {
-        queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[], hasOlderMessages?: boolean }>(["group-messages", groupId], (old: any) => {
-          if (!old) return { messages: enrichedOlderMessages, reactions: reactionsData as MessageReaction[], hasOlderMessages: hasMore };
-          const existingIds = new Set((old.messages || []).map((m: GroupMessage) => m.id));
-          return {
-            ...old,
-            messages: [
-              ...enrichedOlderMessages.filter((m) => !existingIds.has(m.id)),
-              ...old.messages,
-            ],
-            reactions: [...(reactionsData as MessageReaction[]), ...(old.reactions || [])],
-            hasOlderMessages: hasMore,
-          };
-        });
-      });
-      return;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error('Failed to load older messages:', err);
-    } finally {
-      setIsLoadingOlder(false);
-    }
-  }, [groupId, queryClient, isLoadingOlder, hasOlderMessages, queueAnchoredPrepend]);
+  const loadOlderMessages = useGroupOlderMessagesLoader({
+    groupId,
+    queryClient,
+    localMessagesRef,
+    isLoadingOlder,
+    setIsLoadingOlder,
+    hasOlderMessages,
+    setHasOlderMessages,
+    reconcileScope,
+    pageSize: MESSAGES_PER_PAGE,
+    supabaseClient: supabase,
+  });
 
   // Keep the loader ref in sync for the anchor hook to call.
   useEffect(() => {
     loadOlderMessagesRef.current = loadOlderMessages;
   }, [loadOlderMessages]);
 
-  // Notification deep-links must be target-anchored, not index-estimated. On
-  // repeat taps in long Grounds-style histories, the target already exists in
-  // the cached array but Virtuoso can estimate `scrollToIndex` too high and
-  // never mount the target row. For every fresh tap, replace first paint with a
-  // small window around the exact target so the DOM row is guaranteed to exist.
-  useEffect(() => {
-    if (!targetMessageId || !groupId || !authReady) return;
+  useGroupTargetWindowHydration({
+    targetMessageId,
+    targetJumpNonce,
+    groupId,
+    authReady,
+    reconcileScope,
+    localMessagesRef,
+    setLocalMessages,
+    setHasOlderMessages,
+    setJumpRenderNonce,
+    supabaseClient: supabase,
+  });
 
-    let cancelled = false;
-
-    const hydrateTargetWindow = async () => {
-      const { data: target, error } = await supabase
-        .from("group_messages")
-        .select("id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label")
-        .eq("id", targetMessageId)
-        .eq("group_id", groupId)
-        .is("deleted_at", null)
-        .maybeSingle();
-
-      if (cancelled || error || !target) return;
-
-      const WINDOW_BEFORE = 12;
-      const WINDOW_AFTER = 24;
-      const [beforeResult, afterResult] = await Promise.all([
-        supabase
-          .from("group_messages")
-          .select("id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label")
-          .eq("group_id", groupId)
-          .is("deleted_at", null)
-          .lt("created_at", target.created_at)
-          .order("created_at", { ascending: false })
-          .limit(WINDOW_BEFORE),
-        supabase
-          .from("group_messages")
-          .select("id, text, image_url, created_at, edited_at, author_id, group_id, reply_to_id, is_system_message, forwarded_from_user_id, forwarded_at, forwarded_source_label")
-          .eq("group_id", groupId)
-          .is("deleted_at", null)
-          .gt("created_at", target.created_at)
-          .order("created_at", { ascending: true })
-          .limit(WINDOW_AFTER),
-      ]);
-
-      if (cancelled) return;
-
-      const existingNewer = (localMessagesRef.current || []).filter(
-        (message) => new Date(message.created_at).getTime() > new Date(target.created_at).getTime(),
-      );
-      const rawWindow = [
-        ...((beforeResult.data || []) as any[]).reverse(),
-        target,
-        ...((afterResult.data || []) as any[]),
-        ...existingNewer,
-      ];
-      const byId = new Map<string, any>();
-      rawWindow.forEach((message) => byId.set(message.id, message));
-      const windowRows = sortChatMessagesChronologically([...byId.values()]);
-      const messageIds = windowRows.map((message) => message.id);
-      const replyToIds = [...new Set(windowRows.filter((message) => message.reply_to_id).map((message) => message.reply_to_id as string))];
-      const authorIds = [...new Set(windowRows.map((message) => message.author_id).filter(Boolean))];
-
-      const [reactionsResult, replyToResult, profilesMap] = await Promise.all([
-        supabase
-          .from("message_reactions")
-          .select("id, user_id, reaction_type, group_message_id")
-          .in("group_message_id", messageIds),
-        replyToIds.length > 0
-          ? supabase
-              .from("group_messages")
-              .select("id, text, author_id")
-              .in("id", replyToIds)
-          : Promise.resolve({ data: [] as any[] }),
-        fetchProfilesWithCache(authorIds),
-      ]);
-
-      if (cancelled) return;
-
-      const replyToMap = new Map((replyToResult.data || []).map((reply: any) => [reply.id, reply]));
-      const reactionsByMessage = new Map<string, MessageReaction[]>();
-      ((reactionsResult.data || []) as MessageReaction[]).forEach((reaction) => {
-        if (!reaction.group_message_id) return;
-        if (!reactionsByMessage.has(reaction.group_message_id)) reactionsByMessage.set(reaction.group_message_id, []);
-        reactionsByMessage.get(reaction.group_message_id)!.push(reaction);
-      });
-      const anchoredWindow = windowRows.map((message: any) => {
-        const author = profilesMap.get(message.author_id);
-        return {
-          ...message,
-          author: author ? { display_name: author.display_name, avatar_url: author.avatar_url } : message.author ?? null,
-          reply_to: message.reply_to_id ? replyToMap.get(message.reply_to_id) || message.reply_to || null : null,
-          reactions: reactionsByMessage.get(message.id) || (message as any).reactions || [],
-        } as GroupMessage;
-      });
-
-      debugLogEvent("local-replace", { cause: "jump-window", nextLen: anchoredWindow.length });
-      // See TeamChatPage: only remount the scroller if the target row wasn't
-      // already painted, otherwise the remount flashes blank + skeleton.
-      const targetAlreadyRendered = (localMessagesRef.current || []).some((m) => m.id === targetMessageId);
-      setLocalMessages((reconcileMessages(reconcileScope, anchoredWindow) ?? []) as GroupMessage[]);
-      setHasOlderMessages((beforeResult.data || []).length >= WINDOW_BEFORE);
-      if (!targetAlreadyRendered) setJumpRenderNonce(targetJumpNonce ?? Date.now());
-    };
-
-    void hydrateTargetWindow();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [targetMessageId, targetJumpNonce, groupId, authReady, reconcileScope]);
-
-  // Free-tier polling switch (only applies to groups scoped to a club).
   const { mode: groupRealtimeMode, intervalMs: groupPollIntervalMs } = useClubRealtimeMode(group?.club_id ?? null);
-
-  useEffect(() => {
-    if (!groupId || groupRealtimeMode !== "polling") return;
-    const id = window.setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ["group-messages", groupId] });
-    }, groupPollIntervalMs);
-    return () => window.clearInterval(id);
-  }, [groupId, groupRealtimeMode, groupPollIntervalMs, queryClient]);
-
-  // Real-time subscription - directly update cache instead of invalidating
-  useEffect(() => {
-    if (!groupId || useIcpLab) return;
-    if (groupRealtimeMode === "polling") return;
-
-    const channel = supabase
-      .channel(`group-messages-${groupId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "group_messages",
-          filter: `group_id=eq.${groupId}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as any;
-          
-          // Get cached profile synchronously (instant, non-blocking)
-          const { cached: cachedProfiles } = getProfilesFromCache([newMsg.author_id]);
-          const cachedProfile = cachedProfiles.get(newMsg.author_id);
-          const currentMessages = queryClient.getQueryData<{ messages: GroupMessage[] }>(["group-messages", groupId])?.messages;
-          const localReplyMessage = findLocalReplyMessage(currentMessages, newMsg.reply_to_id);
-          const localReply = localReplyMessage
-            ? { text: localReplyMessage.text, author: localReplyMessage.author ?? undefined }
-            : null;
-          
-          // IMMEDIATELY update cache with message (don't wait for profile fetch)
-          queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[] }>(["group-messages", groupId], (old) => {
-            if (!old) return { messages: [{
-              ...newMsg,
-              author: cachedProfile 
-                ? { display_name: cachedProfile.display_name, avatar_url: cachedProfile.avatar_url }
-                : null,
-              reply_to: localReply,
-            }], reactions: [] };
-            
-            // Check if message already exists with real ID
-            if (old.messages.some(m => m.id === newMsg.id)) {
-              return old;
-            }
-            
-            // Check for temp message to replace
-            const tempIndex = findSupersededOptimisticIndex(old.messages, newMsg);
-            
-            const messageToAdd: GroupMessage = {
-              ...newMsg,
-              author: cachedProfile 
-                ? { display_name: cachedProfile.display_name, avatar_url: cachedProfile.avatar_url }
-                : null,
-              reply_to: null,
-            };
-            
-            if (tempIndex !== -1) {
-              // Replace temp message with real one, preserving author from temp message
-              const updatedMessages = [...old.messages];
-              updatedMessages[tempIndex] = {
-                ...messageToAdd,
-                author: messageToAdd.author?.display_name 
-                  ? messageToAdd.author 
-                  : old.messages[tempIndex].author,
-                reply_to: old.messages[tempIndex].reply_to,
-              };
-              return { ...old, messages: updatedMessages };
-            }
-            
-            // Add new message (from other user)
-            const updatedMessages = sortChatMessagesChronologically([...old.messages, messageToAdd]);
-            return { ...old, messages: updatedMessages };
-          });
-          
-          // Asynchronously fetch profile and reply_to data if needed, then update
-          const needsProfileFetch = !cachedProfile;
-          const needsReplyFetch = !!newMsg.reply_to_id && !localReplyMessage;
-          
-          if (needsProfileFetch || needsReplyFetch) {
-            Promise.all([
-              needsProfileFetch 
-                ? fetchSingleProfileWithCache(newMsg.author_id)
-                : Promise.resolve(cachedProfile),
-              needsReplyFetch
-                ? supabase
-                    .from("group_messages")
-                    .select("text, author:profiles!group_messages_author_id_fkey(display_name)")
-                    .eq("id", newMsg.reply_to_id)
-                    .single()
-                : Promise.resolve({ data: null }),
-            ]).then(([profileData, replyToResult]) => {
-              // Update the message with fetched data
-              queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[] }>(["group-messages", groupId], (old) => {
-                if (!old) return old;
-                return {
-                  ...old,
-                  messages: old.messages.map(m => {
-                    if (m.id !== newMsg.id) return m;
-                    return {
-                      ...m,
-                      author: profileData 
-                        ? { display_name: profileData.display_name, avatar_url: profileData.avatar_url }
-                        : m.author,
-                      reply_to: replyToResult?.data
-                        ? { text: replyToResult.data.text, author: replyToResult.data.author }
-                        : m.reply_to,
-                    };
-                  }),
-                };
-              });
-            });
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "group_messages",
-          filter: `group_id=eq.${groupId}`,
-        },
-        (payload) => {
-          const deletedId = (payload.old as any)?.id;
-          if (!deletedId) return;
-          // Tombstone so an older in-flight fetch cannot resurrect the row.
-          recordRealtimeMutation(reconcileScope, { id: deletedId, deleted_at: new Date().toISOString() });
-          queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[] }>(["group-messages", groupId], (old) => {
-            if (!old) return { messages: [], reactions: [] };
-            return { ...old, messages: removeMessage(old.messages, deletedId) };
-          });
-          setLocalMessages((prev) => (prev ? removeMessage(prev, deletedId) : prev));
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "group_messages",
-          filter: `group_id=eq.${groupId}`,
-        },
-        (payload) => {
-          const updated = payload.new as any;
-          if (!updated?.id) return;
-          // Record first so any query response already in flight is reconciled
-          // when it lands (stale-fetch resurrection guard). Idempotent.
-          const outcome = recordRealtimeMutation(reconcileScope, updated);
-
-          if (outcome === "deleted") {
-            queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[] }>(["group-messages", groupId], (old) => {
-              if (!old) return { messages: [], reactions: [] };
-              return { ...old, messages: removeMessage(old.messages, updated.id) };
-            });
-            setLocalMessages((prev) => (prev ? removeMessage(prev, updated.id) : prev));
-            return;
-          }
-
-          // Apply the edit to BOTH stores with the same pure helper so they
-          // can never diverge. Fields absent from the payload are preserved.
-          queryClient.setQueryData<{ messages: GroupMessage[], reactions: MessageReaction[] }>(["group-messages", groupId], (old) => {
-            if (!old) return { messages: [], reactions: [] };
-            return { ...old, messages: applyMessageUpdate(old.messages, updated) };
-          });
-          setLocalMessages((prev) => (prev ? applyMessageUpdate(prev, updated) : prev));
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "message_reactions" },
-        (payload) => applyGroupReaction(payload.new as any),
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "message_reactions" },
-        (payload) => applyGroupReaction(payload.new as any),
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "message_reactions" },
-        (payload) => applyGroupReactionDelete(payload.old as any),
-      );
-    return startChatRealtimeChannel({
-      channel,
-      channelKey: `group-messages-${groupId}`,
-      userId: user?.id,
-      scope: { kind: "group", id: groupId },
-    });
-  }, [groupId, queryClient, groupRealtimeMode, user?.id, reconcileScope, applyGroupReaction, applyGroupReactionDelete, useIcpLab]);
+  useGroupRealtimeUpdates({
+    groupId,
+    userId: user?.id,
+    useIcpLab,
+    queryClient,
+    groupRealtimeMode,
+    groupPollIntervalMs,
+    reconcileScope,
+    setLocalMessages,
+    applyGroupReaction,
+    applyGroupReactionDelete,
+    supabaseClient: supabase,
+  });
 
 
   // Vault mirroring runs ONLY for confirmed-delivered messages, preserving the

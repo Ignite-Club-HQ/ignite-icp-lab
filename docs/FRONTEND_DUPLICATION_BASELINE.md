@@ -1451,3 +1451,46 @@ the controller-hook split; 1,112,842-byte largest JavaScript chunk; 172,904 CSS
 bytes; unchanged chunk count), isolation and quality ratchets passing, and
 duplication ratchet unchanged at 1,847 fewer duplicated lines than baseline.
 No runtime-performance claim is made.
+
+## GroupChatPage follow-up result (2026-09-23)
+
+`src/pages/GroupChatPage.tsx` decreased from 3,208 to 2,362 raw lines (-846,
+-26.4%). This was a chat-domain relocation pass that preserved the existing
+hybrid Supabase/ICP architecture and moved bounded group-message thread seams
+into focused modules:
+
+- `src/features/messaging/thread/groupChatData.ts` (142 lines): reaction
+  constants, group chat types, normalization, offline cache helpers, and the
+  structural Supabase-client interface used by the extracted hooks.
+- `src/features/messaging/thread/useGroupMessagesQuery.ts` (230 lines):
+  initial group-message query, ICP lab fixture path, offline fallback,
+  soft-delete filtering, enrichment, placeholder-data scoping, and notification
+  preload guard.
+- `src/features/messaging/thread/useGroupLocalMessagesSync.ts` (191 lines):
+  query-to-local render-state merge, optimistic reaction preservation,
+  reconciliation/tombstones, group-id filtering, cache writes, and identity
+  bailout.
+- `src/features/messaging/thread/useGroupOlderMessagesLoader.ts` (165 lines):
+  older-message pagination with timeout protection, `splitPageWindow`,
+  enrichment, chronological reversal, and cache prepend.
+- `src/features/messaging/thread/useGroupTargetWindowHydration.ts` (152
+  lines): notification/deep-link target-window hydration and remount nonce
+  handling.
+- `src/features/messaging/thread/useGroupRealtimeUpdates.ts` (247 lines):
+  polling fallback, realtime insert/update/delete reconciliation, local
+  render-state edits/deletes, temp-message replacement, profile/reply
+  enrichment, and reaction lifecycle handlers.
+
+The extracted hooks receive `GroupChatPage.tsx`'s existing Supabase client
+instead of importing the integration directly, keeping the quality ratchet's
+direct-Supabase-import count at the baseline value.
+
+Validation evidence: focused GroupChat/chat guards (9 files / 160 passing
+tests), 467 legacy files / 4,471 passing tests (one skip), 153 lab files /
+1,720 passing tests, product typecheck (only the pre-existing 14-diagnostic
+`StartDMDialog`/`ClubDetailPage` baseline drift), clean lab typecheck,
+successful product build, product bundle within budget (8,885,821 total
+JavaScript bytes; 1,112,827-byte largest JavaScript chunk; 172,904 CSS bytes;
+502 JavaScript chunks), isolation and quality ratchets passing, duplication
+ratchet passing with 2,174 fewer duplicated lines than baseline, and
+`git diff --check`.

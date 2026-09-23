@@ -2026,3 +2026,62 @@ build, product bundle budget, isolation, quality ratchet, duplication
 ratchet, and `git diff --check`. Because this was a pure relocation/wiring
 change, no request, render, subscription, or interaction behavior changed and
 no runtime-performance claim is made.
+
+## GroupChatPage follow-up result (2026-09-23)
+
+`GroupChatPage.tsx` was the next large chat-domain page after
+`VirtualizedChatMessageList.tsx`. This pass kept the hybrid Supabase/ICP page
+architecture intact and extracted only existing group-message thread seams:
+
+- static group chat data helpers, types, reaction constants, offline-cache
+  helpers, and the small structural Supabase-client interface moved to
+  `groupChatData.ts`;
+- the initial `["group-messages", groupId]` query moved to
+  `useGroupMessagesQuery.ts`, preserving the ICP lab fixture path, offline
+  fallback, soft-delete filter, chronological fetch window, profile/reaction/
+  reply enrichment, placeholder-data cross-group guard, and notification
+  preload history guard;
+- the query-to-local render-state merge moved to
+  `useGroupLocalMessagesSync.ts`, preserving optimistic reaction carry-forward,
+  tombstone reconciliation, group-id filtering, offline cache writes, and the
+  identity bailout that avoids unnecessary Virtuoso relayouts;
+- older-message pagination moved to `useGroupOlderMessagesLoader.ts`,
+  preserving the 25s primary abort timeout, 5s secondary enrichment timeout,
+  `splitPageWindow`, chronological reversal, profile/reply/reaction enrichment,
+  and query-cache prepend;
+- notification/deep-link target-window hydration moved to
+  `useGroupTargetWindowHydration.ts`, preserving the exact target-anchored
+  window, enrichment, `local-replace` debug event, and remount nonce behavior;
+- polling/realtime cache updates moved to `useGroupRealtimeUpdates.ts`,
+  preserving the free-tier polling fallback, insert/update/delete
+  reconciliation registry, local render-state edits/deletes, temp-message
+  replacement, async profile/reply enrichment, and reaction lifecycle handlers.
+
+The extracted hooks receive the page's existing Supabase client rather than
+adding new direct integration imports, so the quality ratchet's direct-
+Supabase-import count remains unchanged.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `GroupChatPage.tsx` raw lines | 3,208 | 2,362 | -846 (-26.4%) |
+| `groupChatData.ts` (new) | 0 | 142 | +142 |
+| `useGroupMessagesQuery.ts` (new) | 0 | 230 | +230 |
+| `useGroupLocalMessagesSync.ts` (new) | 0 | 191 | +191 |
+| `useGroupOlderMessagesLoader.ts` (new) | 0 | 165 | +165 |
+| `useGroupTargetWindowHydration.ts` (new) | 0 | 152 | +152 |
+| `useGroupRealtimeUpdates.ts` (new) | 0 | 247 | +247 |
+| Product JavaScript total / chunks | 8,884,442 bytes / 502 | 8,885,821 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,842 bytes | 1,112,827 bytes | budget passing |
+
+Raw-source guards were updated to follow the relocated code instead of
+weakening their assertions: `chatCrossThreadBleed.guard.test.ts`,
+`chatReconciliation.guard.test.ts`, and
+`lab-tests/chat-page-orchestration.characterization.test.tsx` now aggregate
+the GroupChat page with the extracted thread hooks where relevant.
+
+Validation passed the focused GroupChat/chat guard set (9 files / 160 tests),
+467 legacy files / 4,471 tests (one skip), 153 lab files / 1,720 tests,
+product type-check (only the pre-existing 14-diagnostic
+`StartDMDialog`/`ClubDetailPage` baseline drift), lab type-check, product
+build, product bundle budget, isolation, quality ratchet, duplication ratchet
+(2,174 fewer duplicated lines than baseline), and `git diff --check`.

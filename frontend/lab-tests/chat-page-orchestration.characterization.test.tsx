@@ -11,6 +11,18 @@ const surfaces = [
   ["ClubAdminChatPage.tsx", "club_admin_messages", "CLUB_ADMIN_CHAT_SCOPE"],
 ] as const;
 const page = (name: string) => readFileSync(resolve(process.cwd(), "src/pages", name), "utf8");
+const threadModule = (name: string) =>
+  readFileSync(resolve(process.cwd(), "src/features/messaging/thread", name), "utf8");
+const pageWithExtractedThreadLogic = (name: string) => {
+  if (name !== "GroupChatPage.tsx") return page(name);
+  return [
+    page(name),
+    threadModule("useGroupMessagesQuery.ts"),
+    threadModule("useGroupOlderMessagesLoader.ts"),
+    threadModule("useGroupRealtimeUpdates.ts"),
+    threadModule("useGroupTargetWindowHydration.ts"),
+  ].join("\n");
+};
 const historyFetcher = () =>
   readFileSync(
     resolve(process.cwd(), "src/features/messaging/thread/chatHistorySearchFetcher.ts"),
@@ -20,7 +32,7 @@ const historyFetcher = () =>
 describe("six-surface messaging refactor contracts", () => {
   for (const [name, table, scope] of surfaces) {
     it(`${name} retains fetch, soft-delete filtering and stable chronological ordering`, () => {
-      const text = page(name);
+      const text = pageWithExtractedThreadLogic(name);
       expect(text).toContain(`from("${table}")`);
       expect(text).toContain('.is("deleted_at", null)');
       expect(text).toContain('.order("created_at"');
@@ -36,7 +48,7 @@ describe("six-surface messaging refactor contracts", () => {
     });
 
     it(`${name} reconciles Realtime insert, update and delete before subscribing`, () => {
-      const text = page(name);
+      const text = pageWithExtractedThreadLogic(name);
       for (const event of ["INSERT", "UPDATE", "DELETE"]) expect(text).toContain(`event: "${event}"`);
       expect(text).toContain(`table: "${table}"`);
       // The subscribe/registry/cleanup lifecycle itself is shared across all
@@ -48,7 +60,7 @@ describe("six-surface messaging refactor contracts", () => {
     });
 
     it(`${name} reconciles all reaction lifecycle events`, () => {
-      const text = page(name);
+      const text = pageWithExtractedThreadLogic(name);
       expect((text.match(/table: "message_reactions"/g) || []).length).toBeGreaterThanOrEqual(3);
       expect(text).toMatch(/temp-.*reaction|reaction.*temp-/s);
     });
