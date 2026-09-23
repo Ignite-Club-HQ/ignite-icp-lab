@@ -111,6 +111,10 @@ import { usePitchBoardFormationManagement } from "./hooks/usePitchBoardFormation
 import { usePitchBoardPitchGeometry } from "./hooks/usePitchBoardPitchGeometry";
 import { usePitchBoardMockPlayers } from "./hooks/usePitchBoardMockPlayers";
 import { usePitchBoardInjuries } from "./hooks/usePitchBoardInjuries";
+import {
+  usePitchBoardLiveRosterSync,
+  usePitchBoardRosterReconciliation,
+} from "./hooks/usePitchBoardRosterReconciliation";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
 import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
@@ -750,122 +754,28 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     setGoals(prev => prev.map(g => g.id === updatedGoal.id ? updatedGoal : g));
   }, []);
 
-  // RSVP'd-going filter — when the board is linked to a fixture, only players
-  // who RSVP'd "going" should appear on the pitch/bench/autosubs. Mini-league
-  // mode uses its own team-builder and is exempt. Staff aren't in realPlayers
-  // (filtered to role==='player') so this doesn't affect them.
   const { data: goingAttendeeIds } = useEventGoingAttendees(linkedEventId);
-  const shouldFilterByGoing = !!linkedEventId && !miniLeagueTeams && !!goingAttendeeIds;
-
-  // Get real players from team members with preferred positions from database
-  // For mini-league mode, also assign team sides based on miniLeagueTeams config
-  const realPlayers = useMemo(() => {
-    // Dedupe members by user_id first — a person can appear multiple times in
-    // `members` if they hold more than one role on the team (e.g. player +
-    // team_admin), or if upstream joins fan out duplicate rows. Without this
-    // dedupe the lineup setup screen renders the same player multiple times.
-    const seen = new Set<string>();
-    const uniquePlayers = members.filter((m) => {
-      if (m.role !== "player") return false;
-      if (!m.user_id || seen.has(m.user_id)) return false;
-      seen.add(m.user_id);
-      // When linked to an event, restrict to RSVP'd "going" players only.
-      if (shouldFilterByGoing && !goingAttendeeIds!.has(m.user_id)) return false;
-      return true;
-    });
-    return uniquePlayers.map((m, index) => {
-      const savedPos = teamPlayerPositions?.find(p => p.user_id === m.user_id || p.child_id === m.user_id);
-      // Determine team side for mini-league mode
-      let teamSide: "a" | "b" | undefined;
-      if (miniLeagueTeams) {
-        if (miniLeagueTeams.teamAPlayerIds.includes(m.user_id)) {
-          teamSide = "a";
-        } else if (miniLeagueTeams.teamBPlayerIds.includes(m.user_id)) {
-          teamSide = "b";
-        }
-      }
-      return {
-        id: m.user_id,
-        name: m.profiles?.display_name || `Player ${index + 1}`,
-        number: savedPos?.jersey_number || index + 1,
-        position: null as { x: number; y: number } | null,
-        assignedPositions: (savedPos?.preferred_positions || []) as PitchPosition[],
-        currentPitchPosition: undefined as PitchPosition | undefined,
-        minutesPlayed: 0,
-        teamSide,
-      };
-    });
-  }, [members, teamPlayerPositions, miniLeagueTeams, shouldFilterByGoing, goingAttendeeIds]);
-
-
-  // Fill-in purge gate: when the saved state belongs to a DIFFERENT event than
-  // the one we're opening, drop fill-ins (they were ad-hoc for the prior match).
-  // Same-event resume (phone-lock case) is untouched; no-event ad-hoc games
-  // (no linkedEventId on either side) are untouched.
-  const savedStateIsForDifferentEvent =
-    !!savedState &&
-    !!savedState.linkedEventId &&
-    !!initialLinkedEventId &&
-    savedState.linkedEventId !== initialLinkedEventId;
-  const savedPlayers = savedStateIsForDifferentEvent
-    ? (savedState?.players || []).filter((p) => !p.isFillIn)
-    : (savedState?.players || []);
-  const savedAutoSubPlan = savedStateIsForDifferentEvent
-    ? (savedState?.autoSubPlan || []).filter((step: any) =>
-        savedPlayers.some((p) => p.id === step.playerId)
-      )
-    : (savedState?.autoSubPlan || []);
-  const isStrictMatchEventRoster = !!(initialLinkedEventId || savedState?.linkedEventId) && !miniLeagueTeams;
-  const strictMatchRosterPlayerIds = useMemo(
-    () => new Set(realPlayers.map((player) => player.id)),
-    [realPlayers]
-  );
-  // Guard: don't compare saved vs real roster until the RSVP-going filter has
-  // resolved. On reopen, `goingAttendeeIds` is briefly undefined, so
-  // `realPlayers` momentarily contains ALL team members instead of just the
-  // RSVP'd-going subset. Without this gate, `shouldRebuildFromRealRoster`
-  // fires, clears localStorage, and auto-places everyone — wiping the lineup
-  // the user just set. See PreGameLineupScreen save path.
-  const rsvpFilterReady = !linkedEventId || miniLeagueTeams || !!goingAttendeeIds;
-  const savedRosterMissingCurrentPlayers =
-    rsvpFilterReady &&
-    savedPlayers.length > 0 && realPlayers.some((player) => !savedPlayers.some((savedPlayer) => savedPlayer.id === player.id));
-  const savedRosterHasPlayersOutsideCurrentRoster =
-    isStrictMatchEventRoster &&
-    savedPlayers.length > 0 &&
-    realPlayers.length > 0 &&
-    savedPlayers.some((player) => !strictMatchRosterPlayerIds.has(player.id));
-  const savedRosterHasNoPlayersOnPitch =
-    savedPlayers.length > 0 && savedPlayers.every((player) => player.position === null);
-  const applyStrictMatchRoster = useCallback((sourcePlayers: Player[]): Player[] => {
-    // Dedupe by id first — defensive guard against any upstream path that
-    // may have produced duplicate roster rows (e.g. async merges, multi-role
-    // members). Without this the auto-sub planner and projected-minutes view
-    // render the same player multiple times.
-    const seenIds = new Set<string>();
-    const dedupedSource = sourcePlayers.filter(p => {
-      if (seenIds.has(p.id)) return false;
-      seenIds.add(p.id);
-      return true;
-    });
-    if (!isStrictMatchEventRoster || realPlayers.length === 0) return dedupedSource;
-
-    const filteredPlayers = dedupedSource.filter((player) => strictMatchRosterPlayerIds.has(player.id) || player.isFillIn);
-    const filteredIds = new Set(filteredPlayers.map((player) => player.id));
-    const missingCurrentPlayers = realPlayers
-      .filter((player) => !filteredIds.has(player.id))
-      .map((player) => ({ ...player, position: null, currentPitchPosition: undefined }));
-
-    return [...filteredPlayers, ...missingCurrentPlayers];
-  }, [isStrictMatchEventRoster, realPlayers, strictMatchRosterPlayerIds]);
-  const hasSamePlayerOrder = useCallback((a: Player[], b: Player[]) => (
-    a.length === b.length && a.every((player, index) => player.id === b[index]?.id)
-  ), []);
-  const shouldRebuildFromRealRoster =
-    !!savedState &&
-    !savedState.mockMode &&
-    realPlayers.length > 0 &&
-    (savedPlayers.length === 0 || savedRosterMissingCurrentPlayers || savedRosterHasNoPlayersOnPitch);
+  const {
+    realPlayers,
+    savedStateIsForDifferentEvent,
+    savedPlayers,
+    savedAutoSubPlan,
+    isStrictMatchEventRoster,
+    savedRosterMissingCurrentPlayers,
+    savedRosterHasPlayersOutsideCurrentRoster,
+    savedRosterHasNoPlayersOnPitch,
+    applyStrictMatchRoster,
+    hasSamePlayerOrder,
+    shouldRebuildFromRealRoster,
+  } = usePitchBoardRosterReconciliation({
+    members,
+    teamPlayerPositions,
+    goingAttendeeIds,
+    linkedEventId,
+    initialLinkedEventId,
+    savedState,
+    miniLeagueTeams,
+  });
 
   // Helper to auto-place players on pitch using formation
   // Only places players in positions they're eligible for based on assignedPositions
@@ -1211,8 +1121,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
 
   // Keep playersRef in sync with players state (for use in effects with stale closures)
   playersRef.current = players;
-  const recoveredInvalidSavedRosterRef = useRef(shouldRebuildFromRealRoster);
-
   // Player drag/drop is owned by usePitchBoardDragDrop. We declare it here
   // (before the rest of the component reads its state/refs) but pass deps via
   // a ref that is reassigned further down — same pattern as
@@ -1487,51 +1395,26 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
   // Mock player mode state
   const [mockMode, setMockMode] = useState(() => savedState?.mockMode || false);
 
-  useEffect(() => {
-    if (!isStrictMatchEventRoster || mockMode || realPlayers.length === 0) return;
-
-    setPlayers(prev => {
-      const filtered = applyStrictMatchRoster(prev);
-      return hasSamePlayerOrder(prev, filtered) ? prev : filtered;
-    });
-  }, [isStrictMatchEventRoster, mockMode, realPlayers.length, applyStrictMatchRoster, hasSamePlayerOrder]);
-
-  // Sync players when realPlayers loads asynchronously (e.g. children finishing fetch after PitchBoard opened)
-  useEffect(() => {
-    if (mockMode || realPlayers.length === 0) return;
-
-    if (shouldRebuildFromRealRoster && !recoveredInvalidSavedRosterRef.current) {
-      recoveredInvalidSavedRosterRef.current = true;
-      clearPitchState(teamId);
-      console.log("[PitchState] Restoring live roster because saved state is stale", {
-        savedCount: savedPlayers.length,
-        realCount: realPlayers.length,
-        missingCurrentPlayers: savedRosterMissingCurrentPlayers,
-        noPlayersOnPitch: savedRosterHasNoPlayersOnPitch,
-      });
-      setPlayers(
-        miniLeagueTeams
-          ? autoPlaceMiniLeaguePlayers(realPlayers, teamSize)
-          : autoPlacePlayersOnPitch(realPlayers, teamSize, selectedFormation)
-      );
-      return;
-    }
-
-    if (players.length > 0) return;
-
-    const hasStaleEmptySavedState = !!savedState && !savedState.mockMode && savedState.players.length === 0;
-    if (hasStaleEmptySavedState) {
-      console.log("[PitchState] Clearing stale empty saved state and restoring real players");
-      clearPitchState(teamId);
-    }
-
-    console.log("[PitchState] realPlayers loaded async, syncing", realPlayers.length, "players");
-    setPlayers(
-      miniLeagueTeams
-        ? autoPlaceMiniLeaguePlayers(realPlayers, teamSize)
-        : autoPlacePlayersOnPitch(realPlayers, teamSize, selectedFormation)
-    );
-  }, [realPlayers, players.length, mockMode, savedState, teamId, miniLeagueTeams, teamSize, selectedFormation, autoPlaceMiniLeaguePlayers, autoPlacePlayersOnPitch, shouldRebuildFromRealRoster, savedPlayers.length, savedRosterMissingCurrentPlayers, savedRosterHasPlayersOutsideCurrentRoster, savedRosterHasNoPlayersOnPitch]);
+  usePitchBoardLiveRosterSync({
+    realPlayers,
+    players,
+    mockMode,
+    savedState,
+    teamId,
+    teamSize,
+    selectedFormation,
+    miniLeagueTeams,
+    shouldRebuildFromRealRoster,
+    savedPlayers,
+    savedRosterMissingCurrentPlayers,
+    savedRosterHasNoPlayersOnPitch,
+    isStrictMatchEventRoster,
+    applyStrictMatchRoster,
+    hasSamePlayerOrder,
+    autoPlacePlayersOnPitch,
+    autoPlaceMiniLeaguePlayers,
+    setPlayers,
+  });
 
   // Shared-session fill-in sync moved into usePitchBoardFillIn (below).
 

@@ -1,5 +1,26 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## PitchBoard.tsx roster reconciliation extraction (2026-09-24)
+
+`hooks/usePitchBoardRosterReconciliation.ts` now owns the event-aware roster
+derivation and live-roster recovery controller. It preserves RSVP-going
+readiness before comparing saved state, cross-event fill-in and auto-sub-plan
+purging, strict event-roster filtering/deduplication, mini-league sides, and
+the stale saved-lineup recovery path. `usePitchBoardPlayerBootstrap.ts`
+continues to own its existing initial bootstrap responsibility.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `PitchBoard.tsx` raw lines | 2,304 | 2,187 | -117 (-5.1%) |
+| Total Phase-0 reduction | 3,438 | 2,187 | -1,251 (-36.4%) |
+
+Validated with product typecheck, the 59-file/798-test focused pitch suite,
+467-file/4,471-test legacy suite (one skip), 153-file/1,720-test lab suite,
+lab typecheck, product build/bundle budget (8,895,576 total JavaScript bytes;
+1,112,837-byte largest chunk; 172,904 CSS bytes), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,218 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## Purpose
 
 This document is the controlling plan for the frontend refactor. Its objective is to produce a demonstrable reduction in frontend maintenance cost by:
