@@ -1494,3 +1494,45 @@ JavaScript bytes; 1,112,827-byte largest JavaScript chunk; 172,904 CSS bytes;
 502 JavaScript chunks), isolation and quality ratchets passing, duplication
 ratchet passing with 2,174 fewer duplicated lines than baseline, and
 `git diff --check`.
+
+## GroupChatPage reaction-toggle follow-up (2026-09-24)
+
+`src/pages/GroupChatPage.tsx` decreased further from 2,362 to 2,083 raw
+lines (-279, -11.8%). The remaining inline one-reaction-per-user-per-message
+toggle mutation moved to
+`src/features/messaging/thread/useGroupReactionToggle.ts` (321 lines),
+preserving the optimistic query-cache + local-render-state update, the
+duplicate-key (`23505`) conflict reconciliation, the per-user-only rollback
+on final failure (so other users' realtime reactions arriving mid-mutation
+are not clobbered), and the `lastReactionIntentRef` intent-race guard (now
+scoped to the hook rather than the page). The hook follows the same
+`GroupChatSupabaseClient`-parameter pattern as the earlier thread-seam
+extractions, so the quality ratchet's direct-Supabase-import count is
+unaffected. The now page-unused `ensureFreshSession` and
+`normalizeGroupReactionType` imports were pruned from the page (both remain
+used inside the new hook).
+
+No characterization/guard test needed updating: the reaction-lifecycle
+assertions in `chat-page-orchestration.characterization.test.tsx` and the
+"preserves Group Chat's distinct top-level reaction merge" assertions are
+satisfied by reaction-related code that remained in the page and in the
+already-extracted realtime/query hooks, independent of the moved mutation.
+
+A pre-existing, unrelated one-to-three-line drift between
+`product-type-error-baseline.json` and the live `tsc` output for the 14
+known `StartDMDialog.tsx`/`ClubDetailPage.tsx` diagnostics (confirmed present
+at the prior commit before this change, i.e. not introduced by this
+extraction) was corrected by regenerating the baseline; the diagnostic
+files, codes, and messages are unchanged, only line/column numbers shifted.
+
+Validation evidence: focused GroupChat/chat guards (legacy config:
+`chatReconciliation.guard.test.ts` + `chatCrossThreadBleed.guard.test.ts`, 35
+passing tests; lab config: `chat-page-orchestration.characterization.test.tsx`,
+54 passing tests), 467 legacy files / 4,471 passing tests (one skip), 153 lab
+files / 1,720 passing tests, product typecheck (clean against the
+regenerated baseline), clean lab typecheck, successful product build,
+product bundle within budget (8,885,992 total JavaScript bytes;
+1,112,837-byte largest JavaScript chunk; 172,904 CSS bytes; 502 JavaScript
+chunks), isolation and quality ratchets passing (`directSupabaseImports`
+unchanged at 463), duplication ratchet passing with 2,174 fewer duplicated
+lines than baseline, and `git diff --check`.

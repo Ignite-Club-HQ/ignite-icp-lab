@@ -2085,3 +2085,52 @@ product type-check (only the pre-existing 14-diagnostic
 `StartDMDialog`/`ClubDetailPage` baseline drift), lab type-check, product
 build, product bundle budget, isolation, quality ratchet, duplication ratchet
 (2,174 fewer duplicated lines than baseline), and `git diff --check`.
+
+## GroupChatPage reaction-toggle follow-up (2026-09-24)
+
+After the thread-seam extraction above, `GroupChatPage.tsx` still carried the
+full one-reaction-per-user-per-message toggle mutation inline (optimistic
+query-cache + local-render-state update, duplicate-key (`23505`) conflict
+reconciliation, per-user-only rollback on final failure, and the intent-race
+guard). That block moved to
+`useGroupReactionToggle.ts`, preserving the exact toggle semantics, the
+`lastReactionIntentRef` race guard (now hook-scoped instead of page-scoped),
+and the existing `GroupChatSupabaseClient` structural interface pattern
+(the hook receives `supabaseClient` rather than importing `supabase`
+directly, so the quality ratchet's direct-Supabase-import count is
+unaffected).
+
+The now-unused `ensureFreshSession` import and `normalizeGroupReactionType`
+import were pruned from the page after the move (both are still used inside
+the extracted hook).
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `GroupChatPage.tsx` raw lines | 2,362 | 2,083 | -279 (-11.8%) |
+| `useGroupReactionToggle.ts` (new) | 0 | 321 | +321 |
+| Product JavaScript total / chunks | 8,885,821 bytes / 502 | 8,885,992 bytes / 502 | budget passing |
+| Largest product JavaScript chunk | 1,112,827 bytes | 1,112,837 bytes | budget passing |
+
+No guard/characterization test needed updating for this move: the reaction
+lifecycle assertions in `chat-page-orchestration.characterization.test.tsx`
+(`table: "message_reactions"` occurrence count, `temp-*reaction` pattern) and
+the "preserves Group Chat's distinct top-level reaction merge" assertions
+(`"top-level reactions"`, `"reactionsByMessage"`) are still satisfied by code
+that remained in the page (the realtime/query hooks and the reaction-display
+merge logic), independent of the extracted mutation.
+
+A pre-existing, unrelated one-line drift in
+`product-type-error-baseline.json` (14 `StartDMDialog.tsx`/`ClubDetailPage.tsx`
+diagnostics had shifted by 1-3 lines each versus the recorded baseline,
+confirmed present at the prior commit `90301b1f5` before this change) was
+also corrected by regenerating the baseline; the diagnostic set, files, and
+codes are identical, only line/column numbers changed.
+
+Validation passed the focused GroupChat/chat guard set (legacy config:
+`chatReconciliation.guard.test.ts` + `chatCrossThreadBleed.guard.test.ts`, 35
+tests; lab config: `chat-page-orchestration.characterization.test.tsx`, 54
+tests), 467 legacy files / 4,471 tests (one skip), 153 lab files / 1,720
+tests, product type-check (clean against the regenerated baseline), lab
+type-check, product build, product bundle budget, isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,174 fewer
+duplicated lines than baseline), and `git diff --check`.
