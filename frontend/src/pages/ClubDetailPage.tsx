@@ -93,6 +93,7 @@ import { ClubAnnouncementDialog } from "@/components/ClubAnnouncementDialog";
 import { Palette, CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
 import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigationSection";
 import { ClubQuickActions } from "@/components/club/ClubQuickActions";
+import { ClubTeamBrowser } from "@/components/club/ClubTeamBrowser";
 import PendingInviteCard from "@/components/PendingInviteCard";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
@@ -380,6 +381,7 @@ export default function ClubDetailPage() {
     },
     enabled: !!user && !!teams && teams.length > 0 && !useIcpLab,
   });
+  const knownUserTeamIds = userTeamIds.filter((teamId): teamId is string => typeof teamId === "string");
 
 
   // Fetch team folders
@@ -1512,242 +1514,21 @@ export default function ClubDetailPage() {
 
 
 
-        {/* Filter chips */}
-        {activeTeams && activeTeams.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-              {[
-                { key: "all" as const, label: "All" },
-                { key: "junior" as const, label: "Junior" },
-                { key: "senior" as const, label: "Senior" },
-                { key: "my" as const, label: "My Teams" },
-              ].map((filter) => (
-                <button
-                  key={filter.key}
-                  onClick={() => { setTeamFilter(filter.key); setYearLevelFilter("all"); }}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors min-h-[36px] ${
-                    teamFilter === filter.key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-accent"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Year level filter chips - only show when Junior is selected */}
-            {teamFilter === "junior" && (() => {
-              const yearLevels = Array.from(
-                new Set(
-                  activeTeams
-                    .filter(t => t.level_age)
-                    .map(t => t.level_age as string)
-                )
-              ).sort((a, b) => {
-                const numA = parseInt(a.replace(/\D/g, '')) || 999;
-                const numB = parseInt(b.replace(/\D/g, '')) || 999;
-                return numA - numB;
-              });
-              if (yearLevels.length <= 1) return null;
-              return (
-                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-                  <button
-                    onClick={() => setYearLevelFilter("all")}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors min-h-[28px] ${
-                      yearLevelFilter === "all"
-                        ? "bg-secondary text-secondary-foreground"
-                        : "bg-muted/50 text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    All Levels
-                  </button>
-                  {yearLevels.map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setYearLevelFilter(yearLevelFilter === level ? "all" : level)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors min-h-[28px] ${
-                        yearLevelFilter === level
-                          ? "bg-secondary text-secondary-foreground"
-                          : "bg-muted/50 text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={club?.class_mode_enabled ? "Search classes..." : "Search teams..."}
-                value={teamSearchQuery}
-                onChange={(e) => setTeamSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
-              />
-              {teamSearchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setTeamSearchQuery("")}
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Team list */}
-        {activeTeams?.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="p-6 text-center">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No teams yet</p>
-              {isAdmin && (
-                <Link to={`/clubs/${id}/teams/new`} className="mt-3 inline-block">
-                  <Button variant="outline" size="sm">Create First Team</Button>
-                </Link>
-              )}
-            </CardContent>
-          </Card>
-        ) : (() => {
-          // Filter teams
-          const filteredTeams = activeTeams.filter((team) => {
-            // Filter by type
-            const teamType = (team as any).team_type?.toLowerCase() || "";
-            const isSeniorOrMixed = teamType === "senior" || teamType === "mixed";
-            if (teamFilter === "junior" && teamType !== "junior") return false;
-            if (teamFilter === "senior" && !isSeniorOrMixed) return false;
-            if (teamFilter === "my" && !userTeamIds.includes(team.id)) return false;
-
-            // Year level filter
-            if (yearLevelFilter !== "all") {
-              if (team.level_age !== yearLevelFilter) return false;
-            }
-            
-            // Search filter
-            if (teamSearchQuery.trim()) {
-              const query = teamSearchQuery.toLowerCase().trim();
-              return (
-                team.name?.toLowerCase().includes(query) ||
-                team.level_age?.toLowerCase().includes(query) ||
-                team.description?.toLowerCase().includes(query)
-              );
-            }
-            return true;
-          });
-
-          // Sort alphabetically using natural numeric ordering
-          const sortAlpha = (a: typeof activeTeams[0], b: typeof activeTeams[0]) =>
-            (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" });
-          filteredTeams.sort(sortAlpha);
-
-          // Group by type when "All" filter is active (and no search)
-          const showGrouped = teamFilter === "all" && !teamSearchQuery.trim() && yearLevelFilter === "all";
-          
-          const juniorTeams = showGrouped ? filteredTeams.filter(t => (t as any).team_type?.toLowerCase() === "junior").sort(sortAlpha) : [];
-          const seniorTeams = showGrouped ? filteredTeams.filter(t => { const tt = (t as any).team_type?.toLowerCase(); return tt === "senior" || tt === "mixed"; }).sort(sortAlpha) : [];
-          const otherTeams = showGrouped 
-            ? filteredTeams.filter(t => {
-                const tt = (t as any).team_type?.toLowerCase();
-                return tt !== "junior" && tt !== "senior" && tt !== "mixed";
-              }).sort(sortAlpha)
-            : filteredTeams;
-
-          const renderTeamRow = (team: typeof activeTeams[0]) => {
-            const teamSub = teamSubscriptions.find(s => s.team_id === team.id);
-            const clubHasPro = clubSubscription?.is_pro || clubSubscription?.admin_pro_override;
-            const clubHasProFootball = clubSubscription?.is_pro_football || clubSubscription?.admin_pro_football_override;
-            const isPro = teamSub?.is_pro || teamSub?.admin_pro_override || clubHasPro;
-            const isProFootball = teamSub?.is_pro_football || teamSub?.admin_pro_football_override || clubHasProFootball;
-            const isUserTeamMember = userTeamIds.includes(team.id);
-
-            return (
-              <Link
-                key={team.id}
-                to={`/teams/${team.id}`}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors hover:border-primary/40 hover:bg-accent/30 ${
-                  isUserTeamMember ? "border-primary/30 bg-primary/[0.04]" : "border-border"
-                }`}
-              >
-                <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarImage src={team.logo_url || undefined} />
-                  <AvatarFallback className="bg-primary/15 text-primary text-sm">
-                    {team.name?.charAt(0)?.toUpperCase() || "T"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">{team.name}</span>
-                    {isUserTeamMember && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary text-primary shrink-0">My Team</Badge>
-                    )}
-                    {isProFootball && (
-                      <Badge className="bg-emerald-500 text-emerald-950 text-[10px] px-1.5 py-0 h-4 shrink-0">PRO FOOTBALL</Badge>
-                    )}
-                    {isPro && !isProFootball && (
-                      <Badge className="bg-yellow-500 text-yellow-950 text-[10px] px-1.5 py-0 h-4 shrink-0">PRO</Badge>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </Link>
-            );
-          };
-
-          if (filteredTeams.length === 0) {
-            return (
-              <p className="text-muted-foreground text-sm text-center py-6">
-                {teamSearchQuery ? "No teams match your search" : teamFilter === "my" ? "You haven't joined any teams yet" : `No ${teamFilter} teams`}
-              </p>
-            );
-          }
-
-          if (showGrouped) {
-            return (
-              <div className="space-y-4">
-                {juniorTeams.length > 0 && (
-                  <div className="space-y-1.5">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Junior Teams</h3>
-                    <div className="space-y-1.5">
-                      {juniorTeams.map(renderTeamRow)}
-                    </div>
-                  </div>
-                )}
-                {seniorTeams.length > 0 && (
-                  <div className="space-y-1.5">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Senior Teams</h3>
-                    <div className="space-y-1.5">
-                      {seniorTeams.map(renderTeamRow)}
-                    </div>
-                  </div>
-                )}
-                {otherTeams.length > 0 && (
-                  <div className="space-y-1.5">
-                    {(juniorTeams.length > 0 || seniorTeams.length > 0) && (
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Other</h3>
-                    )}
-                    <div className="space-y-1.5">
-                      {otherTeams.map(renderTeamRow)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <div className="space-y-1.5">
-              {filteredTeams.map(renderTeamRow)}
-            </div>
-          );
-        })()}
+        <ClubTeamBrowser
+          clubId={id!}
+          classModeEnabled={!!club?.class_mode_enabled}
+          isAdmin={isAdmin}
+          teams={activeTeams}
+          userTeamIds={knownUserTeamIds}
+          teamSubscriptions={teamSubscriptions}
+          clubSubscription={clubSubscription}
+          teamFilter={teamFilter}
+          yearLevelFilter={yearLevelFilter}
+          searchQuery={teamSearchQuery}
+          onTeamFilterChange={setTeamFilter}
+          onYearLevelFilterChange={setYearLevelFilter}
+          onSearchQueryChange={setTeamSearchQuery}
+        />
         </>)}
       </section>
         );
@@ -1820,7 +1601,7 @@ export default function ClubDetailPage() {
       {(() => {
         const hasProAccess = !!(isAppAdmin || clubSubscription?.is_pro || clubSubscription?.is_pro_football || clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override);
         return (
-          <ClubCompetitionsSection clubId={id!} teamIds={userTeamIds} isAdmin={isAdmin} hasProAccess={hasProAccess} />
+          <ClubCompetitionsSection clubId={id!} teamIds={knownUserTeamIds} isAdmin={isAdmin} hasProAccess={hasProAccess} />
         );
       })()}
 

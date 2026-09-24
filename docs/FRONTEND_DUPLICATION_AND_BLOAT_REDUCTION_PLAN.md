@@ -1,5 +1,26 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage team-browser extraction (2026-09-24)
+
+This follow-up moves the team browser's filter controls, junior year-level
+selection, search, grouping, badges, empty states, and typed team-row
+presentation into `ClubTeamBrowser`. The route continues to own all queries,
+membership data, subscription inputs, mutations, authorization, and local/ICP
+mode selection. The component is data-only and has no Supabase import.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,665 | 2,446 | -219 (-8.2%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 2,446 | -334 (-12.0%) |
+
+Eight focused ClubDetail component tests pass for team grouping, membership and
+Pro badges, filter/search callback handoff, empty-state administration CTA,
+navigation, entitlement, and class-mode behavior. Product and Lab typechecks,
+isolation, quality, duplication, and whitespace guardrails pass. The product
+diagnostic inventory falls from 165 to 159: the former untyped inline
+team-filter diagnostics are eliminated, while remaining pre-existing member
+diagnostics are location-updated.
+
 ## ClubDetailPage initial presentation split (2026-09-24)
 
 The first ClubDetailPage pass moves the administrator navigation accordion and

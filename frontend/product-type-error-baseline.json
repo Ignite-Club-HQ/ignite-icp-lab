@@ -1044,55 +1044,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1548,
-      "column": 41,
-      "code": "TS2339",
-      "message": "Property 'replace' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1549,
-      "column": 41,
-      "code": "TS2339",
-      "message": "Property 'replace' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1567,
-      "column": 23,
-      "code": "TS2322",
-      "message": "Type 'unknown' is not assignable to type 'Key'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1568,
-      "column": 57,
-      "code": "TS2345",
-      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SetStateAction<string>'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1575,
-      "column": 23,
-      "code": "TS2322",
-      "message": "Type 'unknown' is not assignable to type 'ReactNode'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1823,
-      "column": 49,
-      "code": "TS2322",
-      "message": "Type 'unknown[]' is not assignable to type 'string[]'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2060,
+      "line": 1841,
       "column": 47,
       "code": "TS2339",
       "message": "Property 'profile' does not exist on type 'unknown'.",
@@ -1100,7 +1052,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2062,
+      "line": 1843,
       "column": 41,
       "code": "TS2339",
       "message": "Property 'roles' does not exist on type 'unknown'.",
@@ -1108,7 +1060,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2086,
+      "line": 1867,
       "column": 58,
       "code": "TS2339",
       "message": "Property 'profile' does not exist on type 'unknown'.",
@@ -1116,7 +1068,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2088,
+      "line": 1869,
       "column": 43,
       "code": "TS2339",
       "message": "Property 'profile' does not exist on type 'unknown'.",
@@ -1124,7 +1076,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2092,
+      "line": 1873,
       "column": 76,
       "code": "TS2339",
       "message": "Property 'profile' does not exist on type 'unknown'.",
@@ -1132,7 +1084,7 @@
     },
     {
       "file": "src/pages/ClubDetailPage.tsx",
-      "line": 2094,
+      "line": 1875,
       "column": 41,
       "code": "TS2339",
       "message": "Property 'roles' does not exist on type 'unknown'.",
@@ -1324,7 +1276,7 @@
     }
   ],
   "counts": {
-    "source-backed": 105,
+    "source-backed": 99,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }
