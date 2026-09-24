@@ -2897,3 +2897,32 @@ bundle budget (8,889,703 total JavaScript bytes, 1,112,837-byte largest
 chunk, 172,904 CSS bytes), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,212 fewer
 duplicated lines than baseline), and `git diff --check`.
+
+## TeamChatPage.tsx member-management sheets extraction (2026-09-25)
+
+With `ClubDetailPage.tsx` and `CompetitionFixturesPanel.tsx` reduced,
+`TeamChatPage.tsx` (2,431 lines) became the largest non-test `.tsx` file.
+Unlike those two, most of its bulk is already-decomposed hook/state logic
+(~30 `useState` calls, ~25 shared chat hooks) rather than large inline JSX,
+so the safe extraction surface is smaller per pass. The first pass pulled
+the "view member" / "add role to member" sheet wiring — previously two
+adjacent `MemberDetailSheet` / `AddRoleToMemberDialog` blocks reading page
+state directly — into `components/chat/TeamMemberManagementSheets.tsx`. The
+page now owns only the `selectedMember` / `addRoleMember` state and the
+existing `handleRemoveSelectedMemberFromTeam` / `handleRemoveRoleFromSelectedMember`
+mutation callbacks; the new component owns the two sheets' open/close wiring
+and the add-role-from-member-sheet handoff, with the query
+invalidation/refresh-on-close callback passed in as `onRoleDialogClosed` so
+the component has no react-query or Supabase dependency of its own.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamChatPage.tsx` raw lines | 2,431 | 2,404 | -27 (-1.1%) |
+| New focused component | 0 | 1 (7 tests) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused component tests (7 passed), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,339 fewer duplicated lines than baseline), and `git diff --check`. Full
+legacy/Lab suites and product build remain deferred per the current
+line-count-reduction pass.

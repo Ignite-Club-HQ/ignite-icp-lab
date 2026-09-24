@@ -45,8 +45,7 @@ import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 import { PageLoading } from "@/components/ui/page-loading";
 import { ChatPageSkeleton } from "@/components/chat/ChatPageSkeleton";
 const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
-const MemberDetailSheet = lazyWithRetry(() => import("@/components/MemberDetailSheet"));
-import AddRoleToMemberDialog from "@/components/AddRoleToMemberDialog";
+import { TeamMemberManagementSheets } from "@/components/chat/TeamMemberManagementSheets";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -2382,47 +2381,21 @@ export default function TeamChatPage() {
         )}
       </div>
 
-      {selectedMember && teamId && team && (
-        <Suspense fallback={null}>
-        <MemberDetailSheet
-          open={!!selectedMember}
-          onOpenChange={(open) => { if (!open) setSelectedMember(null); }}
-          userId={selectedMember.userId}
-          displayName={selectedMember.displayName}
-          avatarUrl={selectedMember.avatarUrl}
-          roles={selectedMember.roles}
-          canManage={true}
-          canMove={false}
-          isSelf={selectedMember.userId === user?.id}
-          showMoveAction={false}
-          showRemoveAction={false}
-          onAddRole={() => setAddRoleMember({
-            userId: selectedMember.userId,
-            userName: selectedMember.displayName,
-            existingRoles: selectedMember.roles.map((r) => r.role),
-          })}
-          onMove={() => {}}
-          onRemove={handleRemoveSelectedMemberFromTeam}
-          onRemoveRole={handleRemoveRoleFromSelectedMember}
-        />
-        </Suspense>
-      )}
-
-      {addRoleMember && teamId && team && (
-        <AddRoleToMemberDialog
-          userId={addRoleMember.userId}
-          userName={addRoleMember.userName}
+      {teamId && team && (
+        <TeamMemberManagementSheets
           teamId={teamId}
           teamName={team.name}
           clubId={team.club_id}
-          existingRoles={addRoleMember.existingRoles}
-          open={!!addRoleMember}
-          onOpenChange={(open) => {
-            if (!open) {
-              setAddRoleMember(null);
-              queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
-              refreshChatManagedTeamMembership(queryClient, teamId, "team", teamId);
-            }
+          currentUserId={user?.id}
+          selectedMember={selectedMember}
+          onSelectedMemberChange={setSelectedMember}
+          addRoleMember={addRoleMember}
+          onAddRoleMemberChange={setAddRoleMember}
+          onRemoveMember={handleRemoveSelectedMemberFromTeam}
+          onRemoveRole={handleRemoveRoleFromSelectedMember}
+          onRoleDialogClosed={() => {
+            queryClient.invalidateQueries({ queryKey: ["team-messages", teamId] });
+            refreshChatManagedTeamMembership(queryClient, teamId, "team", teamId);
           }}
         />
       )}
