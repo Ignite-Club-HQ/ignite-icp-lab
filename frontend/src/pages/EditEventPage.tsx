@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, MapPin, Bell, Calendar, FileText, DollarSign, ClipboardList, Repeat, Users, UserPlus } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Bell, Calendar, FileText, DollarSign, ClipboardList, Users, UserPlus } from "lucide-react";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ import { EventSponsorSelector } from "@/components/EventSponsorSelector";
 import { DEFAULT_MATCH_ARRIVAL_MINUTES } from "@/lib/matchArrivalTime";
 import { validateEventTeamClubScope } from "@/lib/eventScopeValidation";
 import { SeriesEndDateEditor } from "@/components/event/SeriesEndDateEditor";
+import { EventEditScheduleSection } from "@/components/event/EventEditScheduleSection";
 import { eventKeys } from "@/lab/eventQueryKeys";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalEvent, setLocalEventRecurrence, updateLocalEvent } from "@/lab/localEventsService";
@@ -58,7 +59,6 @@ import { personas } from "@/lab/syntheticIdentities.mjs";
 import {
   EventDutyFields,
   EventLocationFields,
-  EventRecurrenceFields,
   EventSectionHeader,
   type EventRecurrencePattern,
 } from "@/components/event/EventFormShared";
@@ -1257,75 +1257,34 @@ function SupabaseEditEventPage() {
 
 
       {/* Schedule Section */}
-      <Card>
-        <Collapsible open={openSections.schedule}>
-          <EventSectionHeader
-            icon={Calendar}
-            title="Date & Time"
-            isOpen={openSections.schedule}
-            onClick={() => toggleSection('schedule')}
-            badge="Required"
+      <EventEditScheduleSection
+        isOpen={openSections.schedule}
+        onToggle={() => toggleSection("schedule")}
+        eventDateTime={eventDateTime}
+        onEventDateTimeChange={setEventDateTime}
+        isRecurring={!!isRecurring}
+        enableRecurring={enableRecurring}
+        onEnableRecurringChange={setEnableRecurring}
+        recurrencePattern={recurrencePattern}
+        recurrenceDays={recurrenceDays}
+        recurrenceInterval={recurrenceInterval}
+        recurrenceEndDate={recurrenceEndDate}
+        onRecurrencePatternChange={setRecurrencePattern}
+        onToggleRecurrenceDay={toggleRecurrenceDay}
+        onRecurrenceIntervalChange={setRecurrenceInterval}
+        onRecurrenceEndDateChange={setRecurrenceEndDate}
+        recurringSeriesContent={isRecurring && event ? (
+          <SeriesEndDateEditor
+            eventId={id!}
+            parentEventId={event.parent_event_id ?? id!}
+            canEdit={!!canEdit}
+            onUpdated={() => {
+              queryClient.invalidateQueries({ queryKey: ["event-edit", id] });
+              refreshEventCaches(queryClient, user?.id);
+            }}
           />
-          <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4 space-y-4">
-              {/* Combined Date & Time input */}
-              <div className="space-y-2">
-                <Label htmlFor="datetime">Date & Time</Label>
-                <Input
-                  id="datetime"
-                  type="datetime-local"
-                  value={eventDateTime}
-                  onChange={(e) => setEventDateTime(e.target.value)}
-                  className="w-full h-12"
-                />
-              </div>
-
-              {/* Recurring Toggle - Only show if not already recurring */}
-              {!isRecurring && (
-                <>
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      <Repeat className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Convert to recurring series</span>
-                    </div>
-                    <Switch
-                      checked={enableRecurring}
-                      onCheckedChange={setEnableRecurring}
-                    />
-                  </div>
-
-                  {enableRecurring && (
-                    <EventRecurrenceFields
-                      pattern={recurrencePattern}
-                      days={recurrenceDays}
-                      interval={recurrenceInterval}
-                      endDate={recurrenceEndDate}
-                      startDate={eventDateTime}
-                      onPatternChange={setRecurrencePattern}
-                      onToggleDay={toggleRecurrenceDay}
-                      onIntervalChange={setRecurrenceInterval}
-                      onEndDateChange={setRecurrenceEndDate}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Show info + end-date editor if already recurring */}
-              {isRecurring && event && (
-                <SeriesEndDateEditor
-                  eventId={id!}
-                  parentEventId={event.parent_event_id ?? id!}
-                  canEdit={!!canEdit}
-                  onUpdated={() => {
-                    queryClient.invalidateQueries({ queryKey: ["event-edit", id] });
-                    refreshEventCaches(queryClient, user?.id);
-                  }}
-                />
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
+        ) : null}
+      />
 
       {/* Duties Section - Only for game events */}
       {type === "game" && (
