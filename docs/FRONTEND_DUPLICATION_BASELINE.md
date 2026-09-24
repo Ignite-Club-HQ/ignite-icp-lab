@@ -3,6 +3,29 @@
 This is the immutable Phase 0 evidence for the frontend duplication plan. The
 baseline was captured before the pitch-board consolidation in Phase 1.1.
 
+## MessagesPage query and prefetch-controller extraction (2026-09-24)
+
+The follow-up to the header/dialog/preview-source extraction moved the
+direct-message fetch algorithm and idle thread-prefetch controller out of
+`MessagesPage.tsx`. The page retains its React Query lifecycle settings,
+native-runtime decision, cache-seed/placeholder behavior, and realtime and
+authorization ownership. The direct-message source receives the existing
+client as a dependency and preserves the inbox RPC, per-conversation fallback,
+previous-query/persistent-cache profile preservation, and cache writes.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,640 | 2,442 | -198 (-7.5%) |
+| `MessagesPage.tsx` versus original round start | 3,023 | 2,442 | -581 (-19.2%) |
+
+The targeted inbox suite passed 46 tests across decomposition,
+characterization, cold-start ordering, realtime watermark, stable read-model,
+Android resume, native authorization-buffer, and sticky-list guards. Product
+and Lab typechecks, isolation, quality ratchet (`directSupabaseImports` is
+still 463), duplication ratchet (2,259 fewer duplicated lines than baseline),
+and diff checks passed. Broader legacy/Lab suites and the product build remain
+deferred until final MessagesPage line-count acceptance.
+
 ## Reproduction
 
 Run from `frontend/`:

@@ -1,5 +1,30 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## MessagesPage query and prefetch-controller extraction (2026-09-24)
+
+This follow-up keeps `MessagesPage.tsx` responsible for React Query lifecycle
+configuration, page cache persistence, native-runtime selection, and all
+realtime/authorization ownership. It moves only the direct-message data
+algorithm (including its RPC, compatibility-query, and layered-profile-cache
+fallbacks) into the existing injected-client preview-source module, and the
+idle inbox-thread prefetch scheduling into a typed hook. The new hook preserves
+the native no-prefetch guard and cancellation behavior; neither module imports
+the Supabase client directly.
+
+| Measure | Before follow-up | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,640 | 2,442 | -198 (-7.5%) |
+| `MessagesPage.tsx` versus original | 3,023 | 2,442 | -581 (-19.2%) |
+
+The targeted inbox regression suite passed all 46 tests, including cold-start
+ordering, realtime watermarks, native authorization buffering/resume,
+sticky-list behavior, read-model contracts, and the new decomposition
+contract assertions. Product and Lab typechecks, isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,259 fewer
+duplicated lines than baseline), and `git diff --check` passed. Full
+legacy/Lab suites and the product build remain intentionally deferred while
+the user evaluates whether further MessagesPage reduction is worthwhile.
+
 ## MessagesPage presentation and preview-source extraction (2026-09-24)
 
 This focused `MessagesPage.tsx` round extracts the inbox header/Pro CTA,

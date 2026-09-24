@@ -1,4 +1,11 @@
 import * as fixtureData from "@/lab/fixtureDataLayer";
+import { cacheMessagesPageData, getCachedMessagesPageData } from "@/lib/messagesPageCache";
+import {
+  cacheProfiles,
+  fetchProfilesWithCache,
+  getProfileFromCache,
+  selectCachedProfilesByIds,
+} from "@/lib/profileCache";
 import { resolveInboxAuthorNames, toInboxPreviewMessage } from "./inboxPreviewHydration";
 
 export interface InboxClub {
@@ -259,4 +266,148 @@ export async function fetchChatGroupsWithMessages(client: InboxDataClient, userI
     if (message) latestMessages[groupId] = toInboxPreviewMessage(message, authorNameById);
   }
   return { groups, latestMessages };
+}
+
+export async function fetchDirectMessageConversations({
+  client,
+  userId,
+  cachedData,
+  getPreviousConversations,
+}: {
+  client: InboxDataClient;
+  userId: string;
+  cachedData: ReturnType<typeof getCachedMessagesPageData>;
+  getPreviousConversations: () => any[] | undefined;
+}) {
+  const { data: conversations, error } = await client
+    .from("direct_conversations")
+    .select("*")
+    .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  if (!conversations?.length) return [];
+
+  const otherUserIds = conversations.map((conversation: any) =>
+    conversation.participant_1 === userId ? conversation.participant_2 : conversation.participant_1,
+  );
+  const conversationIds = conversations.map((conversation: any) => conversation.id);
+  const fetchLatestMessages = async (): Promise<Map<string, any>> => {
+    try {
+      const { data, error: rpcError } = await client.rpc("get_inbox_latest_dm_messages", {
+        _conversation_ids: conversationIds,
+      });
+      if (rpcError) throw rpcError;
+      return new Map((data || []).map((row: any) => [
+        row.conversation_id,
+        {
+          text: row.text,
+          image_url: row.image_url,
+          created_at: row.created_at,
+          author_id: row.author_id,
+        },
+      ]));
+    } catch {
+      const messageRows = await Promise.all(
+        conversations.map(async (conversation: any) => {
+          const { data: message } = await client
+            .from("direct_messages")
+            .select("text, image_url, created_at, author_id")
+            .eq("conversation_id", conversation.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          return { conversationId: conversation.id, message };
+        }),
+      );
+      return new Map(messageRows.map((row) => [row.conversationId, row.message]));
+    }
+  };
+
+  const [profilesMap, messageMap] = await Promise.all([
+    (async () => {
+      try {
+        const { data } = await selectCachedProfilesByIds(otherUserIds);
+        if (data?.length) cacheProfiles(data);
+        const profiles = new Map<string, any>();
+        const cachedAt = Date.now();
+        (data ?? []).forEach((profile) => profiles.set(profile.id, { ...profile, cached_at: cachedAt }));
+        return profiles;
+      } catch {
+        return fetchProfilesWithCache(otherUserIds, { allowStale: true, timeout: 15000 });
+      }
+    })(),
+    fetchLatestMessages(),
+  ]);
+
+  const previousOtherUsers = new Map<string, any>();
+  getPreviousConversations()?.forEach((conversation: any) => {
+    if (conversation?.other_user?.id && conversation.other_user.display_name) {
+      previousOtherUsers.set(conversation.other_user.id, conversation.other_user);
+    }
+  });
+  cachedData?.dmConversations?.forEach((conversation: any) => {
+    if (
+      conversation?.other_user?.id
+      && conversation.other_user.display_name
+      && !previousOtherUsers.has(conversation.other_user.id)
+    ) {
+      previousOtherUsers.set(conversation.other_user.id, conversation.other_user);
+    }
+  });
+
+  const result = conversations.map((conversation: any) => {
+    const otherUserId = conversation.participant_1 === userId
+      ? conversation.participant_2
+      : conversation.participant_1;
+    const fetchedProfile = profilesMap.get(otherUserId);
+    const fallbackProfile = previousOtherUsers.get(otherUserId);
+    const globalCached = getProfileFromCache(otherUserId);
+    const otherUser = fetchedProfile?.display_name
+      ? {
+          id: otherUserId,
+          display_name: fetchedProfile.display_name,
+          avatar_url: fetchedProfile.avatar_url ?? fallbackProfile?.avatar_url ?? globalCached?.avatar_url ?? null,
+        }
+      : fallbackProfile?.display_name
+        ? fallbackProfile
+        : globalCached
+          ? {
+              id: otherUserId,
+              display_name: globalCached.display_name,
+              avatar_url: globalCached.avatar_url ?? null,
+            }
+          : fetchedProfile
+            ? { id: otherUserId, display_name: null, avatar_url: fetchedProfile.avatar_url ?? null }
+            : null;
+    return {
+      ...conversation,
+      other_user: otherUser,
+      last_message: messageMap.get(conversation.id) || null,
+    };
+  });
+
+  const dmConversationsForCache = result.map((conversation: any) => ({
+    id: conversation.id,
+    participant_1: conversation.participant_1,
+    participant_2: conversation.participant_2,
+    updated_at: conversation.updated_at,
+    created_at: conversation.created_at,
+    created_by: conversation.created_by ?? null,
+    other_user: conversation.other_user,
+  }));
+  const latestDMMessages: Record<string, InboxPreview> = {};
+  result.forEach((conversation: any) => {
+    if (conversation.last_message) {
+      latestDMMessages[conversation.id] = {
+        text: conversation.last_message.text,
+        author: conversation.last_message.author_id === userId
+          ? "You"
+          : (conversation.other_user?.display_name || ""),
+        created_at: conversation.last_message.created_at,
+        image_url: conversation.last_message.image_url,
+      };
+    }
+  });
+  cacheMessagesPageData(userId, { dmConversations: dmConversationsForCache, latestDMMessages });
+  return result;
 }

@@ -47,7 +47,7 @@ import {
 import {
   buildUnifiedInboxConversations,
 } from "@/features/messaging/inbox/inboxUnifiedComposition";
-import { buildInboxPrefetchJobs } from "@/features/messaging/inbox/inboxPrefetch";
+import { useInboxThreadPrefetch } from "@/features/messaging/inbox/useInboxThreadPrefetch";
 import {
   filterInboxConversations,
   isHiddenConversationVisible,
@@ -61,10 +61,11 @@ import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
 import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
 
-import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
+import { cacheProfiles, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
 import {
   fetchChatGroupsWithMessages,
+  fetchDirectMessageConversations,
   fetchMemberClubsWithMessages,
   fetchTeamsWithMessages,
   type InboxClub,
@@ -763,161 +764,16 @@ export default function MessagesPage() {
   const { data: dmConversations, isLoading: dmLoading, isFetching: dmFetching, isFetched: dmFetched, isError: dmError } = useQuery({
     queryKey: ["dm-conversations", user?.id],
     refetchOnReconnect: "always",
-    queryFn: async () => {
+    queryFn: () => {
       // Note: session freshness is handled globally by the auth listener /
       // supabaseAuthRetry layer. Awaiting ensureFreshSession() here added
       // 1-3s on cold loads and serialized the DM cascade behind it.
-
-
-
-      const { data: convos, error } = await supabase
-        .from("direct_conversations")
-        .select("*")
-        .or(`participant_1.eq.${user!.id},participant_2.eq.${user!.id}`)
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
-      if (!convos?.length) return [];
-
-      const otherUserIds = convos.map(c => 
-        c.participant_1 === user!.id ? c.participant_2 : c.participant_1
-      );
-
-      // Fast path: single RPC for latest message across all conversations.
-      // Falls back to legacy per-conversation queries on error.
-      const conversationIds = convos.map((c) => c.id);
-      const fetchLatestMessages = async (): Promise<Map<string, { text: string; image_url: string | null; created_at: string; author_id: string } | null>> => {
-        try {
-          const { data, error } = await supabase.rpc("get_inbox_latest_dm_messages", { _conversation_ids: conversationIds });
-          if (error) throw error;
-          const map = new Map<string, { text: string; image_url: string | null; created_at: string; author_id: string } | null>();
-          (data || []).forEach((row: any) => {
-            map.set(row.conversation_id, {
-              text: row.text,
-              image_url: row.image_url,
-              created_at: row.created_at,
-              author_id: row.author_id,
-            });
-          });
-          return map;
-        } catch {
-          // Legacy fallback
-          const messagesResult = await Promise.all(
-            convos.map(async (conv) => {
-              const { data } = await supabase
-                .from("direct_messages")
-                .select("text, image_url, created_at, author_id")
-                .eq("conversation_id", conv.id)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              return { conversationId: conv.id, message: data };
-            })
-          );
-          return new Map(messagesResult.map((m) => [m.conversationId, m.message as any]));
-        }
-      };
-
-      const [profilesMap, messageMap] = await Promise.all([
-        // Always fetch DM other-user profiles directly from the DB (bypassing
-        // the 24h profileCache) so display_name / avatar changes made by the
-        // other participant are reflected in the inbox on the next load.
-        // Falls back to whatever the global profile cache has if the network
-        // fetch fails or returns empty (handled by the layered fallbacks below).
-        (async () => {
-          try {
-            const { data } = await selectCachedProfilesByIds(otherUserIds);
-            if (data && data.length) {
-              // Refresh the global profile cache so every other surface
-              // (chat rows, member lists, mention chips) picks up the new name.
-              cacheProfiles(data);
-            }
-            const map = new Map<string, { id: string; display_name: string | null; avatar_url: string | null; cached_at: number }>();
-            const now = Date.now();
-            (data ?? []).forEach((p) => map.set(p.id, { ...p, cached_at: now }));
-            return map;
-          } catch {
-            // Network/RLS hiccup — fall back to whatever the cache has.
-            return await fetchProfilesWithCache(otherUserIds, { allowStale: true, timeout: 15000 });
-          }
-        })(),
-        fetchLatestMessages(),
-      ]);
-
-      // Build a fallback map of previously-known other_user data so that a
-      // transient empty profile fetch (RLS / network blip after lock screen)
-      // never downgrades a real name back to "Unknown User".
-      const previousResult = queryClient.getQueryData<any[]>(["dm-conversations", user?.id]);
-      const previousOtherUserMap = new Map<string, any>();
-      previousResult?.forEach((c: any) => {
-        if (c?.other_user?.id && c.other_user.display_name) {
-          previousOtherUserMap.set(c.other_user.id, c.other_user);
-        }
+      return fetchDirectMessageConversations({
+        client: supabase,
+        userId: user!.id,
+        cachedData,
+        getPreviousConversations: () => queryClient.getQueryData<any[]>(["dm-conversations", user?.id]),
       });
-      // Also seed from the persistent cache as a second layer of defence.
-      cachedData?.dmConversations?.forEach((c: any) => {
-        if (c?.other_user?.id && c.other_user.display_name && !previousOtherUserMap.has(c.other_user.id)) {
-          previousOtherUserMap.set(c.other_user.id, c.other_user);
-        }
-      });
-
-      const result = convos.map(conv => {
-        const otherUserId = conv.participant_1 === user!.id ? conv.participant_2 : conv.participant_1;
-        const fetchedProfile = profilesMap.get(otherUserId);
-        const fallbackProfile = previousOtherUserMap.get(otherUserId);
-        // Final defence: the global in-memory profile cache (populated by
-        // every other surface in the app — chat rows, member lists, etc).
-        const globalCached = getProfileFromCache(otherUserId);
-        // Prefer freshly fetched data, but never overwrite a known good
-        // profile with null/empty values.
-        const otherUser = (fetchedProfile && fetchedProfile.display_name)
-          ? {
-              id: otherUserId,
-              display_name: fetchedProfile.display_name,
-              avatar_url: fetchedProfile.avatar_url ?? fallbackProfile?.avatar_url ?? globalCached?.avatar_url ?? null,
-            }
-          : (fallbackProfile && fallbackProfile.display_name)
-            ? fallbackProfile
-            : globalCached
-              ? {
-                  id: otherUserId,
-                  display_name: globalCached.display_name,
-                  avatar_url: globalCached.avatar_url ?? null,
-                }
-              : (fetchedProfile
-                  ? { id: otherUserId, display_name: null, avatar_url: fetchedProfile.avatar_url ?? null }
-                  : null);
-        return {
-          ...conv,
-          other_user: otherUser,
-          last_message: messageMap.get(conv.id) || null,
-        };
-      });
-
-      // Cache
-      const dmConversationsForCache = result.map(conv => ({
-        id: conv.id,
-        participant_1: conv.participant_1,
-        participant_2: conv.participant_2,
-        updated_at: conv.updated_at,
-        created_at: (conv as any).created_at,
-        created_by: (conv as any).created_by ?? null,
-        other_user: conv.other_user,
-      }));
-      const latestDMMessages: Record<string, { text: string; author: string; created_at: string; image_url?: string | null }> = {};
-      result.forEach(conv => {
-        if (conv.last_message) {
-          latestDMMessages[conv.id] = {
-            text: conv.last_message.text,
-            author: conv.last_message.author_id === user!.id ? "You" : (conv.other_user?.display_name || ""),
-            created_at: conv.last_message.created_at,
-            image_url: conv.last_message.image_url,
-          };
-        }
-      });
-      cacheMessagesPageData(user!.id, { dmConversations: dmConversationsForCache, latestDMMessages });
-
-      return result;
     },
     // Fetch DMs in parallel with everything else; Pro gating happens at
     // render time. Previously this waited on hasAnyProAccess (3 serial
@@ -1046,73 +902,19 @@ export default function MessagesPage() {
     });
   }, [user?.id, teams, memberClubs, adminClubs, chatGroups, latestBroadcast, latestTeamMessages, latestClubMessages, latestGroupMessages]);
 
-  // Prefetch messages for top N threads in the background (non-blocking).
-  // Capped via PREFETCH_THREAD_CAP to avoid the Android WebView freeze caused
-  // by fanning out a prefetch per team/club/group on /messages — which stalled
-  // the main thread for seconds after navigating away from a chat.
-  useEffect(() => {
-    if (!user) return;
-    // Android WebView cold-open audit: the prefetch storm (16+ extra `messages`
-    // SELECTs scheduled ~100ms after first paint) competes with the main-thread
-    // work needed to render the inbox itself, adding ~0.5-1s before the user
-    // can interact. On native we skip it entirely — the per-thread fetch fires
-    // when the user actually opens that chat, which is fast enough. Web keeps
-    // the speculative prefetch since desktop has spare capacity.
-    if (isNativeRuntime()) return;
-
-
-    let cancelled = false;
-    let idleHandle: number | null = null;
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-
-    const prefetchAll = () => {
-      if (cancelled) return;
-      const jobs = buildInboxPrefetchJobs({
-        teamIds: (teams ?? []).map((team) => team.id),
-        clubIds: (memberClubs ?? []).map((club) => club.id),
-        groupIds: (chatGroups ?? []).map((group) => group.id),
-        cap: PREFETCH_THREAD_CAP,
-      });
-
-      jobs.forEach((job) => {
-        if (cancelled) return;
-        queryClient.prefetchQuery({
-          queryKey: job.queryKey,
-          queryFn: async () => {
-            let query = supabase
-              .from(job.table)
-              .select(job.select);
-            if (job.scope) {
-              query = query.eq(job.scope.column, job.scope.value);
-            }
-            const { data: messagesData } = await query
-              .order("created_at", { ascending: false })
-              .limit(MESSAGES_PER_PAGE + 1);
-            
-            if (!messagesData?.length) return { messages: [], hasOlderMessages: false };
-            const hasMore = messagesData.length > MESSAGES_PER_PAGE;
-            const messagesToDisplay = hasMore ? messagesData.slice(0, MESSAGES_PER_PAGE) : messagesData;
-            return { messages: [...messagesToDisplay].reverse(), hasOlderMessages: hasMore };
-          },
-          staleTime: 1000 * 60,
-        });
-      });
-    };
-
-    if ('requestIdleCallback' in window) {
-      idleHandle = (window as any).requestIdleCallback(prefetchAll, { timeout: 2000 });
-    } else {
-      timeoutHandle = setTimeout(prefetchAll, 100);
-    }
-
-    return () => {
-      cancelled = true;
-      if (idleHandle !== null && 'cancelIdleCallback' in window) {
-        try { (window as any).cancelIdleCallback(idleHandle); } catch { /* ignore */ }
-      }
-      if (timeoutHandle !== null) clearTimeout(timeoutHandle);
-    };
-  }, [user, teams, memberClubs, chatGroups, queryClient]);
+  // Prefetch is kept separate from inbox composition so native can suppress
+  // speculative work without changing cached conversation/read-model state.
+  useInboxThreadPrefetch({
+    enabled: !!user,
+    queryClient,
+    client: supabase,
+    teamIds: (teams ?? []).map((team) => team.id),
+    clubIds: (memberClubs ?? []).map((club) => club.id),
+    groupIds: (chatGroups ?? []).map((group) => group.id),
+    cap: PREFETCH_THREAD_CAP,
+    messagesPerPage: MESSAGES_PER_PAGE,
+    isNativeRuntime,
+  });
 
   // Realtime: keep inbox previews + ordering fresh as new messages arrive.
   // Without this, latest-message text and the most-recent-at-top sort only

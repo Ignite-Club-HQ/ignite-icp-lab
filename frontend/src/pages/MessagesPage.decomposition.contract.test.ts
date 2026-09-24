@@ -12,9 +12,11 @@ const inboxSectionsSource = existsSync(inboxSectionsPath)
 const headerPath = join(pagesDirectory, "../components/chat/MessagesPageHeader.tsx");
 const dialogsPath = join(pagesDirectory, "../components/chat/MessagesPageDialogs.tsx");
 const previewSourcesPath = join(pagesDirectory, "../features/messaging/inbox/inboxPreviewSources.ts");
+const prefetchPath = join(pagesDirectory, "../features/messaging/inbox/useInboxThreadPrefetch.ts");
 const headerSource = existsSync(headerPath) ? readFileSync(headerPath, "utf8") : "";
 const dialogsSource = existsSync(dialogsPath) ? readFileSync(dialogsPath, "utf8") : "";
 const previewSourcesSource = existsSync(previewSourcesPath) ? readFileSync(previewSourcesPath, "utf8") : "";
+const prefetchSource = existsSync(prefetchPath) ? readFileSync(prefetchPath, "utf8") : "";
 const presentationSource = `${messagesPageSource}\n${inboxSectionsSource}\n${headerSource}\n${dialogsSource}`;
 
 describe("MessagesPage decomposition contract", () => {
@@ -61,5 +63,18 @@ describe("MessagesPage decomposition contract", () => {
     expect(previewSourcesSource).toContain('from("club_messages")');
     expect(previewSourcesSource).toContain('from("team_messages")');
     expect(previewSourcesSource).toContain('from("group_messages")');
+  });
+
+  it("keeps the DM source fallbacks and native-safe prefetch controller explicit", () => {
+    expect(messagesPageSource).toContain("fetchDirectMessageConversations");
+    expect(previewSourcesSource).toContain("get_inbox_latest_dm_messages");
+    expect(previewSourcesSource).toContain('from("direct_messages")');
+    expect(previewSourcesSource).toContain("getPreviousConversations");
+    expect(previewSourcesSource).toContain("cacheMessagesPageData");
+    expect(messagesPageSource).toContain("useInboxThreadPrefetch");
+    expect(prefetchSource).toContain("isNativeRuntime()");
+    expect(prefetchSource).toContain("buildInboxPrefetchJobs");
+    expect(prefetchSource).toContain("requestIdleCallback");
+    expect(prefetchSource).toContain("cancelIdleCallback");
   });
 });
