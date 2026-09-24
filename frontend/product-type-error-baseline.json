@@ -1300,55 +1300,7 @@
     },
     {
       "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1613,
-      "column": 50,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1615,
-      "column": 35,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1869,
-      "column": 70,
-      "code": "TS2339",
-      "message": "Property 'length' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1870,
-      "column": 76,
-      "code": "TS2339",
-      "message": "Property 'length' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1961,
-      "column": 122,
-      "code": "TS2339",
-      "message": "Property 'roles' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 1987,
-      "column": 46,
-      "code": "TS2339",
-      "message": "Property 'roles' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 523,
+      "line": 575,
       "column": 30,
       "code": "TS2339",
       "message": "Property 'roles' does not exist on type 'unknown'.",
@@ -1372,7 +1324,7 @@
     }
   ],
   "counts": {
-    "source-backed": 111,
+    "source-backed": 105,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

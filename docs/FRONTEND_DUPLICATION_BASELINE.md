@@ -1818,6 +1818,37 @@ duplicated lines removed since baseline), and `git diff --check` also passed.
 The Home route chunk increased from approximately 122.68 kB to 124.44 kB, so
 this round makes no loading-performance claim.
 
+## TeamDetailPage member, entitlement, and action decomposition (2026-09-24)
+
+The second `TeamDetailPage.tsx` reduction moves the role-grouped member roster,
+Admin/App Admin accordion wrappers, repeated Pro-locked accordion shell, Leave
+Team dialog, and quick-action tile presentation into typed components. The
+repeated pitch-settings payload and App Admin override cascade are now pure
+helpers with direct tests. Query/mutation ownership, hybrid Supabase/ICP
+behavior, authorization decisions, RSVP-based pitch-board roster loading, and
+cache invalidation remain in the page. New presentation modules receive data
+and callbacks; none adds a direct Supabase import.
+
+| Measure | Start of round | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamDetailPage.tsx` raw lines | 2,837 | 1,997 | -840 (-29.6%) |
+| `TeamDetailPage.tsx` versus baseline | 3,088 | 1,997 | -1,091 (-35.3%) |
+
+Focused extraction/regression tests cover member roster states, Admin/App
+Admin sections, Pro lock/loading/unlocked states, Leave Team confirmation,
+quick-action entitlements/callback handoff, pitch-settings payloads, App
+Admin override cascades, membership completion, and football-only pitch-board
+gating. Product/Lab typechecks and the 153-file/1,720-test Lab suite passed.
+Product build and bundle budget passed (8,896,615 JavaScript bytes total;
+1,112,837-byte largest chunk; 172,904 CSS bytes), as did isolation, quality
+ratchet (direct Supabase imports remains 463), duplication ratchet (2,419
+duplicated lines removed since baseline), and `git diff --check`.
+
+The complete legacy suite was not accepted as validation for this round: its
+lazy-route test run encountered the pre-existing dynamic-import failure for
+`/assets/EventPage-old.js`. The affected football-only pitch-board source
+guard passed independently.
+
 ## TeamDetailPage admin and dialog presentation extraction (2026-09-24)
 
 The first `TeamDetailPage.tsx` decomposition round moves five cohesive

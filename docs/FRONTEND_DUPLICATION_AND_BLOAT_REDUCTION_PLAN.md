@@ -1,5 +1,38 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## TeamDetailPage member, entitlement, and action decomposition (2026-09-24)
+
+The second `TeamDetailPage.tsx` round extracts the role-grouped member roster,
+Admin/App Admin accordion wrappers, four shared Pro-locked accordion shells,
+the Leave Team confirmation dialog, and the chat/tile quick-actions section.
+It also moves the repeated pitch-setting payload construction and App Admin
+override cascade into pure, directly tested helpers. The page continues to own
+all Supabase mutations, hybrid-provider behavior, authorization decisions,
+pitch-board RSVP loading, and cache invalidation; extracted presentation
+components receive data and callbacks only. In particular,
+`TeamQuickActionsSection` does not import Supabase, preserving the
+direct-Supabase-import ratchet.
+
+| Measure | Start of round | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamDetailPage.tsx` raw lines | 2,837 | 1,997 | -840 (-29.6%) |
+| `TeamDetailPage.tsx` versus baseline | 3,088 | 1,997 | -1,091 (-35.3%) |
+
+Focused regression coverage now includes the extracted member roster, Admin
+accordion wrappers, Pro-lock states, Leave Team dialog, quick-action tile
+entitlements and callback handoff, pitch-setting payloads, App Admin override
+cascades, membership completion, and football-only pitch-board gating.
+
+Product and Lab typechecks passed with no new product diagnostics. The full
+Lab suite passed (153 files / 1,720 tests); product build and bundle budget
+passed (8,896,615 total JavaScript bytes; 1,112,837-byte largest chunk;
+172,904 CSS bytes). Isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet (2,419 fewer duplicated lines than
+baseline), and `git diff --check` also passed. A full legacy-suite attempt was
+not used as validation because it encountered its pre-existing lazy-route
+dynamic-import failure for `/assets/EventPage-old.js`; the directly affected
+football-only pitch-board guard was run and passed.
+
 ## TeamDetailPage admin and dialog presentation extraction (2026-09-24)
 
 This round extracts five cohesive, typed presentation boundaries from
