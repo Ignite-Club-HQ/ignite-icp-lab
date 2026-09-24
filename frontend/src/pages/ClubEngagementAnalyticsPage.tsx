@@ -35,13 +35,10 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
 } from "recharts";
 
 import { Button } from "@/components/ui/button";
@@ -75,6 +72,7 @@ import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { cn } from "@/lib/utils";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabClubEngagementAnalytics } from "@/lab/fixtureDataLayer";
+import { CommunicationEngagementSection } from "@/components/club/CommunicationEngagementSection";
 
 const ALL_TEAMS = "__all__";
 const RANGE_PRESETS = [
@@ -1080,48 +1078,15 @@ function SupabaseClubEngagementAnalyticsPage({
         </CardContent>
       </Card>
 
-      {/* Section 3: Communication Engagement */}
-      <SectionHeader icon={MessageSquare} title="Communication" description="Messaging & broadcast activity" />
-      {(totalsError || msgVolumeError) && (
-        <Card className="border-destructive/50">
-          <CardContent className="p-3 flex items-start gap-2 text-sm text-destructive">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>Message analytics could not load. Try refreshing; if it persists, the admin analytics query is still failing.</span>
-          </CardContent>
-        </Card>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Metric icon={MessageSquare} label="Club messages" value={clubMsgsCount} loading={totalsLoading} />
-        <Metric icon={MessageSquare} label="Team / group messages" value={teamMsgsCount} loading={totalsLoading} />
-        <Metric icon={Heart} label="Reactions" value={reactionCount} loading={totalsLoading} />
-        <Metric icon={Megaphone} label="Broadcasts" value={broadcastsCount} loading={totalsLoading} />
-      </div>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Message volume</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {totalsLoading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : clubMsgsCount + teamMsgsCount === 0 ? (
-            <EmptyState label="No messages sent in this period." />
-          ) : (
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={msgVolumeChart}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="day" tickFormatter={(d) => format(parseISO(d), "M/d")} fontSize={11} />
-                  <YAxis fontSize={11} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Club" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="Team / group" fill="hsl(142 70% 45%)" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CommunicationEngagementSection
+        clubMessages={clubMsgsCount}
+        teamMessages={teamMsgsCount}
+        reactions={reactionCount}
+        broadcasts={broadcastsCount}
+        isLoading={totalsLoading}
+        hasError={!!(totalsError || msgVolumeError)}
+        volume={msgVolumeChart}
+      />
 
       {/* Section 4: RSVP & Attendance */}
       <SectionHeader icon={CalendarCheck} title="RSVP & Attendance" description="Game & training events in range" />

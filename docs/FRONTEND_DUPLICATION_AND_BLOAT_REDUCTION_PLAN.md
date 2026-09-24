@@ -3301,3 +3301,20 @@ all passed), isolation, quality ratchet (`directSupabaseImports` unchanged at
 `git diff --check`. Product typecheck remains blocked by the two existing
 HomePage diagnostics at lines 373 and 585; the extraction introduced no
 diagnostics in the new component.
+## ClubEngagementAnalyticsPage.tsx communication-section extraction (2026-09-25)
+
+The communication metrics, error state, and message-volume chart were
+extracted into the presentation-only
+`components/club/CommunicationEngagementSection.tsx`. The page retains all
+queries, provider decisions, and derived data preparation; the new component
+has no Supabase import.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubEngagementAnalyticsPage.tsx` raw lines | 1,846 | 1,811 | -35 (-1.9%) |
+| New focused module | 0 | 1 (`CommunicationEngagementSection.tsx`, 132 lines) | +1 |
+
+Validation passed: lab typecheck (clean), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,567 fewer
+duplicated lines than baseline), and `git diff --check`. Product typecheck
+continues to report only the two existing HomePage diagnostics.
