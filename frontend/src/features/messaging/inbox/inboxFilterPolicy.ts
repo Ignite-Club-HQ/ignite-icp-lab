@@ -7,7 +7,9 @@ export interface InboxGroupFilterRow {
   team_id?: string | null;
   mini_league_id?: string | null;
   competition_id?: string | null;
-  clubs?: { name?: string | null } | null;
+  allowed_roles?: string[] | null;
+  category?: string | null;
+  clubs?: { name?: string | null; logo_url?: string | null } | null;
   teams?: { name?: string | null } | null;
 }
 

@@ -1,5 +1,34 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## MessagesPage filtering and query-adapter consolidation (2026-09-24)
+
+This pass wires `MessagesPage.tsx` to its existing, directly tested inbox
+policy and repository boundaries. The page still owns each React Query key,
+enabled gate, stale-time, placeholder, mutation invalidation, and all
+realtime/cache lifecycle work. It now delegates pure search/filtering,
+club-scope derivation, muted/hidden conversation reads, and the welcome
+message read. The direct-message policy retains the page's stricter historical
+club-scope behavior for every peer.
+
+The web/native realtime block was deliberately assessed but not moved. Its
+source-level guards verify exact ordering for fail-closed authorization,
+preview watermarks, bounded pre-authorization buffering, native
+invalidation-free cache patching, and resume behavior. Moving it requires a
+dedicated runtime harness and should not be a line-count-only extraction.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,442 | 2,305 | -137 (-5.6%) |
+| `MessagesPage.tsx` versus original | 3,023 | 2,305 | -718 (-23.8%) |
+
+The 147-test focused inbox suite passed, including filter policy/repository
+coverage and cold-start, watermark, stable read-model, native authorization,
+resume, and sticky-list guards. Product and Lab typechecks, isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,270 fewer duplicated lines than baseline), and `git diff --check` passed.
+Full legacy/Lab suites and the product build remain deferred until the final
+MessagesPage line-count decision.
+
 ## MessagesPage query and prefetch-controller extraction (2026-09-24)
 
 This follow-up keeps `MessagesPage.tsx` responsible for React Query lifecycle

@@ -13,10 +13,14 @@ const headerPath = join(pagesDirectory, "../components/chat/MessagesPageHeader.t
 const dialogsPath = join(pagesDirectory, "../components/chat/MessagesPageDialogs.tsx");
 const previewSourcesPath = join(pagesDirectory, "../features/messaging/inbox/inboxPreviewSources.ts");
 const prefetchPath = join(pagesDirectory, "../features/messaging/inbox/useInboxThreadPrefetch.ts");
+const filterPolicyPath = join(pagesDirectory, "../features/messaging/inbox/inboxFilterPolicy.ts");
+const repositoriesPath = join(pagesDirectory, "../features/messaging/inbox/inboxRepositories.ts");
 const headerSource = existsSync(headerPath) ? readFileSync(headerPath, "utf8") : "";
 const dialogsSource = existsSync(dialogsPath) ? readFileSync(dialogsPath, "utf8") : "";
 const previewSourcesSource = existsSync(previewSourcesPath) ? readFileSync(previewSourcesPath, "utf8") : "";
 const prefetchSource = existsSync(prefetchPath) ? readFileSync(prefetchPath, "utf8") : "";
+const filterPolicySource = existsSync(filterPolicyPath) ? readFileSync(filterPolicyPath, "utf8") : "";
+const repositoriesSource = existsSync(repositoriesPath) ? readFileSync(repositoriesPath, "utf8") : "";
 const presentationSource = `${messagesPageSource}\n${inboxSectionsSource}\n${headerSource}\n${dialogsSource}`;
 
 describe("MessagesPage decomposition contract", () => {
@@ -76,5 +80,31 @@ describe("MessagesPage decomposition contract", () => {
     expect(prefetchSource).toContain("buildInboxPrefetchJobs");
     expect(prefetchSource).toContain("requestIdleCallback");
     expect(prefetchSource).toContain("cancelIdleCallback");
+  });
+
+  it("delegates pure inbox filtering and scoped data reads to tested boundaries", () => {
+    for (const helper of [
+      "partitionInboxGroups",
+      "collectPersonalGroupIds",
+      "collectDirectMessagePeerIds",
+      "filterInboxLeagueChats",
+      "filterInboxChatGroups",
+      "filterInboxTeams",
+      "filterInboxClubs",
+      "filterInboxDirectMessages",
+    ]) {
+      expect(messagesPageSource).toContain(helper);
+      expect(filterPolicySource).toContain(`function ${helper}`);
+    }
+    for (const adapter of [
+      "fetchInboxClubScopeFilter",
+      "fetchInboxMutedChats",
+      "fetchInboxHiddenDirectMessages",
+      "fetchInboxHiddenGroups",
+      "fetchInboxSystemMessage",
+    ]) {
+      expect(messagesPageSource).toContain(adapter);
+      expect(repositoriesSource).toContain(`function ${adapter}`);
+    }
   });
 });

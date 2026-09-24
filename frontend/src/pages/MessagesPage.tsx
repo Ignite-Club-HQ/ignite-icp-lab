@@ -49,8 +49,18 @@ import {
 } from "@/features/messaging/inbox/inboxUnifiedComposition";
 import { useInboxThreadPrefetch } from "@/features/messaging/inbox/useInboxThreadPrefetch";
 import {
+  collectDirectMessagePeerIds,
+  collectPersonalGroupIds,
+  filterInboxChatGroups,
+  filterInboxClubs,
+  filterInboxDirectMessages,
+  filterInboxLeagueChats,
+  filterInboxTeams,
+  normalizeInboxSearchQuery,
+  partitionInboxGroups,
+} from "@/features/messaging/inbox/inboxFilterPolicy";
+import {
   filterInboxConversations,
-  isHiddenConversationVisible,
   normalizeInboxTypeFilter,
   partitionInboxByReadState,
   resolveOperationalConversationDisclosure,
@@ -71,6 +81,13 @@ import {
   type InboxClub,
   type InboxTeam,
 } from "@/features/messaging/inbox/inboxPreviewSources";
+import {
+  fetchInboxClubScopeFilter,
+  fetchInboxHiddenDirectMessages,
+  fetchInboxHiddenGroups,
+  fetchInboxMutedChats,
+  fetchInboxSystemMessage,
+} from "@/features/messaging/inbox/inboxRepositories";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
 import { ConversationRow } from "@/components/chat/ConversationRow";
 import { MessagesInboxSections } from "@/pages/MessagesInboxSections";
@@ -731,30 +748,7 @@ export default function MessagesPage() {
   // Fetch all muted chats for the user
   const { data: mutedChats } = useQuery({
     queryKey: ["muted-chats", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("chat_mute_preferences")
-        .select("chat_id, chat_type, muted_until")
-        .eq("user_id", user!.id);
-      
-      const now = new Date();
-      const muted = {
-        teams: new Set<string>(),
-        clubs: new Set<string>(),
-        groups: new Set<string>(),
-      };
-      
-      data?.forEach((pref) => {
-        const isActive = pref.muted_until === null || new Date(pref.muted_until) > now;
-        if (!isActive) return;
-        
-        if (pref.chat_type === "team") muted.teams.add(pref.chat_id);
-        else if (pref.chat_type === "club") muted.clubs.add(pref.chat_id);
-        else if (pref.chat_type === "group") muted.groups.add(pref.chat_id);
-      });
-      
-      return muted;
-    },
+    queryFn: () => fetchInboxMutedChats(user!.id, { client: supabase }),
     enabled: !!user && initialized && !useIcpLab,
     staleTime: 60000,
     placeholderData: (prev) => prev,
@@ -802,30 +796,14 @@ export default function MessagesPage() {
   // Fetch hidden DM conversations (with hidden_at so they can resurface on new messages)
   const { data: hiddenDMMap } = useQuery({
     queryKey: ["hidden-dm-conversations", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("hidden_dm_conversations")
-        .select("conversation_id, hidden_at")
-        .eq("user_id", user!.id);
-      const map = new Map<string, string>();
-      (data || []).forEach((h: any) => map.set(h.conversation_id, h.hidden_at));
-      return map;
-    },
+    queryFn: () => fetchInboxHiddenDirectMessages(user!.id, supabase),
     enabled: !!user && !useIcpLab,
   });
 
   // Fetch hidden custom group chats (with hidden_at)
   const { data: hiddenGroupMap } = useQuery({
     queryKey: ["hidden-chat-groups", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("hidden_chat_groups" as any)
-        .select("group_id, hidden_at")
-        .eq("user_id", user!.id);
-      const map = new Map<string, string>();
-      (data || []).forEach((h: any) => map.set(h.group_id, h.hidden_at));
-      return map;
-    },
+    queryFn: () => fetchInboxHiddenGroups(user!.id, supabase),
     enabled: !!user && !useIcpLab,
   });
 
@@ -868,18 +846,7 @@ export default function MessagesPage() {
   // Fetch system messages (welcome message from Ignite Support)
   const { data: systemMessage } = useQuery({
     queryKey: ["system-messages", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("system_messages")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("message_type", "welcome")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) return null;
-      return data;
-    },
+    queryFn: () => fetchInboxSystemMessage(user!.id, supabase),
     enabled: !!user && !useIcpLab,
   });
 
@@ -1776,38 +1743,24 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
   const canCreateGroups = (adminTeamIds?.length || adminClubs?.length || isAppAdmin || isCommitteeMember) && (hasAnyProAccess || isAppAdmin);
 
   // Filter all items based on search query and active club filter
-  const query = searchQuery.toLowerCase().trim();
+  const query = normalizeInboxSearchQuery(searchQuery);
 
   // Separate league chats from regular chat groups
-  const { leagueChats, regularChatGroups } = useMemo(() => {
-    const leagues: any[] = [];
-    const regular: any[] = [];
-    
-    displayChatGroups.forEach((group: any) => {
-      if (group.mini_league_id) {
-        leagues.push(group);
-      } else {
-        regular.push(group);
-      }
-    });
-    
-    return { leagueChats: leagues, regularChatGroups: regular };
-  }, [displayChatGroups]);
+  const { leagueChats, regularChatGroups } = useMemo(
+    () => partitionInboxGroups(displayChatGroups),
+    [displayChatGroups],
+  );
 
   // Personal/custom groups (membership-based, no club/team/league/competition scope).
   const personalGroupIds = useMemo(
-    () => regularChatGroups
-      .filter((g: any) => !g.club_id && !g.team_id && !g.mini_league_id && !g.competition_id)
-      .map((g: any) => g.id),
-    [regularChatGroups]
+    () => collectPersonalGroupIds(regularChatGroups),
+    [regularChatGroups],
   );
 
   // Other-user ids across all DM conversations (used to test club membership).
   const dmOtherUserIds = useMemo(
-    () => (dmConversations || [])
-      .map((c: any) => c?.other_user?.id)
-      .filter((id: any) => !!id && id !== user?.id),
-    [dmConversations, user?.id]
+    () => collectDirectMessagePeerIds(dmConversations ?? [], user?.id),
+    [dmConversations, user?.id],
   );
 
   // When a club filter is active, look up which DM peers and which
@@ -1823,43 +1776,13 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
     ],
     enabled: !!user && !!effectiveClubFilter && (personalGroupIds.length > 0 || dmOtherUserIds.length > 0) && !useIcpLab,
     staleTime: 60_000,
-    queryFn: async () => {
-      // 1. Personal group memberships.
-      const groupMembersMap = new Map<string, string[]>();
-      if (personalGroupIds.length > 0) {
-        const { data: gm } = await supabase
-          .from("group_members")
-          .select("group_id, user_id")
-          .in("group_id", personalGroupIds);
-        (gm || []).forEach((row: any) => {
-          const arr = groupMembersMap.get(row.group_id) || [];
-          arr.push(row.user_id);
-          groupMembersMap.set(row.group_id, arr);
-        });
-      }
-
-      // 2. Union of user ids whose club membership we need to check.
-      const userIdSet = new Set<string>(dmOtherUserIds);
-      groupMembersMap.forEach((members) => {
-        members.forEach((uid) => {
-          if (uid && uid !== user?.id) userIdSet.add(uid);
-        });
-      });
-
-      const usersInClub = new Set<string>();
-      if (userIdSet.size > 0) {
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("club_id", effectiveClubFilter)
-          .in("user_id", Array.from(userIdSet));
-        (roles || []).forEach((r: any) => {
-          if (r.user_id) usersInClub.add(r.user_id);
-        });
-      }
-
-      return { groupMembersMap, usersInClub };
-    },
+    queryFn: () => fetchInboxClubScopeFilter({
+      userId: user!.id,
+      clubId: effectiveClubFilter!,
+      personalGroupIds,
+      dmOtherUserIds,
+      client: supabase,
+    }),
   });
 
   const clubScopedUsersInClub = clubScopeFilterData?.usersInClub;
@@ -1867,102 +1790,52 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
 
 
 
-  const filteredLeagueChats = useMemo(() => {
-    let groups = leagueChats;
-    if (effectiveClubFilter) {
-      groups = groups.filter((group: any) => group.club_id === effectiveClubFilter);
-    }
-    if (!query) return groups;
-    return groups.filter((group: any) => {
-      const groupName = group.name?.toLowerCase() || "";
-      const clubName = group.clubs?.name?.toLowerCase() || "";
-      return groupName.includes(query) || clubName.includes(query);
-    });
-  }, [leagueChats, query, effectiveClubFilter]);
+  const filteredLeagueChats = useMemo(
+    () => filterInboxLeagueChats({
+      groups: leagueChats,
+      query,
+      clubId: effectiveClubFilter,
+    }) as typeof leagueChats,
+    [leagueChats, query, effectiveClubFilter],
+  );
 
-  const filteredChatGroups = useMemo(() => {
-    let groups = regularChatGroups;
-    if (effectiveClubFilter) {
-      groups = groups.filter((group: any) => {
-        // Competition-scoped groups: only show when the active club has a
-        // team entered in that competition.
-        if (group.competition_id) {
-          const clubs = competitionClubMap?.[group.competition_id];
-          return !!clubs && clubs.has(effectiveClubFilter);
-        }
-        // Personal/custom groups: when a club filter is active, only show
-        // the group if at least one member (other than the current user)
-        // holds a role under the selected club. While the membership
-        // lookup is still loading, fall back to showing the group so it
-        // doesn't briefly disappear on each filter switch.
-        const isPersonalGroup = !group.club_id && !group.team_id && !group.mini_league_id;
-        if (isPersonalGroup) {
-          if (!clubScopedGroupMembers || !clubScopedUsersInClub) return true;
-          const members = clubScopedGroupMembers.get(group.id) || [];
-          const otherMembers = members.filter((uid) => uid !== user?.id);
-          if (otherMembers.length === 0) return true;
-          return otherMembers.some((uid) => clubScopedUsersInClub.has(uid));
-        }
+  const filteredChatGroups = useMemo(
+    () => filterInboxChatGroups({
+      groups: regularChatGroups,
+      query,
+      effectiveClubId: effectiveClubFilter,
+      activeClubId: activeClubFilter,
+      activeClubTeamIds,
+      displayedTeams: displayTeams,
+      competitionClubMap,
+      groupMembersMap: clubScopedGroupMembers,
+      usersInClub: clubScopedUsersInClub,
+      currentUserId: user?.id,
+      hiddenGroupMap,
+      latestGroupMessages: displayLatestGroupMessages,
+    }) as typeof regularChatGroups,
+    [regularChatGroups, query, effectiveClubFilter, activeClubFilter, activeClubTeamIds, displayTeams, hiddenGroupMap, displayLatestGroupMessages, competitionClubMap, clubScopedGroupMembers, clubScopedUsersInClub, user?.id],
+  );
 
-        return (
-          group.club_id === effectiveClubFilter ||
-          (group.team_id && (activeClubFilter ? activeClubTeamIds.includes(group.team_id) : displayTeams.some((t: any) => t.id === group.team_id && t.clubs?.id === effectiveClubFilter)))
-        );
-      });
-    }
+  const filteredTeams = useMemo(
+    () => filterInboxTeams({
+      teams: displayTeams,
+      query,
+      effectiveClubId: effectiveClubFilter,
+      activeClubId: activeClubFilter,
+      activeClubTeamIds,
+    }) as typeof displayTeams,
+    [displayTeams, query, effectiveClubFilter, activeClubFilter, activeClubTeamIds],
+  );
 
-    // Apply hidden filter for custom (personal) groups — they reappear when
-    // a new message arrives after the time the user hid them.
-    groups = groups.filter((group: any) => {
-      const isPersonalGroup = !group.club_id && !group.team_id && !group.mini_league_id && !group.competition_id;
-      if (!isPersonalGroup) return true;
-      const hiddenAt = hiddenGroupMap?.get(group.id);
-      if (!hiddenAt) return true;
-      const lastMsgAt = displayLatestGroupMessages?.[group.id]?.created_at;
-      const stillHidden = !lastMsgAt || new Date(lastMsgAt).getTime() <= new Date(hiddenAt).getTime();
-      if (stillHidden && !query) return false;
-      return true;
-    });
-    if (!query) return groups;
-    return groups.filter((group: any) => {
-      const groupName = group.name?.toLowerCase() || "";
-      const teamName = group.teams?.name?.toLowerCase() || "";
-      const clubName = group.clubs?.name?.toLowerCase() || "";
-      return groupName.includes(query) || teamName.includes(query) || clubName.includes(query);
-    });
-  }, [regularChatGroups, query, effectiveClubFilter, activeClubFilter, activeClubTeamIds, displayTeams, hiddenGroupMap, displayLatestGroupMessages, competitionClubMap, clubScopedGroupMembers, clubScopedUsersInClub, user?.id]);
-
-  const filteredTeams = useMemo(() => {
-    let teamsToFilter = displayTeams || [];
-    if (effectiveClubFilter) {
-      if (activeClubFilter) {
-        const hasResolvedActiveClubTeams = activeClubTeamIds.length > 0;
-        teamsToFilter = teamsToFilter.filter((team: any) => {
-          const matchesResolvedIds = hasResolvedActiveClubTeams && activeClubTeamIds.includes(team.id);
-          const matchesClubRelation = team.clubs?.id === activeClubFilter;
-          return matchesResolvedIds || matchesClubRelation;
-        });
-      } else {
-        teamsToFilter = teamsToFilter.filter((team: any) => team.clubs?.id === effectiveClubFilter);
-      }
-    }
-    if (!query) return teamsToFilter;
-    return teamsToFilter.filter((team: any) =>
-      team.name.toLowerCase().includes(query) ||
-      team.clubs?.name?.toLowerCase()?.includes(query)
-    );
-  }, [displayTeams, query, effectiveClubFilter, activeClubFilter, activeClubTeamIds]);
-
-  const filteredClubs = useMemo(() => {
-    let clubsToFilter = displayClubsWithAnnouncements || [];
-    if (effectiveClubFilter) {
-      clubsToFilter = clubsToFilter.filter((club: any) => club.id === effectiveClubFilter);
-    }
-    if (!query) return clubsToFilter;
-    return clubsToFilter.filter((club: any) =>
-      club.name.toLowerCase().includes(query)
-    );
-  }, [displayClubsWithAnnouncements, query, effectiveClubFilter]);
+  const filteredClubs = useMemo(
+    () => filterInboxClubs({
+      clubs: displayClubsWithAnnouncements,
+      query,
+      clubId: effectiveClubFilter,
+    }),
+    [displayClubsWithAnnouncements, query, effectiveClubFilter],
+  );
 
   const showBroadcast = !query || "announcements".includes(query);
 
@@ -2021,25 +1894,15 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
     if (effectiveClubFilter && !clubScopeFilterData && dmOtherUserIds.length > 0 && isOnline) {
       return [];
     }
-    return effectiveDMConversations.filter((conv: any) => {
-
-      if (!isHiddenConversationVisible({
-        hiddenAt: hiddenDMMap?.get(conv.id),
-        lastMessageAt: conv.last_message?.created_at,
-        hasSearchQuery: !!query,
-      })) return false;
-      // DMs are scoped to the active club: only show threads whose other
-      // participant holds a role in that club, so the list matches the badge.
-      if (effectiveClubFilter && clubScopedUsersInClub) {
-        const otherId = conv.other_user?.id;
-        if (!otherId || !clubScopedUsersInClub.has(otherId)) return false;
-      }
-      if (query) {
-        return conv.other_user?.display_name?.toLowerCase().includes(query);
-      }
-      // Surface if there's a real message OR an unsent draft for this thread.
-      const hasDraft = !!allDrafts[conv.id]?.text?.trim();
-      return !!conv.last_message || hasDraft;
+    return filterInboxDirectMessages({
+      conversations: effectiveDMConversations,
+      query,
+      drafts: allDrafts,
+      hiddenMap: hiddenDMMap,
+      effectiveClubId: effectiveClubFilter,
+      usersInClub: clubScopedUsersInClub,
+      // Preserve the page's previous club-scope behavior for all DM peers.
+      isSupportUser: () => false,
     });
   }, [effectiveDMConversations, hiddenDMMap, query, allDrafts, effectiveClubFilter, clubScopedUsersInClub, clubScopeFilterData, dmOtherUserIds.length, isOnline]);
 
@@ -2054,8 +1917,8 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
     latestBroadcast: displayLatestBroadcast,
     clubs: filteredClubs,
     teams: filteredTeams,
-    leagueChats: filteredLeagueChats,
-    chatGroups: filteredChatGroups,
+    leagueChats: filteredLeagueChats as Parameters<typeof buildUnifiedInboxConversations>[0]["leagueChats"],
+    chatGroups: filteredChatGroups as Parameters<typeof buildUnifiedInboxConversations>[0]["chatGroups"],
     directMessages: filteredDMs,
     adminConversations: clubAdminConversations,
     latestClubMessages: displayLatestClubMessages,

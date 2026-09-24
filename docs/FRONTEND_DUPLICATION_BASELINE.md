@@ -3,6 +3,32 @@
 This is the immutable Phase 0 evidence for the frontend duplication plan. The
 baseline was captured before the pitch-board consolidation in Phase 1.1.
 
+## MessagesPage filtering and query-adapter consolidation (2026-09-24)
+
+`MessagesPage.tsx` now consumes the existing pure inbox filter policy and
+inbox repository readers for club-scope data, muted/hidden chat state, and the
+welcome message. React Query policy, mutation invalidation, cache ownership,
+and native/runtime selection remain route-local. The direct-message filtering
+call deliberately preserves the route's existing strict club-peer behavior.
+
+The realtime coordinator was assessed, not extracted: its coupled
+authorization, watermarks, native buffer replay, direct cache patching, and
+web invalidation sequencing are protected by focused guards and should move
+only with a dedicated runtime test harness.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,442 | 2,305 | -137 (-5.6%) |
+| `MessagesPage.tsx` versus original round start | 3,023 | 2,305 | -718 (-23.8%) |
+
+The focused inbox suite passed 147 tests across filter-policy/repository,
+decomposition, characterization, cold-start ordering, watermark, stable
+read-model, Android resume, native authorization-buffer, and sticky-list
+coverage. Product/Lab typechecks, isolation, quality ratchet
+(`directSupabaseImports` remains 463), duplication ratchet (2,270 fewer
+duplicated lines than baseline), and diff checks passed. Broader legacy/Lab
+suites and product build remain deferred pending final line-count acceptance.
+
 ## MessagesPage query and prefetch-controller extraction (2026-09-24)
 
 The follow-up to the header/dialog/preview-source extraction moved the
