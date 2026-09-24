@@ -3050,6 +3050,29 @@ duplication ratchet (2,494 fewer duplicated lines than baseline), and
 `git diff --check`. Full legacy/Lab suites and product build remain deferred
 per the current line-count-reduction pass.
 
+## CompetitionFixturesPanel.tsx finals-dialog extraction (2026-09-24)
+
+The follow-up pass extracted the self-contained `AddFinalsRoundMenuItem`
+dialog and save flow into
+`components/competition/AddFinalsRoundMenuItem.tsx`. The new component accepts
+the existing Supabase client through a minimal structural interface, preserving
+the parent’s single direct Supabase import while keeping the query and insert
+behavior unchanged. The parent now only wires the manage-menu item to the
+extracted dialog.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `CompetitionFixturesPanel.tsx` raw lines | 2,262 | 2,075 | -187 (-8.3%) |
+| Total reduction from this file's prior starting point | 2,752 | 2,075 | -677 (-24.6%) |
+| New focused module | 0 | 1 (`AddFinalsRoundMenuItem.tsx`, 216 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused competition fixture tests (50 tests, all passed),
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet (2,486 fewer duplicated lines than baseline), and
+`git diff --check`. Full legacy/Lab suites and product build remain deferred
+per the current line-count-reduction pass.
+
 ## TeamChatPage.tsx header-section extraction (2026-09-25)
 
 The fifth pass extracted the header block — the `ChatHeaderShell` (search bar,
