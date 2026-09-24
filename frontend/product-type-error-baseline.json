@@ -1164,7 +1164,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 388,
       "column": 21,
       "code": "TS2339",
       "message": "Property 'participant_1' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1172,7 +1172,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 388,
       "column": 63,
       "code": "TS2339",
       "message": "Property 'participant_2' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1180,7 +1180,7 @@
     },
     {
       "file": "src/pages/DirectMessagePage.tsx",
-      "line": 408,
+      "line": 388,
       "column": 92,
       "code": "TS2339",
       "message": "Property 'participant_1' does not exist on type '{ id: string; user1_id: string; user2_id: string; club_id: string; created_at: string; } | DirectConversation'.",
@@ -1188,7 +1188,7 @@
     },
     {
       "file": "src/pages/HomePage.tsx",
-      "line": 378,
+      "line": 373,
       "column": 9,
       "code": "TS2347",
       "message": "Untyped function calls may not accept type arguments.",
@@ -1196,18 +1196,10 @@
     },
     {
       "file": "src/pages/HomePage.tsx",
-      "line": 590,
+      "line": 585,
       "column": 7,
       "code": "TS2345",
       "message": "Argument of type '{ type: \"game\"; title: string; club_id: string; team_id: string; event_date: string; teams: { name: string; default_match_arrival_minutes: number; }; clubs: { name: string; sport: string; }; is_cancelled: boolean; ... 15 more ...; status: \"active\" | ... 2 more ... | \"cancelled\"; }[] | Event[]' is not assignable to parameter of type 'Event[]'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/TeamDetailPage.tsx",
-      "line": 575,
-      "column": 30,
-      "code": "TS2339",
-      "message": "Property 'roles' does not exist on type 'unknown'.",
       "category": "source-backed"
     },
     {
@@ -1228,7 +1220,7 @@
     }
   ],
   "counts": {
-    "source-backed": 93,
+    "source-backed": 92,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

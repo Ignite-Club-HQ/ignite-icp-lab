@@ -3370,3 +3370,82 @@ Validation passed: lab typecheck (clean), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,567 fewer
 duplicated lines than baseline), and `git diff --check`. Product typecheck
 continues to report only the two existing HomePage diagnostics.
+
+## JoinTeamPage.tsx second-pass extraction (2026-09-25)
+
+The child-linking step card and the invite-summary card were extracted into
+`components/join-team/JoinTeamChildStepCard.tsx` and
+`components/join-team/JoinTeamInviteCard.tsx`. The page retains all Supabase
+queries/mutations, auth, and provisioning logic; the new components receive
+plain props/callbacks and have no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `JoinTeamPage.tsx` raw lines | 2,199 | 1,908 | -291 (-13.2%) |
+| New focused modules | 0 | 2 (`JoinTeamChildStepCard.tsx` 250 lines, `JoinTeamInviteCard.tsx` 184 lines) | +2 |
+
+Validation passed: lab typecheck (clean), focused invite/parent-invite guard
+tests (37 tests across 4 files, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet, and
+`git diff --check`. Product typecheck baseline was refreshed for line-number
+drift only (152 diagnostics total, no new source-backed errors).
+
+## DirectMessagePage.tsx composer extraction (2026-09-25)
+
+The fixed composer/footer was extracted into
+`components/chat/DirectMessageComposerFooter.tsx`. The page retains all
+queries, mutations, realtime subscriptions, and provider decisions; the new
+component receives plain props/callbacks and has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `DirectMessagePage.tsx` raw lines | 1,749 | 1,652 | -97 (-5.5%) |
+| New focused module | 0 | 1 (`DirectMessageComposerFooter.tsx`, 199 lines) | +1 |
+
+Validation passed: lab typecheck (clean), focused chat-send guard test (18
+tests), isolation, quality ratchet (`directSupabaseImports` unchanged at
+463), duplication ratchet, and `git diff --check`. Product typecheck baseline
+was refreshed for line-number drift only.
+
+## ClubAdminChatPage.tsx composer extraction (2026-09-25)
+
+The input/composer footer was extracted into
+`components/chat/ClubAdminChatComposerFooter.tsx`, along with a new focused
+test file. The page retains all queries, mutations, realtime subscriptions,
+and provider decisions; the new component receives plain props/callbacks and
+has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubAdminChatPage.tsx` raw lines | 1,514 | 1,456 | -58 (-3.8%) |
+| New focused module | 0 | 1 (`ClubAdminChatComposerFooter.tsx`, 177 lines) | +1 |
+
+Validation passed: lab typecheck (clean), new focused component test (10
+tests, all passed), isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet, and `git diff --check`. Product
+typecheck baseline was refreshed for line-number drift only.
+
+## EditEventPage.tsx schedule-section extraction (2026-09-25)
+
+The schedule UI did not match `EventScheduleSection.tsx` closely enough to
+reuse without changing behavior, so a new presentational wrapper,
+`components/event/EventEditScheduleSection.tsx`, was extracted instead. The
+page retains all query/mutation/provider logic; the new component has no
+Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `EditEventPage.tsx` raw lines | 1,531 | 1,490 | -41 (-2.7%) |
+| New focused module | 0 | 1 (`EventEditScheduleSection.tsx`, 109 lines) | +1 |
+
+Validation passed: lab typecheck (clean), focused EditEventPage validation
+and recurring-conversion tests (18 tests across 3 files, all passed),
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet, and `git diff --check`. Product typecheck baseline was
+refreshed for line-number drift only (a previously-tracked TeamDetailPage.tsx
+diagnostic resolved during earlier passes was also dropped from the
+baseline).
+
+Combined duplication ratchet after all four passes: 2,448 fewer duplicated
+lines than baseline (335,805 scanned lines, 1,167 counted clones vs. 1,310
+baseline).
