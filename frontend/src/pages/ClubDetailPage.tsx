@@ -81,19 +81,20 @@ import ClubRewardsManager from "@/components/ClubRewardsManager";
 import { PrimarySponsorDisplay } from "@/components/PrimarySponsorDisplay";
 import { ClubTeamSponsorAllocator } from "@/components/ClubTeamSponsorAllocator";
 import { PendingTeamRequests } from "@/components/PendingTeamRequests";
-import { ClubThemeEditor } from "@/components/ClubThemeEditor";
 import { ClubDMSettings } from "@/components/ClubDMSettings";
 import { ClubMessagePrivacySettings } from "@/components/ClubMessagePrivacySettings";
 import { ClubAICatchUpSettings } from "@/components/ClubAICatchUpSettings";
 import { ClubInviteEmailSettings } from "@/components/ClubInviteEmailSettings";
 import { ClubAnnouncementDialog } from "@/components/ClubAnnouncementDialog";
-import { Palette, CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
+import { CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
 import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigationSection";
 import { ClubQuickActions } from "@/components/club/ClubQuickActions";
 import { ClubTeamBrowser } from "@/components/club/ClubTeamBrowser";
 import { ClubMembersSection, type ClubMemberEntry } from "@/components/club/ClubMembersSection";
 import { ClubArchivedTeamsSection } from "@/components/club/ClubArchivedTeamsSection";
 import { ClubMiniLeaguesSection } from "@/components/club/ClubMiniLeaguesSection";
+import { ClubBrandingSection } from "@/components/club/ClubBrandingSection";
+import { ClubScheduleToolsSection } from "@/components/club/ClubScheduleToolsSection";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
 import { ClassAttendanceManager } from "@/components/ClassAttendanceManager";
@@ -1993,103 +1994,50 @@ export default function ClubDetailPage() {
       {isAdmin && (() => {
         const hasProAccess = !!(isAppAdmin || clubSubscription?.is_pro || clubSubscription?.is_pro_football || clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override);
         return (
-        <AccordionItem value="branding" data-section-anchor="branding" className="border rounded-lg px-4 scroll-mt-20">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">Club Branding</span>
-              {!hasProAccess && (
-                <Badge variant="outline" className="text-xs font-normal ml-2">Configure now, activates on Pro</Badge>
-              )}
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-3">
-              {!hasProAccess && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
-                  You can configure your club colours and logo now, but branding will only be applied across the app once your club is on the <strong>Pro</strong> plan. Your saved settings will activate automatically when you upgrade or start a trial.
-                </div>
-              )}
-              <ClubThemeEditor
-                clubId={id!}
-                clubLogoUrl={club.logo_url}
-                initialPrimary={club.theme_primary_h !== null ? { h: club.theme_primary_h!, s: club.theme_primary_s!, l: club.theme_primary_l! } : undefined}
-                initialSecondary={club.theme_secondary_h !== null ? { h: club.theme_secondary_h!, s: club.theme_secondary_s!, l: club.theme_secondary_l! } : undefined}
-                initialAccent={club.theme_accent_h !== null ? { h: club.theme_accent_h!, s: club.theme_accent_s!, l: club.theme_accent_l! } : undefined}
-                initialDarkPrimary={(club as any).theme_dark_primary_h !== null ? { h: (club as any).theme_dark_primary_h!, s: (club as any).theme_dark_primary_s!, l: (club as any).theme_dark_primary_l! } : undefined}
-                initialDarkSecondary={(club as any).theme_dark_secondary_h !== null ? { h: (club as any).theme_dark_secondary_h!, s: (club as any).theme_dark_secondary_s!, l: (club as any).theme_dark_secondary_l! } : undefined}
-                initialDarkAccent={(club as any).theme_dark_accent_h !== null ? { h: (club as any).theme_dark_accent_h!, s: (club as any).theme_dark_accent_s!, l: (club as any).theme_dark_accent_l! } : undefined}
-                initialShowLogoInHeader={club.show_logo_in_header}
-                initialShowNameInHeader={(club as any).show_name_in_header ?? true}
-                initialLogoOnlyMode={(club as any).logo_only_mode ?? false}
-                initialThemeEnabled={(club as any).theme_enabled ?? true}
-                onSave={() => {
-                  queryClient.invalidateQueries({ queryKey: ["club", id] });
-                  queryClient.invalidateQueries({ queryKey: ["club-themes"] });
-                }}
-              />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+          <ClubBrandingSection
+            clubId={id!}
+            hasProAccess={hasProAccess}
+            clubLogoUrl={club.logo_url}
+            initialPrimary={club.theme_primary_h !== null ? { h: club.theme_primary_h!, s: club.theme_primary_s!, l: club.theme_primary_l! } : undefined}
+            initialSecondary={club.theme_secondary_h !== null ? { h: club.theme_secondary_h!, s: club.theme_secondary_s!, l: club.theme_secondary_l! } : undefined}
+            initialAccent={club.theme_accent_h !== null ? { h: club.theme_accent_h!, s: club.theme_accent_s!, l: club.theme_accent_l! } : undefined}
+            initialDarkPrimary={(club as any).theme_dark_primary_h !== null ? { h: (club as any).theme_dark_primary_h!, s: (club as any).theme_dark_primary_s!, l: (club as any).theme_dark_primary_l! } : undefined}
+            initialDarkSecondary={(club as any).theme_dark_secondary_h !== null ? { h: (club as any).theme_dark_secondary_h!, s: (club as any).theme_dark_secondary_s!, l: (club as any).theme_dark_secondary_l! } : undefined}
+            initialDarkAccent={(club as any).theme_dark_accent_h !== null ? { h: (club as any).theme_dark_accent_h!, s: (club as any).theme_dark_accent_s!, l: (club as any).theme_dark_accent_l! } : undefined}
+            initialShowLogoInHeader={club.show_logo_in_header}
+            initialShowNameInHeader={(club as any).show_name_in_header ?? true}
+            initialLogoOnlyMode={(club as any).logo_only_mode ?? false}
+            initialThemeEnabled={(club as any).theme_enabled ?? true}
+            onSaved={() => {
+              queryClient.invalidateQueries({ queryKey: ["club", id] });
+              queryClient.invalidateQueries({ queryKey: ["club-themes"] });
+            }}
+          />
         );
       })()}
 
       {/* Schedule tools — tucked away; bulk fixture import is rarely used */}
-      {canImportFixtures && (
-        <AccordionItem value="schedule-tools" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-muted-foreground" />
-              <span className="text-lg font-semibold">Schedule tools</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            {(() => {
-              const hasImportProAccess =
-                isAppAdmin
-                || clubSubscription?.is_pro
-                || clubSubscription?.is_pro_football
-                || clubSubscription?.admin_pro_override
-                || clubSubscription?.admin_pro_football_override;
-              return hasImportProAccess ? (
-                <Link to="/events/import" className="block pb-2">
-                  <div className="flex items-center gap-3 py-2">
-                    <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium">Import Fixtures</span>
-                      <p className="text-xs text-muted-foreground">From CSV or Excel</p>
-                    </div>
-                  </div>
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full text-left pb-2"
-                  onClick={() => {
-                    toast({
-                      title: "Pro feature",
-                      description: "Import Fixtures is available on Pro. Contact your club administrator to upgrade.",
-                    });
-                    navigate(`/clubs/${id}/upgrade`);
-                  }}
-                >
-                  <div className="flex items-center gap-3 py-2">
-                    <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-muted-foreground">Import Fixtures</span>
-                      <p className="text-xs text-muted-foreground">Available on Pro</p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs gap-1 ml-auto">
-                      <Crown className="h-3 w-3" />
-                      Pro
-                    </Badge>
-                  </div>
-                </button>
-              );
-            })()}
-          </AccordionContent>
-        </AccordionItem>
-      )}
+      {canImportFixtures && (() => {
+        const hasImportProAccess = !!(
+          isAppAdmin
+          || clubSubscription?.is_pro
+          || clubSubscription?.is_pro_football
+          || clubSubscription?.admin_pro_override
+          || clubSubscription?.admin_pro_football_override
+        );
+        return (
+          <ClubScheduleToolsSection
+            hasImportProAccess={hasImportProAccess}
+            onUpgradeClick={() => {
+              toast({
+                title: "Pro feature",
+                description: "Import Fixtures is available on Pro. Contact your club administrator to upgrade.",
+              });
+              navigate(`/clubs/${id}/upgrade`);
+            }}
+          />
+        );
+      })()}
 
       {/* App Admin Section */}
 

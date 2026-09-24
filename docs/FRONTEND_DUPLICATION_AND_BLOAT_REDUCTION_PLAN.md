@@ -1,5 +1,34 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage branding and schedule-tools section extraction (2026-09-24)
+
+This pass extracts the two remaining large presentation-only accordions from
+`ClubDetailPage.tsx`. The Club Branding accordion — the Pro-activation notice
+and the existing `ClubThemeEditor` — moves to `ClubBrandingSection.tsx`,
+which reuses `ClubThemeEditor`'s own prop interface via
+`ComponentProps<typeof ClubThemeEditor>` rather than duplicating it, so no
+new prop shape needed to be hand-written. The Schedule Tools accordion — the
+Pro-gated "Import Fixtures" link/locked-button pair — moves to
+`ClubScheduleToolsSection.tsx`. Both components take simple booleans/callbacks
+(`hasProAccess`/`onSaved`, `hasImportProAccess`/`onUpgradeClick`) and contain
+no Supabase imports or mutations; the route keeps ownership of the
+`club`-union-type casts, the theme-save invalidation, and the upgrade
+toast/navigate side effect.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,196 | 2,144 | -52 (-2.4%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 2,144 | -636 (-22.9%) |
+
+Seven new focused component tests (four for branding: Pro/non-Pro banner
+visibility, clubId forwarding, onSaved callback; three for schedule tools:
+Pro-access link vs. locked-button states, onUpgradeClick callback firing)
+bring the `src/components/club/` suite to 8 files / 32 tests, all passing.
+Product typecheck (153 diagnostics, unchanged — the `club`-union casts stayed
+page-side) and Lab typecheck are both clean, isolation and quality-ratchet
+checks pass, duplication ratchet shows 2,329 fewer duplicated lines than
+baseline, and `git diff --check` passes.
+
 ## ClubDetailPage sponsor-toggle consolidation and section extraction (2026-09-24)
 
 This pass removes duplication and further reduces `ClubDetailPage.tsx` in two
