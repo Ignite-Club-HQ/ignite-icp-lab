@@ -1,5 +1,23 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage initial presentation split (2026-09-24)
+
+The first ClubDetailPage pass moves the administrator navigation accordion and
+the member Pro-gated quick-action grid into typed presentation components.
+The page retains all entitlement inputs, route-level authorization, queries,
+mutations, and local/ICP mode decisions. Both components receive data only;
+neither imports Supabase.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,780 | 2,665 | -115 (-4.1%) |
+
+Five focused component interaction tests cover each navigation destination,
+Pro/free entitlement states, class-mode chat wording, and locked action
+behavior. Product/Lab typechecks and `git diff --check` passed. The existing
+ClubDetail product diagnostic inventory was location-updated only after line
+movement; the diagnostic total remains unchanged at 165.
+
 ## MessagesPage final isolated-controller extraction (2026-09-24)
 
 The final planned MessagesPage pass extracts two independent, read-oriented

@@ -5,7 +5,7 @@ import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 import ClubLinksManager from "@/components/clubs/ClubLinksManager";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Search, X, Folder, ChevronDown, ChevronRight, CreditCard, Loader2, Gift, Lock, FolderOpen, MessageCircle, Trophy, Archive, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Search, X, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, Trophy, Archive, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
 import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { ArchiveTeamDialog } from "@/components/ArchiveTeamDialog";
@@ -90,7 +90,9 @@ import { ClubMessagePrivacySettings } from "@/components/ClubMessagePrivacySetti
 import { ClubAICatchUpSettings } from "@/components/ClubAICatchUpSettings";
 import { ClubInviteEmailSettings } from "@/components/ClubInviteEmailSettings";
 import { ClubAnnouncementDialog } from "@/components/ClubAnnouncementDialog";
-import { Palette, CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, Activity, MoreVertical, Link as LinkIcon } from "lucide-react";
+import { Palette, CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
+import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigationSection";
+import { ClubQuickActions } from "@/components/club/ClubQuickActions";
 import PendingInviteCard from "@/components/PendingInviteCard";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
@@ -1396,61 +1398,18 @@ export default function ClubDetailPage() {
         <PrimarySponsorDisplay sponsorId={club.primary_sponsor_id} variant="full" context="club_page" />
       )}
 
-      {/* Quick Actions */}
-      {isMember && (() => {
-        const hasProAccess = clubSubscription?.is_pro || clubSubscription?.is_pro_football || 
-                             clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override;
-        return (
-          <div className="grid grid-cols-2 gap-3">
-            {hasProAccess ? (
-              <Link to={`/messages/club/${id}`}>
-                <Card className="hover:border-primary/50 transition-colors">
-                  <CardContent className="p-4 flex flex-col items-center gap-2">
-                    <MessageCircle className="h-6 w-6 text-primary" />
-                    <span className="text-sm font-medium">{club?.class_mode_enabled ? "Group Chat" : "Club Chat"}</span>
-                  </CardContent>
-                </Card>
-              </Link>
-            ) : (
-              <Card className="border-muted bg-muted/30 cursor-not-allowed">
-                <CardContent className="p-4 flex flex-col items-center gap-2 relative">
-                  <div className="absolute top-2 right-2">
-                    <Badge variant="secondary" className="text-xs gap-1">
-                      <Lock className="h-3 w-3" />
-                      Pro
-                    </Badge>
-                  </div>
-                  <MessageCircle className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">{club?.class_mode_enabled ? "Group Chat" : "Club Chat"}</span>
-                </CardContent>
-              </Card>
-            )}
-            {hasProAccess ? (
-              <Link to={`/vault?club=${id}`}>
-                <Card className="hover:border-primary/50 transition-colors">
-                  <CardContent className="p-4 flex flex-col items-center gap-2">
-                    <FolderOpen className="h-6 w-6 text-primary" />
-                    <span className="text-sm font-medium">Vault</span>
-                  </CardContent>
-                </Card>
-              </Link>
-            ) : (
-              <Card className="border-muted bg-muted/30 cursor-not-allowed">
-                <CardContent className="p-4 flex flex-col items-center gap-2 relative">
-                  <div className="absolute top-2 right-2">
-                    <Badge variant="secondary" className="text-xs gap-1">
-                      <Lock className="h-3 w-3" />
-                      Pro
-                    </Badge>
-                  </div>
-                  <FolderOpen className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Vault</span>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        );
-      })()}
+      {isMember && id && (
+        <ClubQuickActions
+          clubId={id}
+          classModeEnabled={!!club?.class_mode_enabled}
+          hasProAccess={!!(
+            clubSubscription?.is_pro
+            || clubSubscription?.is_pro_football
+            || clubSubscription?.admin_pro_override
+            || clubSubscription?.admin_pro_football_override
+          )}
+        />
+      )}
 
 
 
@@ -2472,86 +2431,12 @@ export default function ClubDetailPage() {
         </AccordionItem>
       )}
 
-      {/* Admin Actions */}
-      {isAdmin && (
-        <AccordionItem value="admin" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">Admin</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3 pt-2">
-              <Link to={`/clubs/${id}/roles`}>
-                <Card className="hover:border-primary/50 transition-colors">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Settings className="h-5 w-5 text-primary" />
-                    </div>
-                    <span className="font-medium">Manage Roles</span>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link to={`/clubs/${id}/stripe`}>
-                <Card className="hover:border-primary/50 transition-colors">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                    </div>
-                    <span className="font-medium">Payment Settings</span>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link to={`/clubs/${id}/upgrade`}>
-                <Card className={`hover:border-primary/50 transition-colors ${clubSubscription?.is_pro ? "border-yellow-500/30 bg-yellow-500/5" : ""}`}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${clubSubscription?.is_pro ? "bg-yellow-500/20" : "bg-muted"}`}>
-                      <Building2 className={`h-5 w-5 ${clubSubscription?.is_pro ? "text-yellow-500" : "text-muted-foreground"}`} />
-                    </div>
-                    <div className="flex-1">
-                      <span className="font-medium">Club Pro Plans</span>
-                      {clubSubscription?.is_pro && (
-                        <p className="text-xs text-muted-foreground">
-                          {clubSubscription.is_pro_football ? "Pro Football" : "Pro"} • {clubSubscription.plan?.charAt(0).toUpperCase()}{clubSubscription.plan?.slice(1)}
-                        </p>
-                      )}
-                    </div>
-                    {clubSubscription?.is_pro && (
-                      <Badge className="bg-yellow-500 text-yellow-950">Active</Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-
-
-              <Link to={`/clubs/${id}/engagement`}>
-                <Card className="hover:border-primary/50 transition-colors">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Activity className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">Engagement Analytics</div>
-                      <div className="text-xs text-muted-foreground">Health, adoption, communication & more</div>
-                    </div>
-                    {!isAppAdmin && !(clubSubscription?.is_pro || clubSubscription?.is_pro_football || clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override) && (
-                      <div className="flex items-center gap-1.5">
-                        <Lock className="h-4 w-4 text-muted-foreground" />
-                        <Badge variant="outline" className="text-xs font-normal">Pro</Badge>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-
-              
-            </div>
-
-          </AccordionContent>
-        </AccordionItem>
+      {isAdmin && id && (
+        <ClubAdminNavigationSection
+          clubId={id}
+          isAppAdmin={isAppAdmin}
+          subscription={clubSubscription}
+        />
       )}
 
       {/* Club Info & Links — admins curate the tiles shown on Home */}
