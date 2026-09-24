@@ -76,26 +76,16 @@ import { PinnedVaultBanner } from "@/components/chat/PinnedVaultBanner";
 import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
-import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { jumpToMessageInVirtualizedChat } from "@/lib/jumpToMessage";
-import { MentionInput } from "@/components/chat/MentionInput";
-import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
-import { ChatImageInput } from "@/components/chat/ChatImageInput";
-import { ReplyPreview } from "@/components/chat/ReplyPreview";
-import { EditingBanner } from "@/components/chat/EditingBanner";
-import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
-import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
-import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
+import { TeamChatComposerFooter } from "@/components/chat/TeamChatComposerFooter";
 
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
 
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -126,8 +116,6 @@ import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
-const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
-const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 
 
 const MESSAGES_PER_PAGE = 30;
@@ -2261,125 +2249,47 @@ export default function TeamChatPage() {
 
 
       {/* Input - Fixed at bottom above nav bar */}
-      <div className={`fixed left-0 right-0 bg-background z-[49] pointer-events-none ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight, height: nativeKbHeight > 0 ? "3rem" : "calc(var(--bottom-nav-offset, 0px) + 3rem)" }} />
-      <div ref={composerRef} data-chat-chrome="true" data-chat-composer="true" className={`fixed left-0 right-0 w-full max-w-full overflow-visible border-t border-border/30 pt-1 pb-2 px-2 bg-background/95 z-[51] ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight > 0 ? nativeKbHeight : "var(--bottom-nav-offset, 0px)" }}>
-        <TypingIndicator typingUsers={typingUsers} />
-        <ReplyPreview replyingTo={replyingTo} onCancel={() => setReplyingTo(null)} />
-        {editingMessage && <EditingBanner text={editingMessage.text} onCancel={handleCancelEdit} />}
-        {scheduleTarget && <ScheduledMessagesBanner target={scheduleTarget} />}
-        <ChatComposerShell
-          preview={
-            (pendingPollId || pendingNewsId) && !editingMessage ? (
-              <div className="space-y-1.5">
-                {pendingPollId && (
-                  <PollAttachmentPreview
-                    pollId={pendingPollId}
-                    onRemove={() => setPendingPollId(null)}
-                    disabled={sendMessageMutation.isPending}
-                  />
-                )}
-                {pendingNewsId && (
-                  <NewsAttachmentPreview
-                    newsId={pendingNewsId}
-                    onRemove={() => setPendingNewsId(null)}
-                    disabled={sendMessageMutation.isPending}
-                  />
-                )}
-              </div>
-            ) : undefined
-          }
-        >
-          <ChatImageInput
-            imageUrl={imageUrl}
-            onImageUploaded={setImageUrl}
-            disabled={false}
-            clubId={team?.club_id}
-            teamId={teamId}
-            showEventPicker={true}
-            onEventSelect={() => setEventPickerOpen(true)}
-            showNewsPicker={!!(team?.club_id)}
-            onNewsSelect={() => setNewsPickerOpen(true)}
-            showPollCreator={true}
-            onPollCreate={() => setPollDialogOpen(true)}
-            showBoardPicker={true}
-            onBoardPick={() => setBoardPickerOpen(true)}
-            showVaultPicker={true}
-            onAppendToken={(token) => setMessage((prev) => (prev ? `${prev} ${token}` : token))}
-            hasText={!!message.trim()}
-          />
-          <MentionInput
-            bare
-            placeholder="Type a message..."
-            value={message}
-            onChange={(val) => {
-              setMessage(val);
-              if (val.trim()) startTyping();
-              else stopTyping();
-            }}
-            onKeyPress={handleKeyPress}
-            disabled={false}
-            teamId={teamId}
-            clubId={team.club_id}
-            onGifSelect={setImageUrl}
-          />
-          <ChatSendButton
-            onSend={() => {
-              stopTyping();
-              handleSend();
-            }}
-            onSchedule={scheduleTarget ? () => setScheduleDialogOpen(true) : undefined}
-            disabled={!message.trim() && !imageUrl && !pendingPollId && !pendingNewsId}
-            loading={sendMessageMutation.isPending}
-            canSend={!!message.trim() || !!imageUrl || !!pendingPollId || !!pendingNewsId}
-          />
-        </ChatComposerShell>
-        {scheduleTarget && (
-          <Suspense fallback={null}>
-          <ScheduleMessageDialog
-            open={scheduleDialogOpen}
-            onOpenChange={setScheduleDialogOpen}
-            target={scheduleTarget}
-            initialText={message}
-            initialImageUrl={imageUrl}
-            onScheduled={() => {
-              setMessage("");
-              setImageUrl(null);
-              clearDraft?.();
-            }}
-          />
-          </Suspense>
-        )}
-        <ChatAttachmentPickers
-          eventPickerOpen={eventPickerOpen}
-          onEventPickerOpenChange={setEventPickerOpen}
-          onSelectEvent={(eventId) => {
-            const token = `[event:${eventId}]`;
-            setMessage(message ? `${message} ${token}` : token);
-          }}
-          newsPickerOpen={newsPickerOpen}
-          onNewsPickerOpenChange={setNewsPickerOpen}
-          onSelectNews={setPendingNewsId}
-          boardPickerOpen={boardPickerOpen}
-          onBoardPickerOpenChange={setBoardPickerOpen}
-          onSelectBoard={(gameId) => {
-            const token = `[board:${gameId}]`;
-            setMessage(message ? `${message} ${token}` : token);
-          }}
-          teamId={teamId}
-          clubId={team?.club_id}
-        />
-        {teamId && (
-          <Suspense fallback={null}>
-          <CreatePollDialog
-            open={pollDialogOpen}
-            onOpenChange={setPollDialogOpen}
-            chatType="team"
-            chatId={teamId}
-            onCreated={(pollId) => setPendingPollId(pollId)}
-          />
-          </Suspense>
-        )}
-      </div>
+      <TeamChatComposerFooter
+        composerRef={composerRef}
+        searchOpen={searchOpen}
+        nativeKbHeight={nativeKbHeight}
+        typingUsers={typingUsers}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+        editingMessage={editingMessage}
+        onCancelEdit={handleCancelEdit}
+        scheduleTarget={scheduleTarget}
+        scheduleDialogOpen={scheduleDialogOpen}
+        onScheduleDialogOpenChange={setScheduleDialogOpen}
+        onScheduled={() => {
+          setMessage("");
+          setImageUrl(null);
+          clearDraft?.();
+        }}
+        pendingPollId={pendingPollId}
+        onPendingPollIdChange={setPendingPollId}
+        pendingNewsId={pendingNewsId}
+        onPendingNewsIdChange={setPendingNewsId}
+        isSending={sendMessageMutation.isPending}
+        imageUrl={imageUrl}
+        onImageUploaded={setImageUrl}
+        clubId={team?.club_id}
+        teamId={teamId}
+        eventPickerOpen={eventPickerOpen}
+        onEventPickerOpenChange={setEventPickerOpen}
+        newsPickerOpen={newsPickerOpen}
+        onNewsPickerOpenChange={setNewsPickerOpen}
+        boardPickerOpen={boardPickerOpen}
+        onBoardPickerOpenChange={setBoardPickerOpen}
+        pollDialogOpen={pollDialogOpen}
+        onPollDialogOpenChange={setPollDialogOpen}
+        message={message}
+        onMessageChange={setMessage}
+        onStartTyping={startTyping}
+        onStopTyping={stopTyping}
+        onKeyPress={handleKeyPress}
+        onSend={handleSend}
+      />
 
       {teamId && team && (
         <TeamMemberManagementSheets

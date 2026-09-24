@@ -2926,3 +2926,34 @@ ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,339 fewer duplicated lines than baseline), and `git diff --check`. Full
 legacy/Lab suites and product build remain deferred per the current
 line-count-reduction pass.
+
+## TeamChatPage.tsx composer footer extraction (2026-09-25)
+
+The second pass on `TeamChatPage.tsx` targeted the fixed composer footer: the
+typing/reply/edit/schedule banners, the `ChatComposerShell` (image input,
+mention input, send button), and the event/news/poll/board picker dialogs it
+opens — roughly 120 lines of glue JSX reading ~25 page-level pieces of state
+and callbacks. This moved to
+`components/chat/TeamChatComposerFooter.tsx`, which now owns all of the
+open/close wiring for the picker dialogs and the "append token to message"
+helper (previously duplicated inline for the event and board token cases);
+the page keeps only its state (`message`, `imageUrl`, the picker-open flags,
+`pendingPollId`/`pendingNewsId`, `scheduleDialogOpen`) and its mutation/typing
+callbacks (`handleSend`, `handleKeyPress`, `startTyping`, `stopTyping`,
+`clearDraft`). No Supabase import was introduced in the new file (it composes
+existing presentational chat components), so `directSupabaseImports` is
+unaffected.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamChatPage.tsx` raw lines | 2,404 | 2,314 | -90 (-3.7%) |
+| Total this file's reduction | 2,431 | 2,314 | -117 (-4.8%) |
+| New focused component | 0 | 1 (14 tests) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused component tests (14 new + 226 across
+`src/components/chat/`, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,427 fewer
+duplicated lines than baseline), and `git diff --check`. Full legacy/Lab
+suites and product build remain deferred per the current line-count-reduction
+pass.
