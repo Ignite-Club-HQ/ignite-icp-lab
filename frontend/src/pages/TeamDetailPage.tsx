@@ -103,6 +103,7 @@ import { TeamAdminAccordionSection, TeamAppAdminAccordionSection } from "@/compo
 import { ProLockedAccordionSection } from "@/components/team/ProLockedAccordionSection";
 import { TeamLeaveDialog } from "@/components/team/TeamLeaveDialog";
 import { TeamQuickActionsSection } from "@/components/team/TeamQuickActionsSection";
+import { TeamDetailAccordionSections } from "@/components/team/TeamDetailAccordionSections";
 
 
 type TeamRole = TeamJoinRole;
@@ -569,7 +570,7 @@ export default function TeamDetailPage() {
   const adultPlayerCount = useMemo(() => {
     const priority = ["player", "parent", "coach", "team_admin", "club_admin", "app_admin", "basic_user"];
     let count = 0;
-    for (const member of Object.values(members)) {
+    for (const member of Object.values(members) as Array<{ roles: { role: string }[] }>) {
       let primaryRole = "basic_user";
       let best = Infinity;
       for (const r of member.roles || []) {
@@ -1527,238 +1528,43 @@ export default function TeamDetailPage() {
 
       {/* Collapsible Sections */}
       {(isMember || isClubAdmin) && (
-        <Accordion 
-          type="multiple" 
-          defaultValue={["members"]} 
-          className="space-y-4"
-          onValueChange={(value) => {
-            // Auto-refresh members list when expanding if empty
-            if (value.includes("members") && Object.keys(members).length === 0 && teamChildren.length === 0 && !isMembersLoading && !isMembersFetching && !isChildrenLoading && !isChildrenFetching) {
-              refetchMembers();
-              refetchChildren();
-            }
+        <TeamDetailAccordionSections
+          teamId={id!}
+          teamName={team.name}
+          clubId={team.club_id}
+          teamType={(team as any).team_type}
+          teamSponsorId={team.sponsor_id}
+          isMember={isMember}
+          isClubAdmin={isClubAdmin}
+          isAdmin={isAdmin}
+          isCoachOrAdmin={isCoachOrAdmin}
+          isAppAdmin={isAppAdmin}
+          isClassMode={isClassMode}
+          isSoccerClub={!!isSoccerClub}
+          isBasketballClub={isBasketballClub}
+          isNetballClub={isNetballClub}
+          isSubscriptionLoading={isSubscriptionLoading}
+          isTeamPro={isTeamPro}
+          hasProFootball={hasProFootball}
+          canManageCaptains={canManageCaptains}
+          membersSectionProps={{
+            members, teamChildren, pendingInvites, memberRoleFilter, adultPlayerCount, isAdmin, isClubAdmin, currentUserId: user?.id,
+            isMembersLoading, isMembersFetching, isChildrenLoading, isChildrenFetching, isMembersError, membersError, refetchMembers, refetchChildren,
+            isSoccerClub: !!isSoccerClub, onOpenHeaderInvite: () => setHeaderInviteOpen(true), onOpenAddPlayer: () => setAddPlayerOpen(true),
+            onSelectChild: setSelectedChild, onLinkChildToParent: setLinkChildToParent, onMoveToTeam: setMoveToTeam, onAddRoleMember: setAddRoleMember,
+            onSelectMember: setSelectedMember, onInviteParentChild: setInviteParentChild, onOpenPositionSheet: setPositionSheetPlayer, onRemoveMember: setRemoveMember,
           }}
-        >
-          {/* Members Section */}
-          <TeamMembersSection
-            teamId={id}
-            members={members}
-            teamChildren={teamChildren}
-            pendingInvites={pendingInvites}
-            memberRoleFilter={memberRoleFilter}
-            adultPlayerCount={adultPlayerCount}
-            isAdmin={isAdmin}
-            isClubAdmin={isClubAdmin}
-            currentUserId={user?.id}
-            isMembersLoading={isMembersLoading}
-            isMembersFetching={isMembersFetching}
-            isChildrenLoading={isChildrenLoading}
-            isChildrenFetching={isChildrenFetching}
-            isMembersError={isMembersError}
-            membersError={membersError}
-            refetchMembers={refetchMembers}
-            refetchChildren={refetchChildren}
-            isSoccerClub={!!isSoccerClub}
-            onOpenHeaderInvite={() => setHeaderInviteOpen(true)}
-            onOpenAddPlayer={() => setAddPlayerOpen(true)}
-            onSelectChild={setSelectedChild}
-            onLinkChildToParent={setLinkChildToParent}
-            onMoveToTeam={setMoveToTeam}
-            onAddRoleMember={setAddRoleMember}
-            onSelectMember={setSelectedMember}
-            onInviteParentChild={setInviteParentChild}
-            onOpenPositionSheet={setPositionSheetPlayer}
-            onRemoveMember={setRemoveMember}
-          />
-
-          {/* Class Attendance - only in class mode for admins */}
-          {isClassMode && (isCoachOrAdmin || isClubAdmin) && (
-            <AccordionItem value="class-attendance" className="border rounded-lg px-4">
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Attendance</h2>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="pt-2">
-                  <ClassAttendanceSingle teamId={id!} clubId={team.club_id} />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          )}
-
-          {/* Game History - basketball + netball only */}
-          {isMember && (isBasketballClub || isNetballClub) && isAppAdmin && (
-            <AccordionItem value="game-history" className="border rounded-lg px-4">
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Game History</h2>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="pt-2">
-                  <Suspense fallback={<div className="text-xs text-muted-foreground py-4">Loading…</div>}>
-                    <TeamGameHistoryTab
-                      teamId={id!}
-                      teamName={team.name}
-                      canManage={isAdmin || isCoachOrAdmin || isClubAdmin}
-                    />
-                  </Suspense>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          )}
-
-
-          {/* Admin Section - collapsed by default */}
-          {(isAdmin || isClubAdmin) && (
-            <TeamAdminAccordionSection
-              teamId={id!}
-              teamName={team.name}
-              clubId={team.club_id}
-              teamType={(team as any).team_type}
-              members={members}
-              canManageCaptains={canManageCaptains}
-              isTeamPro={isTeamPro}
-              hasProFootball={hasProFootball}
-            />
-          )}
-
-          {/* App Admin Section - only for app admins */}
-          {isAppAdmin && (
-            <TeamAppAdminAccordionSection
-              isSoccerClub={!!isSoccerClub}
-              isProOverride={(teamSubscription as any)?.admin_pro_override || false}
-              isProFootballOverride={(teamSubscription as any)?.admin_pro_football_override || false}
-              onProOverrideChange={(checked) => saveAppAdminOverride({ admin_pro_override: checked })}
-              onProFootballOverrideChange={(checked) => saveAppAdminOverride({ admin_pro_football_override: checked })}
-            />
-          )}
-
-          {/* Subscription Payments Section - for team admins/coaches OR club admins */}
-          {/* Use isSubscriptionLoading || isTeamPro to prevent Pro locks during loading */}
-          {(isCoachOrAdmin || isClubAdmin) && (
-            <ProLockedAccordionSection
-              value="subscription-payments"
-              icon={CreditCard}
-              title="Fee Payments"
-              isLoading={isSubscriptionLoading}
-              isUnlocked={isTeamPro || isAppAdmin}
-            >
-              <div className="pt-2">
-                <MemberSubscriptionPaymentsManager
-                  clubId={team.club_id}
-                  teamId={id!}
-                  members={members}
-                  isAdmin={isCoachOrAdmin || isClubAdmin}
-                />
-              </div>
-            </ProLockedAccordionSection>
-          )}
-
-          {/* Team Sponsor - Pro only, hidden in class mode */}
-          {isAdmin && team.club_id && !isClassMode && (
-            <ProLockedAccordionSection
-              value="team-sponsor"
-              icon={Building2}
-              title="Team Sponsor"
-              isLoading={isSubscriptionLoading}
-              isUnlocked={isTeamPro || isAppAdmin}
-            >
-              <div className="pt-2">
-                <TeamSponsorSelector
-                  teamId={id!}
-                  currentSponsorId={team.sponsor_id || null}
-                  onUpdate={() => queryClient.invalidateQueries({ queryKey: ["team", id] })}
-                />
-              </div>
-            </ProLockedAccordionSection>
-          )}
-
-          {/* Team Rewards Section - Pro only, hidden in class mode */}
-          {isAdmin && team.club_id && !isClassMode && (
-            <ProLockedAccordionSection
-              value="team-rewards"
-              icon={Flame}
-              title="Team Rewards"
-              isLoading={isSubscriptionLoading}
-              isUnlocked={isTeamPro || isAppAdmin}
-            >
-              <div className="pt-2">
-                <TeamRewardsManager
-                  teamId={id!}
-                  clubId={team.club_id}
-                  disableTeamOverrides={clubSubscription?.disable_team_pom_rewards || false}
-                />
-              </div>
-            </ProLockedAccordionSection>
-          )}
-
-          {/* Pitch Settings Section - Pro Football only */}
-          {isAdmin && isSoccerClub && (
-            <ProLockedAccordionSection
-              value="pitch-settings"
-              icon={LayoutGrid}
-              title="Pitch Settings"
-              isLoading={isSubscriptionLoading}
-              isUnlocked={hasProFootball || isAppAdmin}
-              lockBadgeLabel="Pro Football"
-              upgradeMessage="Upgrade to Pro Football to access this feature."
-            >
-              <div className="pt-2 space-y-4">
-                <DefaultPitchSettings
-                teamSize={teamSubscription?.team_size || 7}
-                formation={teamSubscription?.formation || null}
-                minutesPerHalf={teamSubscription?.minutes_per_half || defaultMinutesPerHalfForTeamName(team?.name)}
-                rotationSpeed={teamSubscription?.rotation_speed || 1}
-                disableAutoSubs={teamSubscription?.disable_auto_subs || false}
-                disablePositionSwaps={teamSubscription?.disable_position_swaps || false}
-                isSaving={isSavingPitchSettings}
-                onTeamSizeChange={async () => {
-                  // Don't set saving here - let DefaultPitchSettings handle formation update
-                }}
-                onFormationChange={async (formation, newTeamSize?: number) => {
-                  await savePitchSetting(
-                    { formation, team_size: newTeamSize },
-                    "Failed to update settings",
-                    newTeamSize ? "Team size updated" : "Formation updated",
-                  );
-                }}
-                onMinutesPerHalfChange={async (minutes) => {
-                  await savePitchSetting(
-                    { minutes_per_half: minutes },
-                    "Failed to update minutes per half",
-                    "Minutes per half updated",
-                  );
-                }}
-                onRotationSpeedChange={async (speed) => {
-                  await savePitchSetting(
-                    { rotation_speed: speed },
-                    "Failed to update rotation speed",
-                    "Rotation speed updated",
-                  );
-                }}
-                onDisableAutoSubsChange={async (disabled) => {
-                  await savePitchSetting(
-                    { disable_auto_subs: disabled },
-                    "Failed to update auto subs setting",
-                    disabled ? "Auto subs disabled" : "Auto subs enabled",
-                  );
-                }}
-                onDisablePositionSwapsChange={async (disabled) => {
-                  await savePitchSetting(
-                    { disable_position_swaps: disabled },
-                    "Failed to update position swaps setting",
-                    disabled ? "Position swaps disabled" : "Position swaps enabled",
-                  );
-                }}
-              />
-              </div>
-            </ProLockedAccordionSection>
-          )}
-        </Accordion>
+          teamSubscription={teamSubscription}
+          clubSubscription={clubSubscription}
+          onProOverrideChange={(checked) => saveAppAdminOverride({ admin_pro_override: checked })}
+          onProFootballOverrideChange={(checked) => saveAppAdminOverride({ admin_pro_football_override: checked })}
+          onSponsorUpdate={() => queryClient.invalidateQueries({ queryKey: ["team", id] })}
+          isSavingPitchSettings={isSavingPitchSettings}
+          defaultMinutesPerHalf={defaultMinutesPerHalfForTeamName(team.name)}
+          savePitchSetting={savePitchSetting}
+          refetchMembers={refetchMembers}
+          refetchChildren={refetchChildren}
+        />
       )}
 
       {/* Competitions Section */}

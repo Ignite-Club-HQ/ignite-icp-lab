@@ -3233,3 +3233,20 @@ typecheck (clean), focused Messages characterization/decomposition tests
 (14 tests, all passed), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,536 fewer
 duplicated lines than baseline), and `git diff --check`.
+## TeamDetailPage.tsx accordion-section extraction (2026-09-25)
+
+The presentation-heavy team-detail accordion area was extracted into
+`components/team/TeamDetailAccordionSections.tsx`. The page continues to own
+all data access, mutations, navigation, and hybrid provider decisions; the
+new component receives plain data and callbacks and adds no Supabase import.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamDetailPage.tsx` raw lines | 2,031 | 1,837 | -194 (-9.6%) |
+| New focused module | 0 | 1 (`TeamDetailAccordionSections.tsx`, 226 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused team tests (4 tests, all passed), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,536 fewer duplicated lines than baseline), and `git diff --check`. The full
+lab suite still has the known unrelated TeamChat characterization failures.
