@@ -1,5 +1,5 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
@@ -22,7 +22,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Users, Search, RefreshCw } from "lucide-react";
-import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
 import { PageLoading } from "@/components/ui/page-loading";
@@ -40,13 +39,7 @@ import { useChatStuckWatchdog, createChatFetchBudget } from "@/lib/chatStuckWatc
 import { resolveChatMetadataState } from "@/lib/chatMetadataGate";
 import { ChatUnreachable } from "@/components/chat/ChatUnreachable";
 import { toast } from "sonner";
-import { ReplyPreview } from "@/components/chat/ReplyPreview";
-import { EditingBanner } from "@/components/chat/EditingBanner";
-import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
-const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
-const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
+import { ClubAdminChatComposerFooter } from "@/components/chat/ClubAdminChatComposerFooter";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
@@ -65,9 +58,6 @@ import { createSendTempId, splitPollMarkup, restoreFailedSendComposer, authorita
 import { deliveredSend, queuedSend, isConfirmedDelivery } from "@/lib/chatSendResult";
 import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
 
-import { MentionInput } from "@/components/chat/MentionInput";
-import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
-import { ChatImageInput } from "@/components/chat/ChatImageInput";
 import { format, isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
 import { fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById } from "@/lib/profileCache";
@@ -93,10 +83,8 @@ import { CLUB_ADMIN_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdap
 import { Capacitor } from "@capacitor/core";
 
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { noteChatMount, noteChatUnmount } from "@/lib/chatPerfDiagnostics";
 import { startChatRealtimeChannel } from "@/features/messaging/thread/chatRealtimeChannelLifecycle";
-
 const MESSAGES_PER_PAGE = 15;
 
 interface ClubAdminMessage {
@@ -1372,85 +1360,39 @@ function SupabaseClubAdminChatPage() {
 
 
       {/* Input area */}
-      <div className={`fixed left-0 right-0 bg-background z-[49] pointer-events-none ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight, height: nativeKbHeight > 0 ? "3rem" : "calc(var(--bottom-nav-offset, 0px) + 3rem)" }} />
-      <div ref={composerRef} data-chat-chrome="true" data-chat-composer="true" className={`fixed left-0 right-0 w-full max-w-full overflow-visible border-t border-border/30 pt-1 pb-2 px-2 bg-background/95 z-[51] ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight > 0 ? nativeKbHeight : "var(--bottom-nav-offset, 0px)" }}>
-        <TypingIndicator typingUsers={typingUsers} />
-        {replyTo && (
-          <ReplyPreview
-            replyingTo={{ id: replyTo.id, text: replyTo.text, authorName: replyTo.author?.display_name || null }}
-            onCancel={() => setReplyTo(null)}
-          />
-        )}
-        {editingMessage && <EditingBanner text={editingMessage.text} onCancel={handleCancelEdit} />}
-        {scheduleTarget && <ScheduledMessagesBanner target={scheduleTarget} />}
-        <ChatComposerShell
-          preview={
-            pendingPollId && !editingMessage ? (
-              <PollAttachmentPreview
-                pollId={pendingPollId}
-                onRemove={() => setPendingPollId(null)}
-                disabled={sendMessageMutation.isPending}
-              />
-            ) : undefined
-          }
-        >
-          <ChatImageInput
-            imageUrl={imageUrl}
-            onImageUploaded={setImageUrl}
-            disabled={false}
-            clubId={conversation?.club_id || undefined}
-            showVaultPicker={!!conversation?.club_id}
-            onAppendToken={(token) => setMessage((prev) => (prev ? `${prev} ${token}` : token))}
-            hasText={!!message.trim()}
-          />
-          <MentionInput
-            bare
-            value={message}
-            onChange={(val) => {
-              setMessage(val);
-              if (val.trim()) startTyping(); else stopTyping();
-            }}
-            onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder="Type a message..."
-            disabled={false}
-            clubId={conversation?.club_id || undefined}
-            clubAdminMemberUserId={conversation?.member_user_id || undefined}
-            onGifSelect={setImageUrl}
-          />
-          <ChatSendButton
-            onSend={handleSend}
-            onSchedule={scheduleTarget ? () => setScheduleDialogOpen(true) : undefined}
-            disabled={!message.trim() && !imageUrl && !pendingPollId}
-            loading={sendMessageMutation.isPending}
-            canSend={!!message.trim() || !!imageUrl || !!pendingPollId}
-          />
-        </ChatComposerShell>
-        {scheduleTarget && (
-          <Suspense fallback={null}>
-          <ScheduleMessageDialog
-            open={scheduleDialogOpen}
-            onOpenChange={setScheduleDialogOpen}
-            target={scheduleTarget}
-            initialText={message}
-            onScheduled={() => {
-              setMessage("");
-              clearDraft?.();
-            }}
-          />
-          </Suspense>
-        )}
-        {conversationId && (
-          <Suspense fallback={null}>
-          <CreatePollDialog
-            open={pollDialogOpen}
-            onOpenChange={setPollDialogOpen}
-            chatType="club_admin"
-            chatId={conversationId}
-            onCreated={(pollId) => setPendingPollId(pollId)}
-          />
-          </Suspense>
-        )}
-      </div>
+      <ClubAdminChatComposerFooter
+        composerRef={composerRef}
+        searchOpen={searchOpen}
+        nativeKbHeight={nativeKbHeight}
+        typingUsers={typingUsers}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+        editingMessage={editingMessage}
+        onCancelEdit={handleCancelEdit}
+        scheduleTarget={scheduleTarget}
+        scheduleDialogOpen={scheduleDialogOpen}
+        onScheduleDialogOpenChange={setScheduleDialogOpen}
+        onScheduled={() => {
+          setMessage("");
+          clearDraft?.();
+        }}
+        pendingPollId={pendingPollId}
+        onPendingPollIdChange={setPendingPollId}
+        isSending={sendMessageMutation.isPending}
+        imageUrl={imageUrl}
+        onImageUploaded={setImageUrl}
+        clubId={conversation?.club_id || undefined}
+        clubAdminMemberUserId={conversation?.member_user_id || undefined}
+        message={message}
+        onMessageChange={setMessage}
+        onStartTyping={startTyping}
+        onStopTyping={stopTyping}
+        onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+        onSend={handleSend}
+        conversationId={conversationId}
+        pollDialogOpen={pollDialogOpen}
+        onPollDialogOpenChange={setPollDialogOpen}
+      />
       {conversationId && (
         <Sheet open={participantsOpen} onOpenChange={setParticipantsOpen}>
           <SheetContent
