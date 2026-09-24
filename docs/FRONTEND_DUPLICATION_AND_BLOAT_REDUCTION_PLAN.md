@@ -1,5 +1,44 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## CompetitionFixturesPanel ladder-view and team-avatar extraction (2026-09-24)
+
+With `ClubDetailPage.tsx` reduced below 2,000 lines, the next target is
+`CompetitionFixturesPanel.tsx` (2,752 lines), the largest remaining
+non-page component. This pass extracts its presentation-only ladder
+rendering and the shared team-avatar helper, while keeping the
+Supabase-backed `CompetitionLadderPanel` query wrapper in place:
+
+- `TeamAvatar` (logo/initials avatar, used by both the fixtures `MatchRow`
+  and the ladder rows) moves to `components/competition/TeamAvatar.tsx` —
+  a plain presentational component with no Supabase import.
+- `LadderView`, `ColHead`, and `LadderDivisionCard` (division/team filters,
+  the standings table, and its rank/medal styling) move to
+  `components/competition/CompetitionLadderView.tsx`, exported as
+  `LadderView`. These have no Supabase import either.
+- `CompetitionLadderPanel` — the exported component that owns the
+  `competition-ladder`/`competition_entries`/`teams` Supabase query — stays
+  in `CompetitionFixturesPanel.tsx` and now simply renders `<LadderView>`
+  with the fetched rows. This keeps the file's one Supabase-client import
+  count unchanged (an earlier attempt at a full-file move for
+  `CompetitionLadderPanel` was reverted after it tripped the
+  `directSupabaseImports` quality ratchet by introducing a second import
+  site for the same underlying query — moving only the presentation-only
+  pieces avoids that regression entirely).
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `CompetitionFixturesPanel.tsx` raw lines | 2,752 | 2,349 | -403 (-14.6%) |
+
+Fifteen new focused component tests (4 for `TeamAvatar`: logo vs. initials
+rendering, empty-initials fallback, size prop; 11 for `LadderView`: grouped
+division rendering, division/team filter visibility by count, hidden-division
+handling for admin vs. non-admin, and the not-started-season message) join
+the existing 50 `CompetitionFixturesPanel` tests (all passing, unchanged
+behavior). Product typecheck (153 diagnostics, unchanged) and Lab typecheck
+are both clean, isolation passes, quality ratchet passes with
+`directSupabaseImports` unchanged at 463, duplication ratchet shows 2,329
+fewer duplicated lines than baseline, and `git diff --check` passes.
+
 ## ClubDetailPage enrolments and app-admin section extraction (2026-09-24)
 
 This pass extracts the two next-largest remaining accordions from
