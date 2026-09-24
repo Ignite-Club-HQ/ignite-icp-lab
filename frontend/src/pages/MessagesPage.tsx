@@ -29,6 +29,7 @@ import { isIgniteSupportUser } from "@/lib/systemUser";
 import { queueChatInvalidation } from "@/lib/chatInvalidationQueue";
 
 import { useMessagesPageBootstrap } from "@/hooks/useMessagesPageBootstrap";
+import { useMessagesPageAccessData } from "@/hooks/useMessagesPageAccessData";
 import { useAuthorizedScopes } from "@/hooks/useAuthorizedScopes";
 import { registerChannel } from "@/lib/realtimeChannelRegistry";
 import {
@@ -317,55 +318,6 @@ export default function MessagesPage() {
     },
   });
 
-  // Check if user is app admin
-  const { data: isAppAdmin, isFetching: isAppAdminFetching } = useQuery({
-    queryKey: ["is-app-admin", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", user!.id)
-        .eq("role", "app_admin")
-        .maybeSingle();
-      if (error) throw error;
-      return !!data;
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    retry: 3,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev,
-  });
-
-  // Get clubs where user is admin
-  const { data: adminClubs } = useQuery({
-    queryKey: ["admin-clubs", user?.id],
-    queryFn: async () => {
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("club_id")
-        .eq("user_id", user!.id)
-        .eq("role", "club_admin");
-
-      if (rolesError) throw rolesError;
-      if (!roles || roles.length === 0) return [];
-
-      const clubIds = roles.map((r) => r.club_id).filter(Boolean);
-      const { data } = await supabase
-        .from("clubs")
-        .select("id, name, logo_url, sport")
-        .in("id", clubIds)
-        .is("deleted_at", null)
-        .neq("kind", "shell");
-
-      return data as Club[];
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    retry: 3,
-    staleTime: 5 * 60 * 1000,
-    initialData: cachedData?.adminClubs as Club[] | undefined,
-    placeholderData: (prev) => prev,
-  });
-
   // Preview watermarks: the most recent Realtime-accepted inbox preview per
   // scope. Inbox query responses are merged against these so a response that
   // STARTED before a Realtime event can never regress to older/empty preview
@@ -475,205 +427,18 @@ export default function MessagesPage() {
     teamsWithMessages?.latestMessages,
   );
 
-  // Get admin teams where user can create groups
-  const { data: adminTeamIds } = useQuery({
-    queryKey: ["admin-team-ids", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("team_id, club_id, role")
-        .eq("user_id", user!.id)
-        .in("role", ["team_admin", "coach", "committee_member"]);
-      return data?.map((r) => r.team_id).filter(Boolean) || [];
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev,
-  });
-
-  // Check if user is a committee member (club-level role)
-  const { data: isCommitteeMember, isFetching: isCommitteeMemberFetching } = useQuery({
-    queryKey: ["is-committee-member", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", user!.id)
-        .eq("role", "committee_member")
-        .maybeSingle();
-      return !!data;
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev,
-  });
-
-  // Fetch all user roles for chat group filtering
-  const { data: userAllRoles, isFetching: userAllRolesFetching } = useQuery({
-    queryKey: ["user-all-roles", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role, club_id, team_id")
-        .eq("user_id", user!.id);
-      return data || [];
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch mini league IDs the user's children are assigned to (for league group visibility)
-  const { data: userLeagueIds, isFetching: userLeagueIdsFetching } = useQuery({
-    queryKey: ["user-child-league-ids", user?.id],
-    queryFn: async () => {
-      // Get user's children
-      const { data: children } = await supabase
-        .from("children")
-        .select("id")
-        .eq("parent_id", user!.id);
-      
-      if (!children?.length) {
-        // Also check child_guardians for non-primary parents
-        const { data: guardianLinks } = await supabase
-          .from("child_guardians")
-          .select("child_id")
-          .eq("guardian_id", user!.id);
-        
-        const guardianChildIds = guardianLinks?.map(g => g.child_id) || [];
-        if (!guardianChildIds.length) return new Set<string>();
-        
-        const { data: assignments } = await supabase
-          .from("child_mini_league_assignments")
-          .select("mini_league_id")
-          .in("child_id", guardianChildIds);
-        
-        return new Set(assignments?.map(a => a.mini_league_id) || []);
-      }
-      
-      const childIds = children.map(c => c.id);
-      
-      // Also include guardian children
-      const { data: guardianLinks } = await supabase
-        .from("child_guardians")
-        .select("child_id")
-        .eq("guardian_id", user!.id);
-      
-      guardianLinks?.forEach(g => {
-        if (!childIds.includes(g.child_id)) childIds.push(g.child_id);
-      });
-      
-      const { data: assignments } = await supabase
-        .from("child_mini_league_assignments")
-        .select("mini_league_id")
-        .in("child_id", childIds);
-      
-      return new Set(assignments?.map(a => a.mini_league_id) || []);
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Check if user has any Pro access
-  // Pro Access Logic: Club Pro → all teams inherit; Free club → check team subscription
-  const { data: hasAnyProAccess, isLoading: isLoadingProAccess, isFetching: isFetchingProAccess } = useQuery({
-    queryKey: ["has-any-pro-access", user?.id],
-    queryFn: async () => {
-      const { data: userTeamRoles } = await supabase
-        .from("user_roles")
-        .select("team_id, club_id")
-        .eq("user_id", user!.id);
-      
-      if (!userTeamRoles?.length) return false;
-      
-      const teamIds = userTeamRoles.map(r => r.team_id).filter(Boolean) as string[];
-      const clubIds = [...new Set(userTeamRoles.map(r => r.club_id).filter(Boolean))] as string[];
-      
-      // Get parent clubs of teams
-      if (teamIds.length > 0) {
-        const { data: teams } = await supabase
-          .from("teams")
-          .select("club_id")
-          .in("id", teamIds);
-        
-        teams?.forEach(t => {
-          if (t.club_id && !clubIds.includes(t.club_id)) {
-            clubIds.push(t.club_id);
-          }
-        });
-      }
-      
-      // First check club subscriptions (if any club has Pro, user has Pro)
-      if (clubIds.length > 0) {
-        const { data: proClubs } = await supabase
-          .from("club_subscriptions")
-          .select("club_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override, expires_at")
-          .in("club_id", clubIds);
-        
-        const hasProClub = proClubs?.some(sub => 
-          (sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override) && 
-          (!sub.expires_at || new Date(sub.expires_at) > new Date())
-        );
-        
-        if (hasProClub) return true;
-      }
-      
-      // Check team-level subscriptions (for teams in free clubs)
-      if (teamIds.length > 0) {
-        const { data: proTeams } = await supabase
-          .from("team_subscriptions")
-          .select("team_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override, expires_at")
-          .in("team_id", teamIds);
-        
-        const hasProTeam = proTeams?.some(sub => 
-          (sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override) && 
-          (!sub.expires_at || new Date(sub.expires_at) > new Date())
-        );
-        
-        if (hasProTeam) return true;
-      }
-      
-      return false;
-    },
-    enabled: !!user && initialized && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev,
-  });
-
-  // Get Pro status for each club - derived from memberClubs data
-  const memberClubIds = useMemo(() => {
-    const clubs = memberClubsWithMessages?.clubs ?? [];
-    return clubs.map((c: any) => c.id).filter(Boolean) as string[];
-  }, [memberClubsWithMessages]);
-
-  const { data: clubProStatus, isLoading: isLoadingClubProStatus, isFetching: isFetchingClubProStatus } = useQuery({
-    queryKey: ["club-pro-status", memberClubIds],
-    queryFn: async () => {
-      if (memberClubIds.length === 0) return {};
-
-      const { data: subs, error } = await supabase
-        .from("club_subscriptions")
-        .select("club_id, is_pro, is_pro_football, admin_pro_override, admin_pro_football_override, expires_at")
-        .in("club_id", memberClubIds);
-
-      // If the query errors transiently (e.g. after returning from phone lock),
-      // throw so React Query keeps the previous (good) data via placeholderData
-      // instead of caching an all-false map that would lock Pro chats.
-      if (error) throw error;
-
-      const statusMap: Record<string, boolean> = {};
-      memberClubIds.forEach(id => {
-        const sub = subs?.find(s => s.club_id === id);
-        statusMap[id] = sub ? 
-          (sub.is_pro || sub.is_pro_football || sub.admin_pro_override || sub.admin_pro_football_override) && 
-          (!sub.expires_at || new Date(sub.expires_at) > new Date()) : false;
-      });
-      
-      return statusMap;
-    },
-    enabled: memberClubIds.length > 0 && !useIcpLab,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (prev) => prev,
-    retry: 2,
+  const {
+    isAppAdmin, isAppAdminFetching, adminClubs, adminTeamIds,
+    isCommitteeMember, isCommitteeMemberFetching, userAllRoles, userAllRolesFetching,
+    userLeagueIds, userLeagueIdsFetching, hasAnyProAccess, isLoadingProAccess,
+    isFetchingProAccess, clubProStatus, isLoadingClubProStatus, isFetchingClubProStatus,
+  } = useMessagesPageAccessData({
+    client: supabase,
+    userId: user?.id,
+    initialized,
+    useIcpLab,
+    memberClubs,
+    initialAdminClubs: cachedData?.adminClubs as Club[] | undefined,
   });
 
   // Fetch chat groups with their latest messages in a single query

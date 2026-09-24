@@ -3214,3 +3214,22 @@ Validation passed: product typecheck (153 diagnostics, unchanged), lab
 typecheck (clean), isolation, quality ratchet (`directSupabaseImports`
 unchanged at 463), duplication ratchet (2,523 fewer duplicated lines than
 baseline), and `git diff --check`.
+## MessagesPage.tsx access-query hook extraction (2026-09-25)
+
+The page's cohesive access and permission query cluster now lives in
+`hooks/useMessagesPageAccessData.ts`. It owns the app-admin, club-admin,
+admin-team, committee, role, child-league, aggregate Pro-access, and per-club
+Pro-status queries. The existing Supabase client is injected into the hook, so
+the direct-import ratchet remains unchanged and ICP lab mode continues to
+disable the production-only queries.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,208 | 1,973 | -235 (-10.6%) |
+| New focused module | 0 | 1 (`useMessagesPageAccessData.ts`, 240 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused Messages characterization/decomposition tests
+(14 tests, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,536 fewer
+duplicated lines than baseline), and `git diff --check`.
