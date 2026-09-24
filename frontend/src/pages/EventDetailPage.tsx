@@ -17,11 +17,10 @@ import { Capacitor } from "@capacitor/core";
 import { getShareUrl } from "@/lib/shareUtils";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, UserPlus, Trash2, Pencil, XCircle, Bell, Share2, MoreVertical } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { exportEventIcs } from "@/lib/icsExport";
 import { getEventTypeLabel } from "@/lib/eventTypeLabel";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -40,13 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { eventKeys } from "@/lab/eventQueryKeys";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
@@ -69,6 +61,7 @@ import { EventPitchBoardPortal } from "@/components/event/EventPitchBoardPortal"
 import { EventDetailActionDialogs } from "@/components/event/EventDetailActionDialogs";
 import { EventRsvpResponseSection } from "@/components/event/EventRsvpResponseSection";
 import { EventAttendanceRosterSection } from "@/components/event/EventAttendanceRosterSection";
+import { EventDetailHeader } from "@/components/event/EventDetailHeader";
 
 
 import {
@@ -103,17 +96,10 @@ import {
   type EventMemberRoleRow,
 } from "@/features/events/eventMemberRoster";
 
-type EventType = "game" | "training" | "social";
 type RsvpStatus = "going" | "maybe" | "not_going";
 type DutyStatus = "open" | "completed";
 
 const PRESET_DUTIES = ["Canteen/BBQ", "Linesperson", "Linemarker", "Referee"];
-
-const eventTypeColors: Record<EventType, string> = {
-  game: "bg-destructive/20 text-destructive",
-  training: "bg-primary/20 text-primary",
-  social: "bg-warning/20 text-warning",
-};
 
 const rsvpOptions: { value: RsvpStatus; label: string; icon: string }[] = [
   { value: "going", label: "Going", icon: "✅" },
@@ -1325,6 +1311,29 @@ export default function EventDetailPage() {
     );
   };
 
+  const handleShareEvent = async () => {
+    if (isSharingEventRef.current || !gateEventShare()) return;
+    isSharingEventRef.current = true;
+    const shareUrl = getShareUrl("event", id!);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({ url: shareUrl, dialogTitle: "Share Event" });
+      } else if (navigator.share) {
+        await navigator.share({ url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Link copied to clipboard!" });
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Link copied to clipboard!" });
+      }
+    } finally {
+      isSharingEventRef.current = false;
+    }
+  };
+
 
 
   const { cancelEventMutation } = useCancelEventMutation({
@@ -1454,143 +1463,39 @@ export default function EventDetailPage() {
 
   return (
     <div className="py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="shrink-0" onClick={() => {
-          navigate('/events');
-        }}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <Badge className={eventTypeColors[event.type as EventType]} variant="secondary">
-          {eventTypeLabel}
-        </Badge>
-        
-        <div className="flex-1" />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="shrink-0"
-          onClick={async () => {
-            if (isSharingEventRef.current) return;
-            if (!gateEventShare()) return;
-            isSharingEventRef.current = true;
-
-            const shareUrl = getShareUrl("event", id!);
-            
-            
-
-            try {
-              if (Capacitor.isNativePlatform()) {
-                await Share.share({
-                  url: shareUrl,
-                  dialogTitle: 'Share Event',
-                });
-              } else if (navigator.share) {
-                await navigator.share({
-                  url: shareUrl,
-                });
-              } else {
-                await navigator.clipboard.writeText(shareUrl);
-                toast({ title: "Link copied to clipboard!" });
-              }
-            } catch (err) {
-              if ((err as Error).name !== 'AbortError') {
-                await navigator.clipboard.writeText(shareUrl);
-                toast({ title: "Link copied to clipboard!" });
-              }
-            } finally {
-              isSharingEventRef.current = false;
-            }
-          }}
-        >
-          <Share2 className="h-5 w-5" />
-        </Button>
-
-        {/* Admin actions dropdown */}
-        {canManageEvent && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover">
-              {!event.is_cancelled && (
-                <>
-                  <DropdownMenuItem onClick={() => navigate(`/events/${id}/edit`)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit {eventTypeLabel}
-                  </DropdownMenuItem>
-                  {(() => {
-                     const eventDateStr = event.event_date?.split('T')[0] || event.event_date;
-                     const isUpcoming = new Date(eventDateStr + 'T' + (event.end_time || event.start_time || '23:59')) >= new Date();
-                    return (
-                      <>
-                        {isUpcoming && (canSendReminders ? (
-                          <DropdownMenuItem onClick={() => {
-                            setReminderDialogOpen(true);
-                          }}>
-                            <Bell className="h-4 w-4 mr-2 text-primary" />
-                            Send Reminders
-                          </DropdownMenuItem>
-                        ) : !isLoadingHasTeamPro && (
-                          <DropdownMenuItem disabled>
-                            <Bell className="h-4 w-4 mr-2" />
-                            Send Reminders
-                            <Badge variant="secondary" className="ml-auto text-[10px] h-4 px-1">Pro</Badge>
-                          </DropdownMenuItem>
-                        ))}
-                        {isUpcoming && (
-                          <DropdownMenuItem onClick={() => setResendDialogOpen(true)}>
-                            <UserPlus className="h-4 w-4 mr-2 text-primary" />
-                            Resend Invites
-                          </DropdownMenuItem>
-                        )}
-                      </>
-                    );
-                  })()}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => setCancelDialogOpen(true)}
-                    className="text-warning focus:text-warning"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel {eventTypeLabel}
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuItem 
-                onClick={() => setDeleteDialogOpen(true)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete {eventTypeLabel}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        <EventDetailActionDialogs
-          event={event}
-          eventTypeLabel={eventTypeLabel}
-          attendanceActionsDisabled={attendanceActionsDisabled}
-          reminderDialogOpen={reminderDialogOpen}
-          setReminderDialogOpen={setReminderDialogOpen}
-          resendDialogOpen={resendDialogOpen}
-          setResendDialogOpen={setResendDialogOpen}
-          cancelDialogOpen={cancelDialogOpen}
-          setCancelDialogOpen={setCancelDialogOpen}
-          deleteDialogOpen={deleteDialogOpen}
-          setDeleteDialogOpen={setDeleteDialogOpen}
-          handleShareReminderLink={handleShareReminderLink}
-          remindMutation={remindMutation}
-          resendInvitesMutation={resendInvitesMutation}
-          cancelEventMutation={cancelEventMutation}
-          handleConfirmDelete={handleConfirmDelete}
-          deletePending={deletePending}
-        />
-      </div>
+      <EventDetailHeader
+        event={event}
+        eventTypeLabel={eventTypeLabel}
+        canManageEvent={canManageEvent}
+        canSendReminders={canSendReminders}
+        isLoadingHasTeamPro={isLoadingHasTeamPro}
+        onBack={() => navigate("/events")}
+        onShare={handleShareEvent}
+        onEdit={() => navigate(`/events/${id}/edit`)}
+        onSendReminders={() => setReminderDialogOpen(true)}
+        onResendInvites={() => setResendDialogOpen(true)}
+        onCancel={() => setCancelDialogOpen(true)}
+        onDelete={() => setDeleteDialogOpen(true)}
+      />
+      <EventDetailActionDialogs
+        event={event}
+        eventTypeLabel={eventTypeLabel}
+        attendanceActionsDisabled={attendanceActionsDisabled}
+        reminderDialogOpen={reminderDialogOpen}
+        setReminderDialogOpen={setReminderDialogOpen}
+        resendDialogOpen={resendDialogOpen}
+        setResendDialogOpen={setResendDialogOpen}
+        cancelDialogOpen={cancelDialogOpen}
+        setCancelDialogOpen={setCancelDialogOpen}
+        deleteDialogOpen={deleteDialogOpen}
+        setDeleteDialogOpen={setDeleteDialogOpen}
+        handleShareReminderLink={handleShareReminderLink}
+        remindMutation={remindMutation}
+        resendInvitesMutation={resendInvitesMutation}
+        cancelEventMutation={cancelEventMutation}
+        handleConfirmDelete={handleConfirmDelete}
+        deletePending={deletePending}
+      />
 
       <EventOverviewSection
         event={event}

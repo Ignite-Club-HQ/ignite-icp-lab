@@ -3336,3 +3336,19 @@ ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,567 fewer duplicated lines than baseline), and `git diff --check`.
 The product typecheck ratchet still reports the two existing HomePage
 diagnostics.
+## EventDetailPage.tsx header extraction (2026-09-25)
+
+The presentation-heavy event header and admin-action menu were extracted into
+`components/event/EventDetailHeader.tsx`. The page retains all event queries,
+mutations, provider decisions, navigation, and callbacks; the new component
+has no Supabase or query dependencies.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `EventDetailPage.tsx` raw lines | 1,771 | 1,676 | -95 (-5.4%) |
+| New focused module | 0 | 1 (`EventDetailHeader.tsx`, 113 lines) | +1 |
+
+Validation passed: lab typecheck (clean), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,567 fewer
+duplicated lines than baseline), and `git diff --check`. Product typecheck
+continues to report only the two existing HomePage diagnostics.
