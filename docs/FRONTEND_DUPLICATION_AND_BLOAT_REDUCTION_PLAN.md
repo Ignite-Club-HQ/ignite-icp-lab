@@ -1,5 +1,35 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage sponsors-section extraction (2026-09-24)
+
+This pass extracts the Sponsors accordion — the largest remaining
+presentation block in `ClubDetailPage.tsx` at 115 lines — into
+`ClubSponsorsSection.tsx`. The four near-identical display-surface toggles
+(media feed, media header strip, chat threads, events) are rendered from a
+single `SPONSOR_TOGGLES` config array inside the component rather than four
+separate hand-written blocks, further reducing duplication beyond the
+earlier `updateSponsorSetting` consolidation. The route keeps the Supabase
+update, cache invalidation, and toast messaging (renamed `handleSponsorToggle`,
+keyed by field via lookup tables for invalidate-keys and toast titles) and
+passes a single typed `onToggle(field, checked)` callback plus the current
+toggle values down as props. The existing `SponsorsManager` and
+`ClubTeamSponsorAllocator` (both Supabase-importing) render unchanged as
+children of the new component.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,144 | 2,047 | -97 (-4.5%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 2,047 | -733 (-26.4%) |
+
+Eight new focused component tests cover the Pro/non-Pro banner, all four
+toggle labels rendering, the `onToggle` callback firing with the correct
+field/value, the disabled fieldset in both non-Pro and ICP-lab-mode states,
+and the lab-unavailable message replacing the sponsor managers in lab mode.
+The `src/components/club/` suite is now 9 files / 40 tests, all passing.
+Product typecheck (153 diagnostics, unchanged) and Lab typecheck are both
+clean, isolation and quality-ratchet checks pass, duplication ratchet shows
+2,329 fewer duplicated lines than baseline, and `git diff --check` passes.
+
 ## ClubDetailPage branding and schedule-tools section extraction (2026-09-24)
 
 This pass extracts the two remaining large presentation-only accordions from

@@ -1,11 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 import ClubLinksManager from "@/components/clubs/ClubLinksManager";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
 import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { getSportEmoji } from "@/lib/sportEmojis";
@@ -76,10 +75,8 @@ import { useToast } from "@/hooks/use-toast";
 import { exportClubRosterCsv } from "@/lib/exportClubRoster";
 
 import { FOLDER_COLORS } from "@/components/TeamFoldersManager";
-import { SponsorsManager } from "@/components/SponsorsManager";
 import ClubRewardsManager from "@/components/ClubRewardsManager";
 import { PrimarySponsorDisplay } from "@/components/PrimarySponsorDisplay";
-import { ClubTeamSponsorAllocator } from "@/components/ClubTeamSponsorAllocator";
 import { PendingTeamRequests } from "@/components/PendingTeamRequests";
 import { ClubDMSettings } from "@/components/ClubDMSettings";
 import { ClubMessagePrivacySettings } from "@/components/ClubMessagePrivacySettings";
@@ -95,6 +92,7 @@ import { ClubArchivedTeamsSection } from "@/components/club/ClubArchivedTeamsSec
 import { ClubMiniLeaguesSection } from "@/components/club/ClubMiniLeaguesSection";
 import { ClubBrandingSection } from "@/components/club/ClubBrandingSection";
 import { ClubScheduleToolsSection } from "@/components/club/ClubScheduleToolsSection";
+import { ClubSponsorsSection, type ClubSponsorToggleField } from "@/components/club/ClubSponsorsSection";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
 import { ClassAttendanceManager } from "@/components/ClassAttendanceManager";
@@ -1678,13 +1676,19 @@ export default function ClubDetailPage() {
           light up once the club is on Pro (see the amber note + disabled toggles below). */}
       {isAdmin && !club?.class_mode_enabled && (() => {
         const hasProAccess = !!(isAppAdmin || clubSubscription?.is_pro || clubSubscription?.is_pro_football || clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override);
-        const updateSponsorSetting = async (
-          field: "media_sponsors_enabled" | "media_header_sponsors_enabled" | "chat_thread_ads_enabled" | "events_sponsor_strip_enabled",
-          checked: boolean,
-          extraInvalidateKey: readonly unknown[],
-          enabledTitle: string,
-          disabledTitle: string,
-        ) => {
+        const sponsorToggleInvalidateKeys: Record<ClubSponsorToggleField, readonly unknown[]> = {
+          media_sponsors_enabled: ["riverside-media-sponsors-enabled"],
+          media_header_sponsors_enabled: ["media-header-sponsors-enabled", id],
+          chat_thread_ads_enabled: ["club-chat-thread-ads-enabled", id],
+          events_sponsor_strip_enabled: ["events-sponsor-strip-allowed", id],
+        };
+        const sponsorToggleTitles: Record<ClubSponsorToggleField, { enabled: string; disabled: string }> = {
+          media_sponsors_enabled: { enabled: "Media sponsors enabled", disabled: "Media sponsors disabled" },
+          media_header_sponsors_enabled: { enabled: "Media header strip enabled", disabled: "Media header strip disabled" },
+          chat_thread_ads_enabled: { enabled: "Chat sponsor strip enabled", disabled: "Chat sponsor strip disabled" },
+          events_sponsor_strip_enabled: { enabled: "Events sponsor strip enabled", disabled: "Events sponsor strip disabled" },
+        };
+        const handleSponsorToggle = async (field: ClubSponsorToggleField, checked: boolean) => {
           const { error } = await supabase
             .from("clubs")
             .update({ [field]: checked } as any)
@@ -1694,126 +1698,25 @@ export default function ClubDetailPage() {
             return;
           }
           await queryClient.invalidateQueries({ queryKey: ["club", id] });
-          await queryClient.invalidateQueries({ queryKey: extraInvalidateKey as unknown[] });
-          toast({ title: checked ? enabledTitle : disabledTitle });
+          await queryClient.invalidateQueries({ queryKey: sponsorToggleInvalidateKeys[field] as unknown[] });
+          const { enabled, disabled } = sponsorToggleTitles[field];
+          toast({ title: checked ? enabled : disabled });
         };
         return (
-        <AccordionItem 
-          value="sponsors" 
-          className="border rounded-lg px-4"
-        >
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">Sponsors</span>
-              {!hasProAccess && (
-                <Badge variant="outline" className="text-xs font-normal ml-2">Configure now, activates on Pro</Badge>
-              )}
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
-              {!hasProAccess && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
-                  You can add sponsors and assign them to teams now — they'll appear across the app (club page, media, chat, events) automatically once your club is on the <strong>Pro</strong> plan.
-                </div>
-              )}
-              {/* Display-surface toggles — only functional on Pro */}
-              <fieldset disabled={!hasProAccess || useIcpLab} className={cn("space-y-4", (!hasProAccess || useIcpLab) && "opacity-60")}>
-                {/* Media sponsors toggle — defaults to OFF */}
-                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Show sponsors in Media feed</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Interleaves a club sponsor tile every 8 photos in the Media feed. Tier-weighted (Gold &gt; Silver &gt; Bronze). Off by default.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!(club as any)?.media_sponsors_enabled}
-                    onCheckedChange={(checked) => updateSponsorSetting(
-                      "media_sponsors_enabled",
-                      checked,
-                      ["riverside-media-sponsors-enabled"],
-                      "Media sponsors enabled",
-                      "Media sponsors disabled",
-                    )}
-                  />
-                </div>
-                {/* Media header sponsor strip toggle — defaults to OFF */}
-                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Show sponsor strip at top of Media</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Shows a slim, dismissible club sponsor bar above the Media feed. Tier-weighted rotation. Off by default.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!(club as any)?.media_header_sponsors_enabled}
-                    onCheckedChange={(checked) => updateSponsorSetting(
-                      "media_header_sponsors_enabled",
-                      checked,
-                      ["media-header-sponsors-enabled", id],
-                      "Media header strip enabled",
-                      "Media header strip disabled",
-                    )}
-                  />
-                </div>
-                {/* Chat thread sponsor strip toggle — defaults to OFF */}
-                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Show sponsor strip in chat threads</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Shows a slim, dismissible club sponsor bar at the top of every chat thread. Tier-weighted rotation. Off by default.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!(club as any)?.chat_thread_ads_enabled}
-                    onCheckedChange={(checked) => updateSponsorSetting(
-                      "chat_thread_ads_enabled",
-                      checked,
-                      ["club-chat-thread-ads-enabled", id],
-                      "Chat sponsor strip enabled",
-                      "Chat sponsor strip disabled",
-                    )}
-                  />
-                </div>
-                {/* Events sponsor strip toggle — defaults to OFF */}
-                <div className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Show sponsor strip on Events</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Shows a rotating sponsor or ad strip above the events list and on each event detail page. Off by default.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!(club as any)?.events_sponsor_strip_enabled}
-                    onCheckedChange={(checked) => updateSponsorSetting(
-                      "events_sponsor_strip_enabled",
-                      checked,
-                      ["events-sponsor-strip-allowed", id],
-                      "Events sponsor strip enabled",
-                      "Events sponsor strip disabled",
-                    )}
-                  />
-                </div>
-              </fieldset>
-              {useIcpLab ? (
-                <p className="text-sm text-muted-foreground">
-                  Sponsor management is unavailable in ICP lab mode.
-                </p>
-              ) : (
-                <>
-                  <SponsorsManager
-                    clubId={id!}
-                    currentPrimarySponsorId={club?.primary_sponsor_id || null}
-                    onPrimaryChange={() => queryClient.invalidateQueries({ queryKey: ["club", id] })}
-                  />
-                  <ClubTeamSponsorAllocator clubId={id!} />
-                </>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+          <ClubSponsorsSection
+            hasProAccess={hasProAccess}
+            useIcpLab={useIcpLab}
+            toggleValues={{
+              media_sponsors_enabled: !!(club as any)?.media_sponsors_enabled,
+              media_header_sponsors_enabled: !!(club as any)?.media_header_sponsors_enabled,
+              chat_thread_ads_enabled: !!(club as any)?.chat_thread_ads_enabled,
+              events_sponsor_strip_enabled: !!(club as any)?.events_sponsor_strip_enabled,
+            }}
+            onToggle={handleSponsorToggle}
+            clubId={id!}
+            currentPrimarySponsorId={club?.primary_sponsor_id || null}
+            onPrimaryChange={() => queryClient.invalidateQueries({ queryKey: ["club", id] })}
+          />
         );
       })()}
 
