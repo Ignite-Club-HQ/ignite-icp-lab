@@ -1,5 +1,33 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage enrolments and app-admin section extraction (2026-09-24)
+
+This pass extracts the two next-largest remaining accordions from
+`ClubDetailPage.tsx`. The Enrolments accordion (the existing
+`AdminEnrolmentManager` plus a share-link card) moves to
+`ClubEnrolmentsSection.tsx`, keeping the `navigator.share`/clipboard fallback
+and its confirmation toast route-owned behind a single `onShareLink`
+callback. The App Admin accordion (the Club Pro / Club Pro Football toggles
+and plan/team-limit summary, gated to app admins) moves to
+`ClubAppAdminSection.tsx`, keeping the underlying `toggleClubProMutation`
+route-owned and passing its pending state and the existing
+`handleToggleClubPro`/`handleToggleClubProFootball` callbacks straight
+through as props.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,047 | 1,973 | -74 (-3.6%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 1,973 | -807 (-29.0%) |
+
+Twelve new focused component tests (three for enrolments: rendering the
+enrolment manager, the View Page link href, and the share-link callback;
+nine for app admin: toggle rendering/visibility by sport, callback firing,
+pending-disabled state, and plan/team-limit display logic) bring the
+`src/components/club/` suite to 11 files / 52 tests, all passing. Product
+typecheck (153 diagnostics, unchanged) and Lab typecheck are both clean,
+isolation and quality-ratchet checks pass, duplication ratchet shows 2,329
+fewer duplicated lines than baseline, and `git diff --check` passes.
+
 ## ClubDetailPage sponsors-section extraction (2026-09-24)
 
 This pass extracts the Sponsors accordion — the largest remaining

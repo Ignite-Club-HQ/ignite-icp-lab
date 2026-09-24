@@ -4,7 +4,7 @@ import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 import ClubLinksManager from "@/components/clubs/ClubLinksManager";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
 import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { getSportEmoji } from "@/lib/sportEmojis";
@@ -15,7 +15,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -83,7 +82,7 @@ import { ClubMessagePrivacySettings } from "@/components/ClubMessagePrivacySetti
 import { ClubAICatchUpSettings } from "@/components/ClubAICatchUpSettings";
 import { ClubInviteEmailSettings } from "@/components/ClubInviteEmailSettings";
 import { ClubAnnouncementDialog } from "@/components/ClubAnnouncementDialog";
-import { CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Megaphone, MoreVertical, Link as LinkIcon } from "lucide-react";
 import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigationSection";
 import { ClubQuickActions } from "@/components/club/ClubQuickActions";
 import { ClubTeamBrowser } from "@/components/club/ClubTeamBrowser";
@@ -93,8 +92,9 @@ import { ClubMiniLeaguesSection } from "@/components/club/ClubMiniLeaguesSection
 import { ClubBrandingSection } from "@/components/club/ClubBrandingSection";
 import { ClubScheduleToolsSection } from "@/components/club/ClubScheduleToolsSection";
 import { ClubSponsorsSection, type ClubSponsorToggleField } from "@/components/club/ClubSponsorsSection";
+import { ClubEnrolmentsSection } from "@/components/club/ClubEnrolmentsSection";
+import { ClubAppAdminSection } from "@/components/club/ClubAppAdminSection";
 import { TermsManager } from "@/components/TermsManager";
-import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
 import { ClassAttendanceManager } from "@/components/ClassAttendanceManager";
 import { ClassModeOnboardingGuide } from "@/components/ClassModeOnboardingGuide";
 import { TodaysClassesDashboard } from "@/components/TodaysClassesDashboard";
@@ -1794,59 +1794,21 @@ export default function ClubDetailPage() {
 
       {/* Class Mode - Enrolments (Admin only) */}
       {isAdmin && club?.class_mode_enabled && (
-        <AccordionItem value="enrolments" className="border rounded-lg px-4">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">Enrolments</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="pt-2 space-y-4">
-              <AdminEnrolmentManager clubId={id!} />
-              <Card className="border">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <span className="font-medium">Enrolment Page</span>
-                      <p className="text-xs text-muted-foreground">Share this link with parents to enrol</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link to={`/clubs/${id}/enrol`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full gap-1.5">
-                        <BookOpen className="h-3.5 w-3.5" />
-                        View Page
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={async () => {
-                        const url = `${window.location.origin}/clubs/${id}/enrol`;
-                        if (navigator.share) {
-                          try {
-                            await navigator.share({ title: `${club?.name} - Enrolment`, url });
-                          } catch {}
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          toast({ title: "Link copied!", description: "Enrolment link copied to clipboard." });
-                        }
-                      }}
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      Share Link
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+        <ClubEnrolmentsSection
+          clubId={id!}
+          onShareLink={async () => {
+            const url = `${window.location.origin}/clubs/${id}/enrol`;
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: `${club?.name} - Enrolment`, url });
+              } catch {}
+            } else {
+              await navigator.clipboard.writeText(url);
+              toast({ title: "Link copied!", description: "Enrolment link copied to clipboard." });
+            }
+          }}
+        />
+
       )}
 
       {/* Class Mode - Attendance (Admin only) */}
@@ -1945,52 +1907,16 @@ export default function ClubDetailPage() {
       {/* App Admin Section */}
 
       {isAppAdmin && (
-        <AccordionItem value="app-admin" className="border rounded-lg px-4 border-red-500/30">
-          <AccordionTrigger className="hover:no-underline">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-500" />
-              <span className="text-lg font-semibold">App Admin</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <Card className="border-red-500/30 bg-red-500/5">
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="font-medium">Club Pro</Label>
-                    <p className="text-xs text-muted-foreground">Enable Pro features for all teams</p>
-                  </div>
-                  <Switch
-                    checked={clubSubscription?.is_pro || false}
-                    onCheckedChange={handleToggleClubPro}
-                    disabled={toggleClubProMutation.isPending}
-                  />
-                </div>
-                
-                {isSoccerClub && (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="font-medium">Club Pro Football</Label>
-                      <p className="text-xs text-muted-foreground">Enable pitch board for all teams (includes Pro)</p>
-                    </div>
-                    <Switch
-                      checked={clubSubscription?.is_pro_football || false}
-                      onCheckedChange={handleToggleClubProFootball}
-                      disabled={toggleClubProMutation.isPending}
-                    />
-                  </div>
-                )}
-                
-                {clubSubscription?.is_pro && (
-                  <div className="text-xs text-muted-foreground pt-2 border-t">
-                    Plan: {clubSubscription.plan?.charAt(0).toUpperCase()}{clubSubscription.plan?.slice(1)} • 
-                    Teams: {clubSubscription.team_limit ?? "Unlimited"}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </AccordionContent>
-        </AccordionItem>
+        <ClubAppAdminSection
+          isPro={clubSubscription?.is_pro || false}
+          isProFootball={clubSubscription?.is_pro_football || false}
+          isSoccerClub={isSoccerClub}
+          isTogglePending={toggleClubProMutation.isPending}
+          plan={clubSubscription?.plan}
+          teamLimit={clubSubscription?.team_limit}
+          onToggleClubPro={handleToggleClubPro}
+          onToggleClubProFootball={handleToggleClubProFootball}
+        />
       )}
       </Accordion>
 
