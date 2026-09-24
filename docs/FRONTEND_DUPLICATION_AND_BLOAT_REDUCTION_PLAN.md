@@ -3250,3 +3250,19 @@ typecheck (clean), focused team tests (4 tests, all passed), isolation,
 quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,536 fewer duplicated lines than baseline), and `git diff --check`. The full
 lab suite still has the known unrelated TeamChat characterization failures.
+## GroupChatPage.tsx composer extraction (2026-09-25)
+
+The presentation-heavy group-chat composer footer was extracted into
+`components/chat/GroupChatComposerFooter.tsx`. The page retains composer state,
+queries, mutations, realtime setup, provider decisions, and all callbacks; the
+new component has no Supabase or ICP imports.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `GroupChatPage.tsx` raw lines | 2,002 | 1,887 | -115 (-5.7%) |
+| New focused module | 0 | 1 (`GroupChatComposerFooter.tsx`, 211 lines) | +1 |
+
+Validation passed: product typecheck (152 diagnostics, one diagnostic resolved
+relative to the 153-diagnostic baseline), lab typecheck (clean), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,550 fewer duplicated lines than baseline), and `git diff --check`.
