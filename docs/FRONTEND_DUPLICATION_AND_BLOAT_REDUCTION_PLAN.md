@@ -3282,3 +3282,22 @@ Validation passed: product and lab typechecks, focused provider-matrix tests
 (5 tests, all passed), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,581 fewer
 duplicated lines than baseline), and `git diff --check`.
+## HomePage.tsx dashboard composition extraction (2026-09-25)
+
+The page's dashboard composition for join-team, rewards, sponsor, and pitch
+board surfaces was consolidated into the presentation-only
+`components/home/HomeDashboardSections.tsx`. HomePage retains all queries,
+mutations, navigation, provider decisions, and callbacks; the new component
+has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `HomePage.tsx` raw lines | 1,993 | 1,982 | -11 (-0.6%) |
+| New focused module | 0 | 1 (`HomeDashboardSections.tsx`, 33 lines) | +1 |
+
+Validation passed: lab typecheck (clean), focused HomePage tests (15 tests,
+all passed), isolation, quality ratchet (`directSupabaseImports` unchanged at
+463), duplication ratchet (2,581 fewer duplicated lines than baseline), and
+`git diff --check`. Product typecheck remains blocked by the two existing
+HomePage diagnostics at lines 373 and 585; the extraction introduced no
+diagnostics in the new component.

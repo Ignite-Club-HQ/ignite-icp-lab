@@ -46,17 +46,12 @@ import { useClubTheme, hasClubThemeCached } from "@/hooks/useClubTheme";
 import { useUserClubPoints, useChildrenClubPoints } from "@/hooks/useClubPoints";
 import { getCachedNextUp, setCachedNextUp, clearCachedNextUp } from "@/lib/nextUpEventsCache";
 import {
-  HomeRewardsSection,
   type HomeReward,
 } from "@/components/home/HomeRewardsSection";
 import {
-  HomeJoinTeamDialog,
   type HomeLeagueRole,
   type HomeTeamRole,
 } from "@/components/home/HomeJoinTeamDialog";
-import {
-  HomePitchBoardRuntime,
-} from "@/components/home/HomePitchBoardRuntime";
 import { useHomePitchBoard } from "@/components/home/useHomePitchBoard";
 import { HomeDashboardOverview } from "@/components/home/HomeDashboardOverview";
 import {
@@ -66,7 +61,7 @@ import {
   isStillUpcomingForNextUp,
   selectVisibleHomeEvents,
 } from "@/components/home/homeEventSelection";
-import { HomeSponsorSections } from "@/components/home/HomeSponsorSections";
+import { HomeDashboardSections } from "@/components/home/HomeDashboardSections";
 
 export {
   getEventLocalDateKey,
@@ -1875,116 +1870,110 @@ export default function HomePage() {
 
       {showContent && (
         <div className="space-y-5">
-      <HomeJoinTeamDialog
-        open={teamDialogOpen}
-        activeClubFilter={activeClubFilter}
-        clubs={clubs}
-        teams={teams}
-        miniLeagues={miniLeagues}
-        selectedClubForTeam={selectedClubForTeam}
-        selectedTeam={selectedTeam}
-        isLeagueSelected={isLeagueSelected}
-        isAlreadyTeamMember={isAlreadyTeamMember}
-        existingTeamRoles={existingTeamRoles}
-        pendingTeamRequests={pendingTeamRequests}
-        additionalAccessPending={requestAdditionalAccessMutation.isPending}
-        additionalAccessRole={requestAdditionalAccessMutation.variables}
-        selectedLeagueRole={selectedLeagueRole}
-        selectedTeamRole={selectedTeamRole}
-        showChildLinker={showChildLinker}
-        teamChildren={teamChildren}
-        selectedChildForLink={selectedChildForLink}
-        newChildName={newChildName}
-        hasExistingTeamRole={hasExistingTeamRole}
-        hasExistingLeagueRole={hasExistingLeagueRole}
-        submitPending={teamRequestMutation.isPending}
-        onOpenChange={setTeamDialogOpen}
-        onSelectedClubForTeamChange={(clubId) => {
-          setSelectedClubForTeam(clubId);
-          setSelectedTeam("");
-          setSelectedChildForLink("");
-        }}
-        onSelectedTeamChange={setSelectedTeam}
-        onSelectedLeagueRoleChange={setSelectedLeagueRole}
-        onSelectedTeamRoleChange={setSelectedTeamRole}
-        onSelectedChildForLinkChange={setSelectedChildForLink}
-        onNewChildNameChange={setNewChildName}
-        onRequestAdditionalAccess={(role) =>
-          requestAdditionalAccessMutation.mutate(role)
-        }
-        onSubmit={() => teamRequestMutation.mutate()}
-      />
-
-      <HomeRewardsSection
-        isRewardsProLocked={isRewardsProLocked}
-        latestPendingRedemption={latestPendingRedemption}
-        minRewardThreshold={minRewardThreshold}
-        myPoints={myPoints}
-        myPointsLoading={myPointsLoading}
-        showProBadge={showProBadge}
-        pointsDisplayName={(userClubs[0] as any)?.points_display_name || "Reward Points"}
-        rewardQROpen={rewardQROpen}
-        rewardsDialogOpen={rewardsDialogOpen}
-        selectedRewardClubId={selectedRewardClubId}
-        rewardsLoading={rewardsLoading}
-        availableRewards={availableRewards}
-        rewardClubs={rewardClubs}
-        isAppAdmin={isAppAdmin}
-        userChildren={userChildren}
-        selectedReward={selectedReward}
-        confirmRedeemDialogOpen={confirmRedeemDialogOpen}
-        selectedRedeemFor={selectedRedeemFor}
-        redeemPending={redeemMutation.isPending}
-        hasProAccess={hasProAccess}
-        userRoles={userRoles}
-        userClubs={userClubs}
-        upgradeDialogOpen={upgradeDialogOpen}
-        selectedUpgradeClub={selectedUpgradeClub}
-        claimDialogOpen={claimDialogOpen}
-        claimPending={claimMutation.isPending}
-        user={user}
-        userName={profile?.display_name || undefined}
-        redeemAttemptKeyRef={redeemAttemptKeyRef}
-        childPointsFor={childPointsFor}
-        onOpenPointsHistory={() => navigate("/profile?section=points-history")}
-        onUpgrade={handleUpgradeClick}
-        onBrowseRewards={handleBrowseRewards}
-        onRewardQROpenChange={setRewardQROpen}
-        onClaimDialogOpenChange={setClaimDialogOpen}
-        onRewardsDialogOpenChange={setRewardsDialogOpen}
-        onSelectedRewardClubIdChange={setSelectedRewardClubId}
-        onSelectReward={(reward) => {
-          setSelectedReward(reward);
-          setRewardsDialogOpen(false);
-          setTimeout(() => setConfirmRedeemDialogOpen(true), 300);
-        }}
-        onConfirmRedeemDialogOpenChange={setConfirmRedeemDialogOpen}
-        onClearSelectedReward={() => setSelectedReward(null)}
-        onSelectedRedeemForChange={setSelectedRedeemFor}
-        onRedeem={(input) => redeemMutation.mutate(input)}
-        onUpgradeDialogOpenChange={setUpgradeDialogOpen}
-        onSelectedUpgradeClubChange={setSelectedUpgradeClub}
-        onContinueUpgrade={() => {
-          if (!selectedUpgradeClub) return;
-          navigate(`/clubs/${selectedUpgradeClub}/upgrade`);
-          setUpgradeDialogOpen(false);
-        }}
-        onClaim={(input) => claimMutation.mutate(input)}
-      />
-
-      <HomeSponsorSections
-        userId={user?.id}
-        activeClubFilter={activeClubFilter}
-        clubs={clubs}
-      />
-
-      <HomePitchBoardRuntime
-        loading={pitchBoardLoading}
-        pitchBoardTeam={pitchBoardTeam}
-        quickRsvpEvent={quickRsvpEvent}
-        onClosePitchBoard={closePitchBoard}
-        onCloseQuickRsvp={() => setQuickRsvpEvent(null)}
-      />
+          <HomeDashboardSections
+            joinTeamDialog={{
+              open: teamDialogOpen,
+              activeClubFilter,
+              clubs,
+              teams,
+              miniLeagues,
+              selectedClubForTeam,
+              selectedTeam,
+              isLeagueSelected,
+              isAlreadyTeamMember,
+              existingTeamRoles,
+              pendingTeamRequests,
+              additionalAccessPending: requestAdditionalAccessMutation.isPending,
+              additionalAccessRole: requestAdditionalAccessMutation.variables,
+              selectedLeagueRole,
+              selectedTeamRole,
+              showChildLinker,
+              teamChildren,
+              selectedChildForLink,
+              newChildName,
+              hasExistingTeamRole,
+              hasExistingLeagueRole,
+              submitPending: teamRequestMutation.isPending,
+              onOpenChange: setTeamDialogOpen,
+              onSelectedClubForTeamChange: (clubId) => {
+                setSelectedClubForTeam(clubId);
+                setSelectedTeam("");
+                setSelectedChildForLink("");
+              },
+              onSelectedTeamChange: setSelectedTeam,
+              onSelectedLeagueRoleChange: setSelectedLeagueRole,
+              onSelectedTeamRoleChange: setSelectedTeamRole,
+              onSelectedChildForLinkChange: setSelectedChildForLink,
+              onNewChildNameChange: setNewChildName,
+              onRequestAdditionalAccess: (role) =>
+                requestAdditionalAccessMutation.mutate(role),
+              onSubmit: () => teamRequestMutation.mutate(),
+            }}
+            rewards={{
+              isRewardsProLocked,
+              latestPendingRedemption,
+              minRewardThreshold,
+              myPoints,
+              myPointsLoading,
+              showProBadge,
+              pointsDisplayName: (userClubs[0] as any)?.points_display_name || "Reward Points",
+              rewardQROpen,
+              rewardsDialogOpen,
+              selectedRewardClubId,
+              rewardsLoading,
+              availableRewards,
+              rewardClubs,
+              isAppAdmin,
+              userChildren,
+              selectedReward,
+              confirmRedeemDialogOpen,
+              selectedRedeemFor,
+              redeemPending: redeemMutation.isPending,
+              hasProAccess,
+              userRoles,
+              userClubs,
+              upgradeDialogOpen,
+              selectedUpgradeClub,
+              claimDialogOpen,
+              claimPending: claimMutation.isPending,
+              user,
+              userName: profile?.display_name || undefined,
+              redeemAttemptKeyRef,
+              childPointsFor,
+              onOpenPointsHistory: () => navigate("/profile?section=points-history"),
+              onUpgrade: handleUpgradeClick,
+              onBrowseRewards: handleBrowseRewards,
+              onRewardQROpenChange: setRewardQROpen,
+              onClaimDialogOpenChange: setClaimDialogOpen,
+              onRewardsDialogOpenChange: setRewardsDialogOpen,
+              onSelectedRewardClubIdChange: setSelectedRewardClubId,
+              onSelectReward: (reward) => {
+                setSelectedReward(reward);
+                setRewardsDialogOpen(false);
+                setTimeout(() => setConfirmRedeemDialogOpen(true), 300);
+              },
+              onConfirmRedeemDialogOpenChange: setConfirmRedeemDialogOpen,
+              onClearSelectedReward: () => setSelectedReward(null),
+              onSelectedRedeemForChange: setSelectedRedeemFor,
+              onRedeem: (input) => redeemMutation.mutate(input),
+              onUpgradeDialogOpenChange: setUpgradeDialogOpen,
+              onSelectedUpgradeClubChange: setSelectedUpgradeClub,
+              onContinueUpgrade: () => {
+                if (!selectedUpgradeClub) return;
+                navigate(`/clubs/${selectedUpgradeClub}/upgrade`);
+                setUpgradeDialogOpen(false);
+              },
+              onClaim: (input) => claimMutation.mutate(input),
+            }}
+            sponsors={{ userId: user?.id, activeClubFilter, clubs }}
+            pitchBoard={{
+              loading: pitchBoardLoading,
+              pitchBoardTeam,
+              quickRsvpEvent,
+              onClosePitchBoard: closePitchBoard,
+              onCloseQuickRsvp: () => setQuickRsvpEvent(null),
+            }}
+          />
 
         </div>
       )}
