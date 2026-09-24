@@ -3141,3 +3141,25 @@ only in the non-lab/online path) — a rules-of-hooks violation that predates
 this refactor. Extracting that block safely requires either faithfully
 reproducing the broken behavior or an out-of-scope bug fix, so it has been
 deliberately left untouched pending explicit direction.
+## MediaPage.tsx local-feed extraction (2026-09-25)
+
+The local ICP/fixture media branch was extracted from `MediaPage.tsx` into
+`components/media/IcpMediaFeedPage.tsx`. The new module owns the local media
+provider connections, feed loading, reactions, comments, loading skeleton, and
+error handling, while remaining free of direct Supabase imports. The parent
+continues to own the Supabase implementation and selects the local branch
+through the existing `resolveLocalAuthMode` boundary.
+
+The shared `PhotoSkeleton` export is used by both branches so the Supabase
+loading states retain their existing presentation without coupling the local
+provider implementation to production data access.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MediaPage.tsx` raw lines | 2,271 | 2,043 | -228 (-10.0%) |
+| New focused module | 0 | 1 (`IcpMediaFeedPage.tsx`, 162 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused media tests (49 tests, all passed), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463), duplication
+ratchet (2,523 fewer duplicated lines than baseline), and `git diff --check`.
