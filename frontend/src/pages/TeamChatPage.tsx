@@ -24,21 +24,18 @@ import { ChatThreadSponsorStrip } from "@/components/chat/ChatThreadSponsorStrip
 import type { VirtualizedChatMessageListHandle } from "@/components/chat/VirtualizedChatMessageList";
 import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useNativeKeyboardBottomInset } from "@/hooks/useNativeKeyboardBottomInset";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, UserPlus } from "lucide-react";
 import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
 import { SecureAvatar } from "@/components/SecureAvatar";
-import { ChatHeaderShell } from "@/components/chat/ChatHeaderShell";
-import { ChatDetailsSheet } from "@/components/chat/ChatDetailsSheet";
-import { ChatHeaderMenu } from "@/components/chat/ChatHeaderMenu";
+import { TeamChatHeaderSection } from "@/components/chat/TeamChatHeaderSection";
 import { ChatCatchUp } from "@/components/chat/ChatCatchUp";
 import { markChatOpened } from "@/hooks/useChatCatchUp";
 import { useAICatchUpAvailability } from "@/hooks/useAICatchUpAvailability";
 import { useUnreadMessageCounts } from "@/hooks/useUnreadMessageCounts";
 import { useChatOnlineCount } from "@/hooks/useChatOnlineCount";
-import { ChatSearchBar, ChatSearchLoadingState } from "@/components/chat/ChatSearch";
+import { ChatSearchLoadingState } from "@/components/chat/ChatSearch";
 import { useChatHistorySearch } from "@/hooks/useChatHistorySearch";
 import { createChatHistorySearchFetcher } from "@/features/messaging/thread/chatHistorySearchFetcher";
 import { TEAM_CHAT_SCOPE } from "@/features/messaging/scopes/chatScopeAdapters";
@@ -46,9 +43,7 @@ import { fetchMessagesAround } from "@/lib/fetchMessagesAround";
 
 import { PageLoading } from "@/components/ui/page-loading";
 import { ChatPageSkeleton } from "@/components/chat/ChatPageSkeleton";
-const AddTeamMemberSheet = lazyWithRetry(() => import("@/components/AddTeamMemberSheet"));
 import { TeamMemberManagementSheets } from "@/components/chat/TeamMemberManagementSheets";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
@@ -139,7 +134,6 @@ export default function TeamChatPage() {
   const localIcpPersona = user?.id?.startsWith("icp-") ? user.id.slice(4) : "member";
   const notificationNudge = useNotificationNudge(user?.id, "chat");
   const swipeBack = useSwipeBack();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const authReady = !!user && initialized;
   const [searchParams] = useSearchParams();
@@ -1825,86 +1819,31 @@ export default function TeamChatPage() {
   return (
     <div className="flex min-h-0 flex-col overflow-hidden overscroll-none" style={{ height: chatHeight }} data-lock-keyboard-scroll="true" onTouchStart={swipeBack.onTouchStart} onTouchEnd={swipeBack.onTouchEnd}>
       {/* Header */}
-      <ChatHeaderShell
-        type="team"
-        name={team.name}
-        sublabel={teamHeaderSublabel}
-        avatarUrl={team.logo_url || team.clubs?.logo_url}
-        onOpenDetails={() => setMembersOpen(true)}
-        leftSlot={
-          <ChatSearchBar onSearch={setSearchQuery} isOpen={searchOpen} onOpenChange={setSearchOpen} isSearching={isSearchFetching} />
-        }
-        rightSlot={
-          <>
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSearchOpen(true)} aria-label="Search messages">
-              <Search className="h-4 w-4" />
-            </Button>
-            {isAdmin && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => setInviteSheetOpen(true)}
-                aria-label={`Invite members to ${team.name}`}
-              >
-                <UserPlus className="h-[18px] w-[18px]" />
-              </Button>
-            )}
-            <ChatHeaderMenu
-              onRefresh={handleManualRefresh}
-              isRefreshing={isAnyRefreshing}
-              onScheduleMessage={scheduleTarget ? () => setScheduleDialogOpen(true) : undefined}
-              scheduleMessageLocked={!clubProLoading && !clubHasPro}
-              onSummarizeMessages={(!aiCatchUpDisabled && clubHasPro) ? () => summarizeTriggerRef.current?.() : undefined}
-              summarizeLocked={!clubProLoading && !clubHasPro}
-              onManagePinnedVault={
-                isAdmin
-                  ? () => {
-                      if (pinnedVaultLocked) {
-                        toast.info("Pinned vault is a Pro feature");
-                        if (team?.club_id) navigate(`/clubs/${team.club_id}/upgrade`);
-                        return;
-                      }
-                      setPinVaultSheetOpen(true);
-                    }
-                  : undefined
-              }
-              pinnedVaultLocked={!!isAdmin && pinnedVaultLocked}
-              onUnpinVault={
-                pinnedVault.record && isAdmin && !pinnedVaultLocked ? () => pinnedVault.remove() : undefined
-              }
-            />
-          </>
-        }
+      <TeamChatHeaderSection
+        team={team}
+        teamId={teamId!}
+        teamHeaderSublabel={teamHeaderSublabel}
+        isAdmin={!!isAdmin}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+        onSearch={setSearchQuery}
+        isSearchFetching={isSearchFetching}
+        membersOpen={membersOpen}
+        onMembersOpenChange={setMembersOpen}
+        inviteSheetOpen={inviteSheetOpen}
+        onInviteSheetOpenChange={setInviteSheetOpen}
+        onManualRefresh={handleManualRefresh}
+        isAnyRefreshing={isAnyRefreshing}
+        scheduleMessageAvailable={!!scheduleTarget}
+        onOpenScheduleDialog={() => setScheduleDialogOpen(true)}
+        scheduleMessageLocked={!clubProLoading && !clubHasPro}
+        summarizeAvailable={!aiCatchUpDisabled && clubHasPro}
+        onSummarizeMessages={() => summarizeTriggerRef.current?.()}
+        summarizeLocked={!clubProLoading && !clubHasPro}
+        pinnedVault={pinnedVault}
+        pinnedVaultLocked={pinnedVaultLocked}
+        onOpenPinVaultSheet={() => setPinVaultSheetOpen(true)}
       />
-      <ChatDetailsSheet
-        open={membersOpen}
-        onOpenChange={setMembersOpen}
-        chatType="team"
-        chatId={teamId!}
-        name={team.name}
-        sublabel={team.clubs?.name}
-        avatarUrl={team.logo_url || team.clubs?.logo_url}
-        clubId={team.club_id || undefined}
-        onInviteToTeam={() => {
-          setMembersOpen(false);
-          setTimeout(() => setInviteSheetOpen(true), 80);
-        }}
-      />
-      {inviteSheetOpen && (
-        <Suspense fallback={null}>
-        <AddTeamMemberSheet
-          teamId={teamId!}
-          teamName={team.name}
-          clubId={team.club_id}
-          teamType={(team as any).team_type || "mixed"}
-          canBulkInvite={!!isAdmin}
-          triggerVariant="none"
-          externalOpen={inviteSheetOpen}
-          onExternalOpenChange={setInviteSheetOpen}
-        />
-        </Suspense>
-      )}
       {/* Notification Nudge — deferred until after initial chat reveal to prevent post-pin jolt */}
       {bannersReady && notificationNudge.shouldShowNudge && (
         <div className="px-4 pt-2 shrink-0">

@@ -3025,3 +3025,50 @@ total, all passed), isolation, quality ratchet (`directSupabaseImports`
 unchanged at 463), duplication ratchet (2,467 fewer duplicated lines than
 baseline), and `git diff --check`. Full legacy/Lab suites and product build
 remain deferred per the current line-count-reduction pass.
+
+## TeamChatPage.tsx header-section extraction (2026-09-25)
+
+The fifth pass extracted the header block — the `ChatHeaderShell` (search bar,
+search/invite buttons, overflow menu), the `ChatDetailsSheet` it opens, and
+the lazily-loaded `AddTeamMemberSheet` invite sheet it triggers — into a new
+`components/chat/TeamChatHeaderSection.tsx`. This block was pure
+presentation/orchestration (no Supabase or query ownership), so it took plain
+props and callbacks from the page rather than needing the DI pattern. Now
+unused in the page, `ChatHeaderShell`/`ChatDetailsSheet`/`ChatHeaderMenu`/
+`ChatSearchBar`/`AddTeamMemberSheet`/`Button`/`UserPlus`/`useNavigate`
+imports (and the `navigate` variable, whose only caller moved into the new
+component) were all removed.
+
+While validating this pass, product typecheck surfaced 4 pre-existing
+diagnostics in `useTeamChatTeamData.test.tsx` (from the prior pass) that had
+not actually been re-verified against the true 153-diagnostic baseline before
+being committed: the test's `cacheTeam`/`cacheClub` calls were missing the
+now-required `level_age`/`sport`/`is_pro` fields on `CachedTeam`/`CachedClub`.
+Since this is this refactor's own test file, not an unrelated pre-existing
+issue, it was fixed by adding the missing fields to the four affected calls
+rather than left in place.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamChatPage.tsx` raw lines | 2,146 | 2,085 | -61 (-2.8%) |
+| Total this file's reduction | 2,431 | 2,085 | -346 (-14.2%) |
+| New focused module | 0 | 1 (`TeamChatHeaderSection.tsx`, 172 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged, after
+fixing the `useTeamChatTeamData.test.tsx` cache-shape gap and the new
+component's `onRefresh`/`teamType` prop types), lab typecheck (clean),
+focused tests (full `src/features/messaging/` and `src/components/chat/`
+suites, 522 tests, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,494 fewer
+duplicated lines than baseline), and `git diff --check`. Full legacy/Lab
+suites and product build remain deferred per the current line-count-reduction
+pass.
+
+Known remaining risk in this file: the ~220-line `messagesData` `useQuery`
+(`["team-messages", teamId]`) contains a pre-existing, unrelated bug — a
+`useEffect(...)` call nested directly inside the async `queryFn` (reachable
+only in the non-lab/online path) — a rules-of-hooks violation that predates
+this refactor. Extracting that block safely requires either faithfully
+reproducing the broken behavior or an out-of-scope bug fix, so it has been
+deliberately left untouched pending explicit direction.
+

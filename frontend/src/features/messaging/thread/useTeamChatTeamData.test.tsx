@@ -64,8 +64,8 @@ describe("useTeamChatTeamData", () => {
   });
 
   it("synthesizes a team from the metadata cache while the network query is disabled", () => {
-    cacheTeam({ id: "team-3", name: "Cached Team", logo_url: null, club_id: "club-3" });
-    cacheClub({ id: "club-3", name: "Cached Club", logo_url: null });
+    cacheTeam({ id: "team-3", name: "Cached Team", logo_url: null, club_id: "club-3", level_age: null });
+    cacheClub({ id: "club-3", name: "Cached Club", logo_url: null, sport: null, is_pro: false });
     const { result } = renderHook(
       () =>
         useTeamChatTeamData({
@@ -81,8 +81,8 @@ describe("useTeamChatTeamData", () => {
   });
 
   it("falls back to the cached team while the network query is still loading", async () => {
-    cacheTeam({ id: "team-4", name: "Cached Team 4", logo_url: null, club_id: "club-4" });
-    cacheClub({ id: "club-4", name: "Cached Club 4", logo_url: null });
+    cacheTeam({ id: "team-4", name: "Cached Team 4", logo_url: null, club_id: "club-4", level_age: null });
+    cacheClub({ id: "club-4", name: "Cached Club 4", logo_url: null, sport: null, is_pro: false });
     let resolveQuery: (value: any) => void = () => {};
     const supabaseClient: TeamChatTeamSupabaseClient = {
       from: () => ({
