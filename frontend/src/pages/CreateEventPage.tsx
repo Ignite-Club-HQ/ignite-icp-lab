@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, MapPin, Repeat, Bell, Calendar, FileText, DollarSign, ClipboardList, X, Star, Trash2, UserPlus, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Bell, Calendar, FileText, DollarSign, ClipboardList, X, Star, Trash2, UserPlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,10 +66,10 @@ import { personas } from "@/lab/syntheticIdentities.mjs";
 import {
   EventDutyFields,
   EventLocationFields,
-  EventRecurrenceFields,
   EventSectionHeader,
   type EventRecurrencePattern,
 } from "@/components/event/EventFormShared";
+import { EventScheduleSection } from "@/components/event/EventScheduleSection";
 
 type EventType = "game" | "training" | "social" | "mini_league";
 
@@ -1473,129 +1473,29 @@ function SupabaseCreateEventPage() {
       </Card>
 
       {/* Schedule Section */}
-      <Card>
-        <Collapsible open={openSections.schedule}>
-          <EventSectionHeader
-            icon={Calendar}
-            title="Date & Time"
-            isOpen={openSections.schedule}
-            onClick={() => toggleSection('schedule')}
-            badge="Required"
-          />
-          <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4 space-y-4">
-              {/* Combined Date & Time input */}
-              <div className="space-y-2">
-                <Label htmlFor="datetime">Date & Time</Label>
-                <Input
-                  id="datetime"
-                  type="datetime-local"
-                  value={eventDateTime}
-                  onChange={(e) => setEventDateTime(e.target.value)}
-                  className="w-full h-12"
-                />
-              </div>
-
-              {/* End Time / Duration */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Label className="text-sm font-medium">End Time</Label>
-                  <span className="text-xs text-muted-foreground">(optional)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEndTimeMode("duration")}
-                    className={cn(
-                      "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                      endTimeMode === "duration"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                    )}
-                  >
-                    Duration
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEndTimeMode("end_time")}
-                    className={cn(
-                      "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                      endTimeMode === "end_time"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                    )}
-                  >
-                    End Time
-                  </button>
-                </div>
-                {endTimeMode === "duration" ? (
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min={5}
-                      max={720}
-                      step={5}
-                      placeholder="e.g. 60"
-                      value={duration}
-                      onChange={(e) => handleDurationChange(e.target.value)}
-                      className="h-12 pr-16"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">mins</span>
-                    {endTime && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Ends at {endTime}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <Input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => handleEndTimeChange(e.target.value)}
-                      className="h-12"
-                    />
-                    {duration && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Duration: {duration} mins
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Repeat className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">
-                    {isFromMiniLeague ? "Repeat this match day" : "Repeat this event"}
-                  </span>
-                </div>
-                <Switch
-                  checked={isRecurring}
-                  onCheckedChange={setIsRecurring}
-                />
-              </div>
-
-              {isRecurring && (
-                <EventRecurrenceFields
-                  pattern={recurrencePattern}
-                  days={recurrenceDays}
-                  interval={recurrenceInterval}
-                  endDate={recurrenceEndDate}
-                  startDate={eventDateTime}
-                  onPatternChange={setRecurrencePattern}
-                  onToggleDay={toggleRecurrenceDay}
-                  onIntervalChange={setRecurrenceInterval}
-                  onEndDateChange={setRecurrenceEndDate}
-                />
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
+      <EventScheduleSection
+        isOpen={openSections.schedule}
+        onToggle={() => toggleSection('schedule')}
+        isFromMiniLeague={isFromMiniLeague}
+        eventDateTime={eventDateTime}
+        onEventDateTimeChange={setEventDateTime}
+        endTimeMode={endTimeMode}
+        onEndTimeModeChange={setEndTimeMode}
+        duration={duration}
+        onDurationChange={handleDurationChange}
+        endTime={endTime}
+        onEndTimeChange={handleEndTimeChange}
+        isRecurring={isRecurring}
+        onIsRecurringChange={setIsRecurring}
+        recurrencePattern={recurrencePattern}
+        recurrenceDays={recurrenceDays}
+        recurrenceInterval={recurrenceInterval}
+        recurrenceEndDate={recurrenceEndDate}
+        onRecurrencePatternChange={setRecurrencePattern}
+        onToggleRecurrenceDay={toggleRecurrenceDay}
+        onRecurrenceIntervalChange={setRecurrenceInterval}
+        onRecurrenceEndDateChange={setRecurrenceEndDate}
+      />
 
       {/* Duties Section - Only for game events */}
       {type === "game" && (

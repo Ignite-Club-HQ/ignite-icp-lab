@@ -3336,6 +3336,24 @@ ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,567 fewer duplicated lines than baseline), and `git diff --check`.
 The product typecheck ratchet still reports the two existing HomePage
 diagnostics.
+## CreateEventPage.tsx schedule-section extraction (2026-09-25)
+
+The date/time, end-time/duration toggle, and recurrence UI were extracted
+into `components/event/EventScheduleSection.tsx`. The page retains all
+scheduling state, handlers, validation, and mutation submission; the new
+component receives plain values and callbacks and has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `CreateEventPage.tsx` raw lines | 1,750 | 1,650 | -100 (-5.7%) |
+| New focused module | 0 | 1 (`EventScheduleSection.tsx`, 185 lines) | +1 |
+
+Validation passed: product typecheck (152 diagnostics, no new — only the two
+existing HomePage diagnostics remain), lab typecheck (clean), focused
+CreateEventPage tests (4 tests, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,612 fewer
+duplicated lines than baseline), and `git diff --check`.
+
 ## EventDetailPage.tsx header extraction (2026-09-25)
 
 The presentation-heavy event header and admin-action menu were extracted into
