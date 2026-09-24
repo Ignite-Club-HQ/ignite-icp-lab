@@ -1,6 +1,32 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage sponsor-toggle consolidation and section extraction (2026-09-24)
+
+This pass removes duplication and further reduces `ClubDetailPage.tsx` in two
+ways. First, the four near-identical sponsor display-surface toggle handlers
+(media feed, media header strip, chat threads, events) are consolidated into a
+single route-local `updateSponsorSetting` helper that performs the same
+Supabase update, cache invalidation, and toast messaging as each original
+inline handler, keyed by field name; this removes duplicated mutation code
+while keeping the mutation itself route-owned. Second, the standalone
+Archived Teams and Mini Leagues accordions — both self-contained presentation
+with only navigation links and, for archived teams, the existing
+`ArchiveTeamDialog` reinstate action — move into typed `ClubArchivedTeamsSection`
+and `ClubMiniLeaguesSection` components. Neither imports Supabase directly.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,309 | 2,196 | -113 (-4.9%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 2,196 | -584 (-21.0%) |
+
+Eight new focused component tests (three for archived teams, five for mini
+leagues) cover the count badge, reinstate action handoff, empty states, and
+admin-only create-league visibility. Product and Lab typechecks (153
+diagnostics, unchanged), isolation, quality ratchet, duplication ratchet
+(2,329 fewer duplicated lines than baseline), and `git diff --check` pass.
+
 ## ClubDetailPage members-section extraction (2026-09-24)
+
 
 This pass moves the Club Members accordion's search box, loading/error/empty
 states, pending-invite rendering, member filtering, and role-badge member

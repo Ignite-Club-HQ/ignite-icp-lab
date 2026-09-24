@@ -5,10 +5,9 @@ import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 import ClubLinksManager from "@/components/clubs/ClubLinksManager";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, Trophy, Archive, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
 import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
-import { ArchiveTeamDialog } from "@/components/ArchiveTeamDialog";
 import { getSportEmoji } from "@/lib/sportEmojis";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { Button } from "@/components/ui/button";
@@ -93,6 +92,8 @@ import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigatio
 import { ClubQuickActions } from "@/components/club/ClubQuickActions";
 import { ClubTeamBrowser } from "@/components/club/ClubTeamBrowser";
 import { ClubMembersSection, type ClubMemberEntry } from "@/components/club/ClubMembersSection";
+import { ClubArchivedTeamsSection } from "@/components/club/ClubArchivedTeamsSection";
+import { ClubMiniLeaguesSection } from "@/components/club/ClubMiniLeaguesSection";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
 import { ClassAttendanceManager } from "@/components/ClassAttendanceManager";
@@ -1534,65 +1535,7 @@ export default function ClubDetailPage() {
 
       {/* Archived Teams Section - admins only */}
       {isAdmin && archivedTeams.length > 0 && (
-        <Accordion type="multiple" defaultValue={[]} className="space-y-4">
-          <AccordionItem value="archived-teams" className="border border-amber-500/30 rounded-lg px-4 bg-amber-50/30 dark:bg-amber-950/10">
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
-                <Archive className="h-5 w-5 text-amber-600" />
-                <span className="text-lg font-semibold text-amber-800 dark:text-amber-300">Archived Teams</span>
-                <Badge className="ml-2 font-semibold bg-primary/20 text-primary dark:text-primary-foreground dark:bg-primary">{archivedTeams.length}</Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-3 pt-2">
-                {archivedTeams.map((team) => (
-                  <Card key={team.id} className="border-amber-500/20 bg-amber-50/50 dark:bg-amber-950/10 opacity-80">
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <Link to={`/teams/${team.id}`} className="flex items-center gap-3 flex-1 min-w-0">
-                        <Avatar className="h-10 w-10 shrink-0 grayscale">
-                          <AvatarImage src={team.logo_url || undefined} />
-                          <AvatarFallback className="bg-muted text-muted-foreground">
-                            {team.name?.charAt(0)?.toUpperCase() || "T"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-medium truncate text-muted-foreground">{team.name}</h4>
-                            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-700">
-                              <Archive className="h-3 w-3 mr-1" />
-                              Archived
-                            </Badge>
-                            {(team as any).season_label && (
-                              <Badge variant="secondary" className="text-xs">
-                                {(team as any).season_label}
-                              </Badge>
-                            )}
-                          </div>
-                          {team.level_age && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{team.level_age}</p>
-                          )}
-                        </div>
-                      </Link>
-                      <ArchiveTeamDialog
-                        teamId={team.id}
-                        teamName={team.name}
-                        clubId={id!}
-                        isArchived={true}
-                        currentSeasonLabel={(team as any).season_label}
-                        trigger={
-                          <Button variant="outline" size="sm" className="shrink-0">
-                            <ArchiveRestore className="h-4 w-4 mr-1" />
-                            Reinstate
-                          </Button>
-                        }
-                      />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        <ClubArchivedTeamsSection clubId={id!} archivedTeams={archivedTeams} />
       )}
 
       {/* Competitions Section - Pro only */}
@@ -1605,58 +1548,7 @@ export default function ClubDetailPage() {
 
       {/* Mini Leagues Section - Pro Football clubs only, hidden for class-mode clubs */}
       {isSoccerClub && hasProFootball && !club?.class_mode_enabled && (isAdmin || miniLeagues.length > 0) && (
-        <Accordion type="multiple" defaultValue={[]} className="space-y-4">
-          <AccordionItem value="mini-leagues" className="border rounded-lg px-4">
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                <span className="text-lg font-semibold">Mini Leagues</span>
-                {miniLeagues.length > 0 && <Badge className="ml-2 font-semibold bg-primary/20 text-primary dark:text-primary-foreground dark:bg-primary">{miniLeagues.length}</Badge>}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-3 pt-2">
-                {isAdmin && (
-                  <div className="flex justify-end">
-                    <Link to={`/mini-leagues?clubId=${id}`}>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1" /> New Mini League
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-                {miniLeagues.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4">
-                    No mini leagues yet. Create one to organize ability-based sessions.
-                  </p>
-                ) : (
-                  miniLeagues.map((league) => (
-                    <Link key={league.id} to={`/mini-leagues/${league.id}`}>
-                      <Card className="hover:bg-muted/50 transition-colors">
-                        <CardContent className="p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Trophy className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{league.name}</p>
-                              {league.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-1">
-                                  {league.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        <ClubMiniLeaguesSection clubId={id!} isAdmin={isAdmin} miniLeagues={miniLeagues} />
       )}
 
       <Dialog open={!!editingFolder} onOpenChange={(open) => !open && handleCloseEditFolder()}>
@@ -1785,6 +1677,25 @@ export default function ClubDetailPage() {
           light up once the club is on Pro (see the amber note + disabled toggles below). */}
       {isAdmin && !club?.class_mode_enabled && (() => {
         const hasProAccess = !!(isAppAdmin || clubSubscription?.is_pro || clubSubscription?.is_pro_football || clubSubscription?.admin_pro_override || clubSubscription?.admin_pro_football_override);
+        const updateSponsorSetting = async (
+          field: "media_sponsors_enabled" | "media_header_sponsors_enabled" | "chat_thread_ads_enabled" | "events_sponsor_strip_enabled",
+          checked: boolean,
+          extraInvalidateKey: readonly unknown[],
+          enabledTitle: string,
+          disabledTitle: string,
+        ) => {
+          const { error } = await supabase
+            .from("clubs")
+            .update({ [field]: checked } as any)
+            .eq("id", id!);
+          if (error) {
+            toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
+            return;
+          }
+          await queryClient.invalidateQueries({ queryKey: ["club", id] });
+          await queryClient.invalidateQueries({ queryKey: extraInvalidateKey as unknown[] });
+          toast({ title: checked ? enabledTitle : disabledTitle });
+        };
         return (
         <AccordionItem 
           value="sponsors" 
@@ -1818,19 +1729,13 @@ export default function ClubDetailPage() {
                   </div>
                   <Switch
                     checked={!!(club as any)?.media_sponsors_enabled}
-                    onCheckedChange={async (checked) => {
-                      const { error } = await supabase
-                        .from("clubs")
-                        .update({ media_sponsors_enabled: checked } as any)
-                        .eq("id", id!);
-                      if (error) {
-                        toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
-                        return;
-                      }
-                      await queryClient.invalidateQueries({ queryKey: ["club", id] });
-                      await queryClient.invalidateQueries({ queryKey: ["riverside-media-sponsors-enabled"] });
-                      toast({ title: checked ? "Media sponsors enabled" : "Media sponsors disabled" });
-                    }}
+                    onCheckedChange={(checked) => updateSponsorSetting(
+                      "media_sponsors_enabled",
+                      checked,
+                      ["riverside-media-sponsors-enabled"],
+                      "Media sponsors enabled",
+                      "Media sponsors disabled",
+                    )}
                   />
                 </div>
                 {/* Media header sponsor strip toggle — defaults to OFF */}
@@ -1843,19 +1748,13 @@ export default function ClubDetailPage() {
                   </div>
                   <Switch
                     checked={!!(club as any)?.media_header_sponsors_enabled}
-                    onCheckedChange={async (checked) => {
-                      const { error } = await supabase
-                        .from("clubs")
-                        .update({ media_header_sponsors_enabled: checked } as any)
-                        .eq("id", id!);
-                      if (error) {
-                        toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
-                        return;
-                      }
-                      await queryClient.invalidateQueries({ queryKey: ["club", id] });
-                      await queryClient.invalidateQueries({ queryKey: ["media-header-sponsors-enabled", id] });
-                      toast({ title: checked ? "Media header strip enabled" : "Media header strip disabled" });
-                    }}
+                    onCheckedChange={(checked) => updateSponsorSetting(
+                      "media_header_sponsors_enabled",
+                      checked,
+                      ["media-header-sponsors-enabled", id],
+                      "Media header strip enabled",
+                      "Media header strip disabled",
+                    )}
                   />
                 </div>
                 {/* Chat thread sponsor strip toggle — defaults to OFF */}
@@ -1868,19 +1767,13 @@ export default function ClubDetailPage() {
                   </div>
                   <Switch
                     checked={!!(club as any)?.chat_thread_ads_enabled}
-                    onCheckedChange={async (checked) => {
-                      const { error } = await supabase
-                        .from("clubs")
-                        .update({ chat_thread_ads_enabled: checked } as any)
-                        .eq("id", id!);
-                      if (error) {
-                        toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
-                        return;
-                      }
-                      await queryClient.invalidateQueries({ queryKey: ["club", id] });
-                      await queryClient.invalidateQueries({ queryKey: ["club-chat-thread-ads-enabled", id] });
-                      toast({ title: checked ? "Chat sponsor strip enabled" : "Chat sponsor strip disabled" });
-                    }}
+                    onCheckedChange={(checked) => updateSponsorSetting(
+                      "chat_thread_ads_enabled",
+                      checked,
+                      ["club-chat-thread-ads-enabled", id],
+                      "Chat sponsor strip enabled",
+                      "Chat sponsor strip disabled",
+                    )}
                   />
                 </div>
                 {/* Events sponsor strip toggle — defaults to OFF */}
@@ -1893,19 +1786,13 @@ export default function ClubDetailPage() {
                   </div>
                   <Switch
                     checked={!!(club as any)?.events_sponsor_strip_enabled}
-                    onCheckedChange={async (checked) => {
-                      const { error } = await supabase
-                        .from("clubs")
-                        .update({ events_sponsor_strip_enabled: checked } as any)
-                        .eq("id", id!);
-                      if (error) {
-                        toast({ title: "Error", description: "Failed to update setting.", variant: "destructive" });
-                        return;
-                      }
-                      await queryClient.invalidateQueries({ queryKey: ["club", id] });
-                      await queryClient.invalidateQueries({ queryKey: ["events-sponsor-strip-allowed", id] });
-                      toast({ title: checked ? "Events sponsor strip enabled" : "Events sponsor strip disabled" });
-                    }}
+                    onCheckedChange={(checked) => updateSponsorSetting(
+                      "events_sponsor_strip_enabled",
+                      checked,
+                      ["events-sponsor-strip-allowed", id],
+                      "Events sponsor strip enabled",
+                      "Events sponsor strip disabled",
+                    )}
                   />
                 </div>
               </fieldset>
