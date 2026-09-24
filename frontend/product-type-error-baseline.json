@@ -1043,54 +1043,6 @@
       "category": "source-backed"
     },
     {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1841,
-      "column": 47,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1843,
-      "column": 41,
-      "code": "TS2339",
-      "message": "Property 'roles' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1867,
-      "column": 58,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1869,
-      "column": 43,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1873,
-      "column": 76,
-      "code": "TS2339",
-      "message": "Property 'profile' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
-      "file": "src/pages/ClubDetailPage.tsx",
-      "line": 1875,
-      "column": 41,
-      "code": "TS2339",
-      "message": "Property 'roles' does not exist on type 'unknown'.",
-      "category": "source-backed"
-    },
-    {
       "file": "src/pages/ClubRewardsReportPage.tsx",
       "line": 238,
       "column": 74,
@@ -1276,7 +1228,7 @@
     }
   ],
   "counts": {
-    "source-backed": 99,
+    "source-backed": 93,
     "inert-edge-function-reference": 11,
     "missing-reference": 49
   }

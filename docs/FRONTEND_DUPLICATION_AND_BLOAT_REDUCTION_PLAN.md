@@ -1,6 +1,32 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## ClubDetailPage members-section extraction (2026-09-24)
+
+This pass moves the Club Members accordion's search box, loading/error/empty
+states, pending-invite rendering, member filtering, and role-badge member
+cards into a typed `ClubMembersSection` presentation component. The route
+retains the lazy members query, its `membersExpanded`/`openSections` trigger,
+pagination state, and the `AddClubAdminSheet`/`PendingInviteCard` children
+(rendered from within the new component but unmodified). The former
+`Record<string, { profile: any; ... }>` shape is replaced with a shared,
+properly typed `ClubMemberEntry`, which resolved six pre-existing
+`clubMembers` inference diagnostics rather than merely relocating them.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubDetailPage.tsx` raw lines | 2,446 | 2,309 | -137 (-5.6%) |
+| `ClubDetailPage.tsx` versus original | 2,780 | 2,309 | -471 (-16.9%) |
+
+Nine focused component tests cover admin-only invite visibility, role badge
+rendering, search callback handoff, no-results messaging, pending-invite
+rendering, show-more pagination, loading, error/retry, and empty states.
+Product and Lab typechecks, isolation, quality ratchet, duplication ratchet,
+and `git diff --check` pass. The product diagnostic inventory drops from 159
+to 153 because the newly typed member shape genuinely eliminates diagnostics
+rather than shifting their line numbers.
+
 ## ClubDetailPage team-browser extraction (2026-09-24)
+
 
 This follow-up moves the team browser's filter controls, junior year-level
 selection, search, grouping, badges, empty states, and typed team-row

@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef, useEffect, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClubSetupProgressCard } from "@/components/club/ClubSetupProgressCard";
 import ClubLinksManager from "@/components/clubs/ClubLinksManager";
 import { clearClubSetupLocalState } from "@/lib/clubSetupLocalState";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Search, X, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, Trophy, Archive, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Users, Plus, Crown, Settings, Trash2, Pencil, Building2, Shield, Folder, ChevronDown, ChevronRight, Loader2, Gift, Lock, MessageCircle, Trophy, Archive, ArchiveRestore, Sparkles, FileSpreadsheet } from "lucide-react";
 import { sendScheduleBroadcast } from "@/lib/scheduleBroadcast";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { ArchiveTeamDialog } from "@/components/ArchiveTeamDialog";
@@ -75,8 +75,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useToast } from "@/hooks/use-toast";
 import { exportClubRosterCsv } from "@/lib/exportClubRoster";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
-const AddClubAdminSheet = lazyWithRetry(() => import("@/components/AddClubAdminSheet"));
 
 import { FOLDER_COLORS } from "@/components/TeamFoldersManager";
 import { SponsorsManager } from "@/components/SponsorsManager";
@@ -94,7 +92,7 @@ import { Palette, CalendarDays, BookOpen, ClipboardCheck, Share2, Megaphone, Mor
 import { ClubAdminNavigationSection } from "@/components/club/ClubAdminNavigationSection";
 import { ClubQuickActions } from "@/components/club/ClubQuickActions";
 import { ClubTeamBrowser } from "@/components/club/ClubTeamBrowser";
-import PendingInviteCard from "@/components/PendingInviteCard";
+import { ClubMembersSection, type ClubMemberEntry } from "@/components/club/ClubMembersSection";
 import { TermsManager } from "@/components/TermsManager";
 import { AdminEnrolmentManager } from "@/components/AdminEnrolmentManager";
 import { ClassAttendanceManager } from "@/components/ClassAttendanceManager";
@@ -104,7 +102,7 @@ import { TodaysClassesDashboard } from "@/components/TodaysClassesDashboard";
 import { MoveToTeamSheet } from "@/components/MoveToTeamSheet";
 import ClubRecentGames from "@/components/history/ClubRecentGames";
 import ClubCompetitionsSection from "@/components/competitions/ClubCompetitionsSection";
-import { friendlyQueryError, friendlyQueryErrorMessage } from "@/lib/friendlyQueryError";
+import { friendlyQueryError } from "@/lib/friendlyQueryError";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import * as fixtureData from "@/lab/fixtureDataLayer";
 
@@ -345,7 +343,7 @@ export default function ClubDetailPage() {
       acc[userId].roles.push({ id: role.id, role: role.role, scopeName, teamId: role.team_id || null, teamName: role.teams?.name || null });
     }
     return acc;
-  }, {} as Record<string, { profile: any; roles: { id: string; role: string; scopeName?: string; teamId: string | null; teamName: string | null }[] }>);
+  }, {} as Record<string, ClubMemberEntry>);
 
   const { data: teams } = useQuery({
     queryKey: ["club-teams", id],
@@ -1760,159 +1758,24 @@ export default function ClubDetailPage() {
               </div>
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-2 pt-2">
-                {isAdmin && (
-                  <div className="flex items-center gap-2 justify-end mb-3">
-                    <Suspense fallback={null}>
-                    <AddClubAdminSheet 
-                      clubId={id!}
-                      clubName={club.name}
-                    />
-                    </Suspense>
-                  </div>
-                )}
-                {/* Member search */}
-                {Object.keys(clubMembers).length > 0 && (
-                  <div className="relative mb-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={memberSearchQuery}
-                      onChange={(e) => {
-                        setMemberSearchQuery(e.target.value);
-                        setDisplayCount(MEMBERS_PER_PAGE);
-                      }}
-                      placeholder="Search members by name, role or team"
-                      className="pl-9 pr-9 h-10"
-                    />
-                    {memberSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setMemberSearchQuery("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
-                        aria-label="Clear member search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                )}
-                {isMembersLoading ? (
-                  <>
-                    {[1, 2, 3].map((i) => (
-                      <Card key={i}>
-                        <CardContent className="p-3 flex items-center gap-3">
-                          <Skeleton className="h-8 w-8 rounded-full" />
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-5 w-16 ml-auto" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </>
-                ) : isMembersError && Object.keys(clubMembers).length === 0 ? (
-                  <div className="flex flex-col items-start gap-2 py-2">
-                    <p className="text-sm text-muted-foreground">
-                      {friendlyQueryErrorMessage(membersError, "the club member list")}
-                    </p>
-                    <Button size="sm" variant="outline" onClick={() => refetchClubMembers()}>
-                      Try again
-                    </Button>
-                  </div>
-                ) : Object.keys(clubMembers).length === 0 && pendingInvites.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No members yet</p>
-                ) : (
-                  <>
-                  {/* Pending Invites Section */}
-                  {pendingInvites.length > 0 && (
-                    <>
-                      {pendingInvites.map((invite) => (
-                        <PendingInviteCard
-                          key={invite.id}
-                          invite={invite}
-                          clubId={id}
-                        />
-                      ))}
-                    </>
-                  )}
-                  {(() => {
-                    const q = memberSearchQuery.trim().toLowerCase();
-                    const allEntries = Object.entries(clubMembers);
-                    const filteredEntries = q
-                      ? allEntries.filter(([, member]) => {
-                          const name = member.profile?.display_name?.toLowerCase() || "";
-                          if (name.includes(q)) return true;
-                          return member.roles?.some((r) => {
-                            const role = r.role?.replace(/_/g, " ").toLowerCase() || "";
-                            const scope = r.scopeName?.toLowerCase() || "";
-                            const team = r.teamName?.toLowerCase() || "";
-                            return role.includes(q) || scope.includes(q) || team.includes(q);
-                          });
-                        })
-                      : allEntries;
-
-                    if (q && filteredEntries.length === 0) {
-                      return (
-                        <p className="text-muted-foreground text-sm py-3 text-center">
-                          No members match "{memberSearchQuery}"
-                        </p>
-                      );
-                    }
-
-                    return (
-                      <>
-                        {filteredEntries.slice(0, displayCount).map(([userId, member]) => {
-                          return (
-                          <Card key={userId}>
-                            <CardContent className="p-3 flex items-center gap-3">
-                              <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarImage src={member.profile?.avatar_url || undefined} />
-                                <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                                  {member.profile?.display_name?.charAt(0)?.toUpperCase() || "?"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{member.profile?.display_name || "Unknown User"}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                {member.roles?.map((roleItem) => {
-                                  const roleColors: Record<string, string> = {
-                                    app_admin: "bg-red-500/15 text-red-400 dark:text-red-400 border-red-500/30",
-                                    club_admin: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
-                                    team_admin: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-                                    coach: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
-                                    committee_member: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
-                                    player: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-                                    parent: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
-                                    league_admin: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
-                                    basic_user: "bg-muted text-muted-foreground border-border",
-                                  };
-                                  const colorClass = roleColors[roleItem.role] || roleColors.basic_user;
-                                  return (
-                                    <Badge key={roleItem.id} variant="outline" className={`text-[10px] rounded-md border px-1.5 py-0.5 ${colorClass}`}>
-                                      {roleItem.role?.replace(/_/g, " ") || "Member"}
-                                      {roleItem.scopeName && ` • ${roleItem.scopeName}`}
-                                    </Badge>
-                                  );
-                                })}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                          );
-                        })}
-                        {filteredEntries.length > displayCount && (
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => setDisplayCount(prev => prev + MEMBERS_PER_PAGE)}
-                          >
-                            Show more ({filteredEntries.length - displayCount} remaining)
-                          </Button>
-                        )}
-                      </>
-                    );
-                  })()}
-                  </>
-                )}
-              </div>
+              <ClubMembersSection
+                clubId={id!}
+                clubName={club.name}
+                isAdmin={isAdmin}
+                clubMembers={clubMembers}
+                isMembersLoading={isMembersLoading}
+                isMembersError={isMembersError}
+                membersError={membersError}
+                onRetry={() => refetchClubMembers()}
+                pendingInvites={pendingInvites}
+                searchQuery={memberSearchQuery}
+                onSearchQueryChange={(value) => {
+                  setMemberSearchQuery(value);
+                  setDisplayCount(MEMBERS_PER_PAGE);
+                }}
+                displayCount={displayCount}
+                onShowMore={() => setDisplayCount(prev => prev + MEMBERS_PER_PAGE)}
+              />
             </AccordionContent>
           </AccordionItem>
         )}
