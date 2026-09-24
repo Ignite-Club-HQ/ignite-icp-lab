@@ -13,6 +13,7 @@ import { sortChatMessagesChronologically, compareChatMessagesChronologically } f
 import { useChatDraft, useChatDraftReply } from "@/hooks/useChatDraft";
 import { useChatPageReady } from "@/hooks/useChatPageReady";
 import { useSyncActiveClubToChat } from "@/hooks/useSyncActiveClubToChat";
+import { useTeamChatAdminStatus } from "@/features/messaging/thread/useTeamChatAdminStatus";
 import { useChatViewportHeight } from "@/hooks/useChatViewportHeight";
 import { useMeasuredElementHeight } from "@/hooks/useMeasuredElementHeight";
 import { keepComposerFocusedThroughSend } from "@/lib/chatComposerFocus";
@@ -66,7 +67,7 @@ import {
 import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { format, parseISO, isToday, isYesterday, isSameDay } from "date-fns";
+import { isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { usePublishChatImage } from "@/hooks/usePublishChatImage";
@@ -116,100 +117,15 @@ import { shouldSkipChatMountInvalidate } from "@/lib/chatMountInvalidate";
 import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEagerInvalidate";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
+import {
+  type TeamChatMessage as Message,
+  formatTeamChatMessageDate as formatMessageDate,
+  belongsToTeamChatThread as belongsToTeam,
+  getCachedTeamChatMessages as getCachedTeamMessages,
+} from "@/features/messaging/thread/teamChatMessageHelpers";
 
 
 const MESSAGES_PER_PAGE = 30;
-
-interface Message {
-  id: string;
-  team_id: string;
-  author_id: string;
-  text: string;
-  image_url: string | null;
-  reply_to_id: string | null;
-  created_at: string;
-  is_club_announcement?: boolean;
-  club_announcement_name?: string | null;
-  is_system_message?: boolean;
-  forwarded_from_user_id?: string | null;
-  forwarded_at?: string | null;
-  forwarded_source_label?: string | null;
-  profiles: {
-    display_name: string | null;
-    avatar_url: string | null;
-  } | null;
-  reactions: {
-    id: string;
-    user_id: string;
-    reaction_type: string;
-  }[];
-  reply_to?: {
-    text: string;
-    profiles: { display_name: string | null } | null;
-  } | null;
-}
-
-const formatMessageDate = (dateStr: string) => {
-  const date = parseISO(dateStr);
-  if (isToday(date)) return format(date, "h:mm a");
-  if (isYesterday(date)) return `Yesterday ${format(date, "h:mm a")}`;
-  return format(date, "MMM d, h:mm a");
-};
-
-/**
- * SECURITY (cross-team bleed): a row is only ever rendered, seeded, merged or
- * persisted in the thread it was posted to. Rows without a `team_id` (optimistic
- * temp/queued rows, offline-cache rows) are created in-thread and allowed.
- */
-const belongsToTeam = (message: any, teamId: string | undefined) =>
-  !!teamId && (!message?.team_id || message.team_id === teamId);
-
-/**
- * SECURITY (cross-team cache bleed): a cached row may already carry an
- * immutable `team_id` from another team (older cache writes, shared helpers).
- * Never overwrite it with the open thread's id — that would launder the foreign
- * row into this thread and defeat every later `belongsToTeam` check. Rows with
- * no `team_id` are legacy cache rows, already scoped by the cache key.
- */
-const getCachedTeamMessages = (teamId: string): Message[] =>
-
-  getCachedMessages("team", teamId)
-    .filter((cachedMessage) => {
-      const cachedTeamId = (cachedMessage as { team_id?: unknown }).team_id;
-      return typeof cachedTeamId !== "string" || cachedTeamId === teamId;
-    })
-    .map((cachedMessage) => ({
-    id: cachedMessage.id,
-    team_id: ((cachedMessage as { team_id?: unknown }).team_id as string | undefined) ?? teamId,
-
-    author_id: cachedMessage.author_id,
-    text: cachedMessage.text,
-    image_url: cachedMessage.image_url,
-    reply_to_id: cachedMessage.reply_to_id,
-    created_at: cachedMessage.created_at,
-    is_club_announcement: Boolean(cachedMessage.is_club_announcement),
-    club_announcement_name:
-      typeof cachedMessage.club_announcement_name === "string"
-        ? cachedMessage.club_announcement_name
-        : null,
-    is_system_message: Boolean(cachedMessage.is_system_message),
-    profiles: cachedMessage.profiles,
-    reactions: (cachedMessage.reactions || []).map((reaction) => ({
-      id: reaction.id || `cached-${cachedMessage.id}-${reaction.user_id}-${reaction.reaction_type}`,
-      user_id: reaction.user_id,
-      reaction_type: reaction.reaction_type,
-    })),
-    reply_to: cachedMessage.reply_to
-      ? {
-          text: cachedMessage.reply_to.text,
-          profiles:
-            cachedMessage.reply_to.profiles ??
-            (cachedMessage.reply_to.author
-              ? { display_name: cachedMessage.reply_to.author.display_name }
-              : null),
-        }
-      : null,
-  }));
 
 export default function TeamChatPage() {
   // [chat-perf-diag] track mount/unmount lifetime
@@ -499,43 +415,12 @@ export default function TeamChatPage() {
   useSyncActiveClubToChat(team?.club_id);
 
   // Check if user is admin (team_admin, coach, club_admin, or app_admin) - parallelize queries
-
-  const { data: isAdmin } = useQuery({
-    queryKey: ["team-chat-admin", teamId, user?.id, team?.club_id],
-    queryFn: async () => {
-      const uid = user?.id;
-      const tid = teamId;
-      if (!uid || !tid) return false;
-      // Run all checks in parallel
-      const [teamRoleResult, clubRoleResult, appAdminResult] = await Promise.all([
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", uid)
-          .eq("team_id", tid)
-          .in("role", ["team_admin", "coach"])
-          .maybeSingle(),
-        team?.club_id
-          ? supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", uid)
-              .eq("club_id", team.club_id)
-              .eq("role", "club_admin")
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", uid)
-          .eq("role", "app_admin")
-          .maybeSingle(),
-      ]);
-      
-      return !!teamRoleResult.data || !!clubRoleResult.data || !!appAdminResult.data;
-    },
-    enabled: !!teamId && authReady && !!user?.id && !useIcpLab,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+  const { data: isAdmin } = useTeamChatAdminStatus({
+    supabaseClient: supabase,
+    teamId,
+    userId: user?.id,
+    clubId: team?.club_id,
+    enabled: authReady && !!user?.id && !useIcpLab,
   });
 
   const [pinVaultSheetOpen, setPinVaultSheetOpen] = useState(false);

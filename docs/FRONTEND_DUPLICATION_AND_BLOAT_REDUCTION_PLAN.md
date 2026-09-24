@@ -2957,3 +2957,41 @@ typecheck (clean), focused component tests (14 new + 226 across
 duplicated lines than baseline), and `git diff --check`. Full legacy/Lab
 suites and product build remain deferred per the current line-count-reduction
 pass.
+
+## TeamChatPage.tsx message helpers and admin-status query extraction (2026-09-25)
+
+The third pass targeted two remaining non-JSX blocks: the pure message
+helpers (`Message` type, `formatMessageDate`, `belongsToTeam` cross-team
+security guard, `getCachedTeamMessages` cache-row mapper) and the
+`team-chat-admin` role-check query. The helpers moved verbatim to
+`features/messaging/thread/teamChatMessageHelpers.ts` (renamed
+`TeamChatMessage`/`formatTeamChatMessageDate`/`belongsToTeamChatThread`/
+`getCachedTeamChatMessages`, re-imported under their original local names via
+aliased imports so none of their ~15 call sites in the page needed to
+change).
+
+The admin-status query was the first case in this file's reduction where the
+extracted logic needed a `supabase` call. Rather than give the new hook its
+own `integrations/supabase/client` import (which would have raised
+`directSupabaseImports` past baseline, as happened and was reverted in the
+`CompetitionLadderPanel` attempt), `useTeamChatAdminStatus` in the same
+`features/messaging/thread/` module takes a `supabaseClient` parameter typed
+against a minimal `{ from: (table: string) => any }` interface — the same
+dependency-injection pattern `useGroupMessagesQuery.ts` already uses via
+`GroupChatSupabaseClient`. The page passes its own `supabase` client instance
+in, so no new Supabase-import file is introduced.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamChatPage.tsx` raw lines | 2,314 | 2,199 | -115 (-5.0%) |
+| Total this file's reduction | 2,431 | 2,199 | -232 (-9.5%) |
+| New focused modules | 0 | 2 (16 tests) | +2 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused tests (16 new + full `src/features/messaging/` and
+`src/components/chat/` suites, 517 tests total, all passed), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463 — confirming the
+DI pattern avoids the ratchet cost of a new query-owning file), duplication
+ratchet (2,467 fewer duplicated lines than baseline), and `git diff --check`.
+Full legacy/Lab suites and product build remain deferred per the current
+line-count-reduction pass.
