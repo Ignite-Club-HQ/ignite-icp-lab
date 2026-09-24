@@ -3073,6 +3073,29 @@ duplication ratchet (2,486 fewer duplicated lines than baseline), and
 `git diff --check`. Full legacy/Lab suites and product build remain deferred
 per the current line-count-reduction pass.
 
+## CompetitionFixturesPanel.tsx edit-dialog extraction (2026-09-24)
+
+The next pass extracted the self-contained `EditMatchDetailsDialog` form and
+update mutation into `components/competition/EditMatchDetailsDialog.tsx`.
+Like the finals dialog, it receives the existing Supabase client through a
+minimal structural interface, so the parent retains the only direct client
+import and the quality ratchet remains unchanged. The edit flow still
+validates teams and venue, updates the match, invalidates match/ladder
+queries, and closes on success.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `CompetitionFixturesPanel.tsx` raw lines | 2,075 | 1,891 | -184 (-8.9%) |
+| Total reduction from this file's prior starting point | 2,752 | 1,891 | -861 (-31.3%) |
+| New focused module | 0 | 1 (`EditMatchDetailsDialog.tsx`, 150 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused competition fixture tests (50 tests, all passed),
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet (2,523 fewer duplicated lines than baseline), and
+`git diff --check`. Full legacy/Lab suites and product build remain deferred
+per the current line-count-reduction pass.
+
 ## TeamChatPage.tsx header-section extraction (2026-09-25)
 
 The fifth pass extracted the header block — the `ChatHeaderShell` (search bar,
