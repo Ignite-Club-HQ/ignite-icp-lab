@@ -3198,3 +3198,19 @@ Validation passed: product typecheck (153 diagnostics, unchanged), lab
 typecheck (clean), isolation, quality ratchet (`directSupabaseImports`
 unchanged at 463), duplication ratchet (2,523 fewer duplicated lines than
 baseline), and `git diff --check`.
+## ManageUsersPage.tsx audit-log card extraction (2026-09-25)
+
+The audit/activity log row was extracted into the presentation-only
+`components/admin/AuditLogActivityCard.tsx`. The page retains audit-log
+querying, CSV export, timestamp formatting, and all account/role mutations;
+the new component has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | --- |
+| `ManageUsersPage.tsx` raw lines | 2,083 | 2,028 | -55 (-2.6%) |
+| New focused module | 0 | 1 (`AuditLogActivityCard.tsx`, 85 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet (2,523 fewer duplicated lines than
+baseline), and `git diff --check`.

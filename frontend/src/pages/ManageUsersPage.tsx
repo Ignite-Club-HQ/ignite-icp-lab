@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Shield, Trash2, Search, Loader2, Users, AlertTriangle, UserPlus, UserMinus, X, Filter, History, UserX, Download, Mail, Flame, BarChart3 } from "lucide-react";
+import { ArrowLeft, Shield, Trash2, Search, Loader2, Users, AlertTriangle, UserPlus, UserMinus, X, Filter, History, Download, Mail, Flame, BarChart3 } from "lucide-react";
 import { Suspense } from "react";
 
 const UserAnalyticsTab = lazyWithRetry(() => import("@/components/admin/UserAnalyticsTab"));
@@ -50,6 +50,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GenerateDemoDataButton } from "@/components/GenerateDemoDataButton";
+import { AuditLogActivityCard } from "@/components/admin/AuditLogActivityCard";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { invalidateRolesCache } from "@/lib/rolesCache";
@@ -1762,74 +1763,18 @@ function SupabaseManageUsersPage() {
             <div className="space-y-2">
               {auditLogs.map(log => {
                 const details = log.details as Record<string, any> || {};
-                const getActionIcon = () => {
-                  switch (log.action_type) {
-                    case 'user_deleted':
-                      return <UserX className="h-4 w-4 text-destructive" />;
-                    case 'role_assigned':
-                      return <UserPlus className="h-4 w-4 text-emerald-500" />;
-                    case 'role_removed':
-                      return <UserMinus className="h-4 w-4 text-amber-500" />;
-                    default:
-                      return <History className="h-4 w-4" />;
-                  }
-                };
-
-                const getActionLabel = () => {
-                  switch (log.action_type) {
-                    case 'user_deleted':
-                      return 'User Deleted';
-                    case 'role_assigned':
-                      return 'Role Assigned';
-                    case 'role_removed':
-                      return 'Role Removed';
-                    default:
-                      return log.action_type;
-                  }
-                };
-
-                const getActionDetails = () => {
-                  if (log.action_type === 'user_deleted') {
-                    return (
-                      <span className="text-muted-foreground">
-                        Points: {details.ignite_points || 0}
-                      </span>
-                    );
-                  }
-                  if (log.action_type === 'role_assigned' || log.action_type === 'role_removed') {
-                    const parts = [];
-                    if (details.role) parts.push(<Badge key="role" variant="secondary" className="capitalize">{details.role.replace('_', ' ')}</Badge>);
-                    if (details.club_name) parts.push(<span key="club" className="text-muted-foreground">@ {details.club_name}</span>);
-                    if (details.team_name) parts.push(<span key="team" className="text-muted-foreground">/ {details.team_name}</span>);
-                    return <div className="flex items-center gap-1 flex-wrap">{parts}</div>;
-                  }
-                  return null;
-                };
 
                 return (
-                  <Card key={log.id} className="hover:bg-muted/30 transition-colors">
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 p-2 rounded-full bg-muted">
-                          {getActionIcon()}
-                        </div>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-xs">
-                              {getActionLabel()}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(log.created_at), "MMM d, yyyy 'at' h:mm a")}
-                            </span>
-                          </div>
-                          <p className="font-medium truncate">
-                            {log.target_user_name || 'Unknown User'}
-                          </p>
-                          {getActionDetails()}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <AuditLogActivityCard
+                    key={log.id}
+                    actionType={log.action_type}
+                    createdAtLabel={format(new Date(log.created_at), "MMM d, yyyy 'at' h:mm a")}
+                    targetUserName={log.target_user_name || "Unknown User"}
+                    ignitePoints={details.ignite_points || 0}
+                    role={details.role}
+                    clubName={details.club_name}
+                    teamName={details.team_name}
+                  />
                 );
               })}
             </div>
