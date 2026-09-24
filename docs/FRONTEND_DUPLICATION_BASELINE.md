@@ -3,6 +3,30 @@
 This is the immutable Phase 0 evidence for the frontend duplication plan. The
 baseline was captured before the pitch-board consolidation in Phase 1.1.
 
+## MessagesPage final isolated-controller extraction (2026-09-24)
+
+The final bounded reduction moves preview-reference event/vault name-map reads
+and inbox open-latency telemetry into dedicated hooks. Query keys, enabled
+guards, stale times, injected-client use, first-paint readiness, notification
+attribution, and telemetry inputs are preserved. The page remains responsible
+for mount timestamp capture plus auth, realtime, and stable-read-model
+lifecycle coordination.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,305 | 2,208 | -97 (-4.2%) |
+| `MessagesPage.tsx` versus original round start | 3,023 | 2,208 | -815 (-27.0%) |
+
+The focused 140-test suite passed preview-reference/repository,
+decomposition/characterization, cold-start, watermark, stable read-model,
+Android resume, native authorization-buffer, and sticky-list coverage.
+Product/Lab typechecks, isolation, quality ratchet (`directSupabaseImports`
+remains 463), duplication ratchet (2,302 fewer duplicated lines than
+baseline), and diff checks passed. Further route-file reduction is not
+recommended without a separate realtime/read-model runtime-characterization
+effort. Broader legacy/Lab suites and product build remain deferred pending
+overall iteration acceptance.
+
 ## MessagesPage filtering and query-adapter consolidation (2026-09-24)
 
 `MessagesPage.tsx` now consumes the existing pure inbox filter policy and

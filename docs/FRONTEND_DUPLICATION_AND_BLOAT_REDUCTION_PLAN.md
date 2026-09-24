@@ -1,5 +1,34 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## MessagesPage final isolated-controller extraction (2026-09-24)
+
+The final planned MessagesPage pass extracts two independent, read-oriented
+controllers: preview-reference name-map queries and one-shot inbox-open
+telemetry. The preview hook preserves the existing event/vault query keys,
+enabled guards, stale times, and injected Supabase client. The telemetry hook
+preserves first-paint readiness, notification-tap attribution, cache-hit
+status, bootstrap status, and section-count reporting. Mount timestamp capture
+and all auth/realtime/read-model lifecycle coordination remain page-local.
+
+| Measure | Before pass | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 2,305 | 2,208 | -97 (-4.2%) |
+| `MessagesPage.tsx` versus original | 3,023 | 2,208 | -815 (-27.0%) |
+
+The focused 140-test inbox suite passed preview-reference/repository coverage,
+decomposition and characterization contracts, cold-start ordering, realtime
+watermarks, stable read-model behavior, native authorization buffering/resume,
+and sticky-list guards. Product/Lab typechecks, isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,302 fewer
+duplicated lines than baseline), and `git diff --check` passed.
+
+No additional MessagesPage extraction is recommended without a separate
+runtime characterization effort. Remaining route-local realtime and
+first-reveal/read-model orchestration is correctness-critical; further
+line-count-only moves would degrade ownership clarity or add regression risk.
+Full legacy/Lab suites and product build remain deferred until the overall
+iteration is accepted.
+
 ## MessagesPage filtering and query-adapter consolidation (2026-09-24)
 
 This pass wires `MessagesPage.tsx` to its existing, directly tested inbox

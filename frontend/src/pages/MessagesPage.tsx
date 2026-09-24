@@ -28,7 +28,7 @@ import { useGroupChatUnreadCache } from "@/hooks/useGroupChatUnreadCache";
 import { isIgniteSupportUser } from "@/lib/systemUser";
 import { queueChatInvalidation } from "@/lib/chatInvalidationQueue";
 
-import { useMessagesPageBootstrap, isMessagesBootstrapEnabled } from "@/hooks/useMessagesPageBootstrap";
+import { useMessagesPageBootstrap } from "@/hooks/useMessagesPageBootstrap";
 import { useAuthorizedScopes } from "@/hooks/useAuthorizedScopes";
 import { registerChannel } from "@/lib/realtimeChannelRegistry";
 import {
@@ -47,6 +47,8 @@ import {
 import {
   buildUnifiedInboxConversations,
 } from "@/features/messaging/inbox/inboxUnifiedComposition";
+import { useInboxOpenLatency } from "@/features/messaging/inbox/useInboxOpenLatency";
+import { useInboxPreviewReferenceNames } from "@/features/messaging/inbox/useInboxPreviewReferenceNames";
 import { useInboxThreadPrefetch } from "@/features/messaging/inbox/useInboxThreadPrefetch";
 import {
   collectDirectMessagePeerIds,
@@ -68,11 +70,10 @@ import {
   type InboxPreviewMessage,
 } from "@/features/messaging/inbox/inboxReadModel";
 import { mark as coldMark, snapshotStages } from "@/lib/coldStartMarks";
-import { logInboxOpenLatency, resetInboxOpenLog } from "@/lib/inboxOpenLatency";
+import { resetInboxOpenLog } from "@/lib/inboxOpenLatency";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
-import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
 import {
   fetchChatGroupsWithMessages,
   fetchDirectMessageConversations,
@@ -1965,125 +1966,27 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
       : null,
   });
 
-  // Perf: log inbox open latency once when the first meaningful list is ready.
-  const perfLoggedRef = useRef(false);
-  useEffect(() => {
-    if (perfLoggedRef.current) return;
-    if (!user?.id) return;
-    // "First paint" = we actually have rows to render, OR every source query
-    // has resolved (empty inbox is a valid state).
-    const listReady = unifiedConversations.length > 0
-      || (teamsFetched && memberClubsFetched && chatGroupsFetched && dmFetched && latestBroadcastFetched);
-    if (!listReady) return;
-    perfLoggedRef.current = true;
-    // Attribute notification-tap opens: if a notif_tap mark fired within 10s
-    // of this inbox mount, treat this as source="notification" so we can
-    // separate push-tap latency from warm/cold navigation.
-    let inboxSource: "warm_nav" | "cold_open" | "notification" =
-      cachedData ? "warm_nav" : "cold_open";
-    try {
-      const snap = snapshotStages();
-      const notifTap = snap.deltas.notif_tap;
-      const inboxMount = snap.deltas.inbox_mount;
-      if (
-        typeof notifTap === "number" &&
-        typeof inboxMount === "number" &&
-        inboxMount >= notifTap &&
-        inboxMount - notifTap < 10_000
-      ) {
-        inboxSource = "notification";
-      }
-    } catch {}
-    if (inboxFirstPaintTsRef.current === null) {
-      inboxFirstPaintTsRef.current = Date.now();
-    }
-    void logInboxOpenLatency({
-      userId: user.id,
-      source: inboxSource,
-      startTs: inboxOpenStartRef.current,
-      cacheHit: !!cachedData,
-      bootstrapEnabled: isMessagesBootstrapEnabled(),
-      mountTs: inboxMountTsRef.current,
-      bootstrapReturnTs: inboxBootstrapReturnTsRef.current,
-      firstPaintTs: inboxFirstPaintTsRef.current,
-      primaryClubId: (memberClubs?.[0] as any)?.id ?? null,
-      sectionCounts: {
-        teams: filteredTeams.length,
-        clubs: filteredClubs.length,
-        groups: filteredChatGroups.length + filteredLeagueChats.length,
-        dms: filteredDMs.length,
-        total: unifiedConversations.length,
-      },
-    });
-  }, [unifiedConversations, user?.id, cachedData, teamsFetched, memberClubsFetched, chatGroupsFetched, dmFetched, latestBroadcastFetched, filteredTeams.length, filteredClubs.length, filteredChatGroups.length, filteredLeagueChats.length, filteredDMs.length]);
-
-
-
-
-  // Resolve event titles referenced in any conversation preview so they
-  // display the actual event name instead of a generic "Event" placeholder.
-  const {
-    eventIds: referencedEventIds,
-    vaultFolderIds: referencedVaultFolderIds,
-    vaultFileIds: referencedVaultFileIds,
-  } = useMemo(
-    () => collectInboxPreviewReferences(unifiedConversations),
-    [unifiedConversations],
-  );
-
-  const { data: eventTitleMap = {} } = useQuery({
-    queryKey: ["messages-page-event-titles", referencedEventIds.join(",")],
-    queryFn: async () => {
-      if (referencedEventIds.length === 0) return {} as Record<string, string>;
-      const { data } = await supabase
-        .from("events")
-        .select("id, title")
-        .in("id", referencedEventIds);
-      const map: Record<string, string> = {};
-      (data || []).forEach((e) => {
-        if (e?.id && e?.title) map[e.id.toLowerCase()] = e.title;
-      });
-      return map;
+  useInboxOpenLatency({
+    userId: user?.id,
+    hasCachedData: !!cachedData,
+    hasRows: unifiedConversations.length > 0,
+    sourceQueriesFetched: teamsFetched && memberClubsFetched && chatGroupsFetched && dmFetched && latestBroadcastFetched,
+    inboxOpenStartTs: inboxOpenStartRef.current,
+    inboxMountTs: inboxMountTsRef.current,
+    inboxBootstrapReturnTs: inboxBootstrapReturnTsRef.current,
+    inboxFirstPaintTsRef,
+    primaryClubId: (memberClubs?.[0] as any)?.id ?? null,
+    sectionCounts: {
+      teams: filteredTeams.length,
+      clubs: filteredClubs.length,
+      groups: filteredChatGroups.length + filteredLeagueChats.length,
+      dms: filteredDMs.length,
+      total: unifiedConversations.length,
     },
-    enabled: referencedEventIds.length > 0,
-    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: vaultFolderNameMap = {} } = useQuery({
-    queryKey: ["messages-page-vault-folder-names", referencedVaultFolderIds.join(",")],
-    queryFn: async () => {
-      if (referencedVaultFolderIds.length === 0) return {} as Record<string, string>;
-      const { data } = await supabase
-        .from("vault_folders")
-        .select("id, name")
-        .in("id", referencedVaultFolderIds);
-      const map: Record<string, string> = {};
-      (data || []).forEach((f) => {
-        if (f?.id && f?.name) map[f.id.toLowerCase()] = f.name;
-      });
-      return map;
-    },
-    enabled: referencedVaultFolderIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: vaultFileNameMap = {} } = useQuery({
-    queryKey: ["messages-page-vault-file-names", referencedVaultFileIds.join(",")],
-    queryFn: async () => {
-      if (referencedVaultFileIds.length === 0) return {} as Record<string, string>;
-      const { data } = await supabase
-        .from("vault_files")
-        .select("id, name")
-        .in("id", referencedVaultFileIds);
-      const map: Record<string, string> = {};
-      (data || []).forEach((f) => {
-        if (f?.id && f?.name) map[f.id.toLowerCase()] = f.name;
-      });
-      return map;
-    },
-    enabled: referencedVaultFileIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { eventTitleMap, vaultFolderNameMap, vaultFileNameMap } =
+    useInboxPreviewReferenceNames(unifiedConversations, supabase);
 
   // Broadcasts and Ignite Support keep their special visibility semantics in the shared read-model helper.
   const typeFilteredConversations = useMemo(

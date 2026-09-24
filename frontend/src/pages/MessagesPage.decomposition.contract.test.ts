@@ -15,12 +15,16 @@ const previewSourcesPath = join(pagesDirectory, "../features/messaging/inbox/inb
 const prefetchPath = join(pagesDirectory, "../features/messaging/inbox/useInboxThreadPrefetch.ts");
 const filterPolicyPath = join(pagesDirectory, "../features/messaging/inbox/inboxFilterPolicy.ts");
 const repositoriesPath = join(pagesDirectory, "../features/messaging/inbox/inboxRepositories.ts");
+const previewNamesPath = join(pagesDirectory, "../features/messaging/inbox/useInboxPreviewReferenceNames.ts");
+const openLatencyPath = join(pagesDirectory, "../features/messaging/inbox/useInboxOpenLatency.ts");
 const headerSource = existsSync(headerPath) ? readFileSync(headerPath, "utf8") : "";
 const dialogsSource = existsSync(dialogsPath) ? readFileSync(dialogsPath, "utf8") : "";
 const previewSourcesSource = existsSync(previewSourcesPath) ? readFileSync(previewSourcesPath, "utf8") : "";
 const prefetchSource = existsSync(prefetchPath) ? readFileSync(prefetchPath, "utf8") : "";
 const filterPolicySource = existsSync(filterPolicyPath) ? readFileSync(filterPolicyPath, "utf8") : "";
 const repositoriesSource = existsSync(repositoriesPath) ? readFileSync(repositoriesPath, "utf8") : "";
+const previewNamesSource = existsSync(previewNamesPath) ? readFileSync(previewNamesPath, "utf8") : "";
+const openLatencySource = existsSync(openLatencyPath) ? readFileSync(openLatencyPath, "utf8") : "";
 const presentationSource = `${messagesPageSource}\n${inboxSectionsSource}\n${headerSource}\n${dialogsSource}`;
 
 describe("MessagesPage decomposition contract", () => {
@@ -106,5 +110,21 @@ describe("MessagesPage decomposition contract", () => {
       expect(messagesPageSource).toContain(adapter);
       expect(repositoriesSource).toContain(`function ${adapter}`);
     }
+  });
+
+  it("keeps preview-reference reads and open-latency telemetry isolated from inbox lifecycle", () => {
+    expect(messagesPageSource).toContain("useInboxPreviewReferenceNames");
+    expect(previewNamesSource).toContain("collectInboxPreviewReferences");
+    expect(previewNamesSource).toContain('["messages-page-event-titles"');
+    expect(previewNamesSource).toContain('["messages-page-vault-folder-names"');
+    expect(previewNamesSource).toContain('["messages-page-vault-file-names"');
+    expect(previewNamesSource).toContain("fetchInboxEventTitleMap");
+    expect(previewNamesSource).toContain("fetchInboxVaultFolderNameMap");
+    expect(previewNamesSource).toContain("fetchInboxVaultFileNameMap");
+    expect(messagesPageSource).toContain("useInboxOpenLatency");
+    expect(openLatencySource).toContain("sourceQueriesFetched");
+    expect(openLatencySource).toContain("snapshotStages()");
+    expect(openLatencySource).toContain("logInboxOpenLatency");
+    expect(openLatencySource).toContain("isMessagesBootstrapEnabled()");
   });
 });
