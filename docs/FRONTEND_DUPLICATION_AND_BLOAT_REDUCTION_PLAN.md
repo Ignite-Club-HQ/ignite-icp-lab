@@ -3163,3 +3163,21 @@ Validation passed: product typecheck (153 diagnostics, unchanged), lab
 typecheck (clean), focused media tests (49 tests, all passed), isolation,
 quality ratchet (`directSupabaseImports` unchanged at 463), duplication
 ratchet (2,523 fewer duplicated lines than baseline), and `git diff --check`.
+## ClubSetupWizardPage.tsx step-component extraction (2026-09-25)
+
+The wizard's existing step boundaries were extracted into
+`components/club/setup/ClubSetupWizardSteps.tsx`. The new module contains the
+Teams, invite, team-invite, invite-row, bulk-paste, team-invite-block, and
+shared step-intro components plus their draft types. Supabase-owned mutations
+and the page-level wizard orchestration remain in `ClubSetupWizardPage.tsx`;
+the extracted module adds no direct Supabase import.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubSetupWizardPage.tsx` raw lines | 2,081 | 1,302 | -779 (-37.4%) |
+| New focused module | 0 | 1 (`ClubSetupWizardSteps.tsx`, 803 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), wizard lab baseline tests (17 tests, all passed), isolation,
+quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,523 fewer duplicated lines than baseline), and `git diff --check`.
