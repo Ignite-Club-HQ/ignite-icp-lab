@@ -49,14 +49,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
-import { MentionInput } from "@/components/chat/MentionInput";
-import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
-import { ChatImageInput } from "@/components/chat/ChatImageInput";
-import { ReplyPreview } from "@/components/chat/ReplyPreview";
-import { EditingBanner } from "@/components/chat/EditingBanner";
-import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
-import { PollAttachmentPreview } from "@/components/chat/PollAttachmentPreview";
-import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
 
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { shouldGroupWithPrev } from "@/lib/chatGrouping";
@@ -81,21 +73,17 @@ import { useChatPinnedVault } from "@/hooks/useChatPinnedVault";
 import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { useClubRealtimeMode } from "@/hooks/useClubRealtimeMode";
 import { useChatVaultDeliverySync } from "@/hooks/useChatVaultDeliverySync";
-import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 const PinVaultSheet = lazyWithRetry(() => import("@/components/chat/PinVaultSheet").then(m => ({ default: m.PinVaultSheet })));
-const ScheduleMessageDialog = lazyWithRetry(() => import("@/components/chat/ScheduleMessageDialog").then(m => ({ default: m.ScheduleMessageDialog })));
-const CreatePollDialog = lazyWithRetry(() => import("@/components/chat/CreatePollDialog").then(m => ({ default: m.CreatePollDialog })));
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { jumpToMessageInVirtualizedChat } from "@/lib/jumpToMessage";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
+import { ClubChatComposer } from "@/components/chat/ClubChatComposer";
 
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { fetchProfilesWithCache, fetchSingleProfileWithCache, getProfilesFromCache } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
 import { getCachedMessages, cacheMessages, shouldRefetchMessages } from "@/lib/messageCache";
@@ -1853,124 +1841,63 @@ export default function ClubChatPage() {
 
       {/* Input (for users with Pro access: app_admin, club admin, or Pro team member) */}
       {canAccessClubChat && (
-        <>
-        <div className="fixed left-0 right-0 bg-background z-[49] pointer-events-none" style={{ bottom: nativeKbHeight, height: nativeKbHeight > 0 ? "3rem" : "calc(var(--bottom-nav-offset, 0px) + 3rem)" }} />
-        <div ref={composerRef} data-chat-chrome="true" data-chat-composer="true" className="fixed left-0 right-0 w-full max-w-full overflow-visible border-t border-border/30 pt-1 pb-2 px-2 bg-background/95 z-[51]" style={{ bottom: nativeKbHeight > 0 ? nativeKbHeight : "var(--bottom-nav-offset, 0px)" }}>
-          <TypingIndicator typingUsers={typingUsers} />
-          <ReplyPreview replyingTo={replyingTo} onCancel={() => setReplyingTo(null)} />
-          {editingMessage && <EditingBanner text={editingMessage.text} onCancel={handleCancelEdit} />}
-          {scheduleTarget && <ScheduledMessagesBanner target={scheduleTarget} />}
-          <ChatComposerShell
-            preview={
-              (pendingPollId || pendingNewsId) && !editingMessage ? (
-                <div className="space-y-1.5">
-                  {pendingPollId && (
-                    <PollAttachmentPreview
-                      pollId={pendingPollId}
-                      onRemove={() => setPendingPollId(null)}
-                      disabled={sendMutation.isPending}
-                    />
-                  )}
-                  {pendingNewsId && (
-                    <NewsAttachmentPreview
-                      newsId={pendingNewsId}
-                      onRemove={() => setPendingNewsId(null)}
-                      disabled={sendMutation.isPending}
-                    />
-                  )}
-                </div>
-              ) : undefined
-            }
-          >
-            <ChatImageInput
-              imageUrl={imageUrl}
-              onImageUploaded={setImageUrl}
-              disabled={false}
-              clubId={clubId}
-              showEventPicker={true}
-              onEventSelect={() => setEventPickerOpen(true)}
-              showNewsPicker={!!(clubId)}
-              onNewsSelect={() => setNewsPickerOpen(true)}
-              showPollCreator={true}
-              onPollCreate={() => setPollDialogOpen(true)}
-              showBoardPicker={false}
-              onBoardPick={() => setBoardPickerOpen(true)}
-              showVaultPicker={true}
-              onAppendToken={(token) => setMessage((prev) => (prev ? `${prev} ${token}` : token))}
-              hasText={!!message.trim()}
-            />
-            <MentionInput
-              bare
-              placeholder="Type a message..."
-              value={message}
-              onChange={(val) => {
-                setMessage(val);
-                if (val.trim()) startTyping();
-                else stopTyping();
-              }}
-              onKeyPress={handleKeyPress}
-              disabled={false}
-              clubId={clubId}
-              onGifSelect={setImageUrl}
-            />
-            <ChatSendButton
-              onSend={() => {
-                stopTyping();
-                handleSend();
-              }}
-              onSchedule={scheduleTarget ? () => setScheduleDialogOpen(true) : undefined}
-              disabled={!message.trim() && !imageUrl && !pendingPollId && !pendingNewsId}
-              loading={sendMutation.isPending}
-              canSend={!!message.trim() || !!imageUrl || !!pendingPollId || !!pendingNewsId}
-            />
-          </ChatComposerShell>
-          {scheduleTarget && (
-            <Suspense fallback={null}>
-            <ScheduleMessageDialog
-              open={scheduleDialogOpen}
-              onOpenChange={setScheduleDialogOpen}
-              target={scheduleTarget}
-              initialText={message}
-              initialImageUrl={imageUrl}
-              onScheduled={() => {
-                setMessage("");
-                setImageUrl(null);
-                clearDraft?.();
-              }}
-            />
-            </Suspense>
-          )}
-          <ChatAttachmentPickers
-            eventPickerOpen={eventPickerOpen}
-            onEventPickerOpenChange={setEventPickerOpen}
-            onSelectEvent={(eventId) => {
-              const token = `[event:${eventId}]`;
-              setMessage(message ? `${message} ${token}` : token);
-            }}
-            newsPickerOpen={newsPickerOpen}
-            onNewsPickerOpenChange={setNewsPickerOpen}
-            onSelectNews={setPendingNewsId}
-            boardPickerOpen={boardPickerOpen}
-            onBoardPickerOpenChange={setBoardPickerOpen}
-            onSelectBoard={(gameId) => {
-              const token = `[board:${gameId}]`;
-              setMessage(message ? `${message} ${token}` : token);
-            }}
-            clubId={clubId}
-          />
-          {clubId && (
-            <Suspense fallback={null}>
-            <CreatePollDialog
-              open={pollDialogOpen}
-              onOpenChange={setPollDialogOpen}
-              chatType="club"
-              chatId={clubId}
-              onCreated={(pollId) => setPendingPollId(pollId)}
-            />
-            </Suspense>
-          )}
-        </div>
-        </>
+        <ClubChatComposer
+          composerRef={composerRef}
+          nativeKbHeight={nativeKbHeight}
+          typingUsers={typingUsers}
+          replyingTo={replyingTo}
+          onReplyCancel={() => setReplyingTo(null)}
+          editingMessage={editingMessage}
+          onCancelEdit={handleCancelEdit}
+          scheduleTarget={scheduleTarget}
+          pendingPollId={pendingPollId}
+          onRemovePoll={() => setPendingPollId(null)}
+          pendingNewsId={pendingNewsId}
+          onRemoveNews={() => setPendingNewsId(null)}
+          sendPending={sendMutation.isPending}
+          imageUrl={imageUrl}
+          onImageUploaded={setImageUrl}
+          clubId={clubId}
+          onEventPicker={() => setEventPickerOpen(true)}
+          onNewsPicker={() => setNewsPickerOpen(true)}
+          onPollCreator={() => setPollDialogOpen(true)}
+          onBoardPicker={() => setBoardPickerOpen(true)}
+          onAppendToken={(token) => setMessage((prev) => (prev ? `${prev} ${token}` : token))}
+          hasText={!!message.trim()}
+          message={message}
+          onMessageChange={setMessage}
+          onKeyPress={handleKeyPress}
+          onGifSelect={setImageUrl}
+          onStartTyping={startTyping}
+          onStopTyping={stopTyping}
+          onSend={handleSend}
+          onSchedule={() => setScheduleDialogOpen(true)}
+          onScheduleOpenChange={setScheduleDialogOpen}
+          scheduleDialogOpen={scheduleDialogOpen}
+          onScheduled={() => {
+            setMessage("");
+            setImageUrl(null);
+            clearDraft?.();
+          }}
+          onEventPickerOpenChange={setEventPickerOpen}
+          onSelectEvent={(eventId) => {
+            const token = `[event:${eventId}]`;
+            setMessage(message ? `${message} ${token}` : token);
+          }}
+          eventPickerOpen={eventPickerOpen}
+          onNewsPickerOpenChange={setNewsPickerOpen}
+          onSelectNews={setPendingNewsId}
+          newsPickerOpen={newsPickerOpen}
+          onBoardPickerOpenChange={setBoardPickerOpen}
+          onSelectBoard={(gameId) => {
+            const token = `[board:${gameId}]`;
+            setMessage(message ? `${message} ${token}` : token);
+          }}
+          boardPickerOpen={boardPickerOpen}
+          pollDialogOpen={pollDialogOpen}
+          onPollDialogOpenChange={setPollDialogOpen}
+          onPollCreated={setPendingPollId}
+        />
       )}
     </div>
   );

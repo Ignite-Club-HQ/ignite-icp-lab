@@ -3266,3 +3266,19 @@ Validation passed: product typecheck (152 diagnostics, one diagnostic resolved
 relative to the 153-diagnostic baseline), lab typecheck (clean), isolation,
 quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,550 fewer duplicated lines than baseline), and `git diff --check`.
+## ClubChatPage.tsx composer extraction (2026-09-25)
+
+The presentation-heavy club-chat composer was extracted into
+`components/chat/ClubChatComposer.tsx`. The page retains all state, queries,
+mutations, realtime behavior, provider decisions, and callbacks; the new
+component has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `ClubChatPage.tsx` raw lines | 1,977 | 1,904 | -73 (-3.7%) |
+| New focused module | 0 | 1 (`ClubChatComposer.tsx`, 215 lines) | +1 |
+
+Validation passed: product and lab typechecks, focused provider-matrix tests
+(5 tests, all passed), isolation, quality ratchet
+(`directSupabaseImports` unchanged at 463), duplication ratchet (2,581 fewer
+duplicated lines than baseline), and `git diff --check`.
