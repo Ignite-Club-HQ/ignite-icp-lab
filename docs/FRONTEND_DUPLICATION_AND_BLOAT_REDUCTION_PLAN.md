@@ -3318,3 +3318,21 @@ Validation passed: lab typecheck (clean), isolation, quality ratchet
 (`directSupabaseImports` unchanged at 463), duplication ratchet (2,567 fewer
 duplicated lines than baseline), and `git diff --check`. Product typecheck
 continues to report only the two existing HomePage diagnostics.
+## CompetitionDetailPage.tsx ICP-content extraction (2026-09-25)
+
+The local ICP competition presentation branch was extracted into
+`components/competition/IcpCompetitionContent.tsx`. The route retains all
+queries, mutations, navigation, state callbacks, and provider selection; the
+new module receives typed data and plain props and has no Supabase import.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `CompetitionDetailPage.tsx` raw lines | 1,816 | 1,638 | -178 (-9.8%) |
+| New focused module | 0 | 1 (`IcpCompetitionContent.tsx`, 246 lines) | +1 |
+
+Validation passed: product build and strict typecheck, lab typecheck,
+focused competition lab tests (57 tests, all passed), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
+(2,567 fewer duplicated lines than baseline), and `git diff --check`.
+The product typecheck ratchet still reports the two existing HomePage
+diagnostics.

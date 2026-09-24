@@ -26,6 +26,7 @@ import { useClubProAccess } from "@/hooks/useClubProAccess";
 import { ProFeatureLock } from "@/components/subscription/ProFeatureLock";
 import { Crown } from "lucide-react";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
+import { IcpCompetitionContent } from "@/components/competition/IcpCompetitionContent";
 import {
   createLocalCompetitionSeason,
   getLocalCompetitionState,
@@ -192,222 +193,43 @@ function IcpCompetitionDetailPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto px-4 py-4 space-y-5">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/competitions")} className="-ml-2">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Competitions
-      </Button>
-      <header className="space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight truncate flex items-center gap-2">
-              <Trophy className="h-6 w-6 text-primary shrink-0" />
-              {competition.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {[competition.season, competition.clubs?.name].filter(Boolean).join(" · ")}
-            </p>
-          </div>
-          <Badge variant={competition.status === "active" ? "default" : "secondary"} className="capitalize">
-            {competition.status}
-          </Badge>
-        </div>
-      </header>
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div>
-            <h2 className="font-semibold">Register a team</h2>
-            <p className="text-sm text-muted-foreground">Register an existing local team by ID. The club admin actor must manage this competition.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input value={registrationTeamId} onChange={(event) => setRegistrationTeamId(event.target.value)} placeholder="Team ID" />
-            <Input
-              value={registrationClubId}
-              onChange={(event) => setRegistrationClubId(event.target.value)}
-              placeholder={`Club ID (defaults to ${competition.organizer_club_id})`}
-            />
-          </div>
-          <Button onClick={() => registerTeamMutation.mutate()} disabled={registerTeamMutation.isPending || !registrationTeamId.trim()}>
-            {registerTeamMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Register team
-          </Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 space-y-2 text-sm">
-          <p className="font-medium">Local ICP competition record</p>
-          <p className="text-muted-foreground">
-            Entries, seasons, matches, and join-token state below come from the local canister export. Division, ladder, invitation administration, and team-name resolution remain disabled until their provider-neutral workflows are wired.
-          </p>
-          <dl className="grid gap-2 sm:grid-cols-2 pt-2">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Competition ID</dt>
-              <dd className="font-mono text-xs break-all">{competition.id}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Organizer club ID</dt>
-              <dd className="font-mono text-xs break-all">{competition.organizer_club_id}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Revision</dt>
-              <dd>{competition.revision.toString()}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          <div>
-            <h2 className="font-semibold">Supported local ICP actions</h2>
-            <p className="text-sm text-muted-foreground">
-              These controls call the competition canister directly. Invitations, divisions, and team membership remain unavailable.
-            </p>
-          </div>
-          <form
-            className="grid gap-2 sm:grid-cols-[1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              seasonMutation.mutate();
-            }}
-          >
-            <Input value={seasonName} onChange={(event) => setSeasonName(event.target.value)} placeholder="New season name" />
-            <Button type="submit" disabled={seasonMutation.isPending}>Create season</Button>
-          </form>
-          <form
-            className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              matchMutation.mutate();
-            }}
-          >
-            <Input value={homeTeam} onChange={(event) => setHomeTeam(event.target.value)} placeholder="Home team ID" />
-            <Input value={awayTeam} onChange={(event) => setAwayTeam(event.target.value)} placeholder="Away team ID" />
-            <Button type="submit" disabled={matchMutation.isPending}>Record match</Button>
-          </form>
-          <form
-            className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              resultMutation.mutate();
-            }}
-          >
-            <Input value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} placeholder="Match ID" />
-            <Input value={homeScore} onChange={(event) => setHomeScore(event.target.value)} inputMode="numeric" placeholder="Home score" />
-            <Input value={awayScore} onChange={(event) => setAwayScore(event.target.value)} inputMode="numeric" placeholder="Away score" />
-            <Button type="submit" disabled={resultMutation.isPending}>Save result</Button>
-          </form>
-        </CardContent>
-      </Card>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Seasons</h2>
-              <Badge variant="outline">{state?.seasons.length ?? 0}</Badge>
-            </div>
-            {state?.seasons.length ? (
-              <div className="space-y-2">
-                {state.seasons.map((season) => (
-                  <div key={`${season.competition_id}-${season.name}`} className="flex items-center justify-between gap-2 text-sm">
-                    <span>{season.name}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={season.status === "active" ? "default" : "secondary"}>{season.status}</Badge>
-                      {season.status !== "active" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={seasonStatusMutation.isPending}
-                          onClick={() => seasonStatusMutation.mutate({
-                            competitionId: competition.id,
-                            status: "active",
-                            revision: season.revision,
-                          })}
-                        >
-                          Activate
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No seasons in the local canister state.</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Team entries</h2>
-              <Badge variant="outline">{state?.entries.length ?? 0}</Badge>
-            </div>
-            {state?.entries.length ? (
-              <div className="space-y-2">
-                {state.entries.map((entry) => (
-                  <div key={`${entry.competition_id}-${entry.team_id}`} className="flex items-center justify-between text-sm">
-                    <span className="font-mono text-xs">{entry.team_id}</span>
-                    <Badge variant="secondary">{entry.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No team entries in the local canister state.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Matches</h2>
-            <Badge variant="outline">{state?.matches.length ?? 0}</Badge>
-          </div>
-          {state?.matches.length ? (
-            <div className="space-y-2">
-              {state.matches.map((match) => (
-                <div key={match.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm">
-                  <span className="truncate">{match.home_team}</span>
-                  <span className="font-mono text-xs">
-                    {match.status === "scheduled" ? "vs" : `${match.home_score} - ${match.away_score}`}
-                  </span>
-                  <span className="truncate text-right">{match.away_team}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No matches in the local canister state.</p>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Join tokens</h2>
-            <Badge variant="outline">{state?.joinTokens.length ?? 0}</Badge>
-          </div>
-          <p className="text-muted-foreground">
-            Issue a token for an existing team. The club admin actor must manage this competition; invitation emails and broader administration remain unavailable.
-          </p>
-          <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => { event.preventDefault(); issueTokenMutation.mutate(); }}>
-            <Input value={tokenTeamId} onChange={(event) => setTokenTeamId(event.target.value)} placeholder="Team ID" />
-            <Input type="datetime-local" value={tokenExpiry} onChange={(event) => setTokenExpiry(event.target.value)} />
-            <Button type="submit" disabled={issueTokenMutation.isPending || !tokenTeamId.trim() || !tokenExpiry}>
-              {issueTokenMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Issue token
-            </Button>
-          </form>
-          {state?.joinTokens.length ? (
-            <div className="space-y-1 text-xs">
-              {state.joinTokens.map((token) => (
-                <div key={token.id} className="flex justify-between gap-2">
-                  <span className="font-mono">{token.id}</span>
-                  <span>{token.team_id} · {token.used ? "used" : "available"}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-    </div>
+    <IcpCompetitionContent
+      competition={competition}
+      state={state}
+      onBack={() => navigate("/competitions")}
+      registrationTeamId={registrationTeamId}
+      registrationClubId={registrationClubId}
+      onRegistrationTeamIdChange={setRegistrationTeamId}
+      onRegistrationClubIdChange={setRegistrationClubId}
+      onRegisterTeam={() => registerTeamMutation.mutate()}
+      registerTeamPending={registerTeamMutation.isPending}
+      seasonName={seasonName}
+      onSeasonNameChange={setSeasonName}
+      onCreateSeason={() => seasonMutation.mutate()}
+      createSeasonPending={seasonMutation.isPending}
+      homeTeam={homeTeam}
+      awayTeam={awayTeam}
+      onHomeTeamChange={setHomeTeam}
+      onAwayTeamChange={setAwayTeam}
+      onRecordMatch={() => matchMutation.mutate()}
+      recordMatchPending={matchMutation.isPending}
+      resultMatchId={resultMatchId}
+      homeScore={homeScore}
+      awayScore={awayScore}
+      onResultMatchIdChange={setResultMatchId}
+      onHomeScoreChange={setHomeScore}
+      onAwayScoreChange={setAwayScore}
+      onSaveResult={() => resultMutation.mutate()}
+      saveResultPending={resultMutation.isPending}
+      onActivateSeason={(args) => seasonStatusMutation.mutate(args)}
+      activateSeasonPending={seasonStatusMutation.isPending}
+      tokenTeamId={tokenTeamId}
+      tokenExpiry={tokenExpiry}
+      onTokenTeamIdChange={setTokenTeamId}
+      onTokenExpiryChange={setTokenExpiry}
+      onIssueToken={() => issueTokenMutation.mutate()}
+      issueTokenPending={issueTokenMutation.isPending}
+    />
   );
 }
 
