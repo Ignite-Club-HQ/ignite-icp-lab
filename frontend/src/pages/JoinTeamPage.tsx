@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle, XCircle, Users, AlertTriangle, Plus, UserCheck, Sparkles, Info } from "lucide-react";
+import { Loader2, CheckCircle, Users, AlertTriangle, Plus, UserCheck, Sparkles, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,6 +38,7 @@ import { applyInviteClubSwitch } from "@/lib/inviteClubSwitch";
 import { PhotoConsentDialog } from "@/components/PhotoConsentDialog";
 import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
+import { JoinTeamStatusCard } from "@/components/join-team/JoinTeamStatusCard";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 import { getLocalLabClaimableTeam } from "@/lab/fixtureDataLayer";
@@ -1453,21 +1454,17 @@ function SupabaseJoinTeamPage() {
   // Handle loading timeout - show error and retry option
   if (loadingTimeout && isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Taking Too Long</h2>
-            <p className="text-muted-foreground mb-4">
-              We're having trouble loading this invite. This might be a network issue.
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Button variant="outline" onClick={() => navigate("/")}>Go Home</Button>
-              <Button onClick={() => window.location.reload()}>Retry</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <JoinTeamStatusCard
+        tone="warning"
+        title="Taking Too Long"
+        description="We're having trouble loading this invite. This might be a network issue."
+        actions={
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" onClick={() => navigate("/")}>Go Home</Button>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        }
+      />
     );
   }
 
@@ -1475,18 +1472,12 @@ function SupabaseJoinTeamPage() {
 
   if (inviteError || !invite) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Invalid Invite Link</h2>
-            <p className="text-muted-foreground mb-4">
-              This invite link is invalid or has been deleted.
-            </p>
-            <Button onClick={() => navigate("/")}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <JoinTeamStatusCard
+        tone="error"
+        title="Invalid Invite Link"
+        description="This invite link is invalid or has been deleted."
+        actions={<Button onClick={() => navigate("/")}>Go to Home</Button>}
+      />
     );
   }
 
@@ -1508,18 +1499,14 @@ function SupabaseJoinTeamPage() {
   ) {
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Invite Already Used</h2>
-            <p className="text-muted-foreground mb-4">
-              This invite link has already been used. Contact your {pendingInviteData?.team_id ? "team admin" : "club admin"} for a new invite.
-            </p>
-            <Button onClick={() => navigate("/")}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <JoinTeamStatusCard
+        tone="error"
+        title="Invite Already Used"
+        description={
+          <>This invite link has already been used. Contact your {pendingInviteData?.team_id ? "team admin" : "club admin"} for a new invite.</>
+        }
+        actions={<Button onClick={() => navigate("/")}>Go to Home</Button>}
+      />
     );
   }
 
@@ -1529,35 +1516,23 @@ function SupabaseJoinTeamPage() {
 
   if (isExpired) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Invite Expired</h2>
-            <p className="text-muted-foreground mb-4">
-              This invite link has expired. Please ask your team admin for a new invite.
-            </p>
-            <Button onClick={() => navigate("/")}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <JoinTeamStatusCard
+        tone="error"
+        title="Invite Expired"
+        description="This invite link has expired. Please ask your team admin for a new invite."
+        actions={<Button onClick={() => navigate("/")}>Go to Home</Button>}
+      />
     );
   }
 
   if (isMaxedOut) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Invite Link Used</h2>
-            <p className="text-muted-foreground mb-4">
-              This invite link has reached its usage limit. Please ask your team admin for a new invite.
-            </p>
-            <Button onClick={() => navigate("/")}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <JoinTeamStatusCard
+        tone="error"
+        title="Invite Link Used"
+        description="This invite link has reached its usage limit. Please ask your team admin for a new invite."
+        actions={<Button onClick={() => navigate("/")}>Go to Home</Button>}
+      />
     );
   }
 
@@ -1567,32 +1542,28 @@ function SupabaseJoinTeamPage() {
 
   if (allRolesAssigned && !showChildStep) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Already a Full Member</h2>
-            <p className="text-muted-foreground mb-4">
-              You already have all available roles in {inviteEntityName}.
-            </p>
-            <div className="space-y-2">
-              {invite?.role === "parent" && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowChildStep(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Link a child to {inviteEntityName}
-                </Button>
-              )}
-              <Button className="w-full" onClick={() => navigate(inviteDestination)}>
-                View {inviteEntityLabel}
+      <JoinTeamStatusCard
+        tone="success"
+        title="Already a Full Member"
+        description={<>You already have all available roles in {inviteEntityName}.</>}
+        actions={
+          <div className="space-y-2">
+            {invite?.role === "parent" && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowChildStep(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Link a child to {inviteEntityName}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            )}
+            <Button className="w-full" onClick={() => navigate(inviteDestination)}>
+              View {inviteEntityLabel}
+            </Button>
+          </div>
+        }
+      />
     );
   }
 

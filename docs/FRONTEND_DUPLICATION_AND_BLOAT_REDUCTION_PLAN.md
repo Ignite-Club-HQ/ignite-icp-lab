@@ -3181,3 +3181,20 @@ Validation passed: product typecheck (153 diagnostics, unchanged), lab
 typecheck (clean), wizard lab baseline tests (17 tests, all passed), isolation,
 quality ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet
 (2,523 fewer duplicated lines than baseline), and `git diff --check`.
+## JoinTeamPage.tsx terminal-state card extraction (2026-09-25)
+
+The repeated invalid, expired, max-use, already-used, already-member, and
+loading timeout cards now share the presentation-only
+`components/join-team/JoinTeamStatusCard.tsx` shell. All invite queries,
+membership mutations, auth flow, condition selection, and the hybrid ICP
+preview remain route-owned; the new component has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `JoinTeamPage.tsx` raw lines | 2,229 | 2,199 | -30 (-1.3%) |
+| New focused module | 0 | 1 (`JoinTeamStatusCard.tsx`, 36 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet (2,523 fewer duplicated lines than
+baseline), and `git diff --check`.
