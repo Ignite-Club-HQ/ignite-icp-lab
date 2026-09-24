@@ -1,15 +1,14 @@
 import { useState, Suspense, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, PlayCircle, Wand2, Loader2, X, Copy, Shirt, RefreshCw, Flame, MoreHorizontal, ChevronDown, ArrowRightLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Wand2, Loader2, X, Copy, Shirt, RefreshCw, Flame, MoreHorizontal, ChevronDown, ArrowRightLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { hasGameBoardSupport } from "@/lib/sportDetection";
 
 import type { Json } from "@/integrations/supabase/types";
 import { selectCachedProfilesByIds } from "@/lib/profileCache";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +51,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { QuickSetupDutyDialog } from "@/components/QuickSetupDutyDialog";
 import { ManualMatchDialog } from "@/components/ManualMatchDialog";
+import { EventGroupCard, type EventGroup, type EventGroupDuty, type GroupPlayer, type SwapSource } from "@/components/events/EventGroupCard";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 // Lazy load PitchBoard for performance
@@ -72,16 +72,6 @@ const getMatchColors = (index: number, availableColors: string[]): { teamA: stri
   return { teamA: teamAColor, teamB: teamBColor };
 };
 
-// Determine if a hex color is light (needs dark text)
-const isLightColor = (hex: string): boolean => {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6;
-};
-
 interface EventGroupsManagerProps {
   eventId: string;
   miniLeagueId: string;
@@ -96,23 +86,6 @@ interface MiniLeaguePlayer {
   parent_user_id: string | null;
 }
 
-interface GroupPlayer {
-  id: string;
-  name: string;
-  team: "a" | "b" | null;
-  ability_rating: number;
-}
-
-interface EventGroup {
-  id: string;
-  name: string;
-  ability_band: string | null;
-  pitch_name: string | null;
-  display_order: number;
-  team_a_color: string;
-  team_b_color: string;
-  players: GroupPlayer[];
-}
 
 export function EventGroupsManager({ eventId, miniLeagueId, isAdmin, playerOverrides = {} }: EventGroupsManagerProps) {
   const queryClient = useQueryClient();
@@ -128,7 +101,7 @@ export function EventGroupsManager({ eventId, miniLeagueId, isAdmin, playerOverr
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
   
   // Tap-to-swap state
-  const [swapSource, setSwapSource] = useState<{ groupId: string; playerId: string; team: "a" | "b" | null } | null>(null);
+  const [swapSource, setSwapSource] = useState<SwapSource | null>(null);
   
   // State for direct pitch board and duties opening
   const [activePitchBoardGroup, setActivePitchBoardGroup] = useState<EventGroup | null>(null);
@@ -1014,176 +987,24 @@ export function EventGroupsManager({ eventId, miniLeagueId, isAdmin, playerOverr
             </div>
           )}
           <div className="grid gap-3">
-          {groups.map((group) => {
-            const teamAPlayers = group.players.filter(p => p.team === "a");
-            const teamBPlayers = group.players.filter(p => p.team === "b");
-            const unassignedPlayers = group.players.filter(p => !p.team);
-            
-            return (
-              <Card key={group.id} className="relative">
-                {isAdmin && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteGroupMutation.mutate(group.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base">{group.name}</CardTitle>
-                    {group.ability_band && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <span className="text-muted-foreground">Ability:</span> {group.ability_band}
-                      </Badge>
-                    )}
-                  </div>
-                  {group.pitch_name && (
-                    <CardDescription>{group.pitch_name}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {/* Two Teams Display - Bold bib colors */}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {/* Team A */}
-                    <div 
-                      className={`rounded-lg overflow-hidden ${swapSource && isAdmin ? "cursor-pointer ring-2 ring-primary/30 hover:ring-primary" : ""}`}
-                      onClick={() => swapSource && handleTeamTap(group.id, "a")}
-                    >
-                      <div 
-                        className="flex items-center gap-1.5 px-2.5 py-1.5"
-                        style={{ backgroundColor: group.team_a_color || DEFAULT_BIB_COLORS[0] }}
-                      >
-                        <Shirt className="h-3.5 w-3.5" style={{ color: isLightColor(group.team_a_color || DEFAULT_BIB_COLORS[0]) ? '#1f2937' : '#ffffff' }} />
-                        <span className="text-xs font-bold" style={{ color: isLightColor(group.team_a_color || DEFAULT_BIB_COLORS[0]) ? '#1f2937' : '#ffffff' }}>
-                          Team A
-                        </span>
-                        <span className="text-xs" style={{ color: isLightColor(group.team_a_color || DEFAULT_BIB_COLORS[0]) ? '#1f293799' : '#ffffffb3' }}>({teamAPlayers.length})</span>
-                      </div>
-                      <div className="p-2 border border-t-0 rounded-b-lg space-y-0.5" style={{ borderColor: `${group.team_a_color}40` }}>
-                        {teamAPlayers.map((player) => (
-                          <div
-                            key={player.id}
-                            onClick={(e) => { e.stopPropagation(); handlePlayerTap(group.id, player.id, "a"); }}
-                            className={`text-xs px-2 py-1 rounded transition-all ${
-                              isAdmin ? "cursor-pointer hover:bg-accent" : ""
-                            } ${
-                              swapSource?.playerId === player.id && swapSource?.groupId === group.id
-                                ? "bg-primary/20 ring-1 ring-primary font-medium"
-                                : ""
-                            }`}
-                          >
-                            {player.name}
-                          </div>
-                        ))}
-                        {teamAPlayers.length === 0 && (
-                          <span className="text-xs text-muted-foreground px-2">No players</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Team B */}
-                    <div 
-                      className={`rounded-lg overflow-hidden ${swapSource && isAdmin ? "cursor-pointer ring-2 ring-primary/30 hover:ring-primary" : ""}`}
-                      onClick={() => swapSource && handleTeamTap(group.id, "b")}
-                    >
-                      <div 
-                        className="flex items-center gap-1.5 px-2.5 py-1.5"
-                        style={{ backgroundColor: group.team_b_color || DEFAULT_BIB_COLORS[1] }}
-                      >
-                        <Shirt className="h-3.5 w-3.5" style={{ color: isLightColor(group.team_b_color || DEFAULT_BIB_COLORS[1]) ? '#1f2937' : '#ffffff' }} />
-                        <span className="text-xs font-bold" style={{ color: isLightColor(group.team_b_color || DEFAULT_BIB_COLORS[1]) ? '#1f2937' : '#ffffff' }}>
-                          Team B
-                        </span>
-                        <span className="text-xs" style={{ color: isLightColor(group.team_b_color || DEFAULT_BIB_COLORS[1]) ? '#1f293799' : '#ffffffb3' }}>({teamBPlayers.length})</span>
-                      </div>
-                      <div className="p-2 border border-t-0 rounded-b-lg space-y-0.5" style={{ borderColor: `${group.team_b_color}40` }}>
-                        {teamBPlayers.map((player) => (
-                          <div
-                            key={player.id}
-                            onClick={(e) => { e.stopPropagation(); handlePlayerTap(group.id, player.id, "b"); }}
-                            className={`text-xs px-2 py-1 rounded transition-all ${
-                              isAdmin ? "cursor-pointer hover:bg-accent" : ""
-                            } ${
-                              swapSource?.playerId === player.id && swapSource?.groupId === group.id
-                                ? "bg-primary/20 ring-1 ring-primary font-medium"
-                                : ""
-                            }`}
-                          >
-                            {player.name}
-                          </div>
-                        ))}
-                        {teamBPlayers.length === 0 && (
-                          <span className="text-xs text-muted-foreground px-2">No players</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Unassigned Players */}
-                  {unassignedPlayers.length > 0 && (
-                    <div className="mb-3 p-2 rounded-lg bg-muted/50">
-                      <span className="text-xs text-muted-foreground">Unassigned: </span>
-                      {unassignedPlayers.map((player) => (
-                        <Badge key={player.id} variant="outline" className="text-xs ml-1">
-                          {player.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Inline Duty Badges */}
-                  {(() => {
-                    const groupDuties = allGroupDuties?.[group.id] || [];
-                    if (groupDuties.length === 0) return null;
-                    return (
-                      <div className="mb-3 flex flex-wrap gap-1.5">
-                        {groupDuties.map((duty: any) => (
-                          <button
-                            key={duty.id}
-                            type="button"
-                            onClick={() => {
-                              setQuickAssignDutyId(duty.id);
-                              setActiveDutiesGroup(group);
-                            }}
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors touch-manipulation",
-                              duty.assigned_to
-                                ? "bg-primary/10 text-primary border border-primary/20"
-                                : "bg-muted text-muted-foreground border border-border hover:border-primary/50"
-                            )}
-                          >
-                            <span className={cn(
-                              "w-1.5 h-1.5 rounded-full shrink-0",
-                              duty.assigned_to ? "bg-primary" : "bg-muted-foreground"
-                            )} />
-                            {duty.name}{duty.assignee?.display_name ? `: ${duty.assignee.display_name}` : ""}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {boardSupported && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => setActivePitchBoardGroup(group)}
-                      >
-                        <PlayCircle className="h-4 w-4 mr-1" />
-                        Pitch Board
-                      </Button>
-                    </div>
-                  )}
-
-                </CardContent>
-              </Card>
-            );
-          })}
+            {groups.map((group) => (
+              <EventGroupCard
+                key={group.id}
+                group={group}
+                isAdmin={isAdmin}
+                swapSource={swapSource}
+                duties={(allGroupDuties?.[group.id] || []) as EventGroupDuty[]}
+                boardSupported={boardSupported}
+                onDeleteGroup={(groupId) => deleteGroupMutation.mutate(groupId)}
+                onPlayerTap={handlePlayerTap}
+                onTeamTap={handleTeamTap}
+                onQuickAssignDuty={(dutyId, selectedGroup) => {
+                  setQuickAssignDutyId(dutyId);
+                  setActiveDutiesGroup(selectedGroup);
+                }}
+                onOpenPitchBoard={setActivePitchBoardGroup}
+              />
+            ))}
           </div>
         </div>
       ) : isAdmin ? (
