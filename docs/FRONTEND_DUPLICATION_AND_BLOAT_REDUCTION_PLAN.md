@@ -2995,3 +2995,33 @@ DI pattern avoids the ratchet cost of a new query-owning file), duplication
 ratchet (2,467 fewer duplicated lines than baseline), and `git diff --check`.
 Full legacy/Lab suites and product build remain deferred per the current
 line-count-reduction pass.
+
+## TeamChatPage.tsx team-metadata query extraction (2026-09-25)
+
+The fourth pass extracted the team (+ owning club) header-metadata block:
+the `["team", teamId]` query, the cache-warming effect that seeds the shared
+`clubTeamCache` on success, and the memo that synthesizes a `team` object
+from that cache while the network query is still loading (so repeat opens
+paint the header immediately). This moved to
+`features/messaging/thread/useTeamChatTeamData.ts`, using the same
+`supabaseClient`-parameter DI pattern as `useTeamChatAdminStatus` — the hook
+takes the page's `supabase` instance and `fixtureData.getLocalLabChatTeam` as
+parameters rather than importing either directly, so no new
+`directSupabaseImports` file is introduced. The page's own `getCachedTeam`/
+`getCachedClub`/`cacheTeam`/`cacheClub` imports were removed entirely since
+nothing else in the page called them.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `TeamChatPage.tsx` raw lines | 2,199 | 2,146 | -53 (-2.4%) |
+| Total this file's reduction | 2,431 | 2,146 | -285 (-11.7%) |
+| New focused module | 0 | 1 (5 tests) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged after fixing
+the fixture-lookup parameter's type to match its actual synchronous return
+value), lab typecheck (clean), focused tests (5 new + full
+`src/features/messaging/` and `src/components/chat/` suites, 522 tests
+total, all passed), isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet (2,467 fewer duplicated lines than
+baseline), and `git diff --check`. Full legacy/Lab suites and product build
+remain deferred per the current line-count-reduction pass.
