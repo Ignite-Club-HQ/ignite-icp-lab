@@ -1,5 +1,5 @@
 import { useRealtimeReactionSync } from "@/hooks/useRealtimeReactionSync";
-import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from "react";
 import { consumePendingChatJump, getLastConsumedPendingChatJumpTs, subscribePendingChatJump, type PendingChatJumpPayload } from "@/lib/pendingChatJump";
 import { resolveChatJumpTarget } from "@/lib/resolveChatJumpTarget";
 import { filterChatMessagesForSearch } from "@/features/messaging/thread/chatSearchPresentation";
@@ -23,9 +23,7 @@ import { markChatScopeNotificationsRead } from "@/lib/markChatScopeRead";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Crown, Lock, Search } from "lucide-react";
-import { ChatBackButton } from "@/components/chat/ChatBackButton";
 import { useSwipeBack } from "@/hooks/useSwipeBack";
-import { PageLoading } from "@/components/ui/page-loading";
 import { ChatPageSkeleton } from "@/components/chat/ChatPageSkeleton";
 import { ChatHeaderMenu } from "@/components/chat/ChatHeaderMenu";
 import { ChatCatchUp } from "@/components/chat/ChatCatchUp";
@@ -42,14 +40,7 @@ import { useIsUserOnline } from "@/hooks/useUserPresence";
 import { ChatDetailsSheet } from "@/components/chat/ChatDetailsSheet";
 
 import { toast } from "sonner";
-import { ReplyPreview } from "@/components/chat/ReplyPreview";
-import { EditingBanner } from "@/components/chat/EditingBanner";
-import { ChatSendButton } from "@/components/chat/ChatSendButton";
-import { ChatImageInput } from "@/components/chat/ChatImageInput";
-import { ChatAttachmentPickers } from "@/components/chat/ChatAttachmentPickers";
-import { NewsAttachmentPreview } from "@/components/chat/NewsAttachmentPreview";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
-import { ScheduledMessagesBanner } from "@/components/chat/ScheduledMessagesBanner";
+import { DirectMessageComposerFooter } from "@/components/chat/DirectMessageComposerFooter";
 import type { ScheduleTarget } from "@/hooks/useScheduledMessages";
 import { useScheduleProAccess } from "@/hooks/useScheduleProAccess";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -66,14 +57,11 @@ import {
 } from "@/lib/chatMessageReconciliation";
 import { createSendTempId, restoreFailedSendComposer, authoritativeMessageExists, dropSupersededOptimisticRow, type FailedSendContext } from "@/lib/failedSendRestore";
 
-import { MentionInput } from "@/components/chat/MentionInput";
-import { ChatComposerShell } from "@/components/chat/ChatComposerShell";
 import { format, isSameDay } from "date-fns";
 import { ChatDateSeparator } from "@/components/chat/ChatDateSeparator";
 import { fetchProfilesWithCache, selectCachedProfileById } from "@/lib/profileCache";
 import { useProfiles } from "@/hooks/useProfiles";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { getCachedMessages, cacheMessages, CachedMessage, shouldRefetchMessages } from "@/lib/messageCache";
 import { consumeFromNotificationFlag } from "@/lib/notificationPreload";
 import { logChatOpenLatency } from "@/lib/chatOpenLatency";
@@ -87,7 +75,6 @@ import { isIgniteSupportUser } from "@/lib/systemUser";
 import { useMessageReads } from "@/hooks/useMessageReads";
 import { useMarkVisibleChatMessagesRead } from "@/hooks/useMarkVisibleChatMessagesRead";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { Capacitor } from "@capacitor/core";
 import { useNotificationNudge } from "@/hooks/useNotificationNudge";
 import { NotificationNudgeBanner } from "@/components/NotificationNudgeBanner";
@@ -99,12 +86,6 @@ import { isChatEagerInvalidateEnabled, ensureSessionApplied } from "@/lib/chatEa
 
 
 const MESSAGES_PER_PAGE = 15;
-
-const ScheduleMessageDialog = lazyWithRetry(() =>
-  import("@/components/chat/ScheduleMessageDialog").then(module => ({
-    default: module.ScheduleMessageDialog,
-  })),
-);
 
 interface DirectMessage {
   id: string;
@@ -296,7 +277,6 @@ export default function DirectMessagePage() {
   const replyToRef = useRef(replyTo);
   replyToRef.current = replyTo;
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const virtualHandleRef = useRef<VirtualizedChatMessageListHandle>(null);
   const isNativeIOS = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
@@ -1625,125 +1605,48 @@ export default function DirectMessagePage() {
         )}
       </div>
 
-      {/* Input area - Fixed at bottom above nav bar */}
-      {isIgniteSupportConversation ? (
-        <>
-           <div className={`fixed left-0 right-0 bg-background z-[49] pointer-events-none ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight, height: nativeKbHeight > 0 ? "3rem" : "calc(var(--bottom-nav-offset, 0px) + 3rem)" }} />
-           <div
-             ref={composerRef} data-chat-chrome="true" data-chat-composer="true"
-             className={`fixed left-0 right-0 border-t border-border/30 pt-1 pb-2 px-4 bg-background z-[51] ${searchOpen ? "hidden" : ""}`}
-             style={{ bottom: nativeKbHeight > 0 ? nativeKbHeight : "var(--bottom-nav-offset, 0px)" }}
-           >
-            <div className="text-center text-sm text-muted-foreground py-3 bg-muted/50 rounded-lg">
-              This is a welcome message from Ignite Support. Replies are not available.
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-           <div className={`fixed left-0 right-0 bg-background z-[49] pointer-events-none ${searchOpen ? "hidden" : ""}`} style={{ bottom: nativeKbHeight, height: nativeKbHeight > 0 ? "3rem" : "calc(var(--bottom-nav-offset, 0px) + 3rem)" }} />
-           <div
-             ref={composerRef} data-chat-chrome="true" data-chat-composer="true"
-             className={`fixed left-0 right-0 w-full max-w-full overflow-visible border-t border-border/30 pt-1 pb-2 px-2 bg-background z-[51] ${searchOpen ? "hidden" : ""}`}
-             style={{ bottom: nativeKbHeight > 0 ? nativeKbHeight : "var(--bottom-nav-offset, 0px)" }}
-           >
-             <TypingIndicator typingUsers={typingUsers} />
-             {replyTo && (
-               <ReplyPreview
-                 replyingTo={{ id: replyTo.id, text: replyTo.text, authorName: replyTo.author?.display_name || null }}
-                 onCancel={() => setReplyTo(null)}
-               />
-             )}
-              {editingMessage && <EditingBanner text={editingMessage.text} onCancel={handleCancelEdit} />}
-              {scheduleTarget && <ScheduledMessagesBanner target={scheduleTarget} />}
-                <ChatComposerShell
-                  preview={
-                    pendingNewsId && !editingMessage ? (
-                      <NewsAttachmentPreview
-                        newsId={pendingNewsId}
-                        onRemove={() => setPendingNewsId(null)}
-                        disabled={sendMessageMutation.isPending}
-                      />
-                    ) : undefined
-                  }
-                >
-                {!isIgniteSupportConversation && !attachmentsDisabled && (
-                  <ChatImageInput
-                    imageUrl={dmImageUrl}
-                    onImageUploaded={setDmImageUrl}
-                    disabled={false}
-                    clubId={sharedClubId || undefined}
-                    showEventPicker={!!sharedClubId}
-                    onEventSelect={() => setEventPickerOpen(true)}
-                    showNewsPicker={!!(sharedClubId || undefined)}
-                    onNewsSelect={() => setNewsPickerOpen(true)}
-                    showBoardPicker={false}
-                    onBoardPick={() => setBoardPickerOpen(true)}
-                    showVaultPicker={!!sharedClubId}
-                    onAppendToken={(token) => setMessage((prev) => (prev ? `${prev} ${token}` : token))}
-                    hasText={!!message.trim()}
-                  />
-                )}
-                <MentionInput
-                  bare
-                  value={message}
-                  onChange={(val) => {
-                    setMessage(val);
-                    if (val.trim()) startTyping(); else stopTyping();
-                  }}
-                  onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder="Type a message..."
-                  disabled={false}
-                  dmOtherUserId={otherUserId || undefined}
-                  onGifSelect={setDmImageUrl}
-                />
-                <ChatSendButton
-                  onSend={handleSend}
-                  onSchedule={scheduleTarget ? () => setScheduleDialogOpen(true) : undefined}
-                  disabled={!message.trim() && !dmImageUrl && !pendingNewsId}
-                  loading={sendMessageMutation.isPending}
-                  canSend={!!message.trim() || !!dmImageUrl || !!pendingNewsId}
-                />
-              </ChatComposerShell>
-              {scheduleTarget && scheduleDialogOpen && (
-                <Suspense fallback={null}>
-                  <ScheduleMessageDialog
-                    open
-                    onOpenChange={setScheduleDialogOpen}
-                    target={scheduleTarget}
-                    initialText={message}
-                    onScheduled={() => {
-                      setMessage("");
-                      clearDraft?.();
-                    }}
-                  />
-                </Suspense>
-              )}
-              {!isIgniteSupportConversation && (
-                <>
-                  <ChatAttachmentPickers
-                    eventPickerOpen={eventPickerOpen}
-                    onEventPickerOpenChange={setEventPickerOpen}
-                    onSelectEvent={(eventId) => {
-                      const token = `[event:${eventId}]`;
-                      setMessage(message ? `${message} ${token}` : token);
-                    }}
-                    newsPickerOpen={newsPickerOpen}
-                    onNewsPickerOpenChange={setNewsPickerOpen}
-                    onSelectNews={setPendingNewsId}
-                    boardPickerOpen={boardPickerOpen}
-                    onBoardPickerOpenChange={setBoardPickerOpen}
-                    onSelectBoard={(gameId) => {
-                      const token = `[board:${gameId}]`;
-                      setMessage(message ? `${message} ${token}` : token);
-                    }}
-                    clubId={sharedClubId || undefined}
-                  />
-                </>
-              )}
-           </div>
-        </>
-      )}
+      <DirectMessageComposerFooter
+        composerRef={composerRef}
+        searchOpen={searchOpen}
+        nativeKbHeight={nativeKbHeight}
+        isIgniteSupportConversation={isIgniteSupportConversation}
+        attachmentsDisabled={!!attachmentsDisabled}
+        typingUsers={typingUsers}
+        replyTo={
+          replyTo
+            ? { id: replyTo.id, text: replyTo.text, authorName: replyTo.author?.display_name || null }
+            : null
+        }
+        onCancelReply={() => setReplyTo(null)}
+        editingMessage={editingMessage}
+        onCancelEdit={handleCancelEdit}
+        scheduleTarget={scheduleTarget}
+        scheduleDialogOpen={scheduleDialogOpen}
+        onScheduleDialogOpenChange={setScheduleDialogOpen}
+        onScheduled={() => {
+          setMessage("");
+          clearDraft?.();
+        }}
+        pendingNewsId={pendingNewsId}
+        onPendingNewsIdChange={setPendingNewsId}
+        isSending={sendMessageMutation.isPending}
+        imageUrl={dmImageUrl}
+        onImageUploaded={setDmImageUrl}
+        message={message}
+        onMessageChange={setMessage}
+        onStartTyping={startTyping}
+        onStopTyping={stopTyping}
+        onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+        onSend={handleSend}
+        sharedClubId={sharedClubId}
+        otherUserId={otherUserId || undefined}
+        eventPickerOpen={eventPickerOpen}
+        onEventPickerOpenChange={setEventPickerOpen}
+        newsPickerOpen={newsPickerOpen}
+        onNewsPickerOpenChange={setNewsPickerOpen}
+        boardPickerOpen={boardPickerOpen}
+        onBoardPickerOpenChange={setBoardPickerOpen}
+      />
     </div>
   );
 }
