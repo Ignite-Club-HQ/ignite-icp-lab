@@ -3449,3 +3449,60 @@ baseline).
 Combined duplication ratchet after all four passes: 2,448 fewer duplicated
 lines than baseline (335,805 scanned lines, 1,167 counted clones vs. 1,310
 baseline).
+
+## NextUpCarousel.tsx hero-RSVP extraction (2026-09-25)
+
+The hero card's RSVP section (status buttons, response summary, and related
+presentation) was extracted into
+`components/events/NextUpHeroRsvpSection.tsx`. The parent retains all
+queries, mutations, and RSVP-point-award logic; the new component receives
+plain props/callbacks and has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `NextUpCarousel.tsx` raw lines | 1,761 | 1,450 | -311 (-17.7%) |
+| New focused module | 0 | 1 (`NextUpHeroRsvpSection.tsx`, 415 lines) | +1 |
+
+Validation passed: lab typecheck (clean), product typecheck (152
+diagnostics, no new), focused `HomeDashboardOverview.test.tsx` (4 tests),
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet, and `git diff --check`.
+
+## AddTeamMemberSheet.tsx bulk-member-list extraction (2026-09-25)
+
+The bulk member selection list was extracted into
+`components/members/AddTeamMemberBulkMemberList.tsx`. The parent retains all
+Supabase queries/mutations and selection-state logic; the new component
+receives plain props/callbacks and has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `AddTeamMemberSheet.tsx` raw lines | 1,700 | 1,372 | -328 (-19.3%) |
+| New focused module | 0 | 1 (`AddTeamMemberBulkMemberList.tsx`, 480 lines) | +1 |
+
+Validation passed: lab typecheck (clean), product typecheck (152
+diagnostics, no new), isolation, quality ratchet (`directSupabaseImports`
+unchanged at 463), duplication ratchet, and `git diff --check`. No existing
+targeted test file was found for this component.
+
+## EventGroupsManager.tsx group-card extraction (2026-09-25)
+
+The match/group card renderer was extracted into
+`components/events/EventGroupCard.tsx`. The parent retains all Supabase
+queries/mutations, drag-and-drop, and swap logic; the new component receives
+plain props/callbacks and has no Supabase dependency.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `EventGroupsManager.tsx` raw lines | 1,504 | 1,325 | -179 (-11.9%) |
+| New focused module | 0 | 1 (`EventGroupCard.tsx`, 237 lines) | +1 |
+
+Validation passed: lab typecheck (clean), product typecheck (152
+diagnostics, no new), focused `EventGroupsManager.characterization.test.tsx`
+and `pitchBoardSportGating.guard.test.ts` (20 tests), isolation, quality
+ratchet (`directSupabaseImports` unchanged at 463), duplication ratchet, and
+`git diff --check`.
+
+Combined duplication ratchet after this three-way pass: 2,463 fewer
+duplicated lines than baseline (336,119 scanned lines, 1,166 counted clones
+vs. 1,310 baseline).
