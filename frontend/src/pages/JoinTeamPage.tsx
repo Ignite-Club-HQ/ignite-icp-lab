@@ -1,24 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle, Users, AlertTriangle, Plus, UserCheck, Sparkles, Info } from "lucide-react";
+import { CheckCircle, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   safeSessionGet,
   safeSessionSet,
@@ -38,6 +23,8 @@ import { applyInviteClubSwitch } from "@/lib/inviteClubSwitch";
 import { PhotoConsentDialog } from "@/components/PhotoConsentDialog";
 import { AppStoreDownloadGuide } from "@/components/AppStoreDownloadGuide";
 import { InviteFlowProgress, setInviteFlowContext, getInviteFlowContext, clearInviteFlowContext } from "@/components/InviteFlowProgress";
+import { JoinTeamChildStepCard } from "@/components/join-team/JoinTeamChildStepCard";
+import { JoinTeamInviteCard } from "@/components/join-team/JoinTeamInviteCard";
 import { JoinTeamStatusCard } from "@/components/join-team/JoinTeamStatusCard";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
@@ -1791,196 +1778,33 @@ function SupabaseJoinTeamPage() {
   };
 
   if (showChildStep) {
-    const hasAdded = addedChildren.length > 0;
     // handleAddChild early-returns without either of these — never show a
     // tappable button that would silently do nothing.
     const canAddChild = !!invite?.team_id || !!leagueLinkMiniLeagueId;
     return (
-      <>
-      <div className="min-h-screen flex flex-col bg-background">
-        <InviteFlowProgress
-          currentStep={getCurrentStep()}
-          isExistingUser={!!user}
-          className="fixed top-0 left-0 right-0"
-        />
-        <div className="flex-1 flex items-center justify-center p-4 pt-16">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center space-y-2">
-            <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-xl">
-              {hasAdded ? "Add another child?" : `Link your child to ${inviteEntityName}`}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {hasAdded
-                ? "Add a sibling, or tap Done to finish."
-                : "This is how the team knows which player you're the parent of. You can add more than one."}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Summary of children added so far */}
-            {hasAdded && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
-                <div className="flex items-center gap-2 text-xs font-medium text-primary uppercase tracking-wide">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Added
-                </div>
-                {addedChildren.map((name, i) => (
-                  <div key={`${name}-${i}`} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                    <span className="font-medium">{name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Prominent call-out (first time only) */}
-            {!hasAdded && (
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                {existingTeamChildren.length > 0
-                  ? "If your child is already on the team roster, tap their name to claim them. Otherwise add them below."
-                  : "Add your child's name so the coach can connect you to them on the team sheet."}
-              </div>
-            )}
-
-            {!hasAdded && existingTeamChildren.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Don't see your child? They may already be linked to another parent — ask your coach to add you instead of creating a duplicate.
-              </p>
-            )}
-
-            {existingTeamChildren.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Link to existing child on team</Label>
-                <div className="space-y-1">
-                  {existingTeamChildren.map((child: any) => (
-                    <button
-                      key={child.id}
-                      onClick={() => {
-                        setLinkExistingChildId(linkExistingChildId === child.id ? null : child.id);
-                        if (linkExistingChildId !== child.id) setChildName("");
-                      }}
-                      className={`w-full flex items-center gap-2 p-3 rounded-lg border text-left transition-colors ${
-                        linkExistingChildId === child.id 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm">{child.name}</span>
-                      {child.year_of_birth && (
-                        <span className="text-xs text-muted-foreground ml-auto">{child.year_of_birth}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Don't see your child? They may already be linked to another parent — ask your coach to add you instead of creating a duplicate.
-                </p>
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">or add new</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!linkExistingChildId && (
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="child-name" className="text-sm">Child's Name</Label>
-                  <Input
-                    id="child-name"
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    placeholder="Enter child's name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="child-yob" className="text-sm">Year of Birth (optional)</Label>
-                  <Input
-                    id="child-yob"
-                    type="number"
-                    value={childYearOfBirth}
-                    onChange={(e) => setChildYearOfBirth(e.target.value)}
-                    placeholder="e.g. 2015"
-                    min={1940}
-                    max={new Date().getFullYear()}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!canAddChild && (
-              <p className="text-sm text-muted-foreground text-center">
-                This invite isn't linked to a team yet — ask your club admin to add your child.
-              </p>
-            )}
-            <Button
-              className="w-full"
-              onClick={handleAddChild}
-              disabled={!canAddChild || addingChild || (!childName.trim() && !linkExistingChildId)}
-            >
-              {addingChild ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              {linkExistingChildId
-                ? "Link Child"
-                : hasAdded
-                  ? "Add Another Child"
-                  : "Add Child"}
-            </Button>
-
-            {hasAdded ? (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleFinishChildStep}
-                disabled={addingChild}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Done
-              </Button>
-            ) : (
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowSkipConfirm(true)}
-                  disabled={addingChild}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
-                >
-                  I'll do this later
-                </button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        </div>
-      </div>
-
-      <AlertDialog open={showSkipConfirm} onOpenChange={setShowSkipConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Skip linking your child?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Without a linked child you won't see team sheets, RSVPs or match notifications for your player. A team admin will need to link them manually.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go back</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleSkipChildStep()}>
-              Skip anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      </>
+      <JoinTeamChildStepCard
+        currentStep={getCurrentStep()}
+        isExistingUser={!!user}
+        inviteEntityName={inviteEntityName}
+        addedChildren={addedChildren}
+        existingTeamChildren={existingTeamChildren}
+        linkExistingChildId={linkExistingChildId}
+        childName={childName}
+        childYearOfBirth={childYearOfBirth}
+        canAddChild={canAddChild}
+        addingChild={addingChild}
+        showSkipConfirm={showSkipConfirm}
+        onToggleExistingChild={(childId) => {
+          setLinkExistingChildId(linkExistingChildId === childId ? null : childId);
+          if (linkExistingChildId !== childId) setChildName("");
+        }}
+        onChildNameChange={setChildName}
+        onChildYearOfBirthChange={setChildYearOfBirth}
+        onAddChild={() => void handleAddChild()}
+        onFinish={handleFinishChildStep}
+        onOpenSkipConfirmChange={setShowSkipConfirm}
+        onSkipConfirm={() => void handleSkipChildStep()}
+      />
     );
   }
 
@@ -2039,153 +1863,38 @@ function SupabaseJoinTeamPage() {
       />
       
       <div className="flex-1 flex items-center justify-center p-4 pt-16">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <Avatar className="h-20 w-20 border-2 border-primary/20">
-              <AvatarImage src={invite.teams?.logo_url || invite.teams?.clubs?.logo_url || undefined} />
-              <AvatarFallback className="bg-primary/20 text-primary text-2xl">
-                {(invite.teams?.name || invite.teams?.clubs?.name)?.charAt(0)?.toUpperCase() || "T"}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-          <CardTitle>Join {inviteEntityName}</CardTitle>
-          {invite.teams?.clubs?.name && inviteEntityName !== invite.teams.clubs.name && (
-            <p className="text-muted-foreground text-sm">{invite.teams.clubs.name}</p>
-          )}
-          {isPendingInvite && pendingInviteData?.invited_label && (
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-muted-foreground">
-                Invite for: <span className="font-medium text-foreground">{pendingInviteData.invited_label}</span>
-              </p>
-              {!user && (
-                <p className="text-xs text-muted-foreground">
-                  {invitedEmailHasAccount
-                    ? `Sign in to join as ${pendingInviteData.invited_label}`
-                    : `Create an account to join as ${pendingInviteData.invited_label}`}
-                </p>
-              )}
-
-            </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Name validation warning - existing user trying to use new-signup-only link */}
-          {nameValidationError && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-destructive">Link Not Valid For Existing Users</p>
-                <p className="text-muted-foreground mt-1">{nameValidationError}</p>
-                <p className="text-muted-foreground mt-2">
-                  Contact your {invite?.team_id ? "team admin" : "club admin"} to be added directly or to receive a general invite link.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {showNameMismatchInfo && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                This invite was addressed to {pendingInviteData?.invited_label}. You can accept it as {userProfile?.display_name}.
-              </p>
-            </div>
-          )}
-
-          {/* Heads-up for users who already belong to a different club: joining
-              ADDS a club, it doesn't replace the existing one. */}
-          {user && otherMembershipClubName && inviteClubId && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border">
-              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                You're already in <span className="font-medium text-foreground">{otherMembershipClubName}</span>. Joining adds <span className="font-medium text-foreground">{invite?.teams?.clubs?.name || inviteEntityName}</span> to your account — you can switch clubs anytime from the header.
-              </p>
-            </div>
-          )}
-
-          {/* Fixed role display for admin invites - no role selection */}
-          {/* Fixed role display - all invites use a predetermined role */}
-          <div className="flex items-center justify-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">You'll join as:</span>
-            <Badge variant="secondary">{roleLabels[invite.role as AppRole]}</Badge>
-          </div>
-
-          {!user ? (
-            <div className="space-y-3">
-              {invitedEmailHasAccount && pendingInviteData?.invited_email && (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <UserCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground">
-                    We found an existing Ignite account for{" "}
-                    <span className="font-medium text-foreground break-all">
-                      {pendingInviteData.invited_email}
-                    </span>
-                    . Sign in to accept this invite.
-                  </p>
-                </div>
-              )}
-              {invitedEmailHasAccount ? (
-                <>
-                  <Button onClick={handleSignInClick} className="w-full" size="lg">
-                    Sign in to join
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleCreateAccountClick}
-                    className="w-full"
-                    size="lg"
-                  >
-                    Create a new account instead
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button onClick={handleCreateAccountClick} className="w-full" size="lg">
-                    Create account to join
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleSignInClick}
-                    className="w-full"
-                    size="lg"
-                  >
-                    Already have an account? Sign in
-                  </Button>
-                </>
-              )}
-            </div>
-
-          ) : (
-            <Button
-              onClick={handleJoinClick}
-              disabled={joinMutation.isPending || (user && profileLoading) || (user && selectedRoles.length === 0 && !needsProfileCompletion) || (user && !!nameValidationError && !emailMatches)}
-              className="w-full"
-              size="lg"
-            >
-              {(joinMutation.isPending || (user && profileLoading)) ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
-              {!joinMutation.isPending && !(user && profileLoading) && (
-                nameValidationError && !emailMatches
-                  ? "Cannot Join - Name Mismatch"
-                  : needsProfileCompletion
-                    ? "Complete Profile to Join"
-                    : `Join as ${roleLabels[invite.role as AppRole]}`
-              )}
-            </Button>
-          )}
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/")}
-            className="w-full"
-          >
-            Cancel
-          </Button>
-
-        </CardContent>
-      </Card>
+        <JoinTeamInviteCard
+          inviteEntityName={inviteEntityName}
+          inviteEntityLabel={inviteEntityLabel}
+          inviteClubName={invite?.teams?.clubs?.name}
+          entityLogoUrl={invite.teams?.logo_url || invite.teams?.clubs?.logo_url || undefined}
+          entityInitial={(invite.teams?.name || invite.teams?.clubs?.name)?.charAt(0)?.toUpperCase() || "T"}
+          isPendingInvite={isPendingInvite}
+          invitedLabel={pendingInviteData?.invited_label}
+          invitedEmail={pendingInviteData?.invited_email}
+          isSignedIn={!!user}
+          invitedEmailHasAccount={invitedEmailHasAccount}
+          nameValidationError={nameValidationError}
+          nameMismatchDescription={showNameMismatchInfo
+            ? `This invite was addressed to ${pendingInviteData?.invited_label}. You can accept it as ${userProfile?.display_name}.`
+            : null}
+          otherMembershipClubName={otherMembershipClubName}
+          addedClubName={invite?.teams?.clubs?.name || inviteEntityName}
+          roleLabel={roleLabels[invite.role as AppRole]}
+          joinButtonDisabled={joinMutation.isPending || (user && profileLoading) || (user && selectedRoles.length === 0 && !needsProfileCompletion) || (user && !!nameValidationError && !emailMatches)}
+          joinButtonLoading={joinMutation.isPending || !!(user && profileLoading)}
+          joinButtonLabel={
+            nameValidationError && !emailMatches
+              ? "Cannot Join - Name Mismatch"
+              : needsProfileCompletion
+                ? "Complete Profile to Join"
+                : `Join as ${roleLabels[invite.role as AppRole]}`
+          }
+          onCreateAccountClick={handleCreateAccountClick}
+          onSignInClick={handleSignInClick}
+          onJoinClick={handleJoinClick}
+          onCancel={() => navigate("/")}
+        />
       </div>
 
       {/* Photo Consent Dialog for Parents */}
