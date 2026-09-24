@@ -3026,6 +3026,30 @@ unchanged at 463), duplication ratchet (2,467 fewer duplicated lines than
 baseline), and `git diff --check`. Full legacy/Lab suites and product build
 remain deferred per the current line-count-reduction pass.
 
+## CompetitionFixturesPanel.tsx fixture-preview extraction (2026-09-24)
+
+The next reduction pass extracted the presentation-only fixture preview branch
+from `CompetitionFixturesPanel.tsx` into
+`components/competition/FixturePreview.tsx`. The extracted component owns the
+round grouping, bye-team display, date override controls, preview summary, and
+save/shuffle/regenerate/back controls through explicit props and callbacks.
+Supabase-backed fixture loading and saving remain in the parent, so this pass
+does not add a direct Supabase import or change the existing query/mutation
+boundaries.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `CompetitionFixturesPanel.tsx` raw lines | 2,349 | 2,264 | -85 (-3.6%) |
+| Total reduction from this file's prior starting point | 2,752 | 2,264 | -488 (-17.7%) |
+| New focused module | 0 | 1 (`FixturePreview.tsx`, 144 lines) | +1 |
+
+Validation passed: product typecheck (153 diagnostics, unchanged), lab
+typecheck (clean), focused competition fixture tests (50 tests, all passed),
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet (2,494 fewer duplicated lines than baseline), and
+`git diff --check`. Full legacy/Lab suites and product build remain deferred
+per the current line-count-reduction pass.
+
 ## TeamChatPage.tsx header-section extraction (2026-09-25)
 
 The fifth pass extracted the header block — the `ChatHeaderShell` (search bar,
@@ -3071,4 +3095,3 @@ only in the non-lab/online path) — a rules-of-hooks violation that predates
 this refactor. Extracting that block safely requires either faithfully
 reproducing the broken behavior or an out-of-scope bug fix, so it has been
 deliberately left untouched pending explicit direction.
-
