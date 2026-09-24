@@ -3039,8 +3039,8 @@ boundaries.
 
 | Measure | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| `CompetitionFixturesPanel.tsx` raw lines | 2,349 | 2,264 | -85 (-3.6%) |
-| Total reduction from this file's prior starting point | 2,752 | 2,264 | -488 (-17.7%) |
+| `CompetitionFixturesPanel.tsx` raw lines | 2,349 | 2,262 | -87 (-3.7%) |
+| Total reduction from this file's prior starting point | 2,752 | 2,262 | -490 (-17.8%) |
 | New focused module | 0 | 1 (`FixturePreview.tsx`, 144 lines) | +1 |
 
 Validation passed: product typecheck (153 diagnostics, unchanged), lab
