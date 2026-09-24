@@ -9,7 +9,13 @@ const inboxSectionsPath = join(pagesDirectory, "MessagesInboxSections.tsx");
 const inboxSectionsSource = existsSync(inboxSectionsPath)
   ? readFileSync(inboxSectionsPath, "utf8")
   : "";
-const presentationSource = `${messagesPageSource}\n${inboxSectionsSource}`;
+const headerPath = join(pagesDirectory, "../components/chat/MessagesPageHeader.tsx");
+const dialogsPath = join(pagesDirectory, "../components/chat/MessagesPageDialogs.tsx");
+const previewSourcesPath = join(pagesDirectory, "../features/messaging/inbox/inboxPreviewSources.ts");
+const headerSource = existsSync(headerPath) ? readFileSync(headerPath, "utf8") : "";
+const dialogsSource = existsSync(dialogsPath) ? readFileSync(dialogsPath, "utf8") : "";
+const previewSourcesSource = existsSync(previewSourcesPath) ? readFileSync(previewSourcesPath, "utf8") : "";
+const presentationSource = `${messagesPageSource}\n${inboxSectionsSource}\n${headerSource}\n${dialogsSource}`;
 
 describe("MessagesPage decomposition contract", () => {
   it("keeps the inbox presentation states and operational disclosure rules intact", () => {
@@ -32,15 +38,28 @@ describe("MessagesPage decomposition contract", () => {
   });
 
   it("preserves interaction-gated lazy dialog boundaries", () => {
-    expect(messagesPageSource).toContain(
-      'lazyWithRetry(() => import("@/components/chat/NewMessageSheet")',
+    expect(dialogsSource).toMatch(
+      /lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/NewMessageSheet"\)/,
     );
-    expect(messagesPageSource).toContain(
-      'lazyWithRetry(() => import("@/components/chat/StartDMDialog")',
+    expect(dialogsSource).toMatch(
+      /lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/StartDMDialog"\)/,
     );
-    expect(messagesPageSource).toContain(
-      'lazyWithRetry(() => import("@/components/chat/CreateGroupDialog")',
+    expect(dialogsSource).toMatch(
+      /lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/CreateGroupDialog"\)/,
     );
-    expect(messagesPageSource).toContain("<Suspense fallback={null}>");
+    expect(dialogsSource).toContain("<Suspense fallback={null}>");
+  });
+
+  it("keeps preview source fixture, RPC, and compatibility-fetch paths explicit", () => {
+    expect(previewSourcesSource).toContain("fetchMemberClubsWithMessages");
+    expect(previewSourcesSource).toContain("fetchTeamsWithMessages");
+    expect(previewSourcesSource).toContain("fetchChatGroupsWithMessages");
+    expect(previewSourcesSource).toContain("getLocalLabMessagesSnapshot");
+    expect(previewSourcesSource).toContain("get_inbox_latest_club_messages");
+    expect(previewSourcesSource).toContain("get_inbox_latest_team_messages");
+    expect(previewSourcesSource).toContain("get_inbox_latest_group_messages");
+    expect(previewSourcesSource).toContain('from("club_messages")');
+    expect(previewSourcesSource).toContain('from("team_messages")');
+    expect(previewSourcesSource).toContain('from("group_messages")');
   });
 });

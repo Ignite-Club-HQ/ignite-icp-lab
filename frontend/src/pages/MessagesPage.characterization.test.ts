@@ -8,11 +8,14 @@ const messagesPageSource = readFileSync(join(pagesDirectory, "MessagesPage.tsx")
 const messageInboxSource = existsSync(join(pagesDirectory, "MessagesInboxSections.tsx"))
   ? readFileSync(join(pagesDirectory, "MessagesInboxSections.tsx"), "utf8")
   : "";
+const dialogsSource = existsSync(join(pagesDirectory, "../components/chat/MessagesPageDialogs.tsx"))
+  ? readFileSync(join(pagesDirectory, "../components/chat/MessagesPageDialogs.tsx"), "utf8")
+  : "";
 const messageFilterSource = existsSync(join(pagesDirectory, "../features/messaging/inbox/inboxFiltering.ts"))
   ? readFileSync(join(pagesDirectory, "../features/messaging/inbox/inboxFiltering.ts"), "utf8")
   : "";
 const readModelSource = readFileSync(join(pagesDirectory, "../features/messaging/inbox/inboxReadModel.ts"), "utf8");
-const source = `${messagesPageSource}\n${messageInboxSource}\n${messageFilterSource}\n${readModelSource}`;
+const source = `${messagesPageSource}\n${messageInboxSource}\n${dialogsSource}\n${messageFilterSource}\n${readModelSource}`;
 
 describe("MessagesPage self-duplication characterization", () => {
   it("keeps message-source semantics distinct while sharing inbox list shells", () => {
@@ -55,15 +58,15 @@ describe("MessagesPage self-duplication characterization", () => {
   });
 
   it("preserves dialog orchestration gates and lazy boundaries", () => {
-    expect(messagesPageSource).toContain("lazyWithRetry(() => import(\"@/components/chat/NewMessageSheet\")");
-    expect(messagesPageSource).toContain("lazyWithRetry(() => import(\"@/components/chat/StartDMDialog\")");
-    expect(messagesPageSource).toContain("lazyWithRetry(() => import(\"@/components/chat/CreateGroupDialog\")");
+    expect(dialogsSource).toMatch(/lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/NewMessageSheet"\)/);
+    expect(dialogsSource).toMatch(/lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/StartDMDialog"\)/);
+    expect(dialogsSource).toMatch(/lazyWithRetry\(\(\) =>\s*import\("@\/components\/chat\/CreateGroupDialog"\)/);
     expect(source).toContain("canCreateGroups={!!canCreateGroups}");
     expect(source).toContain("canCreateCustomGroup={!!(hasAnyProAccess || isAppAdmin)}");
     expect(source).toContain("hasPro={effectiveClubFilter ? scopedClubIsPro === true : !!hasAnyProAccess}");
     expect(source).toContain("mode=\"dm\"");
     expect(source).toContain("mode=\"custom-group\"");
-    expect(source).toContain("allowCategory={!!canCreateGroups}");
+    expect(source).toContain("allowCategory={canCreateGroups}");
     expect(source).toContain("groupType={groupDialogType}");
   });
 });

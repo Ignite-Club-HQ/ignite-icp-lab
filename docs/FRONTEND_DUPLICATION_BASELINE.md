@@ -1818,6 +1818,29 @@ duplicated lines removed since baseline), and `git diff --check` also passed.
 The Home route chunk increased from approximately 122.68 kB to 124.44 kB, so
 this round makes no loading-performance claim.
 
+## MessagesPage presentation and preview-source extraction (2026-09-24)
+
+This MessagesPage round extracts the header/Pro CTA, lazy dialog orchestration,
+and club/team/group preview-fetch algorithms. The page retains React Query
+keys, enabled gates, retry/polling lifecycle, cache seeds, all mutations and
+invalidation, authorization/realtime ownership, stable inbox-read gating, and
+navigation. Preview fetchers receive the page's existing Supabase client and
+preserve fixture, RPC, and per-thread compatibility-fetch behavior.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 3,023 | 2,640 | -383 (-12.7%) |
+| New non-test modules | 0 | 3 | +3 |
+
+The focused inbox regression suite passed 48 tests covering cold start/auth
+ordering, realtime watermarks, native authorization buffering, sticky lists,
+stable inbox read-models, characterization/decomposition contracts, and header
+interactions. Product/Lab typechecks, isolation, quality ratchet (direct
+Supabase imports remains 463), duplication ratchet (2,269 duplicated lines
+removed since baseline), and `git diff --check` passed. Full legacy/Lab suites
+and product build are deliberately deferred until final MessagesPage line-count
+work is complete.
+
 ## TeamDetailPage member, entitlement, and action decomposition (2026-09-24)
 
 The second `TeamDetailPage.tsx` reduction moves the role-grouped member roster,

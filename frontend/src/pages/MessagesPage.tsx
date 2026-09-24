@@ -5,25 +5,15 @@ import {
   conversationTypeActiveStyle,
   conversationTypeBadgeStyle,
 } from "@/features/messaging/inbox/inboxPresentation";
-import { useState, useMemo, useEffect, useRef, Suspense } from "react";
-import { lazyWithRetry } from "@/lib/lazyWithRetry";
-const GlobalChatRecapSheet = lazyWithRetry(() => import("@/components/chat/GlobalChatRecapSheet").then(m => ({ default: m.GlobalChatRecapSheet })));
-const StartDMDialog = lazyWithRetry(() => import("@/components/chat/StartDMDialog").then(m => ({ default: m.StartDMDialog })));
-const CreateGroupDialog = lazyWithRetry(() => import("@/components/chat/CreateGroupDialog"));
-const NewMessageSheet = lazyWithRetry(() => import("@/components/chat/NewMessageSheet").then(m => ({ default: m.NewMessageSheet })));
+import { useState, useMemo, useEffect, useRef } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAllChatDrafts } from "@/hooks/useChatDraft";
 import { usePersistedFilter } from "@/lib/persistedFilter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Filter, Clock, Sparkles } from "lucide-react";
-import { type RecapScopeRef } from "@/components/chat/GlobalChatRecapSheet";
 import { useUserHasAnyAICatchUpClub } from "@/hooks/useUserHasAnyAICatchUpClub";
-import { CreateActionButton } from "@/components/CreateActionButton";
 import { QueryErrorBanner } from "@/components/QueryErrorBanner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -73,18 +63,24 @@ import { notificationKeys } from "@/lab/notificationQueryKeys";
 
 import { cacheProfiles, fetchProfilesWithCache, getProfileFromCache, selectCachedProfileById, selectCachedProfilesByIds } from "@/lib/profileCache";
 import { collectInboxPreviewReferences } from "@/features/messaging/inbox/inboxPreviewReferences";
-import { resolveInboxAuthorNames, toInboxPreviewMessage } from "@/features/messaging/inbox/inboxPreviewHydration";
+import {
+  fetchChatGroupsWithMessages,
+  fetchMemberClubsWithMessages,
+  fetchTeamsWithMessages,
+  type InboxClub,
+  type InboxTeam,
+} from "@/features/messaging/inbox/inboxPreviewSources";
 import { clubAdminInboxQueryKey, fetchClubAdminConversations } from "@/components/chat/ClubAdminInboxList";
 import { ConversationRow } from "@/components/chat/ConversationRow";
 import { MessagesInboxSections } from "@/pages/MessagesInboxSections";
+import { MessagesPageHeader } from "@/components/chat/MessagesPageHeader";
+import { MessagesPageDialogs } from "@/components/chat/MessagesPageDialogs";
 
 // Session-scoped first-reveal latch (per user id). Survives inbox unmount so
 // warm re-entries paint cached rows immediately instead of re-running the
 // initial ordering gate. Reset implicitly on reload / user switch.
 let sessionRevealedInboxUserId: string | null = null;
-import { Button } from "@/components/ui/button";
 import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
-import * as fixtureData from "@/lab/fixtureDataLayer";
 
 const MESSAGES_PER_PAGE = 15;
 const isNativeRuntime = () => !!(window as any).Capacitor?.isNativePlatform?.();
@@ -115,20 +111,8 @@ const PREFETCH_THREAD_CAP = isNativeRuntime() ? 5 : 15;
 // MessagePreview lives in its own module so the memoized ConversationRow can
 // share the exact same render path. See: components/chat/MessagePreview.tsx
 
-interface Team {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  deleted_at?: string | null;
-  clubs: { id: string; name: string; logo_url: string | null; sport: string | null; deleted_at?: string | null; purged_at?: string | null };
-}
-
-interface Club {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  sport: string | null;
-}
+type Team = InboxTeam;
+type Club = InboxClub;
 
 type UnifiedConversation = InboxConversation;
 
@@ -377,82 +361,7 @@ export default function MessagesPage() {
     queryKey: ["member-clubs-with-messages", user?.id],
     retry: 3,
     refetchOnReconnect: "always",
-    queryFn: async () => {
-      if (useIcpLab && user?.id) {
-        const snapshot = fixtureData.getLocalLabMessagesSnapshot(user.id);
-        return {
-          clubs: snapshot.memberClubs,
-          latestMessages: snapshot.latestClubMessages,
-        };
-      }
-
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("club_id")
-        .eq("user_id", user!.id)
-        .not("club_id", "is", null);
-
-      if (rolesError) throw rolesError;
-      if (!roles || roles.length === 0) return { clubs: [] as Club[], latestMessages: {} };
-
-      const clubIds = [...new Set(roles.map((r) => r.club_id).filter(Boolean))];
-      const { data } = await supabase
-        .from("clubs")
-        .select("id, name, logo_url, sport")
-        .in("id", clubIds)
-        .is("deleted_at", null)
-        .neq("kind", "shell");
-
-      const clubs = data as Club[];
-      
-      // Fetch latest messages for all clubs in parallel, then batch a single
-      // profiles lookup for all authors. M1 perf: removes the per-club N+1
-      // profile query that previously serialized after each last-message fetch.
-      const latestMessages: Record<string, { text: string; author: string; created_at: string; image_url?: string | null }> = {};
-
-      // Fast path: single RPC returning latest message + author display name per club.
-      try {
-        const { data: rpcRows, error: rpcErr } = await (supabase as any).rpc(
-          "get_inbox_latest_club_messages",
-          { _club_ids: clubIds }
-        );
-        if (rpcErr) throw rpcErr;
-        for (const row of (rpcRows ?? []) as any[]) {
-          latestMessages[row.club_id] = {
-            text: row.text,
-            author: row.author_display_name ?? "",
-            created_at: row.created_at,
-            image_url: row.image_url,
-          };
-        }
-        return { clubs, latestMessages };
-      } catch {
-        // Fall through to legacy per-club fetch.
-      }
-
-      const msgRows = await Promise.all(
-        clubs.map(async (club) => {
-          const { data: msgData } = await supabase
-            .from("club_messages")
-            .select("text, created_at, image_url, author_id")
-            .eq("club_id", club.id)
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return { clubId: club.id, msg: msgData };
-        })
-      );
-
-      const authorNameById = await resolveInboxAuthorNames(msgRows.map((row) => row.msg));
-
-      for (const { clubId, msg } of msgRows) {
-        if (!msg) continue;
-        latestMessages[clubId] = toInboxPreviewMessage(msg, authorNameById);
-      }
-      
-      return { clubs, latestMessages };
-    },
+    queryFn: () => fetchMemberClubsWithMessages(supabase, user!.id, useIcpLab),
     enabled: !!user && initialized,
     // Warm revisits render instantly from cache; realtime + 30s poll keep
     // previews fresh. Forcing refetch on every mount/focus caused 10-25s
@@ -522,100 +431,7 @@ export default function MessagesPage() {
     queryKey: ["my-teams-with-messages", user?.id],
     retry: 3,
     refetchOnReconnect: "always",
-    queryFn: async () => {
-      if (useIcpLab && user?.id) {
-        const snapshot = fixtureData.getLocalLabMessagesSnapshot(user.id);
-        return {
-          teams: snapshot.teams,
-          latestMessages: snapshot.latestTeamMessages,
-        };
-      }
-
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("team_id")
-        .eq("user_id", user!.id)
-        .not("team_id", "is", null);
-
-      if (rolesError) throw rolesError;
-
-      const teamIds = roles.map((r) => r.team_id).filter(Boolean);
-      if (teamIds.length === 0) return { teams: [] as Team[], latestMessages: {} };
-
-      const { data, error } = await supabase
-        .from("teams")
-        .select(`
-          id,
-          name,
-          logo_url,
-          deleted_at,
-          clubs!club_id (id, name, logo_url, sport, deleted_at, purged_at)
-        `)
-        .in("id", teamIds)
-        .is("deleted_at", null);
-
-      if (error) throw error;
-      const teams = ((data || []) as Team[]).filter((team: any) => {
-        if (team.deleted_at) return false;
-        if (team.clubs?.deleted_at || team.clubs?.purged_at) return false;
-        return true;
-      });
-      const activeTeamIds = teams.map((team) => team.id);
-      if (activeTeamIds.length === 0) return { teams: [] as Team[], latestMessages: {} };
-      
-      // M1 perf: batch profile lookups for all team last-message authors.
-      const latestMessages: Record<string, { text: string; author: string; created_at: string; image_url?: string | null; is_announcement?: boolean }> = {};
-
-      // Fast path: single RPC returning latest message + author display name per team.
-      try {
-        const { data: rpcRows, error: rpcErr } = await (supabase as any).rpc(
-          "get_inbox_latest_team_messages",
-          { _team_ids: activeTeamIds }
-        );
-        if (rpcErr) throw rpcErr;
-        for (const row of (rpcRows ?? []) as any[]) {
-          const isAnnouncement = !!(row.is_club_announcement && row.club_announcement_name);
-          latestMessages[row.team_id] = {
-            text: row.text,
-            author: isAnnouncement
-              ? row.club_announcement_name
-              : (row.author_display_name ?? ""),
-            created_at: row.created_at,
-            image_url: row.image_url,
-            is_announcement: isAnnouncement,
-          };
-        }
-        return { teams, latestMessages };
-      } catch {
-        // Fall through to legacy per-team fetch path below.
-      }
-
-      const msgRows = await Promise.all(
-        teams.map(async (team) => {
-          const { data: msgData } = await supabase
-            .from("team_messages")
-            .select("text, created_at, image_url, author_id, is_club_announcement, club_announcement_name")
-            .eq("team_id", team.id)
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return { teamId: team.id, msg: msgData };
-        })
-      );
-
-      const authorNameById = await resolveInboxAuthorNames(
-        msgRows.map((row) => row.msg),
-        (message) => !(message.is_club_announcement && message.club_announcement_name),
-      );
-
-      for (const { teamId, msg } of msgRows) {
-        if (!msg) continue;
-        latestMessages[teamId] = toInboxPreviewMessage(msg, authorNameById);
-      }
-
-      return { teams, latestMessages };
-    },
+    queryFn: () => fetchTeamsWithMessages(supabase, user!.id, useIcpLab),
     enabled: !!user && initialized,
     staleTime: 30_000,
     initialDataUpdatedAt: 0,
@@ -845,93 +661,7 @@ export default function MessagesPage() {
   const { data: chatGroupsWithMessages, isLoading: chatGroupsLoading, isFetched: chatGroupsFetched, isFetching: chatGroupsFetching, isError: chatGroupsError } = useQuery({
     queryKey: ["my-chat-groups-with-messages", user?.id],
     refetchOnReconnect: "always",
-    queryFn: async () => {
-      // Perf: pre-filter via SECURITY DEFINER RPC that returns just the
-      // accessible group ids (scope-table lookup), then do a PK select on
-      // chat_groups. Avoids per-row RLS policy evaluation on inbox cold load.
-      // Kill-switch: localStorage.msg_accessible_ids_rpc = "0" to bypass.
-      let accessibleIds: string[] | null = null;
-      try {
-        if (typeof window === "undefined" || window.localStorage.getItem("msg_accessible_ids_rpc") !== "0") {
-          const { data: ids, error: idsErr } = await (supabase as any).rpc(
-            "get_my_accessible_chat_group_ids",
-            { _user_id: user!.id }
-          );
-          if (!idsErr && Array.isArray(ids)) accessibleIds = ids as string[];
-        }
-      } catch {
-        accessibleIds = null;
-      }
-
-      if (accessibleIds && accessibleIds.length === 0) {
-        return { groups: [], latestMessages: {} };
-      }
-
-      let query = supabase
-        .from("chat_groups")
-        .select("*, teams(name, deleted_at), clubs!club_id(name, logo_url, deleted_at, purged_at), mini_leagues:mini_league_id(name)")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
-      if (accessibleIds) query = query.in("id", accessibleIds);
-      const { data, error } = await query;
-
-      
-      const groups = ((data || []) as any[]).filter((group: any) => {
-        if (group.deleted_at) return false;
-        if (group.clubs?.deleted_at || group.clubs?.purged_at) return false;
-        if (group.teams?.deleted_at) return false;
-        return true;
-      });
-      
-      // M1 perf: batch profile lookups for all group last-message authors.
-      const latestMessages: Record<string, { text: string; author: string; created_at: string; image_url?: string | null }> = {};
-
-      // Fast path: single RPC returning latest message + author display name per group.
-      const groupIds = groups.map((g: any) => g.id);
-      if (groupIds.length > 0) {
-        try {
-          const { data: rpcRows, error: rpcErr } = await (supabase as any).rpc(
-            "get_inbox_latest_group_messages",
-            { _group_ids: groupIds }
-          );
-          if (rpcErr) throw rpcErr;
-          for (const row of (rpcRows ?? []) as any[]) {
-            latestMessages[row.group_id] = {
-              text: row.text,
-              author: row.author_display_name ?? "",
-              created_at: row.created_at,
-              image_url: row.image_url,
-            };
-          }
-          return { groups, latestMessages };
-        } catch {
-          // Fall through to legacy per-group fetch.
-        }
-      }
-
-      const msgRows = await Promise.all(
-        groups.map(async (group) => {
-          const { data: msgData } = await supabase
-            .from("group_messages")
-            .select("text, created_at, image_url, author_id")
-            .eq("group_id", group.id)
-            .is("deleted_at", null)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return { groupId: group.id, msg: msgData };
-        })
-      );
-
-      const authorNameById = await resolveInboxAuthorNames(msgRows.map((row) => row.msg));
-
-      for (const { groupId, msg } of msgRows) {
-        if (!msg) continue;
-        latestMessages[groupId] = toInboxPreviewMessage(msg, authorNameById);
-      }
-
-      return { groups, latestMessages };
-    },
+    queryFn: () => fetchChatGroupsWithMessages(supabase, user!.id),
     enabled: !!user && initialized && !useIcpLab,
     // Matches the sibling inbox queries. The 25s REST GET timeout in
     // `supabaseAuthRetry.ts` otherwise surfaces transient RLS-heavy timeouts
@@ -2790,66 +2520,23 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
         </div>
       )}
 
-      {/* Header with search and create group */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Messages</h1>
-          {isLoadingFreshData && hasCachedData && (
-            <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {(!activeClubFilter && displayMemberClubs.length > 1) && (
-            <Button
-              variant={hasLocalFilter ? "default" : "outline"}
-              size="icon"
-              onClick={() => {
-                if (hasLocalFilter) {
-                  setLocalClubFilter("all");
-                } else {
-                  setShowClubFilterDrawer(true);
-                }
-              }}
-              className="relative"
-              aria-label="Filter"
-            >
-              <Filter className="h-4 w-4" />
-              {hasLocalFilter && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary" />
-              )}
-            </Button>
-          )}
-
-          {aiCatchUpResolved && recapVisible && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowGlobalRecap(true)}
-              className="h-10 w-10 relative"
-              aria-label="Recap all chats"
-              title="Recap all unread chats"
-            >
-              <Sparkles className="h-5 w-5" />
-            </Button>
-          )}
-
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate("/scheduled-messages")}
-            className="h-10 w-10"
-            aria-label="Scheduled messages"
-            title="Scheduled messages"
-          >
-            <Clock className="h-5 w-5" />
-          </Button>
-          <CreateActionButton
-            ariaLabel="New message"
-            onClick={() => setShowNewMessageSheet(true)}
-          />
-        </div>
-      </div>
+      <MessagesPageHeader
+        isLoadingFreshData={isLoadingFreshData}
+        hasCachedData={hasCachedData}
+        activeClubFilter={activeClubFilter}
+        displayMemberClubCount={displayMemberClubs.length}
+        hasLocalFilter={hasLocalFilter}
+        canShowRecap={aiCatchUpResolved && recapVisible}
+        hasAdminRoleButNoPro={hasAdminRoleButNoPro}
+        upgradeClubId={upgradeClubId}
+        adminTeamIds={adminTeamIds}
+        onClearClubFilter={() => setLocalClubFilter("all")}
+        onOpenClubFilter={() => setShowClubFilterDrawer(true)}
+        onOpenRecap={() => setShowGlobalRecap(true)}
+        onNavigateToScheduledMessages={() => navigate("/scheduled-messages")}
+        onOpenNewMessage={() => setShowNewMessageSheet(true)}
+        onNavigateToUpgrade={navigate}
+      />
 
       <QueryErrorBanner
         // Only alarm the user when there is genuinely nothing to show. A
@@ -2867,128 +2554,58 @@ queryClient.setQueryData(["dm-conversations", user.id], (old: any[] | undefined)
         message="Couldn't load chats. Tap to retry."
       />
 
-      {showGlobalRecap && (
-        <Suspense fallback={null}>
-          <GlobalChatRecapSheet
-            open={showGlobalRecap}
-            onOpenChange={setShowGlobalRecap}
-            scopes={(unifiedConversations
-              .filter((c) =>
-                c.unreadCount > 0 &&
-                !c.isLocked &&
-                (c.type === "team" || c.type === "club" || c.type === "group" || c.type === "league" || c.type === "dm")
-              )
-              .map((c): RecapScopeRef => ({
-                scope_type: (c.type === "team"
-                  ? "team"
-                  : c.type === "club"
-                    ? "club"
-                    : c.type === "dm"
-                      ? "direct"
-                      : "group") as RecapScopeRef["scope_type"],
-                scope_id: c.id,
-                name: c.name,
-                link: c.link,
-                unreadCount: c.unreadCount,
-                typeLabel: c.type,
-              })))}
-          />
-        </Suspense>
-      )}
-
-
-
-
-
-
-      {/* New message bottom sheet (flat: DM + group types) */}
-      {showNewMessageSheet && (
-        <Suspense fallback={null}>
-          <NewMessageSheet
-            open={showNewMessageSheet}
-            onOpenChange={setShowNewMessageSheet}
-            canCreateGroups={!!canCreateGroups}
-            canCreateCustomGroup={!!(hasAnyProAccess || isAppAdmin)}
-            hasPro={effectiveClubFilter ? scopedClubIsPro === true : !!hasAnyProAccess}
-            isAppAdmin={!!isAppAdmin}
-            upgradeClubId={upgradeClubId}
-            onPickDM={() => setShowDMDialog(true)}
-            onPickCustom={() => setShowCustomGroupDialog(true)}
-            onPickTeam={() => {
-              setGroupDialogType("team");
-              setShowGroupDialog(true);
-            }}
-            onPickRole={() => {
-              setGroupDialogType("role");
-              setShowGroupDialog(true);
-            }}
-          />
-        </Suspense>
-      )}
-
-
-      {/* DM and Group dialogs — DM creation is Pro-gated */}
-      {(!!hasAnyProAccess || !!isAppAdmin) && showDMDialog && (
-        <Suspense fallback={null}>
-          <StartDMDialog open={showDMDialog} onOpenChange={setShowDMDialog} mode="dm" />
-        </Suspense>
-      )}
-      {(!!hasAnyProAccess || !!isAppAdmin) && showCustomGroupDialog && (
-        <Suspense fallback={null}>
-          <StartDMDialog
-            open={showCustomGroupDialog}
-            onOpenChange={setShowCustomGroupDialog}
-            mode="custom-group"
-            allowCategory={!!canCreateGroups}
-          />
-        </Suspense>
-      )}
-      {canCreateGroups && showGroupDialog && (
-        <Suspense fallback={null}>
-          <CreateGroupDialog
-            open={showGroupDialog}
-            onOpenChange={setShowGroupDialog}
-            groupType={groupDialogType}
-          />
-        </Suspense>
-      )}
-
-      {/* Pro upgrade banner for non-Pro admin users — compact, benefit-led */}
-      {hasAdminRoleButNoPro && (
-        <Card className="border-primary/10 bg-primary/[0.03] overflow-hidden">
-          <CardContent className="py-1.5 px-3">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="text-[9px] px-1.5 py-0 h-4 font-bold uppercase tracking-wider bg-primary/10 text-primary border-0 leading-none shrink-0"
-              >
-                PRO
-              </Badge>
-              <p className="font-bold text-sm leading-tight whitespace-nowrap">
-                Unlock Unlimited Club Messaging
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (upgradeClubId) {
-                    navigate(`/clubs/${upgradeClubId}/upgrade`);
-                  } else if (adminTeamIds?.length && adminTeamIds[0]) {
-                    navigate(`/teams/${adminTeamIds[0]}/upgrade`);
-                  } else {
-                    navigate("/clubs");
-                  }
-                }}
-                className="ml-auto shrink-0 text-xs font-semibold text-primary hover:underline"
-              >
-                Upgrade →
-              </button>
-            </div>
-            <p className="mt-1 text-[11px] text-foreground/60 leading-snug">
-              📢 Club Chats · 📷 Photos · 📁 Files · 📊 Polls
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <MessagesPageDialogs
+        showGlobalRecap={showGlobalRecap}
+        recapScopes={unifiedConversations
+          .filter((conversation) =>
+            conversation.unreadCount > 0
+            && !conversation.isLocked
+            && (conversation.type === "team"
+              || conversation.type === "club"
+              || conversation.type === "group"
+              || conversation.type === "league"
+              || conversation.type === "dm"),
+          )
+          .map((conversation) => ({
+            scope_type: conversation.type === "team"
+              ? "team"
+              : conversation.type === "club"
+                ? "club"
+                : conversation.type === "dm"
+                  ? "direct"
+                  : "group",
+            scope_id: conversation.id,
+            name: conversation.name,
+            link: conversation.link,
+            unreadCount: conversation.unreadCount,
+            typeLabel: conversation.type,
+          }))}
+        onShowGlobalRecapChange={setShowGlobalRecap}
+        showNewMessageSheet={showNewMessageSheet}
+        onShowNewMessageSheetChange={setShowNewMessageSheet}
+        canCreateGroups={!!canCreateGroups}
+        canCreateCustomGroup={!!(hasAnyProAccess || isAppAdmin)}
+        hasPro={effectiveClubFilter ? scopedClubIsPro === true : !!hasAnyProAccess}
+        isAppAdmin={!!isAppAdmin}
+        upgradeClubId={upgradeClubId}
+        onPickDM={() => setShowDMDialog(true)}
+        onPickCustomGroup={() => setShowCustomGroupDialog(true)}
+        onPickTeamGroup={() => {
+          setGroupDialogType("team");
+          setShowGroupDialog(true);
+        }}
+        onPickRoleGroup={() => {
+          setGroupDialogType("role");
+          setShowGroupDialog(true);
+        }}
+        showDMDialog={showDMDialog}
+        onShowDMDialogChange={setShowDMDialog}
+        showCustomGroupDialog={showCustomGroupDialog}
+        onShowCustomGroupDialogChange={setShowCustomGroupDialog}
+        showGroupDialog={showGroupDialog}
+        onShowGroupDialogChange={setShowGroupDialog}
+        groupDialogType={groupDialogType}
+      />
 
       <MessagesInboxSections
         model={{

@@ -1,5 +1,32 @@
 # Frontend Duplication and Bloat Reduction Plan
 
+## MessagesPage presentation and preview-source extraction (2026-09-24)
+
+This focused `MessagesPage.tsx` round extracts the inbox header/Pro CTA,
+interaction-gated dialog orchestration, and the repeated club/team/group
+preview source fetch algorithms. The route retains all React Query ownership:
+query keys, enabled gates, retry/polling, cache seeds, mutation invalidation,
+authorization snapshots, realtime watermark reconciliation, stable read-model
+gating, and navigation. The source fetchers receive the route's existing
+Supabase client instead of importing it, preserving the direct-import ratchet;
+they retain local-fixture, RPC fast-path, and compatibility per-thread fetch
+paths.
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| `MessagesPage.tsx` raw lines | 3,023 | 2,640 | -383 (-12.7%) |
+| New non-test modules | 0 | 3 | +3 |
+
+Forty-eight focused tests cover the existing inbox cold-start, auth ordering,
+realtime watermark, native authorization-buffer, sticky-list, unified
+read-model, characterization, and decomposition contracts, plus the new
+header-control/upgrade-path interactions. Product and Lab typechecks,
+isolation, quality ratchet (`directSupabaseImports` unchanged at 463),
+duplication ratchet (2,269 fewer duplicated lines than baseline), and
+`git diff --check` passed. Full legacy/Lab suites and build remain deferred
+until the remaining MessagesPage reduction work reaches a satisfactory final
+line count, per the iterative validation directive.
+
 ## TeamDetailPage member, entitlement, and action decomposition (2026-09-24)
 
 The second `TeamDetailPage.tsx` round extracts the role-grouped member roster,
