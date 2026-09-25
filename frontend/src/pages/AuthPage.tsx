@@ -788,34 +788,67 @@ export default function AuthPage() {
     : 'border-border/50 bg-card/50 backdrop-blur-sm';
 
   if (useIcpLab) {
+    // Same branding shell as the Supabase screen below (logo, "Ignite"
+    // heading, offline banner, card container) — the only difference is
+    // that the card offers Internet Identity passkey sign-in instead of
+    // email/password + Google, since ICP mode has no username/password
+    // concept.
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardHeader className="text-center space-y-3">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
-              <Fingerprint className="h-8 w-8 text-primary" />
+      <div
+        className="flex flex-col bg-background overflow-hidden"
+        style={authShellStyle}
+      >
+        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto px-4 py-8">
+          <div className="w-full max-w-md space-y-8 py-6">
+            <div className="flex flex-col items-center gap-3 mt-4">
+              <div className="rounded-2xl bg-primary glow-emerald p-4">
+                <Flame className="h-10 w-10 text-primary-foreground" />
+              </div>
+              <h1 className="text-3xl font-bold text-gradient-emerald">Ignite</h1>
             </div>
-            <CardDescription>
-              Sign in with local Internet Identity for the ICP backend. Supabase identity flows remain disabled in ICP mode.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {authError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
-                {authError}
+
+            {!isOnline && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground"
+              >
+                <WifiOff className="h-5 w-5 shrink-0 mt-0.5 text-destructive" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="font-medium">You're offline</p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Signing in needs an internet connection. Reconnect to Wi-Fi or mobile data and try again. Once you've signed in on this device, you'll stay signed in even when offline.
+                  </p>
+                </div>
               </div>
             )}
-            <Button
-              type="button"
-              className="w-full gap-2"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading || authLoading}
-            >
-              {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-              Continue with Internet Identity
-            </Button>
-          </CardContent>
-        </Card>
+
+            <Card className={authCardClassName}>
+              <CardHeader className="pb-2 gap-1">
+                <h2 className="font-semibold text-center text-xl">Sign In</h2>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <CardDescription className="text-center">
+                  Sign in with your Internet Identity passkey. There's no username or password in ICP mode.
+                </CardDescription>
+                {authError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+                    {authError}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  className="w-full gap-2"
+                  onClick={handleGoogleSignIn}
+                  disabled={googleLoading || authLoading}
+                >
+                  {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                  Continue with Internet Identity
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }

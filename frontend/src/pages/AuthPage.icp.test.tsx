@@ -53,7 +53,7 @@ describe("AuthPage ICP mode", () => {
   it("offers Internet Identity sign-in instead of Supabase identity flows", async () => {
     render(<MemoryRouter initialEntries={["/auth?backend=icp"]}><AuthPage /></MemoryRouter>);
 
-    expect(screen.getByText(/Sign in with local Internet Identity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in with your Internet Identity passkey/i)).toBeInTheDocument();
     expect(screen.queryByText(/Continue with Google/i)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Continue with Internet Identity/i }));

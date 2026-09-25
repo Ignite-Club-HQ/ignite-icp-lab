@@ -1010,3 +1010,24 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   `backend-router`, and `placement-admin-settings` lab test suites (19/19
   passing, run via the correct `vitest.lab.config.mjs` config) all pass
   unaffected.
+- 2026-09-25: Restyled the ICP-mode (`?backend=icp`) branch of
+  `frontend/src/pages/AuthPage.tsx` to reuse the same branding shell as the
+  Supabase login screen (logo block, "Ignite" gradient heading, offline
+  banner, `authShellStyle`/`authCardClassName` layout, and the `Card`/
+  `CardHeader`/"Sign In"/`CardContent` structure). Only the Internet
+  Identity button remains in the card body for this mode — no email/
+  password fields or Google button — since mainnet `identity_access` is not
+  deployed yet and a combined-choice screen would be misleading. This was a
+  cosmetic-only change; the either/or `useIcpLab` branch and the
+  `?backend=icp` opt-in mechanism are unchanged. Updated the matching test
+  assertion in `frontend/src/pages/AuthPage.icp.test.tsx` (old copy string
+  `Sign in with local Internet Identity` no longer exists). Validated:
+  `typecheck:product` (101 diagnostics, 0 new), `AuthPage.icp.test.tsx` and
+  `AuthPage.redirect.test.tsx` (9/9 passing via `vitest.legacy.config.mjs`),
+  the `backend-provider-matrix`/`backend-router`/`placement-admin-settings`
+  lab suites (19/19 passing, unaffected), `check:isolation` and
+  `check:prod-secrets` (both pass), and a `build:live` rebuild (reusing the
+  already-public Supabase anon key baked into the prior build's bundle,
+  since anon keys are safe to expose client-side and are protected by RLS)
+  confirmed the new copy compiled into `assets/AuthPage-*.js` and the
+  running preview server picked up the new build without a restart.
