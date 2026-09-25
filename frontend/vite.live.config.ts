@@ -26,6 +26,17 @@ export default defineConfig({
         find: "@/lab/internetIdentityAuth",
         replacement: path.resolve(root, "src/live/internetIdentityAuth.ts"),
       },
+      {
+        // Every page and shared data-layer module hardcodes
+        // `resolveLocalAuthMode(search, true)`, which forces fixture/ICP-lab
+        // data and Internet-Identity-only auth (via `App.tsx`'s
+        // `useIcpAuth`) unconditionally. This swap makes the live build
+        // default to the real Supabase client/auth instead, since none of
+        // the ~100+ call sites can be edited individually to pass a
+        // live-specific flag. See `src/live/localRuntimeMode.ts` for detail.
+        find: "@/lab/localRuntimeMode",
+        replacement: path.resolve(root, "src/live/localRuntimeMode.ts"),
+      },
       { find: "@", replacement: path.resolve(root, "src") },
     ],
   },

@@ -975,3 +975,38 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   site), plus a documented quick-test path using a local static server and
   Codespace port-forwarding for a single manual check without provisioning
   hosting first.
+- 2026-09-25: **Found and fixed a real, significant live-build bug**
+  discovered while browser-testing the deployed live bundle: every page and
+  shared data-layer module (100+ call sites) calls
+  `resolveLocalAuthMode(search, true)`, hardcoding the isolated lab's
+  "use fixture data / ICP-lab mode" branch, and `App.tsx`'s `useIcpAuth`
+  (which decides between the real `AuthProvider` and the lab-only
+  `IcpAuthProvider`) inherited the same hardcoded `true`. Since `App.tsx` is
+  the live/product track's sole composition root (the lab entry point,
+  `main.tsx`, never imports `App.tsx` at all — it uses `LabApp` instead),
+  this meant the live build always forced Internet-Identity-only sign-in
+  with no Supabase login option, and every page fetched synthetic fixture
+  data instead of the real Supabase project, regardless of build target —
+  exactly the "no Supabase option, everything blocked" symptom observed.
+  Fixed using the same alias-substitution precedent already established for
+  the Supabase client and Internet Identity auth module: added
+  `frontend/src/live/localRuntimeMode.ts` (a live-only `resolveLocalAuthMode`
+  that ignores the always-`true` `localLabMode` argument and instead
+  defaults to `false` — real Supabase — unless a developer explicitly opts
+  into `?backend=icp` for manual ICP-only testing) and aliased
+  `@/lab/localRuntimeMode` to it in `vite.live.config.ts`. Also corrected
+  one file, `src/lab/useHybridQuery.ts`, whose import used a relative path
+  (`./localRuntimeMode`) instead of the `@/lab/...` alias form every other
+  call site uses — relative imports cannot be intercepted by a Vite
+  `resolve.alias` entry, so this one file would otherwise have silently kept
+  the old broken behavior even after the fix. Validated: direct execution of
+  the new module confirms `resolveLocalAuthMode('', true) === false` and
+  `resolveLocalAuthMode('?backend=icp', true) === true`; `typecheck:product`
+  (101 diagnostics, 0 new), `typecheck:lab` (passes, unaffected),
+  `check:isolation` (passes, unaffected), `check:prod-secrets` and
+  `check:live-config` (both pass), `build:live` (rebuilt successfully; the
+  compiled bundle's minified source now contains the live-only
+  `get("backend")==="icp"` check), and the `backend-provider-matrix`,
+  `backend-router`, and `placement-admin-settings` lab test suites (19/19
+  passing, run via the correct `vitest.lab.config.mjs` config) all pass
+  unaffected.

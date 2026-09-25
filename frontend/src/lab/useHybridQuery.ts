@@ -13,7 +13,10 @@
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveLocalAuthMode } from './localRuntimeMode';
+// Uses the `@/lab/...` alias (not a relative import) so the live build's
+// `vite.live.config.ts` can substitute a live-track implementation here,
+// exactly as it does for every other call site of this module.
+import { resolveLocalAuthMode } from '@/lab/localRuntimeMode';
 
 export type HybridBackendMode = 'icp' | 'supabase';
 
