@@ -829,7 +829,7 @@ export default function AuthPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <CardDescription className="text-center">
-                  Sign in with your Internet Identity passkey. There's no username or password in ICP mode.
+                  Sign in with your Internet Identity passkey.
                 </CardDescription>
                 {authError && (
                   <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
