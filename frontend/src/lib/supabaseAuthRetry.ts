@@ -103,11 +103,24 @@ function ensureSweeper() {
 
 let installed = false;
 
+function getSupabaseUrl(): string {
+  try {
+    const clientUrl = (supabase as unknown as { supabaseUrl?: unknown }).supabaseUrl;
+    if (typeof clientUrl === "string" && clientUrl.trim() !== "") {
+      return clientUrl.replace(/\/$/, "");
+    }
+  } catch {
+    // The isolated product build uses a fail-closed Supabase proxy.
+  }
+
+  return (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+}
+
 export function installSupabaseAuthRetry() {
   if (installed) return;
   if (typeof window === "undefined" || typeof window.fetch !== "function") return;
 
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+  const supabaseUrl = getSupabaseUrl();
   if (!supabaseUrl) return;
 
   const origFetch = window.fetch.bind(window);

@@ -431,13 +431,22 @@ function SupabaseCompleteProfilePage() {
     setSaving(true);
 
     try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const authenticatedUser = authData?.user;
+      if (authError || !authenticatedUser) {
+        throw new Error("Your sign-in session could not be verified. Please sign in again.");
+      }
+      if (authenticatedUser.id !== user.id) {
+        throw new Error("Your sign-in session changed. Please sign in again before completing your profile.");
+      }
+
       // Use upsert to handle both new users (insert) and existing users (update)
       // Default new users to light mode
       const now = new Date().toISOString();
       const { error } = await supabase
         .from("profiles")
         .upsert({
-          id: user.id,
+          id: authenticatedUser.id,
           display_name: displayName.trim(),
           avatar_url: avatarUrl || null,
           theme_preference: 'light',
@@ -1054,7 +1063,9 @@ function SupabaseCompleteProfilePage() {
     } catch (err) {
       console.error("Profile update failed:", err);
       const friendlyMessage =
-        err instanceof Error && err.message.startsWith("We couldn't finish accepting your invitation")
+        err instanceof Error && err.message.startsWith("Your sign-in session")
+          ? err.message
+          : err instanceof Error && err.message.startsWith("We couldn't finish accepting your invitation")
           ? err.message
           : err instanceof Error && err.message.startsWith("We couldn't add your child")
             ? err.message

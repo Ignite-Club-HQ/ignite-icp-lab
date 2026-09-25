@@ -1193,3 +1193,37 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   and the failed INSERT (`42501`). Asked the user to directly compare the
   `id` from their single `auth.users` row against the `id` on the
   `profiles` row they found earlier, character-for-character.
+
+- Reconciled the live lab Supabase integration against the sanitized
+  production-derived backend reference and this repository's preserved
+  pre-hybrid frontend behavior. Direct access to the production repository
+  remains prohibited; no production repository, database, secrets, or
+  deployment environment was contacted. Findings:
+  - `CompleteProfilePage` is behaviorally aligned with the preserved source:
+    both use `profiles.upsert(..., { onConflict: "id" })`, and the canonical
+    reference RLS policies allow authenticated users to select, insert, and
+    update only their own `profiles.id`.
+  - Edge Function calls still use the configured Supabase client's
+    authenticated session. Edge Function sources under `reference/backend`
+    remain inert references and are not bundled or deployed by this lab.
+  - The browser receives only the configured project URL and public anon key;
+    service-role keys remain rejected by the guarded live configuration and
+    production-secret checks.
+  - Found one real hybrid compatibility regression:
+    `installSupabaseAuthRetry()` was never invoked, and its target detection
+    depended only on `VITE_SUPABASE_URL`, which is intentionally unavailable
+    in guarded live builds (`IGNITE_LIVE_*` is the only exposed prefix).
+    Wired the interceptor into `product-main.tsx` before render and made it
+    resolve the URL from the active Supabase client, with a safe fallback for
+    the fail-closed isolated product client.
+  - Added an authoritative `supabase.auth.getUser()` check immediately before
+    the profile upsert. The mutation now uses the server-validated user id and
+    fails explicitly if the live session is missing or disagrees with React
+    auth state, rather than sending an ambiguous write that surfaces only as
+    RLS `42501`.
+  - Added source-level regression guards for bootstrap installation, guarded
+    live target discovery, and server-validated profile identity.
+  Validation: focused guards (14/14), `typecheck:lab`, `typecheck:product`
+  (101 existing diagnostics, zero new), guarded product build and bundle
+  budgets, guarded live build, `check:prod-secrets`, and `check:isolation`
+  all pass.
