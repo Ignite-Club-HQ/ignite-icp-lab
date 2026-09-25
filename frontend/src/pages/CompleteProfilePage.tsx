@@ -440,37 +440,66 @@ function SupabaseCompleteProfilePage() {
         throw new Error("Your sign-in session changed. Please sign in again before completing your profile.");
       }
 
-      // Use upsert to handle both new users (insert) and existing users (update)
-      // Default new users to light mode
       const now = new Date().toISOString();
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: authenticatedUser.id,
-          display_name: displayName.trim(),
-          avatar_url: avatarUrl || null,
-          theme_preference: 'light',
-          terms_accepted_at: now,
-          privacy_accepted_at: now,
-        } as any, { onConflict: 'id' });
+      const profileValues = {
+        display_name: displayName.trim(),
+        avatar_url: avatarUrl || null,
+        theme_preference: 'light',
+        terms_accepted_at: now,
+        privacy_accepted_at: now,
+      };
 
-      if (error) {
-        console.error("Profile update error:", error);
+      // Existing users must use the UPDATE policy. An upsert always enters
+      // PostgreSQL through the INSERT policy first, even when it later resolves
+      // an id conflict as an update, which can strand valid existing profiles
+      // behind an INSERT-only RLS failure.
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("profiles")
+        .update(profileValues as any)
+        .eq("id", authenticatedUser.id)
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        console.error("Profile update error:", updateError);
         // Surface the actual Postgrest/RLS error (code + message + hint) instead of a
         // generic message, so real causes (e.g. a missing RLS policy, a column
         // rejected by a check constraint) are visible to the user/operator instead
         // of being swallowed. Falls back to the generic copy only if the error
         // object is unexpectedly empty.
-        const detail = [error.message, error.hint].filter(Boolean).join(" — ");
+        const detail = [updateError.message, updateError.hint].filter(Boolean).join(" — ");
         toast({
           title: "Error",
           description: detail
-            ? `Failed to update profile: ${detail}${error.code ? ` (code ${error.code})` : ""}`
+            ? `Failed to update profile: ${detail}${updateError.code ? ` (code ${updateError.code})` : ""}`
             : "Failed to update profile. Please try again.",
           variant: "destructive",
         });
         setSaving(false);
         return;
+      }
+
+      if (!updatedProfile) {
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: authenticatedUser.id,
+            ...profileValues,
+          } as any);
+
+        if (insertError) {
+          console.error("Profile insert error:", insertError);
+          const detail = [insertError.message, insertError.hint].filter(Boolean).join(" — ");
+          toast({
+            title: "Error",
+            description: detail
+              ? `Failed to create profile: ${detail}${insertError.code ? ` (code ${insertError.code})` : ""}`
+              : "Failed to create profile. Please try again.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
       }
 
       // Set light theme as default for new users (only if no theme is already active)

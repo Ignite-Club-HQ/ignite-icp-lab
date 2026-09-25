@@ -1227,3 +1227,38 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   (101 existing diagnostics, zero new), guarded product build and bundle
   budgets, guarded live build, `check:prod-secrets`, and `check:isolation`
   all pass.
+
+- Follow-up full hybrid/Supabase compatibility pass after the first targeted
+  fix did not resolve the reported profile flow:
+  - Compared the working tree against the local `main` branch, the complete
+    transferred frontend, repository history, generated Supabase types, and
+    the sanitized backend reference. The separate production repository was
+    not accessed because this lab's isolation rules prohibit it.
+  - Audited all 463 frontend Supabase imports: every one uses
+    `@/integrations/supabase/client`, so the guarded live alias selects one
+    shared client and no relative import bypasses the hybrid boundary.
+  - Audited 55 static Edge Function invocations against 119 transferred
+    function references. All base function names are represented; the only
+    apparent unmatched strings are three `google-drive-import?...` action
+    variants of the referenced `google-drive-import` function. Edge Function
+    service-role secrets remain server-only reference requirements and do not
+    enter the browser bundle.
+  - Removed the two unnecessary live-client deviations from standard
+    Supabase behavior: the custom `ignite-live-<alias>-auth` storage key and
+    `x-ignite-backend-target` global header. The live alias remains in place,
+    so hybrid routing is preserved, but the selected Supabase target now uses
+    the SDK's normal project-derived auth storage and request headers, matching
+    the conventional Supabase frontend contract.
+  - Replaced profile `upsert` with an explicit existing-user `UPDATE` followed
+    by a new-user `INSERT` only when no row was updated. PostgreSQL evaluates
+    an upsert through the INSERT RLS path before conflict resolution; the old
+    flow therefore forced an existing user through INSERT authorization even
+    when the intended operation was only an update. The split flow now maps
+    existing profiles to the canonical UPDATE policy and genuine first-login
+    profiles to the INSERT policy while retaining server-validated
+    `auth.getUser()` identity.
+  - Extended regression guards to require default live-client behavior and
+    update-before-insert ordering.
+  Validation: focused auth/alignment suites (24/24), `typecheck:lab`, and
+  `typecheck:product` (101 existing diagnostics, zero new) pass before the
+  final guarded live rebuild.

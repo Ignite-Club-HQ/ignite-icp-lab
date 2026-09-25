@@ -8,6 +8,7 @@ const read = (relativePath: string) =>
 const productMain = read("../product-main.tsx");
 const authRetry = read("../lib/supabaseAuthRetry.ts");
 const completeProfile = read("../pages/CompleteProfilePage.tsx");
+const liveClient = read("../integrations/supabase/liveClient.ts");
 
 describe("live Supabase compatibility guards", () => {
   it("installs the auth retry wrapper before rendering the product app", () => {
@@ -23,12 +24,22 @@ describe("live Supabase compatibility guards", () => {
     expect(authRetry).toMatch(/const supabaseUrl = getSupabaseUrl\(\)/);
   });
 
+  it("keeps the aliased live client aligned with Supabase defaults", () => {
+    expect(liveClient).toMatch(
+      /createClient<Database>\(target\.url, target\.anonKey\)/
+    );
+    expect(liveClient).not.toMatch(/storageKey/);
+    expect(liveClient).not.toMatch(/x-ignite-backend-target/);
+  });
+
   it("server-validates the authenticated user before writing a profile", () => {
     const getUserIndex = completeProfile.indexOf("supabase.auth.getUser()");
-    const upsertIndex = completeProfile.indexOf('.from("profiles")', getUserIndex);
+    const updateIndex = completeProfile.indexOf(".update(profileValues", getUserIndex);
+    const insertIndex = completeProfile.indexOf(".insert({", updateIndex);
 
     expect(getUserIndex).toBeGreaterThan(-1);
-    expect(upsertIndex).toBeGreaterThan(getUserIndex);
+    expect(updateIndex).toBeGreaterThan(getUserIndex);
+    expect(insertIndex).toBeGreaterThan(updateIndex);
     expect(completeProfile).toMatch(/id: authenticatedUser\.id/);
     expect(completeProfile).toMatch(/authenticatedUser\.id !== user\.id/);
   });
