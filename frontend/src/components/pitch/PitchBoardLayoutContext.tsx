@@ -9,7 +9,6 @@ import type {
   MiniLeagueTeams,
 } from "./types";
 import type { PitchPosition } from "./PositionBadge";
-import type { PitchBoardMode } from "./ModeSwitch";
 import type { GameTimerRef } from "./GameTimer";
 
 /**
@@ -38,7 +37,6 @@ export interface PitchBoardLayoutContextValue {
   benchPositionFilter: PitchPosition | null;
   benchToSubOpen: any;
   benchToSubPlayer: any;
-  canUseTraining: any;
   cancelPlanConfirmOpen: boolean;
   canvasRef: React.MutableRefObject<HTMLCanvasElement>;
   clearDrawings: any;
@@ -159,7 +157,6 @@ export interface PitchBoardLayoutContextValue {
   miniLeagueTeams: MiniLeagueTeams;
   minutesPerHalf: any;
   mockMode: any;
-  mode: PitchBoardMode;
   movablePitchPlayerIds: any;
   nextSubInfo: { playerInId: string; playerOutId: string; countdown: string } | null;
   onClose: () => void;
@@ -221,7 +218,6 @@ export interface PitchBoardLayoutContextValue {
   setHideScores: React.Dispatch<React.SetStateAction<boolean>>;
   setLandscapeEventSelectorOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setManualSubConfirmOpen: any;
-  setMode: (...args: any[]) => any;
   setPendingSubBenchPlayer: React.Dispatch<React.SetStateAction<string | null>>;
   setPinDrawingToolbar: React.Dispatch<React.SetStateAction<boolean>>;
   setPitchPlayerActionOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -256,8 +252,6 @@ export interface PitchBoardLayoutContextValue {
   setToolbarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   setTouchDragPlayer: any;
   setTouchOffset: any;
-  setTrainingMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setTrainingSettingsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   settingsDialogOpen: boolean;
   settingsMenuOpen: boolean;
   sheetDragRef: React.MutableRefObject<{ startY: number; startPct: number } | null>;
@@ -297,8 +291,6 @@ export interface PitchBoardLayoutContextValue {
   touchDragPlayer: any;
   touchHandledRef: React.MutableRefObject<any>;
   touchIdRef: any;
-  trainingMenuOpen: boolean;
-  trainingSettingsDialogOpen: boolean;
   undoHistory: { players: Player[]; description: string }[];
   user: any;
   zoom: any;

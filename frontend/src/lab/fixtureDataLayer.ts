@@ -655,18 +655,6 @@ export function getLocalLabEoiSubmissions(clubId: string) {
   }];
 }
 
-/** Synthetic club drills for the drill-administration surface. */
-export function getLocalLabDrills(clubId: string) {
-  return [{
-    id: 'drill-icp-001',
-    club_id: clubId,
-    title: 'Local ICP lab drill',
-    description: 'Synthetic drill entry. Not persisted.',
-    category: 'general',
-    created_at: new Date(0).toISOString(),
-  }];
-}
-
 /** Synthetic club welcome message for the welcome-message surface. */
 export function getLocalLabWelcomeMessage(clubId: string) {
   return {

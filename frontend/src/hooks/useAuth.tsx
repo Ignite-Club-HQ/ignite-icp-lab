@@ -21,11 +21,11 @@ import { isNativePlatform, unregisterNativePush } from "@/lib/nativePush";
 import { isTransientAuthFailure } from "@/lib/authRecoveryClassification";
 import { refreshSessionOnce } from "@/lib/refreshSessionOnce";
 import { notificationKeys } from "@/lab/notificationQueryKeys";
-import {
-  signInWithInternetIdentity,
-  signOutInternetIdentity,
-  type InternetIdentitySession,
-} from "@/lab/internetIdentityAuth";
+// Value exports (signInWithInternetIdentity/signOutInternetIdentity) are loaded
+// dynamically at call time below. That module statically imports the ICP
+// agent/candid SDK and its crypto dependencies (~480KB), which must not enter
+// every page's initial chunk — only IcpAuthProvider (ICP lab auth mode) needs it.
+import type { InternetIdentitySession } from "@/lab/internetIdentityAuth";
 
 
 interface Profile {
@@ -1243,6 +1243,7 @@ export function IcpAuthProvider({ children, persona = "member" }: { children: Re
   } : null;
   const signInWithIcp = async (): Promise<{ error: Error | null }> => {
     try {
+      const { signInWithInternetIdentity } = await import("@/lab/internetIdentityAuth");
       const nextSession = await signInWithInternetIdentity(
         typeof window !== "undefined" ? `${location.pathname}${location.search}${location.hash}` : undefined,
       );
@@ -1271,6 +1272,7 @@ export function IcpAuthProvider({ children, persona = "member" }: { children: Re
     signOut: async () => {
       localStorage.removeItem("ignite_icp_internet_identity_session");
       setSession(null);
+      const { signOutInternetIdentity } = await import("@/lab/internetIdentityAuth");
       await signOutInternetIdentity();
     },
     refreshProfile: async () => {},

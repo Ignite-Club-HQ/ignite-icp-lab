@@ -1,0 +1,139 @@
+// Version: 4.0.0
+type Asset__343612882 =
+  {
+    checksum : Text;
+    child_sensitive : Bool;
+    club_id : Text;
+    content_length : Nat64;
+    deleted : Bool;
+    encrypted : Bool;
+    expires_at_ms : Nat64;
+    id : Text;
+    kind : Text;
+    mime : Text;
+    owner : Principal;
+    retention_until_ms : Nat64;
+    storage_path : Text;
+    visibility : Text
+  };
+type Asset__626526923 =
+  {
+    checksum : Text;
+    child_sensitive : Bool;
+    club_id : Text;
+    content_length : Nat64;
+    deleted : Bool;
+    encrypted : Bool;
+    expires_at_ms : Nat64;
+    id : Text;
+    kind : Text;
+    mime : Text;
+    owner : Principal;
+    retention_until_ms : Nat64;
+    storage_path : Text;
+    visibility : Text
+  };
+type Asset__770095136 =
+  {
+    checksum : Text;
+    child_sensitive : Bool;
+    club_id : Text;
+    content_length : Nat64;
+    deleted : Bool;
+    encrypted : Bool;
+    expires_at_ms : Nat64;
+    id : Text;
+    kind : Text;
+    mime : Text;
+    owner : Principal;
+    retention_until_ms : Nat64;
+    storage_path : Text;
+    visibility : Text
+  };
+type Capability__559690177 =
+  {
+    action : Text;
+    allowed : Bool;
+    asset_id : Text;
+    expires_at_ms : Nat64;
+    owner : Principal;
+    purpose : Text
+  };
+type Capability__598646904 =
+  {
+    action : Text;
+    allowed : Bool;
+    asset_id : Text;
+    expires_at_ms : Nat64;
+    owner : Principal;
+    purpose : Text
+  };
+type Capability__943199674 =
+  {
+    action : Text;
+    allowed : Bool;
+    asset_id : Text;
+    expires_at_ms : Nat64;
+    owner : Principal;
+    purpose : Text
+  };
+type Comment__768066363 =
+  {
+    asset_id : Text;
+    author : Principal;
+    body : Text;
+    created_at_ms : Nat64;
+    deleted : Bool;
+    id : Text
+  };
+type Comment__882926907 =
+  {
+    asset_id : Text;
+    author : Principal;
+    body : Text;
+    created_at_ms : Nat64;
+    deleted : Bool;
+    id : Text
+  };
+type NewActor__562779563 =
+  {
+    var assets : [Asset__626526923];
+    var capabilities : [Capability__598646904];
+    var governor : Principal
+  };
+type NewActor__812520327 =
+  {
+    var assets : [Asset__770095136];
+    var capabilities : [Capability__559690177];
+    var comments : [Comment__882926907];
+    var governor : Principal;
+    var reactions : [Reaction__560956728];
+    var roles : [RoleGrant__855986658]
+  };
+type OldActor__13723598 = {};
+type OldActor__735998498 =
+  {
+    var assets : [Asset__770095136];
+    var capabilities : [Capability__559690177];
+    var governor : Principal
+  };
+type Reaction__560956728 =
+  {asset_id : Text; created_at_ms : Nat64; kind : Text; user : Principal};
+type Reaction__595466413 =
+  {asset_id : Text; created_at_ms : Nat64; kind : Text; user : Principal};
+type RoleGrant__853202662 =
+  {club_id : ?Text; role : Text; team_id : ?Text; user : Principal};
+type RoleGrant__855986658 =
+  {club_id : ?Text; role : Text; team_id : ?Text; user : Principal};
+{
+  "20260912_000000" : (_old : OldActor__13723598) -> NewActor__562779563;
+  "20260916_000000" : (old : OldActor__735998498) -> NewActor__812520327
+}
+actor  {
+  stable var assets : [Asset__343612882];
+  stable var capabilities : [Capability__943199674];
+  stable var comments : [Comment__768066363];
+  stable var governor : Principal;
+  stable var reactions : [Reaction__595466413];
+  stable var roles : [RoleGrant__853202662]
+};

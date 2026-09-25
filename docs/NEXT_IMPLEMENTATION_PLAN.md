@@ -238,7 +238,8 @@ events, training defaults, drills, formations, and pitch state.
 
 Tasks:
 
-- Create `backend/events_domain` crate and Candid contract.
+- Extend the existing `backend/events_domain` canister and keep its
+  Candid contract versioned.
 - Model event ownership by club/team and preserve child/guardian visibility.
 - Implement event revision and idempotent mutation IDs.
 - Implement roster, RSVP, duty, lineup, and coach/team-admin checks.
@@ -268,7 +269,8 @@ metadata.
 
 Tasks:
 
-- Create `backend/competition_domain` crate and Candid contract.
+- Extend the existing `backend/competition_domain` canister and keep its
+  Candid contract versioned.
 - Use competition/league ownership as the shard key rather than assuming a
   single club owns all rows.
 - Implement owner, league-admin, coordinator, official, team-entry, and
@@ -295,7 +297,8 @@ metadata.
 
 Tasks:
 
-- Create `backend/messaging_domain` crate and Candid contract.
+- Extend the existing `backend/messaging_domain` canister and keep its
+  Candid contract versioned.
 - Implement conversation ownership and participant membership.
 - Use monotonically increasing per-conversation sequence numbers.
 - Add caller-supplied idempotency keys and replay-safe sends.
@@ -329,7 +332,8 @@ capabilities, retention, deletion state, and attachment references.
 
 Tasks:
 
-- Create `backend/media_metadata` crate and Candid contract.
+- Extend the existing `backend/media_metadata` canister and keep its
+  Candid contract versioned.
 - Separate metadata authorization from file-byte storage.
 - Implement album/club/team/event visibility and uploader/commenter rules.
 - Issue bounded capability records for approved object-storage operations.

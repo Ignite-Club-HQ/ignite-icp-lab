@@ -97,11 +97,13 @@ Completed or proven in the lab:
 - placement and residency control-plane POC
 - shard routing and migration-fence POC
 - Motoko club/team/Club Links product-domain POC, with the Rust implementation
-  retained as reference evidence
+  retained as reference evidence. The deployed canister is named
+  `club_domain`; `club_domain` remains only the source/binding filename.
 - identity/access Rust POC
 - Motoko events, competition, messaging, media, notification, PII-access, and
-  secret-workload-identity POCs, with Rust reference implementations where the
-  language comparison requires them
+  secret-workload-identity POCs. Product domains selected for Motoko no longer
+  carry duplicate Rust product crates; the Rust workspace is reserved for
+  control-plane, worker, and infrastructure boundaries.
 - Rust/Motoko migration coordinator boundary
 - Rust notification queue
 - Motoko notification queue with explicit migration chain
@@ -132,6 +134,14 @@ Completed or proven in the lab:
 - app-admin placement settings slice: country policies, approved Supabase/ICP
   target aliases and versions, country-constrained club assignment, and
   advisory device-locale detection
+- Step 3 control-plane authority slice: placement registry operator roles,
+  country and residency policy gates, per-site availability, target health,
+  audit pagination, read-only/blocking lifecycle states, domain-specific
+  shard routes, optimistic revisions, and route migration fences are
+  implemented in the canonical Rust control-plane canisters. Dedicated
+  placement, admin, and multi-site federation probes are syntax-checked and
+  indexed by the parity evidence gate; live execution still requires a
+  functioning disposable PocketIC deployment.
 - topology-wide durability slice: 13-canister backup/checksum/restore proof and
   clean in-place worker upgrade/recovery proof for timer, Rust notification,
   and Motoko notification implementations
@@ -571,7 +581,7 @@ upcoming. The reference plan is
 
 Authoritatively decouple and manage all 41 Edge Function secrets:
 
-- **Email & Push Delivery**: Move `RESEND_API_KEY`, `FCM_SERVICE_ACCOUNT`, and `VAPID_PRIVATE_KEY` into stateless external delivery worker secret stores (Cloudflare Workers / AWS Secrets Manager). Enforce that workers authenticate and verify lease scopes (`send-email-notification`, `send-push-notification`) against `secret_workload_identity` before claiming batches from `notification_queue_motoko`.
+- **Email & Push Delivery**: Move `RESEND_API_KEY`, `FCM_SERVICE_ACCOUNT`, and `VAPID_PRIVATE_KEY` into stateless external delivery worker secret stores (Cloudflare Workers / AWS Secrets Manager). Enforce that workers authenticate and verify lease scopes (`send-email-notification`, `send-push-notification`) against `secret_workload_identity` before claiming batches from `notification_queue`.
 - **Payments & Subscriptions**: Route Stripe operations (`STRIPE_WEBHOOK_SECRET`, `stripe_secret_key`) through an External Payments Gateway. Maintain order lifecycle on-canister (`#Pending` $\rightarrow$ `#Completed` $\rightarrow$ `#Refunded`) with double-spend and signature verification.
 - **Third-Party APIs**: Execute Google Places and Giphy lookups via direct ICP HTTPS outcalls with response consensus. Route PlayHQ sports sync and Google Drive chunk streaming through external regional workers.
 - **Decommissioned Master Keys**: Completely eliminate `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` from ordinary application code, replacing them with canister principal RBAC and native `timer_jobs` callbacks.
@@ -714,7 +724,7 @@ Operationalize the external worker boundary for all 41 API secrets and credentia
 
 **Phase B: External Worker Deployment (4 Workers)**
   - **Payments Gateway**: Stripe checkout, subscription, webhook reconciliation; validates orders on-canister
-  - **Email Delivery Worker**: Claims jobs from `notification_queue_motoko`, sends via Resend, records delivery status
+  - **Email Delivery Worker**: Claims jobs from `notification_queue`, sends via Resend, records delivery status
   - **Push Notification Worker**: Multi-provider (APNs/FCM/Web); claims jobs, dispatches, handles bounces
   - **LLM & Places Worker**: Gemini chat summaries (PII-sanitized), Google Places queries, Giphy searches; may be HTTPS outcalls instead
 

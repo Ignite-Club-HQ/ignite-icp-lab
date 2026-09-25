@@ -387,7 +387,7 @@ service pii_access_control : {
 - Candid responses contain encrypted data or references; never plaintext PII
 - Post-upgrade, keys are not persisted; they are fetched fresh on each use
 
-**Example (club_links_motoko):**
+**Example (club_domain):**
 ```motoko
 // Stored in stable memory
 type ClubRecord = {

@@ -47,7 +47,6 @@ import { usePitchSettings } from "@/hooks/usePitchSettings";
 import { useDraggableTimer } from "@/hooks/useDraggableTimer";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { PitchSettingsDialog } from "./PitchSettingsDialog";
-import { TrainingSettingsDialog } from "./training/TrainingSettingsDialog";
 
 import { useToast } from "@/hooks/use-toast";
 
@@ -115,14 +114,12 @@ import {
 } from "./hooks/usePitchBoardRosterReconciliation";
 import { usePitchBoardPlayerPlacement } from "./hooks/usePitchBoardPlayerPlacement";
 import { TacticalMode, computeTacticalOffsets, computeBallOffset, TACTICAL_MODE_LABELS, RECOMMENDED_FORMATIONS } from "./tacticalMode";
-import { type PitchBoardMode } from "./ModeSwitch";
 import { PitchBoardLayoutContext } from "./PitchBoardLayoutContext";
 import type { PitchBoardLayoutContextValue } from "./PitchBoardLayoutContext";
 import { acknowledgeHalftimePrompt, canShowHalftimePrompt, getHalftimePromptAckKey, hasAcknowledgedHalftimePrompt } from "./halftimePromptAck";
 
 import { Download } from "lucide-react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
-const TrainingBoard = lazyWithRetry(() => import("./training/TrainingBoard"));
 // Only one orientation layout is ever rendered at a time (~3.9k combined lines);
 // lazy-load both so a device only downloads/parses the one it actually needs.
 const PitchBoardLandscapeLayout = lazyWithRetry(() => import("./PitchBoardLandscapeLayout"));
@@ -155,9 +152,6 @@ interface PitchBoardProps {
   initialLinkedEventId?: string | null;
   initialShowMatchHeader?: boolean;
   initialShowLineupPicker?: boolean;
-  // Initial board mode — defaults to "match". Pass "training" when launched
-  // from a Training event so coaches land directly on the drill board.
-  initialMode?: PitchBoardMode;
   // Mini-league two-team mode configuration
   miniLeagueTeams?: MiniLeagueTeams;
   onUnlinkEvent?: () => void;
@@ -184,7 +178,7 @@ const PitchBoardLoading = ({ message = "Loading..." }: { message?: string }) => 
   </div>
 );
 
-function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs = false, initialRotationSpeed = 1, initialDisablePositionSwaps = false, initialDisableBatchSubs = false, initialRotateGkAtHalftime = true, initialMinutesPerHalf = 10, initialMaxSpreadMinutes = 5, initialTeamSize, initialFormation, readOnly = false, isSubsManager = false, initialLinkedEventId, initialShowMatchHeader = true, initialShowLineupPicker = true, initialMode = "match", miniLeagueTeams, onUnlinkEvent }: PitchBoardProps) {
+function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs = false, initialRotationSpeed = 1, initialDisablePositionSwaps = false, initialDisableBatchSubs = false, initialRotateGkAtHalftime = true, initialMinutesPerHalf = 10, initialMaxSpreadMinutes = 5, initialTeamSize, initialFormation, readOnly = false, isSubsManager = false, initialLinkedEventId, initialShowMatchHeader = true, initialShowLineupPicker = true, miniLeagueTeams, onUnlinkEvent }: PitchBoardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { pitchBoardNotificationsEnabled } = usePitchBoardNotifications();
@@ -378,68 +372,6 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
   const [showMatchHeader, setShowMatchHeader] = useState(() => initialShowMatchHeader);
   const [goals, setGoals] = useState<Goal[]>(() => savedState?.goals || []);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(true); // Start collapsed by default
-  const [mode, setModeRaw] = useState<PitchBoardMode>(initialMode); // Match | Training — default Match unless launched from a Training event
-
-  // Temporary access gate: Training mode is restricted to club admins (and app admins)
-  // while the feature is being rolled out. Non-admins are forced into Match mode and
-  // the Training toggle is hidden in PitchSettingsDialog.
-  const { data: canUseTraining = false } = useQuery({
-    queryKey: ["pitch-training-access", user?.id, teamId],
-    enabled: !!user?.id && !!teamId,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      if (!user?.id || !teamId) return false;
-      // App admins always have access
-      const { data: appAdminRows } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "app_admin")
-        .limit(1);
-      if (appAdminRows && appAdminRows.length > 0) return true;
-
-      // Resolve the team's club, then check for a club_admin role on that club.
-      // Mini-league / event-group "team ids" are synthetic and won't match a real
-      // team row — in that case we fall back to any club_admin role for the user.
-      const realTeamId = teamId.startsWith("event-group-") ? null : teamId;
-      let clubId: string | null = null;
-      if (realTeamId) {
-        const { data: teamRow } = await supabase
-          .from("teams")
-          .select("club_id")
-          .eq("id", realTeamId)
-          .maybeSingle();
-        clubId = teamRow?.club_id ?? null;
-      }
-
-      const query = supabase
-        .from("user_roles")
-        .select("club_id")
-        .eq("user_id", user.id)
-        .eq("role", "club_admin");
-      const { data: adminRows } = clubId
-        ? await query.eq("club_id", clubId).limit(1)
-        : await query.limit(1);
-      return !!(adminRows && adminRows.length > 0);
-    },
-  });
-
-  // Wrap setMode so non-admins can never end up in Training mode, even if a
-  // stale "training" value is restored from saved state or props.
-  const setMode = useCallback((next: PitchBoardMode | ((prev: PitchBoardMode) => PitchBoardMode)) => {
-    setModeRaw((prev) => {
-      const resolved = typeof next === "function" ? (next as (p: PitchBoardMode) => PitchBoardMode)(prev) : next;
-      if (resolved === "training" && !canUseTraining) return "match";
-      return resolved;
-    });
-  }, [canUseTraining]);
-
-  // If access changes (e.g. role revoked while board is open), force back to Match.
-  useEffect(() => {
-    if (!canUseTraining && mode === "training") {
-      setModeRaw("match");
-    }
-  }, [canUseTraining, mode]);
   const [bottomSheetTab, setBottomSheetTab] = useState<"bench" | "setup">("bench");
   const [showFloatingDrawToolbar, setShowFloatingDrawToolbar] = useState(false);
   const [pinDrawingToolbar, setPinDrawingToolbar] = useState(false);
@@ -1116,10 +1048,8 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
   const [timerFormationDropdownOpen, setTimerFormationDropdownOpen] = useState(false);
   const [timerTacticalDropdownOpen, setTimerTacticalDropdownOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [trainingMenuOpen, setTrainingMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   // fillInDialogOpen state lives in usePitchBoardFillIn (declared below).
-  const [trainingSettingsDialogOpen, setTrainingSettingsDialogOpen] = useState(false);
   const [autoSubPanelOpen, setAutoSubPanelOpen] = useState(false);
   const [pitchPlayerActionOpen, setPitchPlayerActionOpen] = useState(false);
   const [pitchPlayerActionTarget, setPitchPlayerActionTarget] = useState<string | null>(null);
@@ -1826,7 +1756,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     autoSubActive, autoSubFromPreGame, autoSubPanelOpen, autoSubPaused, autoSubPlan,
     autoSubPlanDialogOpen, autoSubPlanEditMode, ballOffset, ballPosition, benchDragPlayer,
     benchDragPos, benchInjuryConfirmOpen, benchInjuryTarget, benchLongPressTimer,
-    benchPositionFilter, benchToSubOpen, benchToSubPlayer, canUseTraining, cancelPlanConfirmOpen,
+    benchPositionFilter, benchToSubOpen, benchToSubPlayer, cancelPlanConfirmOpen,
     canvasRef, clearDrawings, containerRef, disableAutoSubs, disableBatchSubs,
     disablePositionSwaps, draggedPlayer, drawingColor, drawingEnabled, drawingTool,
     elapsedGameTime, fillInDialogOpen, filteredPlayersOnPitch, floatingTimerPosition,
@@ -1857,7 +1787,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     isDraggingBall, isDrawingArrowRef, isLandscape, isSavingSettings, isSubsManager,
     landscapeEventSelectorOpen, lastTapRef, linkedEventDetails, linkedEventId, lockedPlayerIds,
     manualSubConfirmOpen, maxSpreadMinutes, members, miniLeagueTeams, minutesPerHalf, mockMode,
-    mode, movablePitchPlayerIds, nextSubInfo, onClose, onUnlinkEvent, openAutoSubPlanDialog,
+    movablePitchPlayerIds, nextSubInfo, onClose, onUnlinkEvent, openAutoSubPlanDialog,
     opponentName, pendingAutoSub, pendingBatchSubs, pendingFormationChange, pendingManualSub,
     pendingSubBenchPlayer, pendingSwapBasedSub, pinDrawingToolbar, pitchPlayerActionOpen,
     pitchZoomScrollRef,
@@ -1871,7 +1801,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     setBenchToSubPlayer, setBottomSheetTab, setCancelPlanConfirmOpen, setDisableBatchSubs,
     setDisablePositionSwaps, setDrawingColor, setDrawingTool, setFillInDialogOpen,
     setFormationChangeDialogOpen, setHideScores, setLandscapeEventSelectorOpen,
-    setManualSubConfirmOpen, setMode, setPendingSubBenchPlayer, setPinDrawingToolbar,
+    setManualSubConfirmOpen, setPendingSubBenchPlayer, setPinDrawingToolbar,
     setPitchPlayerActionOpen, setPitchPlayerActionTarget, setPitchSwapConfirmOpen, setPlayers,
     setPortraitSheetHeightPct, setPortraitSheetOpen, setPositionEditorOpen,
     setPositionSwapDialogOpen, setPreviewSwapPlayers, setRequiredPosition, setResetGameConfirmOpen,
@@ -1880,7 +1810,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     setSheetHeightPct, setShowFloatingDrawToolbar, setShowLineupPicker, setShowMatchHeader,
     setStatsOpen, setSubConfirmDialogOpen, setSubPreviewOpen, setTeamSize,
     setTimerFormationDropdownOpen, setTimerTacticalDropdownOpen, setToolbarCollapsed,
-    setTouchDragPlayer, setTouchOffset, setTrainingMenuOpen, setTrainingSettingsDialogOpen,
+    setTouchDragPlayer, setTouchOffset,
     settingsDialogOpen, settingsMenuOpen, sheetDragRef, sheetHeightPct, showFloatingDrawToolbar,
     showFloatingUndo, showLineupPicker, showLineupPickerSetting, showMatchHeader,
     showScoreInPortrait, statsOpen, subAfterSwapDialogOpen, subAnimationPlayers,
@@ -1888,7 +1818,7 @@ function PitchBoardInner({ teamId, teamName, members, onClose, disableAutoSubs =
     swapFlashIds, swapMode, swapPlayer1, swapPlayer2, tacticalFormationSuggestion, tacticalMode,
     tacticalOffsets, teamId, teamName, teamSize, timerFormationDropdownOpen, timerResetKey,
     timerTacticalDropdownOpen, togglePlayerInjury, toggleSubMode, toggleSwapMode, toolbarCollapsed,
-    touchDragPlayer, touchHandledRef, touchIdRef, trainingMenuOpen, trainingSettingsDialogOpen,
+    touchDragPlayer, touchHandledRef, touchIdRef,
     undoHistory, user, zoom,
   };
 

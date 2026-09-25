@@ -1,0 +1,1 @@
+import"./product-index-Qnbm5mpM.js";const o=async t=>{throw new Error("Checkout is not enabled in the lab")},r=(t,e,a)=>{throw new Error("Payment status updates are not enabled in the lab")};export{o as c,r as l};

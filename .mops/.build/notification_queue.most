@@ -1,0 +1,46 @@
+// Version: 4.0.0
+type Lease__192238396 = {id : Text; owner : Principal};
+type Lease__594092823 = {id : Text; owner : Principal};
+type NewActor__474707121 =
+  {
+    var governor : ?Principal;
+    var items : [Notification__167177523];
+    var leases : [Lease__192238396];
+    var workers : [Principal]
+  };
+type Notification__167177523 =
+  {
+    attempts : Nat32;
+    body : Text;
+    club : Text;
+    id : Text;
+    idempotency_key : Text;
+    kind : Text;
+    next_attempt_ms : Nat64;
+    status : Status__219144407;
+    user : Text
+  };
+type Notification__56269151 =
+  {
+    attempts : Nat32;
+    body : Text;
+    club : Text;
+    id : Text;
+    idempotency_key : Text;
+    kind : Text;
+    next_attempt_ms : Nat64;
+    status : Status__168062068;
+    user : Text
+  };
+type OldActor__1043298749 = {};
+type Status__168062068 = {#Delivered; #Failed; #Pending; #Processing};
+type Status__219144407 = {#Delivered; #Failed; #Pending; #Processing};
+{
+  "20260911_000000" : (_old : OldActor__1043298749) -> NewActor__474707121
+}
+actor  {
+  stable var governor : ?Principal;
+  stable var items : [Notification__56269151];
+  stable var leases : [Lease__594092823];
+  stable var workers : [Principal]
+};

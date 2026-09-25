@@ -1,0 +1,1 @@
+import{j as e}from"./product-index-Qnbm5mpM.js";import{L as t}from"./LegalPageEmbed-tP0ViLAN.js";import"./arrow-left-BStiV5Oc.js";function r(){return e.jsx(t,{title:"Refund & Cancellation Policy",websiteUrl:"https://reference.invalid"})}export{r as default};

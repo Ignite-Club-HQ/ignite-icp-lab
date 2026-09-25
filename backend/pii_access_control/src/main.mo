@@ -110,7 +110,7 @@ persistent actor {
   };
 
   func isGovernor(caller : Principal) : Bool {
-    governor.equal(caller)
+    not caller.equal(Principal.anonymous()) and governor.equal(caller)
   };
 
   /// Simple XOR-based obfuscation for lab synthetic encryption
@@ -187,6 +187,12 @@ persistent actor {
     if (pii_id == "" or field_id == "") {
       return #Err("Invalid pii_id or field_id");
     };
+    if (domain_owner.equal(Principal.anonymous())) {
+      return #Err("Invalid domain owner");
+    };
+    if (not isGovernor(caller) and not caller.equal(domain_owner)) {
+      return #Err("Domain owner authorization required");
+    };
 
     let nonce = generate_nonce();
     let ciphertext = synthetic_encrypt(plaintext, nonce);
@@ -228,6 +234,9 @@ persistent actor {
 
     switch (pii_records.find(func(r) = r.pii_id == pii_id and r.field_id == field_id)) {
       case (?r) {
+        if (not isGovernor(caller) and not caller.equal(r.domain_owner)) {
+          return #Err("Access denied to PII field");
+        };
         #Ok({
           pii_id = r.pii_id;
           field_id = r.field_id;
@@ -349,6 +358,7 @@ persistent actor {
 
   public shared query ({ caller }) func audit_access(filter : AuditFilter) : async [AuditRecord] {
     auth(caller);
+    if (not isGovernor(caller)) Runtime.trap("Governor only");
 
     Array.filter<AuditRecord>(audit_log, func(record) {
       let principal_match = switch (filter.opt_principal) {

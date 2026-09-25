@@ -235,6 +235,22 @@ describe('placement admin settings', () => {
     })).toThrow('ICP targets must use an ICP target type');
   });
 
+  it('rejects browser-entered target URLs and credential-shaped aliases', () => {
+    const controller = createPlacementAdminController({ countries: [], clubs: [] });
+
+    expect(() => controller.setCountryPolicy({
+      country: 'AU',
+      allowedBackends: ['supabase'],
+      policies: [{ backend: 'supabase', enabled: true, targetAlias: 'https://db-host.example', version: 'v1', targetKind: 'supabase-region' }],
+    })).toThrow('Backend target alias must be 2-63 URL-safe characters');
+
+    expect(() => controller.setCountryPolicy({
+      country: 'AU',
+      allowedBackends: ['supabase'],
+      policies: [{ backend: 'supabase', enabled: true, targetAlias: 'aaa.bbb.ccc', version: 'v1', targetKind: 'supabase-region' }],
+    })).toThrow('Backend target alias must not contain URLs or credential-shaped values');
+  });
+
   it('renders the ICP lab unavailable state by default and the app-admin surface when the app opts into supabase mode', () => {
     const controller = createPlacementAdminController({
       countries: [{ country: 'AU', allowedBackends: ['supabase'], policies: [{ backend: 'supabase', enabled: true, targetAlias: 'supabase-au-primary', version: 'v1' }] }],

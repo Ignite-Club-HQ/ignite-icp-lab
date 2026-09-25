@@ -9,7 +9,7 @@ subnet behavior, residency, or security.
 Reference implementations:
 
 - Rust: `backend/notification_queue`
-- Motoko: `backend/notification_queue_motoko`
+- Motoko: `backend/notification_queue`
 - Shared Candid surface: `backend/notification_queue/notification_queue.did`
 - Shared live probe: `frontend/scripts/test-notification-queue.mjs`
 - Benchmark: `frontend/scripts/benchmark-notification-implementations.mjs`

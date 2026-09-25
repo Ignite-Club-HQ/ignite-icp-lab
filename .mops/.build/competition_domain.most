@@ -1,0 +1,94 @@
+// Version: 4.0.0
+type Competition__2525511 =
+  {
+    club_id : Text;
+    id : Text;
+    name : Text;
+    revision : Nat64;
+    season : Text;
+    status : Text
+  };
+type Competition__921337456 =
+  {
+    club_id : Text;
+    id : Text;
+    name : Text;
+    revision : Nat64;
+    season : Text;
+    status : Text
+  };
+type JoinToken__252467060 =
+  {
+    competition_id : Text;
+    expires_at_ms : Nat64;
+    id : Text;
+    issued_by : Principal;
+    team_id : Text;
+    used : Bool
+  };
+type JoinToken__311749081 =
+  {
+    competition_id : Text;
+    expires_at_ms : Nat64;
+    id : Text;
+    issued_by : Principal;
+    team_id : Text;
+    used : Bool
+  };
+type Match__1067590111 =
+  {
+    away_score : Nat16;
+    away_team : Text;
+    competition_id : Text;
+    home_score : Nat16;
+    home_team : Text;
+    id : Text;
+    revision : Nat64;
+    status : Text
+  };
+type Match__438033814 =
+  {
+    away_score : Nat16;
+    away_team : Text;
+    competition_id : Text;
+    home_score : Nat16;
+    home_team : Text;
+    id : Text;
+    revision : Nat64;
+    status : Text
+  };
+type NewActor__410308758 =
+  {
+    var competitions : [Competition__2525511];
+    var entries : [TeamEntry__158420738];
+    var governor : Principal;
+    var matches : [Match__1067590111];
+    var roles : [RoleGrant__201131035];
+    var seasons : [Season__74852820];
+    var tokens : [JoinToken__252467060]
+  };
+type OldActor__3036177 = {};
+type RoleGrant__201131035 =
+  {competition_id : Text; role : Text; team_id : ?Text; user : Principal};
+type RoleGrant__809742452 =
+  {competition_id : Text; role : Text; team_id : ?Text; user : Principal};
+type Season__136662743 =
+  {competition_id : Text; name : Text; revision : Nat64; status : Text};
+type Season__74852820 =
+  {competition_id : Text; name : Text; revision : Nat64; status : Text};
+type TeamEntry__158420738 =
+  {club_id : Text; competition_id : Text; status : Text; team_id : Text};
+type TeamEntry__486796958 =
+  {club_id : Text; competition_id : Text; status : Text; team_id : Text};
+{
+  "20260912_000000" : (_old : OldActor__3036177) -> NewActor__410308758
+}
+actor  {
+  stable var competitions : [Competition__921337456];
+  stable var entries : [TeamEntry__486796958];
+  stable var governor : Principal;
+  stable var matches : [Match__438033814];
+  stable var roles : [RoleGrant__809742452];
+  stable var seasons : [Season__136662743];
+  stable var tokens : [JoinToken__311749081]
+};

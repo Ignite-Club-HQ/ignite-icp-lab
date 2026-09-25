@@ -62,8 +62,8 @@ All **41 environment secrets** from the original 181 Edge Functions are now full
 ┌─────────────────────────────────────────────────────────┐
 │ ICP Canisters (No Raw Secrets)                          │
 ├─────────────────────────────────────────────────────────┤
-│ • notification_queue_motoko                             │
-│ • events_domain_motoko / competition_domain_motoko      │
+│ • notification_queue                             │
+│ • events_domain / competition_domain      │
 │ • pii_access_control (keys encrypted in stable memory)  │
 │ • secret_workload_identity (audit logs only)            │
 └─────────────────────────────────────────────────────────┘

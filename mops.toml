@@ -15,57 +15,53 @@ candid = "backend/migration_coordinator/migration_coordinator.did"
 chain = "backend/migration_coordinator/src/backend/migrations"
 check-limit = 1
 
-[canisters.notification_queue_motoko]
-main = "backend/notification_queue_motoko/src/main.mo"
-candid = "backend/notification_queue_motoko/notification_queue_motoko.did"
+[canisters.notification_queue]
+main = "backend/notification_queue/src/main.mo"
+candid = "backend/notification_queue/notification_queue.did"
 
-[canisters.notification_queue_motoko.migrations]
-chain = "backend/notification_queue_motoko/src/backend/migrations"
+[canisters.notification_queue.migrations]
+chain = "backend/notification_queue/src/backend/migrations"
 check-limit = 1
 
-[canisters.events_domain_motoko]
-main = "backend/events_domain_motoko/src/main.mo"
-candid = "backend/events_domain_motoko/events_domain_motoko.did"
+[canisters.events_domain]
+main = "backend/events_domain/src/main.mo"
+candid = "backend/events_domain/events_domain.did"
 
-[canisters.events_domain_motoko.migrations]
-chain = "backend/events_domain_motoko/src/backend/migrations"
+[canisters.events_domain.migrations]
+chain = "backend/events_domain/src/backend/migrations"
 check-limit = 1
 
-[canisters.competition_domain_motoko]
-main = "backend/competition_domain_motoko/src/main.mo"
-candid = "backend/competition_domain_motoko/competition_domain_motoko.did"
+[canisters.competition_domain]
+main = "backend/competition_domain/src/main.mo"
+candid = "backend/competition_domain/competition_domain.did"
 
-[canisters.competition_domain_motoko.migrations]
-chain = "backend/competition_domain_motoko/src/backend/migrations"
+[canisters.competition_domain.migrations]
+chain = "backend/competition_domain/src/backend/migrations"
 check-limit = 1
 
-[canisters.messaging_domain_motoko]
-main = "backend/messaging_domain_motoko/src/main.mo"
-candid = "backend/messaging_domain_motoko/messaging_domain_motoko.did"
+[canisters.messaging_domain]
+main = "backend/messaging_domain/src/main.mo"
+candid = "backend/messaging_domain/messaging_domain.did"
 
-[canisters.messaging_domain_motoko.migrations]
-chain = "backend/messaging_domain_motoko/src/backend/migrations"
+[canisters.messaging_domain.migrations]
+chain = "backend/messaging_domain/src/backend/migrations"
 check-limit = 1
 
-[canisters.media_metadata_motoko]
-main = "backend/media_metadata_motoko/src/main.mo"
-candid = "backend/media_metadata_motoko/media_metadata_motoko.did"
+[canisters.media_metadata]
+main = "backend/media_metadata/src/main.mo"
+candid = "backend/media_metadata/media_metadata.did"
 
-[canisters.media_metadata_motoko.migrations]
-chain = "backend/media_metadata_motoko/src/backend/migrations"
-check-limit = 1
-
-[canisters.club_links_motoko]
-main = "backend/club_links_motoko/src/main.mo"
-candid = "backend/club_links_motoko/club_links_motoko.did"
-
-[canisters.club_links_motoko.migrations]
-chain = "backend/club_links_motoko/src/backend/migrations"
+[canisters.media_metadata.migrations]
+chain = "backend/media_metadata/src/backend/migrations"
 check-limit = 1
 
 [canisters.club_domain]
-main = "backend/club_links_motoko/src/main.mo"
-candid = "backend/club_links_motoko/club_links_motoko.did"
+main = "backend/club_domain/src/main.mo"
+candid = "backend/club_domain/club_domain.did"
+
+[canisters.club_domain.migrations]
+chain = "backend/club_domain/src/backend/migrations"
+check-limit = 1
 
 [canisters.pii_access_control]
 main = "backend/pii_access_control/src/main.mo"

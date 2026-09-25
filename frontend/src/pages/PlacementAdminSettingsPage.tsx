@@ -12,16 +12,17 @@ const initialSettings: PlacementAdminSettings = {
       country: "AU",
       allowedBackends: ["supabase"],
       policies: [
-        { backend: "supabase", enabled: true, targetAlias: "supabase-au-primary", version: "v1" },
-        { backend: "icp", enabled: false, targetAlias: "icp-au-cloud-engine", version: "v1" },
+        { backend: "supabase", enabled: true, targetAlias: "supabase-au-primary", version: "v1", targetKind: "supabase-region", region: "ap-southeast-2" },
+        { backend: "icp", enabled: false, targetAlias: "icp-au-cloud-engine", version: "v1", targetKind: "icp-cloud-engine", region: "AU_SYDNEY" },
       ],
     },
     {
       country: "US",
       allowedBackends: ["icp", "supabase"],
       policies: [
-        { backend: "icp", enabled: true, targetAlias: "icp-us-cloud-engine", version: "v1" },
-        { backend: "supabase", enabled: true, targetAlias: "supabase-us-primary", version: "v2" },
+        { backend: "icp", enabled: true, targetAlias: "icp-public-mainnet", version: "mainnet-v1", targetKind: "icp-mainnet", region: "GLOBAL_NON_RESTRICTED" },
+        { backend: "icp", enabled: true, targetAlias: "icp-us-cloud-engine", version: "v1", targetKind: "icp-cloud-engine", region: "US_EAST" },
+        { backend: "supabase", enabled: true, targetAlias: "supabase-us-primary", version: "v2", targetKind: "supabase-region", region: "us-east-1" },
       ],
     },
   ],

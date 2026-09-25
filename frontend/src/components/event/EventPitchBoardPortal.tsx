@@ -86,7 +86,6 @@ export function EventPitchBoardPortal({
         initialLinkedEventId={eventId}
         initialShowMatchHeader={teamSubscription?.show_match_header ?? true}
         initialShowLineupPicker={teamSubscription?.show_lineup_picker || false}
-        initialMode={event.type === "training" ? "training" : "match"}
         readOnly={!!canViewReadOnly && !isSubsManager}
         isSubsManager={isSubsManager}
       />

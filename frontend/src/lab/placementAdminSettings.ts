@@ -50,6 +50,23 @@ function validateTargetKind(policy: BackendPolicy) {
   if (policy.backend === 'icp' && policy.targetKind === 'supabase-region') throw new Error('ICP targets must use an ICP target type');
 }
 
+function validateTargetAlias(policy: BackendPolicy) {
+  const alias = policy.targetAlias.trim();
+  if (!/^[a-z0-9][a-z0-9._-]{1,62}$/i.test(alias)) {
+    throw new Error('Backend target alias must be 2-63 URL-safe characters');
+  }
+  if (alias.includes('://') || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(alias)) {
+    throw new Error('Backend target alias must not contain URLs or credential-shaped values');
+  }
+}
+
+function validateTargetVersion(policy: BackendPolicy) {
+  const version = policy.version.trim();
+  if (!/^[a-z0-9][a-z0-9._-]{0,31}$/i.test(version)) {
+    throw new Error('Backend target version must be 1-32 URL-safe characters');
+  }
+}
+
 export function createPlacementAdminController(initial: PlacementAdminSettings): PlacementAdminController {
   const current: PlacementAdminSettings = structuredClone(initial);
 
@@ -60,8 +77,17 @@ export function createPlacementAdminController(initial: PlacementAdminSettings):
       if (!/^[A-Z]{2}$/.test(country)) throw new Error('Country must be ISO alpha-2 uppercase');
       const allowed = [...new Set(policy.allowedBackends)];
       if (policy.policies.some(item => !item.targetAlias || !item.version)) throw new Error('Backend target and version are required');
-      policy.policies.forEach(validateTargetKind);
-      const policies = policy.policies.map(item => ({ ...item, region: item.region?.trim() || undefined }));
+      policy.policies.forEach(item => {
+        validateTargetKind(item);
+        validateTargetAlias(item);
+        validateTargetVersion(item);
+      });
+      const policies = policy.policies.map(item => ({
+        ...item,
+        targetAlias: item.targetAlias.trim(),
+        version: item.version.trim(),
+        region: item.region?.trim() || undefined,
+      }));
       current.countries = current.countries.filter(item => item.country !== country);
       current.countries.push({ ...policy, country, allowedBackends: allowed, policies });
     },

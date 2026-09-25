@@ -4,16 +4,20 @@
 // In lab mode with ICP auth, return synthetic fixture data for core queries so pages render.
 
 import { resolveLocalAuthMode } from '../../lab/localRuntimeMode';
-import * as fixtures from '../../lab/fixtureDataLayer';
 
 function isCoreLabQuery(table: string): boolean {
 	return ['clubs', 'teams', 'events', 'team_memberships', 'club_members'].includes(table);
 }
 
-function getFixtureData(table: string, filters: Record<string, any> = {}) {
+async function getFixtureData(table: string, filters: Record<string, any> = {}) {
 	const useIcp = resolveLocalAuthMode(typeof window !== 'undefined' ? window.location.search : '', true);
 	if (!useIcp) return null;
-	
+
+	// Fixture data is only needed in ICP lab mode; load it lazily so its ~17KB
+	// of synthetic data never enters the initial chunk for the common
+	// (non-ICP) path.
+	const fixtures = await import('../../lab/fixtureDataLayer');
+
 	// Return synthetic data for core queries
 	if (table === 'clubs') {
 		if (filters.eq?.id) return fixtures.getFixtureClubDetail(filters.eq.id);
@@ -94,7 +98,7 @@ class MockQueryBuilder {
 	}
 
 	private async maybeSingleImpl() {
-		const data = getFixtureData(this.table, this.filters);
+		const data = await getFixtureData(this.table, this.filters);
 		if (Array.isArray(data) && data.length > 0) {
 			return { data: data[0], error: null };
 		}
@@ -113,7 +117,7 @@ class MockQueryBuilder {
 	}
 
 	async then(resolve: any, reject: any) {
-		const data = getFixtureData(this.table, this.filters);
+		const data = await getFixtureData(this.table, this.filters);
 		if (Array.isArray(data)) {
 			resolve({ data, error: null });
 		} else if (data !== null) {

@@ -1,14 +1,54 @@
 # Test Coverage Mapping: Which RLS Policies Are Proven
 
-**Generated:** September 13, 2026  
-**Test Run:** `npm test` — All 54 tests passing ✅  
+**Generated:** September 13, 2026
+**Updated:** September 17, 2026 — re-verified against the live suite
+**Primary lab run:** `npm test` — 424 tests passing (415 vitest + 9 Node.js) ✅
+**Legacy imported app run:** `npm run test:legacy` — 1999 tests passing, 2 skipped across 180 files ✅
+
+> **Correction (Sep 17):** The vitest count grew from 45 → ~406 between Sep 13 and
+> Sep 17, but that growth was almost entirely new **routing/placement/hybrid-app
+> plumbing tests** (backend router fail-closed behavior, provider-matrix
+> selection, environment-mapped LabApp checks, Playwright E2E) for the ClubLinks
+> vertical slice — not new RLS-policy-level domain tests for the other product
+> domains. The RLS-policy coverage percentages below are still the accurate
+> picture: growing the *test count* did not meaningfully grow *domain policy
+> coverage* outside ClubLinks. See `docs/REMAINING_IMPLEMENTATION.md` for the
+> domain-by-domain reconnection plan required to close this gap.
+>
+> Separately, the imported production-app suite is now split into two tiers:
+>
+> - `npm test` remains the fast lab-focused tier (`lab-tests/*.test.tsx` + the
+>   small Node.js recovery/network suite).
+> - `npm run test:legacy` now activates the imported app tests under
+>   `frontend/src/**/*.test.ts(x)`.
+>
+> That legacy tier currently runs **180 files / 2001 tests** with
+> **1999 passing and 2 skipped**. The remaining imported files are excluded only
+> where the lab boundary intentionally removes the underlying surface:
+>
+> - Supabase deployment / Edge Function governance files that do not exist as
+>   live config in this repo
+> - native Android/iOS harness tests that require mobile build/signing surfaces
+> - billing checkout tests for the deliberately disabled lab checkout path
+>
+> The imported suite is therefore no longer “disconnected reference source” in
+> general; it is now a permanent runnable regression tier, with only the
+> boundary-violating slices kept excluded.
+
+## Test tiers as of Sep 17
+
+| Tier | Command | Scope | Current result |
+| :--- | :--- | :--- | :--- |
+| Lab runtime | `npm test` | Dedicated lab tests + Node.js recovery/network checks | 424 passing |
+| Imported legacy app suite | `npm run test:legacy` | `frontend/src/**/*.test.ts(x)` | 1999 passing, 2 skipped |
+| Full frontend test envelope | `npm run test:all` | Lab + legacy + Playwright E2E | Configured |
 
 ---
 
 ## Executive Summary
 
 Out of 1,147 RLS policies:
-- **45 policies proven** via 54 executable tests (4%)
+- **45 policies proven** via executable tests (4%)
 - **440 policies partially implemented** but missing edge case coverage (38%)
 - **662 policies scoped to deferred features or external boundaries** (58%)
 
@@ -107,7 +147,7 @@ This document maps each passing test to the RLS policies it validates.
 
 | RLS Policy Proven | Supabase Rule | Canister Equivalent | Protection |
 | :--- | :--- | :--- | :--- |
-| `is_admin(user_id, club_id)` | Club admin check | `club_links_motoko.isAdmin()` | Non-admins cannot mutate |
+| `is_admin(user_id, club_id)` | Club admin check | `club_domain.isAdmin()` | Non-admins cannot mutate |
 | Cross-club mutation rejection | `club_id = club_context` | Admin role scoped by club | Mutations cannot cross club boundary |
 | Non-admin write denial | Role-based access | Non-admin caller denied | Only admins can write |
 | Authorization trap | Runtime error on auth failure | Trap if non-admin | Unauthorized access fails immediately |
@@ -133,7 +173,7 @@ This document maps each passing test to the RLS policies it validates.
 
 | RLS Policy Proven | Supabase Rule | Canister Equivalent | Protection |
 | :--- | :--- | :--- | :--- |
-| Event persistence | `events.id = event_id` | `events_domain_motoko` stable memory | Events stored durably |
+| Event persistence | `events.id = event_id` | `events_domain` stable memory | Events stored durably |
 | Visibility by club | `events.club_id = club_context` | Club filter in list_events | Only club members see events |
 | Reorder safety | Sequence integrity | Array index preservation | No data corruption during reorder |
 | In-memory isolation | No disk writes before commit | Stable memory atomic | Partial writes prevented |
@@ -146,7 +186,7 @@ This document maps each passing test to the RLS policies it validates.
 
 | RLS Policy Proven | Supabase Rule | Canister Equivalent | Protection |
 | :--- | :--- | :--- | :--- |
-| `can_manage_event_groups(caller, club_id)` | Club/team admin | `events_domain_motoko.creates check` | Only admins can create |
+| `can_manage_event_groups(caller, club_id)` | Club/team admin | `events_domain.creates check` | Only admins can create |
 | Event creation requires admin | `is_admin(user_id, club)` | Manage check enforces role | Non-admins blocked |
 
 **Policies Proven:** 2 (event creation authorization, admin role requirement)

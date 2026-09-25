@@ -3,13 +3,7 @@ members = [
 	"backend/shard_router",
 	"backend/placement_registry",
 	"backend/timer_jobs",
-	"backend/identity_access",
-	"backend/club_domain",
-	"backend/events_domain",
-	"backend/competition_domain",
-	"backend/messaging_domain",
-	"backend/media_metadata",
-	"backend/notification_queue"
+	"backend/identity_access"
 ]
 resolver = "2"
 

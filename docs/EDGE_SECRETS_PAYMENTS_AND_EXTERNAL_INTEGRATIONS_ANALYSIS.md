@@ -82,7 +82,7 @@ Sending push notifications (Apple APNs via JWT, Firebase FCM via Service Account
 ```mermaid
 flowchart LR
     subgraph ICP Canister Boundary
-        D[Domain Canister<br/>events / messaging] -->|enqueue message| Q[notification_queue_motoko]
+        D[Domain Canister<br/>events / messaging] -->|enqueue message| Q[notification_queue]
         T[timer_jobs] -->|trigger scheduled fanout| Q
     end
 
@@ -108,7 +108,7 @@ flowchart LR
 ```
 
 ### 3.3 Delivery Invariants
-1. **Canister Pull Pattern**: Workers pull from `notification_queue_motoko.claim(now, batchSize)` using lease locks (5 min timeout).
+1. **Canister Pull Pattern**: Workers pull from `notification_queue.claim(now, batchSize)` using lease locks (5 min timeout).
 2. **Least Privilege**: The push worker principal is only authorized for `send-push-notification` scope in `secret_workload_identity`. It cannot read payment secrets or PII.
 3. **Automatic Dead-Letter Handling**: After 3 failed delivery attempts with exponential backoff, jobs transition to `#DeadLetter` for diagnostic review.
 
@@ -122,8 +122,8 @@ flowchart LR
 | :--- | :--- | :--- | :--- |
 | **Google Places Search** | **ICP HTTPS Outcall** | Low data volume, public venue queries | Sanitized HTTP request; consensus filter extracts place ID, name, lat/lng |
 | **Giphy Search** | **ICP HTTPS Outcall** | Read-only public gif search | Response transform extracts gif URLs and IDs |
-| **PlayHQ Sports Sync** | **External Regional Worker** | Large payload syncs, multipart streaming, regional rate limits | Worker syncs with PlayHQ, batches fixture diffs, and submits concise updates to `competition_domain_motoko` |
-| **Google Drive Import** | **External Regional Worker** | Requires OAuth2 user refresh tokens and file chunk streaming | Handles OAuth token exchange, streams files to external encrypted storage, records metadata in `media_metadata_motoko` |
+| **PlayHQ Sports Sync** | **External Regional Worker** | Large payload syncs, multipart streaming, regional rate limits | Worker syncs with PlayHQ, batches fixture diffs, and submits concise updates to `competition_domain` |
+| **Google Drive Import** | **External Regional Worker** | Requires OAuth2 user refresh tokens and file chunk streaming | Handles OAuth token exchange, streams files to external encrypted storage, records metadata in `media_metadata` |
 | **AI / Chat Summaries (Gemini)** | **HTTPS Outcall or External Worker** | LLM summarization with PII minimization | Prompts are sanitized (no PII); HTTPS outcall fetches summary with deterministic temperature consensus |
 
 ---

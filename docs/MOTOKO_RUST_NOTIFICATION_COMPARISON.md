@@ -2,13 +2,10 @@
 
 ## Scope
 
-`backend/notification_queue` remains the Rust reference implementation.
-`backend/notification_queue_motoko` is a Motoko implementation of the same
-notification Candid contract. It is an evaluation target, not a replacement.
-
-Both implementations are deployed side by side in the synthetic local ICP
-environment. The comparison intentionally keeps the public methods and record
-shapes equivalent:
+The notification queue is now the Motoko canister at
+`backend/notification_queue`. The former Rust comparison implementation has
+been removed from the active workspace; the comparison record is retained here
+as historical evidence. The active contract exposes:
 
 - `enqueue`
 - `claim`
@@ -19,8 +16,8 @@ shapes equivalent:
 
 ## Current evidence
 
-On 2026-09-11, the same live probe passed against both canisters on a clean
-loopback network. It covered:
+The live probe previously covered the following behavior on the comparison
+implementations:
 
 - authenticated enqueue
 - bounded claim
@@ -35,7 +32,7 @@ loopback network. It covered:
 The shared Candid binding is generated from
 `backend/notification_queue/notification_queue.did`. The Motoko canister uses
 enhanced persistent actors with an explicit first migration in
-`backend/notification_queue_motoko/src/backend/migrations/`.
+`backend/notification_queue/src/backend/migrations/`.
 
 Both implementations now also require an initialized governor and an explicitly
 granted worker principal for claim, acknowledgement, failure, and recovery.

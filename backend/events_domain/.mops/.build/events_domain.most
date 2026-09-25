@@ -1,0 +1,78 @@
+// Version: 4.0.0
+type Attendance__307117643 =
+  {account_id : Text; event_id : Text; note : Text; present : Bool};
+type Attendance__600425176 =
+  {account_id : Text; event_id : Text; note : Text; present : Bool};
+type Duty__828185828 = {account_id : Text; duty : Text; event_id : Text};
+type Duty__898552283 = {account_id : Text; duty : Text; event_id : Text};
+type Event__120983427 =
+  {
+    club_id : Text;
+    creator : Principal;
+    description : Text;
+    ends_at_ms : Nat64;
+    id : Text;
+    revision : Nat64;
+    starts_at_ms : Nat64;
+    team_id : ?Text;
+    title : Text
+  };
+type Event__847262981 =
+  {
+    club_id : Text;
+    creator : Principal;
+    description : Text;
+    ends_at_ms : Nat64;
+    id : Text;
+    revision : Nat64;
+    starts_at_ms : Nat64;
+    team_id : ?Text;
+    title : Text
+  };
+type LineupEntry__128257077 =
+  {event_id : Text; member : Text; slot : Text; team_id : ?Text};
+type LineupEntry__399407056 =
+  {event_id : Text; member : Text; slot : Text; team_id : ?Text};
+type NewActor__772849243 =
+  {
+    var attendance : [Attendance__600425176];
+    var duties : [Duty__828185828];
+    var events : [Event__847262981];
+    var governor : Principal;
+    var lineups : [LineupEntry__399407056];
+    var recurrences : [Recurrence__216185713];
+    var roles : [RoleGrant__871047017];
+    var roster : [RosterEntry__110206578];
+    var rsvps : [Rsvp__228404921]
+  };
+type OldActor__487684809 = {};
+type Recurrence__216185713 =
+  {event_id : Text; frequency : Text; until_ms : Nat64};
+type Recurrence__332982258 =
+  {event_id : Text; frequency : Text; until_ms : Nat64};
+type RoleGrant__1021771417 =
+  {club_id : Text; role : Text; team_id : ?Text; user : Principal};
+type RoleGrant__871047017 =
+  {club_id : Text; role : Text; team_id : ?Text; user : Principal};
+type RosterEntry__110206578 =
+  {account_id : Text; child_id : ?Text; event_id : Text};
+type RosterEntry__619147036 =
+  {account_id : Text; child_id : ?Text; event_id : Text};
+type Rsvp__228404921 =
+  {account_id : Text; event_id : Text; state : Text; updated_at_ms : Nat64};
+type Rsvp__830608114 =
+  {account_id : Text; event_id : Text; state : Text; updated_at_ms : Nat64};
+{
+  "20260912_000000" : (_old : OldActor__487684809) -> NewActor__772849243
+}
+actor  {
+  stable var attendance : [Attendance__307117643];
+  stable var duties : [Duty__898552283];
+  stable var events : [Event__120983427];
+  stable var governor : Principal;
+  stable var lineups : [LineupEntry__128257077];
+  stable var recurrences : [Recurrence__332982258];
+  stable var roles : [RoleGrant__1021771417];
+  stable var roster : [RosterEntry__619147036];
+  stable var rsvps : [Rsvp__830608114]
+};

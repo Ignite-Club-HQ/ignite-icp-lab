@@ -1,0 +1,1 @@
+import{j as e}from"./product-index-Qnbm5mpM.js";import{L as r}from"./LegalPageEmbed-tP0ViLAN.js";import"./arrow-left-BStiV5Oc.js";function m(){return e.jsx(r,{title:"Terms of Service",websiteUrl:"https://reference.invalid"})}export{m as default};

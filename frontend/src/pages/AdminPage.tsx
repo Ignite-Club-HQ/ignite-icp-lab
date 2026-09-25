@@ -12,7 +12,6 @@ import { resolveLocalAuthMode } from "@/lab/localRuntimeMode";
 
 const ICP_LAB_ADMIN_LINKS: { to: string; label: string }[] = [
   { to: "/admin/users", label: "Manage users" },
-  { to: "/admin/drills", label: "Drills" },
   { to: "/admin/deleted-chats", label: "Deleted chats" },
   { to: "/admin/dm-attachments", label: "DM attachments" },
   { to: "/admin/feedback", label: "Feedback" },
@@ -296,12 +295,6 @@ function SupabaseAdminPage() {
               label="Send Update Reminder"
               description="Notify users to update their native app"
               onClick={() => navigate("/admin/send-update-reminder")}
-            />
-            <AdminMenuItem
-              icon={Sparkles}
-              label="Drill Frame Audit"
-              description="Find single-frame drills and auto-generate motion"
-              onClick={() => navigate("/admin/drills")}
             />
             <AdminMenuItem
               icon={Paperclip}

@@ -4,7 +4,7 @@
 
 This document provides the exhaustive, secret-by-secret architecture plan for all 41 environment variables and secrets previously managed by Supabase Edge Functions. It defines:
 1. **Where each secret lives in production** (external vault / worker environment, never in replicated canister state).
-2. **How ICP canisters orchestrate them** via `notification_queue_motoko`, `timer_jobs`, and HTTPS outcalls.
+2. **How ICP canisters orchestrate them** via `notification_queue`, `timer_jobs`, and HTTPS outcalls.
 3. **How authorization is enforced** via `secret_workload_identity` and audited in append-only logs.
 4. **How each integration is validated in the lab** with synthetic reference workers and test harnesses.
 5. **Step-by-step production onboarding steps**.
@@ -17,10 +17,10 @@ This document provides the exhaustive, secret-by-secret architecture plan for al
 
 | Secret / Key | Category | Current Location in Edge Functions | Production Custody Target | Canister Workload Scope | ICP Interaction Model |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `RESEND_API_KEY` | Email | `send-email`, `send-*-email` | Google Cloud Secret Manager / worker secret manager | `send-email-notification` | Queue pull via `notification_queue_motoko` |
+| `RESEND_API_KEY` | Email | `send-email`, `send-*-email` | Google Cloud Secret Manager / worker secret manager | `send-email-notification` | Queue pull via `notification_queue` |
 | `OUTBOUND_COMMUNICATIONS_ENABLED` | Global Flag | Outbound guard | Canister governor state & Worker env | `send-email-notification`, `send-push-notification` | Read from canister config |
-| `FCM_PRIVATE_KEY` / `SERVICE_ACCOUNT` | Push (Android/iOS) | `send-fcm-notification` | Google Cloud Secret Manager / worker secret manager (JSON key) | `send-push-notification` | Queue pull via `notification_queue_motoko` |
-| `VAPID_PRIVATE_KEY` / `SUBJECT` | Web Push | `check-vapid-key`, `process-push-delivery-queue` | Google Cloud Secret Manager / worker secret manager | `send-push-notification` | Queue pull via `notification_queue_motoko` |
+| `FCM_PRIVATE_KEY` / `SERVICE_ACCOUNT` | Push (Android/iOS) | `send-fcm-notification` | Google Cloud Secret Manager / worker secret manager (JSON key) | `send-push-notification` | Queue pull via `notification_queue` |
+| `VAPID_PRIVATE_KEY` / `SUBJECT` | Web Push | `check-vapid-key`, `process-push-delivery-queue` | Google Cloud Secret Manager / worker secret manager | `send-push-notification` | Queue pull via `notification_queue` |
 | `STRIPE_WEBHOOK_SECRET` | Payments | `stripe-webhook` | Google Cloud Secret Manager / payments gateway secret store | `payment-processor` | Webhook ingress $\rightarrow$ updates canister order |
 | `stripe_secret_key` (App & Club Connect) | Payments | `manage-stripe-config`, checkouts | Google Cloud Secret Manager / vault | `payment-processor` | External checkout session creation |
 | `IGNITE_PAYMENTS_SERVICE_ROLE_KEY` | Secondary Payments | `confirm-event-payment` | Google Cloud Secret Manager / payments gateway secret store | `payment-processor` | Gateway cross-project verification |
@@ -43,19 +43,19 @@ This document provides the exhaustive, secret-by-secret architecture plan for al
 Google Cloud Secret Manager is the preferred runtime secret store for worker-side provider credentials. GitHub Actions secrets remain for CI/CD and deployment automation, not for app runtime or browser-exposed values.
 
 #### The Flow:
-1. **Canister Enqueues**: An event or messaging canister creates an email job in `notification_queue_motoko.enqueue(id, recipient, "email", payload, idempotency_key)`.
-2. **Worker Claims**: A stateless Email Delivery Worker (Cloudflare Worker / Lambda / private GCP worker) queries `notification_queue_motoko.claim(now, 50)`.
+1. **Canister Enqueues**: An event or messaging canister creates an email job in `notification_queue.enqueue(id, recipient, "email", payload, idempotency_key)`.
+2. **Worker Claims**: A stateless Email Delivery Worker (Cloudflare Worker / Lambda / private GCP worker) queries `notification_queue.claim(now, 50)`.
 3. **Authorization Check**: Worker presents its principal to `secret_workload_identity.verify_secret_access(worker_principal, "send-email-notification", nonce)`.
 4. **Secret Access**: The worker retrieves `RESEND_API_KEY` from Google Cloud Secret Manager or equivalent private vault.
 5. **Dispatch**: Worker calls `https://api.resend.com/emails` with the templated email payload.
-6. **Acknowledgement**: On HTTP 200, worker calls `notification_queue_motoko.complete(id, idempotency_key)`. On HTTP error, calls `retry(id, next_attempt_ms)`.
+6. **Acknowledgement**: On HTTP 200, worker calls `notification_queue.complete(id, idempotency_key)`. On HTTP error, calls `retry(id, next_attempt_ms)`.
 
 ---
 
 ### Group 2: Push Notifications (`FCM_SERVICE_ACCOUNT`, `VAPID_PRIVATE_KEY`)
 
 #### The Flow:
-1. **Queueing**: Match reminders, chat mentions, and game alerts are enqueued into `notification_queue_motoko`.
+1. **Queueing**: Match reminders, chat mentions, and game alerts are enqueued into `notification_queue`.
 2. **Worker Polling**: Push Delivery Worker periodically claims batches with a 5-minute lease lock.
 3. **Identity Verification**: Verified against `secret_workload_identity` for `send-push-notification` scope.
 4. **Provider Signing**:
@@ -71,7 +71,7 @@ Google Cloud Secret Manager is the preferred runtime secret store for worker-sid
 #### The Flow:
 1. **Checkout Initiation**:
    - User requests ticket or membership in frontend.
-   - Frontend calls `events_domain_motoko` or `club_links_motoko` to create a `#Pending` order record.
+   - Frontend calls `events_domain` or `club_domain` to create a `#Pending` order record.
    - Frontend redirects user to the **External Payments Gateway**.
 2. **Session Creation**:
    - The Payments Gateway verifies authorization via `secret_workload_identity.verify_secret_access(gateway_principal, "payment-processor", nonce)`.
@@ -79,7 +79,7 @@ Google Cloud Secret Manager is the preferred runtime secret store for worker-sid
 3. **Stripe Webhook Ingress**:
    - Stripe calls `POST /webhook` on the Payments Gateway.
    - Gateway verifies HMAC signature using `STRIPE_WEBHOOK_SECRET`.
-   - On valid signature, Gateway signs a canister update call `events_domain_motoko.confirm_payment(order_id, stripe_session_id, amount_cents)` using its registered gateway identity.
+   - On valid signature, Gateway signs a canister update call `events_domain.confirm_payment(order_id, stripe_session_id, amount_cents)` using its registered gateway identity.
    - Canister atomically transitions order from `#Pending` to `#Paid` and issues role grant/ticket.
 
 ---
@@ -90,8 +90,8 @@ Google Cloud Secret Manager is the preferred runtime secret store for worker-sid
 1. **Direct ICP HTTPS Outcalls** (for read-only, idempotent, public APIs):
    - **Google Places Search** & **Giphy Search**: Invoked directly by canisters via `ic0.http_request` with response consensus filtering. No secret stored on-chain if using public endpoints or short-lived signed tokens.
 2. **External Regional Workers** (for OAuth2 streaming & sports federation sync):
-   - **Google Drive Import**: External OAuth worker exchanges `GOOGLE_CLIENT_SECRET` for user tokens, streams files to external storage, and passes metadata references to `media_metadata_motoko`.
-   - **PlayHQ Sports Sync**: External sports sync worker pulls fixtures, computes diffs, and submits concise batch updates to `competition_domain_motoko`.
+   - **Google Drive Import**: External OAuth worker exchanges `GOOGLE_CLIENT_SECRET` for user tokens, streams files to external storage, and passes metadata references to `media_metadata`.
+   - **PlayHQ Sports Sync**: External sports sync worker pulls fixtures, computes diffs, and submits concise batch updates to `competition_domain`.
 
 ---
 
@@ -101,7 +101,7 @@ Google Cloud Secret Manager is the preferred runtime secret store for worker-sid
 1. **Privacy Pre-Processing**: Canister extracts chat text, strips direct PII (names, emails, phone numbers) using `pii_access_control` field classification.
 2. **Invocation**: Canister calls external AI Gateway or direct HTTPS Outcall with sanitized transcript.
 3. **Consensus Consensus**: Temperature set to 0.0 with deterministic response extraction.
-4. **Summary Storage**: Summary returned to `messaging_domain_motoko.store_summary(conversation_id, summary_text)`.
+4. **Summary Storage**: Summary returned to `messaging_domain.store_summary(conversation_id, summary_text)`.
 
 ---
 
@@ -160,5 +160,5 @@ gantt
      ```
 
 4. **Step 4: Enable Workload Traffic**
-   - Switch `notification_queue_motoko` to active queue processing.
+   - Switch `notification_queue` to active queue processing.
    - All worker calls are automatically verified, audited in `secret_workload_identity`, and processed with zero master credentials in canister memory.

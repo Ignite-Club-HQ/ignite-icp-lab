@@ -92,40 +92,40 @@ The repository inventory shows 1,147 RLS declarations, 46 helper/RPC functions, 
 
 | Source RLS class | ICP equivalent | Canister method | Production use |
 | :--- | :--- | :--- | :--- |
-| `is_club_member` | role and club membership validation | `club_links_motoko.isMember()` | Club profile and settings access |
-| `is_club_admin` | admin role check | `club_links_motoko.save_club_profile()` | Write access to club settings |
-| Team admin / coach access | scoped team role validation | `events_domain_motoko.hasRole()` | Team-specific controls |
+| `is_club_member` | role and club membership validation | `club_domain.isMember()` | Club profile and settings access |
+| `is_club_admin` | admin role check | `club_domain.save_club_profile()` | Write access to club settings |
+| Team admin / coach access | scoped team role validation | `events_domain.hasRole()` | Team-specific controls |
 | Exclusion policies | exclusion override before role grant | `identity_access.check_exclusion()` | Blocked memberships and suspended users |
-| Club visibility / sponsored content | club visibility + role check | `club_links_motoko.get_club_profile()` | Public or member-only surfaces |
+| Club visibility / sponsored content | club visibility + role check | `club_domain.get_club_profile()` | Public or member-only surfaces |
 
 ### 3.3 Events and participation
 
 | Source RLS class | ICP equivalent | Canister method | Production use |
 | :--- | :--- | :--- | :--- |
-| Event CRUD ownership | organizer/admin role check | `events_domain_motoko.create_event()`, `update_event()` | Event authoring and safe mutation |
-| RSVP ownership | self/guardian permission validation | `events_domain_motoko.set_rsvp()` | RSVP and child-attendee safety |
-| Attendance role checks | official/coach/team admin checks | `events_domain_motoko.set_attendance()` | Attendance and lineup tracking |
-| Recurrence / scheduling limits | validated range logic | `events_domain_motoko.set_recurrence()` | Safe recurrence generation |
+| Event CRUD ownership | organizer/admin role check | `events_domain.create_event()`, `update_event()` | Event authoring and safe mutation |
+| RSVP ownership | self/guardian permission validation | `events_domain.set_rsvp()` | RSVP and child-attendee safety |
+| Attendance role checks | official/coach/team admin checks | `events_domain.set_attendance()` | Attendance and lineup tracking |
+| Recurrence / scheduling limits | validated range logic | `events_domain.set_recurrence()` | Safe recurrence generation |
 | Timer callback scope | job scope + callback capability check | `timer_jobs` | Durable reminders and automatic scheduling |
 
 ### 3.4 Competition access
 
 | Source RLS class | ICP equivalent | Canister method | Production use |
 | :--- | :--- | :--- | :--- |
-| Organizer write authority | organizer role + competition membership | `competition_domain_motoko.update_competition()` | Competition admin controls |
-| Join token creation and expiry | token expiry and replay protection | `competition_domain_motoko.consume_join_token()` | Safe team entry workflows |
-| Official / match result authority | official role + match validation | `competition_domain_motoko.record_match_result()` | Match outcomes and officiating |
-| Participant visibility | entry and competition visibility checks | `competition_domain_motoko.get_competition()` | Public or competition-scoped reads |
+| Organizer write authority | organizer role + competition membership | `competition_domain.update_competition()` | Competition admin controls |
+| Join token creation and expiry | token expiry and replay protection | `competition_domain.consume_join_token()` | Safe team entry workflows |
+| Official / match result authority | official role + match validation | `competition_domain.record_match_result()` | Match outcomes and officiating |
+| Participant visibility | entry and competition visibility checks | `competition_domain.get_competition()` | Public or competition-scoped reads |
 
 ### 3.5 Messaging and media access
 
 | Source RLS class | ICP equivalent | Canister method | Production use |
 | :--- | :--- | :--- | :--- |
-| Chat membership | participant validity check | `messaging_domain_motoko.is_participant()` | Secure conversations |
-| Group moderation | moderator / admin role checks | `messaging_domain_motoko.hasRole("moderator")` | Group moderation |
-| Block list enforcement | blocked-user check | `messaging_domain_motoko.is_blocked()` | User safety and anti-abuse |
-| Media visibility | capability and owner/governor checks | `media_metadata_motoko.check_visibility()` | Child-safe media access |
-| Asset upload + comment permissions | ownership and scope validations | `media_metadata_motoko.register_asset()`, `add_comment()` | Upload and interaction gating |
+| Chat membership | participant validity check | `messaging_domain.is_participant()` | Secure conversations |
+| Group moderation | moderator / admin role checks | `messaging_domain.hasRole("moderator")` | Group moderation |
+| Block list enforcement | blocked-user check | `messaging_domain.is_blocked()` | User safety and anti-abuse |
+| Media visibility | capability and owner/governor checks | `media_metadata.check_visibility()` | Child-safe media access |
+| Asset upload + comment permissions | ownership and scope validations | `media_metadata.register_asset()`, `add_comment()` | Upload and interaction gating |
 
 ### 3.6 Notification and timer workflow access
 

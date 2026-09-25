@@ -300,7 +300,7 @@ pii_storage_mode = "ProtectedEngine"
 
 - `pii_access_control` Motoko implementation: **no refactoring**
 - `secret_workload_identity`: **no refactoring**
-- Domain canisters (club_links_motoko, etc.): **no refactoring**
+- Domain canisters (club_domain, etc.): **no refactoring**
 - Candid interfaces: **no breaking changes**
 - Test suite: **same tests pass on both ordinary and protected hardware**
 

@@ -323,6 +323,10 @@ fn target_for(alias: &str) -> Option<Target> {
             .map(|bytes| decode(&bytes))
     })
 }
+
+fn target_is_available(target: Option<&Target>) -> bool {
+    target.is_some_and(|target| target.enabled && target.healthy)
+}
 fn residency_policy_for(country: &str) -> ResidencyPolicy {
     RESIDENCY_POLICIES
         .with(|items| {
@@ -402,8 +406,16 @@ fn get_decision(club_id: String) -> Outcome<Option<Decision>> {
             .get(&club_id.as_bytes().to_vec())
             .map(|bytes| decode::<ResidencyAssignment>(&bytes))
     });
+    let target_available = residency
+        .as_ref()
+        .map(|r| target_for(&r.target_alias))
+        .flatten()
+        .as_ref()
+        .map(|target| target_is_available(Some(target)))
+        .unwrap_or(residency.is_none());
     let site_enabled = if let Some(ref r) = residency {
-        if let Some(target) = target_for(&r.target_alias) {
+        let target = target_for(&r.target_alias);
+        if let Some(ref target) = target {
             if let Some(ref s) = target.site_id {
                 SITE_AVAILABILITY.with(|map| {
                     map.borrow()
@@ -415,18 +427,24 @@ fn get_decision(club_id: String) -> Outcome<Option<Decision>> {
                 true
             }
         } else {
-            true
+            false
         }
     } else {
         true
     };
-    let writable = enabled && allowed && site_enabled && placement.state == PlacementState::Active;
+    let writable = enabled
+        && allowed
+        && target_available
+        && site_enabled
+        && placement.state == PlacementState::Active;
     let reason = if placement.state != PlacementState::Active {
         format!("Placement state: {:?}", placement.state)
     } else if !enabled {
         "Backend disabled".into()
     } else if !allowed {
         "Backend disallowed in country".into()
+    } else if !target_available {
+        "Target unavailable".into()
     } else if !site_enabled {
         "Site disabled".into()
     } else {
@@ -986,6 +1004,32 @@ mod tests {
                 .unwrap_or(true)
         });
         assert!(default_enabled);
+    }
+
+    #[test]
+    fn target_must_be_enabled_and_healthy_for_writes() {
+        let target = Target {
+            alias: "target".into(),
+            site_id: None,
+            profile: "profile".into(),
+            backend: Backend::Supabase {
+                environment: "lab".into(),
+            },
+            deployment_class: "synthetic".into(),
+            enabled: true,
+            healthy: true,
+            version: 1,
+        };
+        assert!(target_is_available(Some(&target)));
+        assert!(!target_is_available(Some(&Target {
+            enabled: false,
+            ..target.clone()
+        })));
+        assert!(!target_is_available(Some(&Target {
+            healthy: false,
+            ..target
+        })));
+        assert!(!target_is_available(None));
     }
 }
 

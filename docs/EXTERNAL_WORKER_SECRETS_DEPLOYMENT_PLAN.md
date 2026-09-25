@@ -58,12 +58,12 @@ curl -X POST http://<registry>:8000/register-workload \
 
 | Secret | Type | Source | Deployment | Workload Identity Scope | Queue Integration |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `RESEND_API_KEY` | API Key | Resend Dashboard | Email Delivery Worker | `send-email-notification` | `notification_queue_motoko.claim()` |
+| `RESEND_API_KEY` | API Key | Resend Dashboard | Email Delivery Worker | `send-email-notification` | `notification_queue.claim()` |
 | `RESEND_API_KEY` (Backup/Testing) | API Key | Resend Dashboard | Email Delivery Worker (Fallback) | `send-email-notification-backup` | On primary worker circuit-break |
 
 **Deployment Architecture**:
 ```
-notification_queue_motoko (ICP)
+notification_queue (ICP)
     │ (1) claims pending email jobs
     ▼
 Email Delivery Worker (Cloudflare / Lambda)
@@ -76,7 +76,7 @@ Resend Email API
 Worker ACKs delivery / records failure
     │ (5) updates canister with delivery status
     ▼
-notification_queue_motoko
+notification_queue
 ```
 
 **Workload Identity Registration**:
@@ -105,7 +105,7 @@ await secret_workload_identity.register_workload(
 
 **Deployment Architecture**:
 ```
-notification_queue_motoko
+notification_queue
     │ (1) claims APNs / FCM / Web Push jobs
     ▼
 Push Delivery Worker (Single Worker, Multi-Provider)
@@ -118,7 +118,7 @@ Push Delivery Worker (Single Worker, Multi-Provider)
     
     ▼ (3) Record delivery status (delivered / bounced / unregistered)
     
-notification_queue_motoko (update delivery status)
+notification_queue (update delivery status)
 ```
 
 **Workload Identity Registration**:
@@ -153,7 +153,7 @@ done
 [Drive Sync Worker]
     ├── (1) Exchange auth code for user's Google OAuth token (using GOOGLE_CLIENT_SECRET)
     ├── (2) Stream user's Google Drive folders & files to encrypted external storage
-    ├── (3) Post metadata to media_metadata_motoko
+    ├── (3) Post metadata to media_metadata
     └── (4) verify_secret_access("google-oauth-exchange", nonce) + audit log
     
 [Venue Search]

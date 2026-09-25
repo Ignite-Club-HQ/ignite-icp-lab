@@ -18,7 +18,7 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 | **RLS Helpers/RPCs** | 46 | 100% mapped to canister logic |
 | **Edge Functions** | 181 | 81 implemented/proven; 19 external boundary |
 | **Durable Timers** | 12 | Mapped to timer_jobs; 8 parity tests passing |
-| **Notification Queues** | 7 | Mapped to notification_queue_motoko; 5 parity tests passing |
+| **Notification Queues** | 7 | Mapped to notification_queue; 5 parity tests passing |
 | **Canister Methods** | 93 | Implemented across 13 canisters; 28 proven |
 | **Tests** | 45 | All passing; coverage: 62% of domain RLS |
 
@@ -30,26 +30,26 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Helper Name | Source Table | ICP Implementation | Status | Test Coverage |
 | :--- | :--- | :--- | :---: | :--- |
-| `has_role(user_id, role, club_id, team_id)` | roles, members | `club_links_motoko.isMember()`, `events_domain_motoko.hasRole()` | ✅ | `adapter.test.tsx` |
-| `is_club_member(user_id, club_id)` | club_members | `club_links_motoko.isMember()` | ✅ | `adapter.test.tsx` |
-| `is_team_member(user_id, team_id)` | team_members | `events_domain_motoko.hasRole(caller, "team_member", club, team)` | ✅ | `editor.test.tsx` |
+| `has_role(user_id, role, club_id, team_id)` | roles, members | `club_domain.isMember()`, `events_domain.hasRole()` | ✅ | `adapter.test.tsx` |
+| `is_club_member(user_id, club_id)` | club_members | `club_domain.isMember()` | ✅ | `adapter.test.tsx` |
+| `is_team_member(user_id, team_id)` | team_members | `events_domain.hasRole(caller, "team_member", club, team)` | ✅ | `editor.test.tsx` |
 | `is_parent_of_child(parent_id, child_id)` | family_relations | `identity_access.verify_guardian_link()` | 🟡 | `account-linking.test.tsx` (partial) |
 | `is_guardian_of_child(guardian_id, child_id)` | guardianships | `identity_access.verify_guardian_link()` | 🟡 | `account-linking.test.tsx` (partial) |
-| `can_access_chat(user_id, conversation_id)` | conversations, participants | `messaging_domain_motoko.is_participant()` | 🟡 | `hybrid-message-routing.test.tsx` |
-| `can_access_chat_group(user_id, group_id)` | chat_groups | `messaging_domain_motoko.is_group_member()` | 🟡 | hybrid tests pending |
-| `can_view_album(user_id, album_id)` | albums, viewers | `media_metadata_motoko.check_visibility()` | 🟡 | `hybrid-media-routing.test.tsx` |
-| `can_manage_event_groups(user_id, club_id)` | clubs, admins | `events_domain_motoko.hasRole(caller, "club_admin", club)` | ✅ | `editor.test.tsx` |
+| `can_access_chat(user_id, conversation_id)` | conversations, participants | `messaging_domain.is_participant()` | 🟡 | `hybrid-message-routing.test.tsx` |
+| `can_access_chat_group(user_id, group_id)` | chat_groups | `messaging_domain.is_group_member()` | 🟡 | hybrid tests pending |
+| `can_view_album(user_id, album_id)` | albums, viewers | `media_metadata.check_visibility()` | 🟡 | `hybrid-media-routing.test.tsx` |
+| `can_manage_event_groups(user_id, club_id)` | clubs, admins | `events_domain.hasRole(caller, "club_admin", club)` | ✅ | `editor.test.tsx` |
 | `can_view_profile_section(user_id, profile_id, section)` | profiles, privacy | `identity_access.check_field_access()` | 🟡 | PII tests pending |
-| `can_send_message(user_id, conversation_id)` | messages, participants | `messaging_domain_motoko.send_message()` with participant check | 🟡 | `hybrid-message-routing.test.tsx` |
-| `is_message_author(user_id, message_id)` | messages | `messaging_domain_motoko.delete_message()` ownership check | 🟡 | deletion tests pending |
-| `is_group_moderator(user_id, group_id)` | group_admins | `messaging_domain_motoko.hasRole("moderator")` | 🟡 | moderation tests pending |
-| `is_blocked_user(user_id, blocked_by_id)` | blocked_users | `messaging_domain_motoko.is_blocked()` | 🟡 | `hybrid-message-routing.test.tsx` |
-| `can_upload_media(user_id, club_id)` | media_uploads | `media_metadata_motoko.register_asset()` with permission check | 🟡 | `hybrid-media-routing.test.tsx` |
-| `can_comment_asset(user_id, asset_id)` | asset_comments | `media_metadata_motoko.add_comment()` with permission check | 🟡 | comment tests pending |
-| `can_view_private_competition(user_id, competition_id)` | competitions | `competition_domain_motoko.get_competition()` with visibility check | 🟡 | `hybrid-integration.test.tsx` |
-| `can_manage_competition(organizer_id, competition_id)` | competitions | `competition_domain_motoko.update_competition()` organizer check | 🟡 | organizer tests pending |
-| `can_submit_match_result(official_id, match_id)` | matches, officials | `competition_domain_motoko.record_match_result()` official check | 🟡 | official tests pending |
-| `can_participate_competition(user_id, competition_id)` | participants | `competition_domain_motoko.register_team()` with join token | 🟡 | `hybrid-integration.test.tsx` |
+| `can_send_message(user_id, conversation_id)` | messages, participants | `messaging_domain.send_message()` with participant check | 🟡 | `hybrid-message-routing.test.tsx` |
+| `is_message_author(user_id, message_id)` | messages | `messaging_domain.delete_message()` ownership check | 🟡 | deletion tests pending |
+| `is_group_moderator(user_id, group_id)` | group_admins | `messaging_domain.hasRole("moderator")` | 🟡 | moderation tests pending |
+| `is_blocked_user(user_id, blocked_by_id)` | blocked_users | `messaging_domain.is_blocked()` | 🟡 | `hybrid-message-routing.test.tsx` |
+| `can_upload_media(user_id, club_id)` | media_uploads | `media_metadata.register_asset()` with permission check | 🟡 | `hybrid-media-routing.test.tsx` |
+| `can_comment_asset(user_id, asset_id)` | asset_comments | `media_metadata.add_comment()` with permission check | 🟡 | comment tests pending |
+| `can_view_private_competition(user_id, competition_id)` | competitions | `competition_domain.get_competition()` with visibility check | 🟡 | `hybrid-integration.test.tsx` |
+| `can_manage_competition(organizer_id, competition_id)` | competitions | `competition_domain.update_competition()` organizer check | 🟡 | organizer tests pending |
+| `can_submit_match_result(official_id, match_id)` | matches, officials | `competition_domain.record_match_result()` official check | 🟡 | official tests pending |
+| `can_participate_competition(user_id, competition_id)` | participants | `competition_domain.register_team()` with join token | 🟡 | `hybrid-integration.test.tsx` |
 | Remaining 26 helpers (PII erasure, retention, subscription, billing) | Various | `pii_access_control`, `secret_workload_identity`, external workers | 🟡 | Integration tests in progress |
 
 **Status Breakdown:** 2 proven (✅), 26 partially tested (🟡), 18 pending full parity (🔲)
@@ -87,7 +87,7 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
 | `is_app_admin(user_id)` | Global admin role | `governor.equal(caller)` | Check in all canisters | ✅ |
-| `has_role(user_id, role, club_id)` | Club/team role | `club_links_motoko.isAdmin()`, `events_domain_motoko.hasRole()` | Query/Update | ✅ |
+| `has_role(user_id, role, club_id)` | Club/team role | `club_domain.isAdmin()`, `events_domain.hasRole()` | Query/Update | ✅ |
 | `is_excluded_from_club(user_id, club_id)` | Exclusion check | `identity_access.check_exclusion()` | Query | 🟡 |
 | `is_excluded_from_team(user_id, team_id)` | Team exclusion | `identity_access.check_exclusion()` | Query | 🟡 |
 | `parent_role_trumps_guest(user_id, child_id)` | Guardian priority | `identity_access.verify_guardian_link()` | Query | 🟡 |
@@ -115,36 +115,36 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `clubs.public = true OR is_club_member(user_id, club)` | Public/member club read | `club_links_motoko.get_club_profile()` | Query | ✅ |
-| `is_club_admin(user_id, club_id)` | Club admin write | `club_links_motoko.save_club_profile()` | Update | ✅ |
+| `clubs.public = true OR is_club_member(user_id, club)` | Public/member club read | `club_domain.get_club_profile()` | Query | ✅ |
+| `is_club_admin(user_id, club_id)` | Club admin write | `club_domain.save_club_profile()` | Update | ✅ |
 | `is_excluded_from_club(user_id, club_id)` | Exclusion blocks access | `identity_access.check_exclusion()` | Query (pre-check) | 🟡 |
-| `club_members.role IN ('admin', 'coach', 'volunteer')` | Role-based access | `club_links_motoko.acl` + `events_domain_motoko.hasRole()` | Query | 🟡 |
+| `club_members.role IN ('admin', 'coach', 'volunteer')` | Role-based access | `club_domain.acl` + `events_domain.hasRole()` | Query | 🟡 |
 | Club visibility cascade (50 policies) | Read/write propagation | Domain canister checks | Various | 🟡 |
 | Remaining 20 policies | Ownership, team nesting | Domain-scoped | Various | 🟡 |
 
-**Mapping:** All 85 policies assigned to `club_links_motoko` and `events_domain_motoko`. Tests: 5 passing (profile CRUD, admin checks); 80 parity tests pending.
+**Mapping:** All 85 policies assigned to `club_domain` and `events_domain`. Tests: 5 passing (profile CRUD, admin checks); 80 parity tests pending.
 
 #### Teams & Rosters (80 policies)
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `teams.club_id = club_context` | Team scope to club | `events_domain_motoko` team creation | Update | 🟡 |
-| `is_team_coach(user_id, team_id)` | Coach authorization | `events_domain_motoko.hasRole("coach", club, team)` | Query/Update | 🟡 |
-| `is_team_admin(user_id, team_id)` | Team admin | `events_domain_motoko.hasRole("team_admin", club, team)` | Query/Update | 🟡 |
-| `roster_entries.parent = auth.uid()` | Parent roster access | `events_domain_motoko.set_roster()` with parent check | Update | 🟡 |
+| `teams.club_id = club_context` | Team scope to club | `events_domain` team creation | Update | 🟡 |
+| `is_team_coach(user_id, team_id)` | Coach authorization | `events_domain.hasRole("coach", club, team)` | Query/Update | 🟡 |
+| `is_team_admin(user_id, team_id)` | Team admin | `events_domain.hasRole("team_admin", club, team)` | Query/Update | 🟡 |
+| `roster_entries.parent = auth.uid()` | Parent roster access | `events_domain.set_roster()` with parent check | Update | 🟡 |
 | Remaining 45 policies | Duty, lineup, substitutes | Event-scoped | Various | 🟡 |
 
-**Mapping:** All 80 policies assigned to `events_domain_motoko`. Tests: 0 directly; roster/duty coverage pending.
+**Mapping:** All 80 policies assigned to `events_domain`. Tests: 0 directly; roster/duty coverage pending.
 
 #### Sponsorships & Settings (45 policies)
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `sponsors.club_id = club_context` | Sponsor scope | `club_links_motoko.save_sponsor()` | Update | 🟡 |
-| `club_settings.club_id = club_context` | Settings ownership | `club_links_motoko.save_club_settings()` | Update | 🟡 |
+| `sponsors.club_id = club_context` | Sponsor scope | `club_domain.save_sponsor()` | Update | 🟡 |
+| `club_settings.club_id = club_context` | Settings ownership | `club_domain.save_club_settings()` | Update | 🟡 |
 | Remaining 43 policies | Branding, quota, retention | Scoped updates | Various | 🟡 |
 
-**Mapping:** All 45 policies assigned to `club_links_motoko` update methods. Tests: 0 directly; CRUD tests pending.
+**Mapping:** All 45 policies assigned to `club_domain` update methods. Tests: 0 directly; CRUD tests pending.
 
 ---
 
@@ -154,10 +154,10 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `can_manage_event_groups(caller, club_id)` | Event creator | `events_domain_motoko.create_event()` | Update | ✅ |
+| `can_manage_event_groups(caller, club_id)` | Event creator | `events_domain.create_event()` | Update | ✅ |
 | `events.club_id = club_context` | Event scope to club | Event creation/read filtered by club | Query/Update | 🟡 |
-| `event.creator = auth.uid() OR is_team_admin(auth.uid(), team)` | Event edit authority | `events_domain_motoko.update_event()` manages check | Update | 🟡 |
-| Recurrence bounds (5 policies) | Max 52 occurrences | `events_domain_motoko.set_recurrence()` validation | Update | 🟡 |
+| `event.creator = auth.uid() OR is_team_admin(auth.uid(), team)` | Event edit authority | `events_domain.update_event()` manages check | Update | 🟡 |
+| Recurrence bounds (5 policies) | Max 52 occurrences | `events_domain.set_recurrence()` validation | Update | 🟡 |
 | Remaining 40 policies | Archive, delete, restore | Scoped updates + timers | Various | 🟡 |
 
 **Mapping:** All 55 policies assigned. Tests: 6 passing (create, update, list by club); 49 parity tests pending.
@@ -166,10 +166,10 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `event_rsvps.account_id = auth.uid() OR is_parent_of(auth.uid(), account_id)` | RSVP self/child | `events_domain_motoko.set_rsvp()` with parent check | Update | 🟡 |
-| `event_attendance.coach = auth.uid() OR is_team_admin(...)` | Attendance tracking | `events_domain_motoko.set_attendance()` manages check | Update | 🟡 |
+| `event_rsvps.account_id = auth.uid() OR is_parent_of(auth.uid(), account_id)` | RSVP self/child | `events_domain.set_rsvp()` with parent check | Update | 🟡 |
+| `event_attendance.coach = auth.uid() OR is_team_admin(...)` | Attendance tracking | `events_domain.set_attendance()` manages check | Update | 🟡 |
 | `rsvp.state IN ('yes', 'no', 'maybe')` | State validation | `set_rsvp()` state enum | Update | 🟡 |
-| RSVP reminders (30 policies) | Cadence, opt-in, timing | `timer_jobs` + `notification_queue_motoko` | Timer | 🟡 |
+| RSVP reminders (30 policies) | Cadence, opt-in, timing | `timer_jobs` + `notification_queue` | Timer | 🟡 |
 | Remaining 20 policies | Late RSVP, default confirmations | Timer + queue | Various | 🟡 |
 
 **Mapping:** All 65 policies assigned. Tests: 1 passing (basic RSVP set); 64 parity tests pending.
@@ -178,10 +178,10 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `event_lineups.coach = auth.uid() OR is_team_admin(...)` | Lineup management | `events_domain_motoko.add_lineup()` manages check | Update | 🟡 |
-| `event_duties.volunteer = auth.uid() OR is_team_admin(...)` | Duty assignment | `events_domain_motoko.set_duty()` manages check | Update | 🟡 |
-| `roster_entries.parent = auth.uid() OR is_team_admin(...)` | Roster visibility | `events_domain_motoko.set_roster()` manages check | Update | 🟡 |
-| Duty points calculation (15 policies) | Volunteer scoring | `timer_jobs` + `events_domain_motoko` | Timer | 🟡 |
+| `event_lineups.coach = auth.uid() OR is_team_admin(...)` | Lineup management | `events_domain.add_lineup()` manages check | Update | 🟡 |
+| `event_duties.volunteer = auth.uid() OR is_team_admin(...)` | Duty assignment | `events_domain.set_duty()` manages check | Update | 🟡 |
+| `roster_entries.parent = auth.uid() OR is_team_admin(...)` | Roster visibility | `events_domain.set_roster()` manages check | Update | 🟡 |
+| Duty points calculation (15 policies) | Volunteer scoring | `timer_jobs` + `events_domain` | Timer | 🟡 |
 | Remaining 50 policies | Substitutes, assignments, archival | Scoped updates + timers | Various | 🟡 |
 
 **Mapping:** All 75 policies assigned. Tests: 0 directly; lineup/duty/roster tests pending.
@@ -194,20 +194,20 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `competitions.public = true OR is_participant(user_id, competition)` | Competition visibility | `competition_domain_motoko.get_competition()` | Query | 🟡 |
-| `competitions.organizer_id = auth.uid()` | Organizer write | `competition_domain_motoko.update_competition()` ownership check | Update | 🟡 |
-| `is_official(user_id, competition_id)` | Official role | `competition_domain_motoko` role check | Query/Update | 🟡 |
+| `competitions.public = true OR is_participant(user_id, competition)` | Competition visibility | `competition_domain.get_competition()` | Query | 🟡 |
+| `competitions.organizer_id = auth.uid()` | Organizer write | `competition_domain.update_competition()` ownership check | Update | 🟡 |
+| `is_official(user_id, competition_id)` | Official role | `competition_domain` role check | Query/Update | 🟡 |
 | Remaining 30 policies | Archive, delete, restore | Scoped updates | Various | 🟡 |
 
-**Mapping:** All 40 policies assigned to `competition_domain_motoko`. Tests: 2 passing (competition create/read); 38 parity tests pending.
+**Mapping:** All 40 policies assigned to `competition_domain`. Tests: 2 passing (competition create/read); 38 parity tests pending.
 
 #### Entries & Join Tokens (35 policies)
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `teams.club_id IN (user_clubs)` | Entry team scope | `competition_domain_motoko.register_team()` team validation | Update | 🟡 |
-| `join_tokens.competition_id = competition_context` | Token scoping | `competition_domain_motoko.consume_join_token()` | Update | 🟡 |
-| `join_tokens.created_at + 7 days > now()` | Token expiry | `competition_domain_motoko.consume_join_token()` validation | Update | 🟡 |
+| `teams.club_id IN (user_clubs)` | Entry team scope | `competition_domain.register_team()` team validation | Update | 🟡 |
+| `join_tokens.competition_id = competition_context` | Token scoping | `competition_domain.consume_join_token()` | Update | 🟡 |
+| `join_tokens.created_at + 7 days > now()` | Token expiry | `competition_domain.consume_join_token()` validation | Update | 🟡 |
 | Remaining 20 policies | One-time use, rate limits | Update method validation | Various | 🟡 |
 
 **Mapping:** All 35 policies assigned. Tests: 0 directly; join token tests pending.
@@ -216,9 +216,9 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `competition_matches.status IN ('draft', 'final')` | Match state | `competition_domain_motoko.record_match_result()` state check | Update | 🟡 |
-| `is_official(auth.uid(), match.competition)` | Official record authority | `competition_domain_motoko.record_match_result()` official check | Update | 🟡 |
-| `match.recorded_at < current_timestamp` | Archive fence | `competition_domain_motoko.record_match_result()` timestamp check | Update | 🟡 |
+| `competition_matches.status IN ('draft', 'final')` | Match state | `competition_domain.record_match_result()` state check | Update | 🟡 |
+| `is_official(auth.uid(), match.competition)` | Official record authority | `competition_domain.record_match_result()` official check | Update | 🟡 |
+| `match.recorded_at < current_timestamp` | Archive fence | `competition_domain.record_match_result()` timestamp check | Update | 🟡 |
 | Remaining 20 policies | Corrections, reversals, appeals | Scoped updates | Various | 🟡 |
 
 **Mapping:** All 40 policies assigned. Tests: 0 directly; match/result tests pending.
@@ -227,7 +227,7 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `standings (read-only derived)` | Computed from matches | `competition_domain_motoko.export_state()` with standings | Query | 🟡 |
+| `standings (read-only derived)` | Computed from matches | `competition_domain.export_state()` with standings | Query | 🟡 |
 | Remaining 34 policies | Leaderboards, stats, archives | Query-only derivations | Various | 🟡 |
 
 **Mapping:** All 35 policies assigned. Tests: 0 directly; standings tests pending.
@@ -240,21 +240,21 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `conversations.participants @> [auth.uid()]` | Participant membership | `messaging_domain_motoko.list_messages()` caller check | Query | 🟡 |
-| `is_blocked_user(auth.uid(), other_user)` | Blocked user exclusion | `messaging_domain_motoko.is_blocked()` + send_message check | Update | 🟡 |
+| `conversations.participants @> [auth.uid()]` | Participant membership | `messaging_domain.list_messages()` caller check | Query | 🟡 |
+| `is_blocked_user(auth.uid(), other_user)` | Blocked user exclusion | `messaging_domain.is_blocked()` + send_message check | Update | 🟡 |
 | `conversation.created_at < archive_threshold` | Archive read-only | Timer + cleanup boundary | Timer | 🟡 |
 | Remaining 40 policies | Group creation, exclusions, invites | Scoped creation + checks | Various | 🟡 |
 
-**Mapping:** All 50 policies assigned to `messaging_domain_motoko`. Tests: 0 directly; conversation CRUD tests pending.
+**Mapping:** All 50 policies assigned to `messaging_domain`. Tests: 0 directly; conversation CRUD tests pending.
 
 #### Messages & Delivery (60 policies)
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `messages.conversation_id IN (user_conversations)` | Message scope | `messaging_domain_motoko.send_message()` caller participant check | Update | 🟡 |
-| `messages.sender_id = auth.uid()` | Self-only edit/delete | `messaging_domain_motoko.delete_message()` ownership check | Update | 🟡 |
-| `messages.sequence IS AUTOINCREMENT` | Monotonic ordering | `messaging_domain_motoko` sequence assignment | Update | 🟡 |
-| Message reads (30 policies) | Pagination, cursors, retention | `messaging_domain_motoko.list_messages_page()` bounded | Query | 🟡 |
+| `messages.conversation_id IN (user_conversations)` | Message scope | `messaging_domain.send_message()` caller participant check | Update | 🟡 |
+| `messages.sender_id = auth.uid()` | Self-only edit/delete | `messaging_domain.delete_message()` ownership check | Update | 🟡 |
+| `messages.sequence IS AUTOINCREMENT` | Monotonic ordering | `messaging_domain` sequence assignment | Update | 🟡 |
+| Message reads (30 policies) | Pagination, cursors, retention | `messaging_domain.list_messages_page()` bounded | Query | 🟡 |
 | Remaining 20 policies | Reactions, polls, scheduled | External features | Various | 🔲 |
 
 **Mapping:** All 60 policies assigned. Tests: 2 passing (send_message, list_messages_page); 58 parity tests pending.
@@ -264,7 +264,7 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
 | `message_receipts.user_id = auth.uid()` | Receipt ownership | Implicitly handled in list_messages_page | Query | 🟡 |
-| `message_receipts.read_at IS NULL` | Unread tracking | `notification_queue_motoko` integration | Query | 🟡 |
+| `message_receipts.read_at IS NULL` | Unread tracking | `notification_queue` integration | Query | 🟡 |
 | Remaining 40 policies | Notifications, DM alerts, mentions | Queue delivery + preferences | External | 🟡 |
 
 **Mapping:** All 50 policies assigned. Tests: 0 directly; receipt/notification tests pending.
@@ -277,19 +277,19 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `media_assets.album_id IN (user_albums)` | Album membership | `media_metadata_motoko.get_asset()` visibility check | Query | 🟡 |
-| `is_uploader_or_admin(auth.uid(), asset_id)` | Asset edit authority | `media_metadata_motoko.delete_asset()` ownership check | Update | 🟡 |
-| `is_child_photo_permission(auth.uid(), child_id, asset)` | Child media permission | `media_metadata_motoko.issue_capability()` + `pii_access_control` | Update | 🟡 |
+| `media_assets.album_id IN (user_albums)` | Album membership | `media_metadata.get_asset()` visibility check | Query | 🟡 |
+| `is_uploader_or_admin(auth.uid(), asset_id)` | Asset edit authority | `media_metadata.delete_asset()` ownership check | Update | 🟡 |
+| `is_child_photo_permission(auth.uid(), child_id, asset)` | Child media permission | `media_metadata.issue_capability()` + `pii_access_control` | Update | 🟡 |
 | Remaining 30 policies | Album creation, sharing, archival | Scoped creation + checks | Various | 🟡 |
 
-**Mapping:** All 50 policies assigned to `media_metadata_motoko`. Tests: 0 directly; asset CRUD tests pending.
+**Mapping:** All 50 policies assigned to `media_metadata`. Tests: 0 directly; asset CRUD tests pending.
 
 #### Comments & Engagement (30 policies)
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `asset_comments.uploader_id = auth.uid()` | Comment ownership | `media_metadata_motoko` (comment feature deferred) | Update | 🔲 |
-| `asset_comments (read by album members)` | Comment visibility | `media_metadata_motoko` (read deferred) | Query | 🔲 |
+| `asset_comments.uploader_id = auth.uid()` | Comment ownership | `media_metadata` (comment feature deferred) | Update | 🔲 |
+| `asset_comments (read by album members)` | Comment visibility | `media_metadata` (read deferred) | Query | 🔲 |
 | Remaining 20 policies | Reactions, mentions | Deferred features | Various | 🔲 |
 
 **Mapping:** All 30 policies scoped to deferred feature boundary. Tests: None.
@@ -298,9 +298,9 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `media_capabilities.holder = auth.uid()` | Capability holder | `media_metadata_motoko.issue_capability()` assignment | Update | 🟡 |
-| `capability.expires_at > now()` | Expiry enforcement | `media_metadata_motoko.export_state()` filtering | Query | 🟡 |
-| `retention_schedule` | Scheduled deletion | `timer_jobs` + `media_metadata_motoko` | Timer | 🟡 |
+| `media_capabilities.holder = auth.uid()` | Capability holder | `media_metadata.issue_capability()` assignment | Update | 🟡 |
+| `capability.expires_at > now()` | Expiry enforcement | `media_metadata.export_state()` filtering | Query | 🟡 |
+| `retention_schedule` | Scheduled deletion | `timer_jobs` + `media_metadata` | Timer | 🟡 |
 | Remaining 25 policies | Revocation, audit, storage limits | Scoped checks + timers | Various | 🟡 |
 
 **Mapping:** All 40 policies assigned. Tests: 0 directly; capability/retention tests pending.
@@ -309,7 +309,7 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `albums.club_id = club_context` | Album scope | `media_metadata_motoko` creation filter | Update | 🟡 |
+| `albums.club_id = club_context` | Album scope | `media_metadata` creation filter | Update | 🟡 |
 | `albums.created_by = auth.uid()` | Album ownership | Implicit in creation | Update | 🟡 |
 | Remaining 15 policies | Sharing, invitations | Deferred | Various | 🔲 |
 
@@ -323,13 +323,13 @@ This audit documents the complete mapping of every Supabase Row Level Security (
 
 | Policy | Supabase Rule | ICP Implementation | Method | Status |
 | :--- | :--- | :--- | :--- | :---: |
-| `notifications.recipient_id = auth.uid()` | Recipient ownership | `notification_queue_motoko.get_notification()` caller check | Query | 🟡 |
-| `notifications.domain_scope IN (user_domains)` | Domain filtering | `notification_queue_motoko.claim()` scope filter | Update | 🟡 |
-| `notifications.preference_honored` | Recipient opt-in | `notification_queue_motoko` delivery check | Query | 🟡 |
-| Notification worker claims (30 policies) | Pull-based claiming | `notification_queue_motoko.claim()` + external worker | Update | 🟡 |
+| `notifications.recipient_id = auth.uid()` | Recipient ownership | `notification_queue.get_notification()` caller check | Query | 🟡 |
+| `notifications.domain_scope IN (user_domains)` | Domain filtering | `notification_queue.claim()` scope filter | Update | 🟡 |
+| `notifications.preference_honored` | Recipient opt-in | `notification_queue` delivery check | Query | 🟡 |
+| Notification worker claims (30 policies) | Pull-based claiming | `notification_queue.claim()` + external worker | Update | 🟡 |
 | Remaining 40 policies | Retry, failure, cleanup | Timer + queue handlers | Various | 🟡 |
 
-**Mapping:** All 90 policies assigned to `notification_queue_motoko`. Tests: 4 passing (enqueue, claim, get_notification, mark_delivered); 86 parity tests pending.
+**Mapping:** All 90 policies assigned to `notification_queue`. Tests: 4 passing (enqueue, claim, get_notification, mark_delivered); 86 parity tests pending.
 
 #### Timer Jobs (80 policies)
 
@@ -363,46 +363,46 @@ Transferred to domain canisters as public query/update methods.
 
 | Source Function | Target Canister | Method | Status | Test |
 | :--- | :--- | :--- | :--- | :--- |
-| `public-club-list` | `club_links_motoko` | `list_clubs()` | ✅ | N/A |
-| `public-club-details` | `club_links_motoko` | `get_club_profile()` | ✅ | N/A |
-| `public-club-teams` | `club_links_motoko` | `list_teams()` | ✅ | N/A |
-| `public-club-sponsors` | `club_links_motoko` | `list_sponsors()` | ✅ | N/A |
-| `get-club-settings` | `club_links_motoko` | `get_club_settings()` | ✅ | N/A |
-| `save-club-profile` | `club_links_motoko` | `save_club_profile()` | ✅ | N/A |
-| `save-club-settings` | `club_links_motoko` | `save_club_settings()` | ✅ | N/A |
-| `save-team` | `club_links_motoko` | `save_team()` | ✅ | N/A |
-| `save-sponsor` | `club_links_motoko` | `save_sponsor()` | ✅ | N/A |
-| `list-events` | `events_domain_motoko` | `list_events()` | ✅ | N/A |
-| `create-event` | `events_domain_motoko` | `create_event()` | ✅ | `editor.test.tsx` |
-| `update-event` | `events_domain_motoko` | `update_event()` | ✅ | `editor.test.tsx` |
-| `set-event-rsvp` | `events_domain_motoko` | `set_rsvp()` | ✅ | N/A |
-| `set-event-attendance` | `events_domain_motoko` | `set_attendance()` | ✅ | N/A |
-| `set-event-lineup` | `events_domain_motoko` | `add_lineup()` | ✅ | N/A |
-| `set-event-duty` | `events_domain_motoko` | `set_duty()` | ✅ | N/A |
-| `set-event-roster` | `events_domain_motoko` | `set_roster()` | ✅ | N/A |
-| `set-event-recurrence` | `events_domain_motoko` | `set_recurrence()` | ✅ | N/A |
-| `get-competition` | `competition_domain_motoko` | `get_competition()` | ✅ | `hybrid-integration.test.tsx` |
-| `create-competition` | `competition_domain_motoko` | `create_competition()` | ✅ | `hybrid-integration.test.tsx` |
-| `update-competition` | `competition_domain_motoko` | `update_competition()` | ✅ | N/A |
-| `register-team-in-competition` | `competition_domain_motoko` | `register_team()` | ✅ | N/A |
-| `record-match-result` | `competition_domain_motoko` | `record_match_result()` | ✅ | N/A |
-| `create-join-token` | `competition_domain_motoko` | `create_join_token()` | ✅ | N/A |
-| `consume-join-token` | `competition_domain_motoko` | `consume_join_token()` | ✅ | N/A |
-| `create-conversation` | `messaging_domain_motoko` | `create_conversation()` | ✅ | `hybrid-message-routing.test.tsx` |
-| `send-message` | `messaging_domain_motoko` | `send_message()` | ✅ | `hybrid-message-routing.test.tsx` |
-| `list-messages` | `messaging_domain_motoko` | `list_messages_page()` | ✅ | `hybrid-message-routing.test.tsx` |
-| `delete-message` | `messaging_domain_motoko` | `delete_message()` | ✅ | N/A |
-| `mark-messages-read` | `messaging_domain_motoko` | `mark_read()` | ✅ | N/A |
-| `register-media-asset` | `media_metadata_motoko` | `register_asset()` | ✅ | `hybrid-media-routing.test.tsx` |
-| `get-media-asset` | `media_metadata_motoko` | `get_asset()` | ✅ | `hybrid-media-routing.test.tsx` |
-| `delete-media-asset` | `media_metadata_motoko` | `delete_asset()` | ✅ | N/A |
-| `issue-media-capability` | `media_metadata_motoko` | `issue_capability()` | ✅ | N/A |
+| `public-club-list` | `club_domain` | `list_clubs()` | ✅ | N/A |
+| `public-club-details` | `club_domain` | `get_club_profile()` | ✅ | N/A |
+| `public-club-teams` | `club_domain` | `list_teams()` | ✅ | N/A |
+| `public-club-sponsors` | `club_domain` | `list_sponsors()` | ✅ | N/A |
+| `get-club-settings` | `club_domain` | `get_club_settings()` | ✅ | N/A |
+| `save-club-profile` | `club_domain` | `save_club_profile()` | ✅ | N/A |
+| `save-club-settings` | `club_domain` | `save_club_settings()` | ✅ | N/A |
+| `save-team` | `club_domain` | `save_team()` | ✅ | N/A |
+| `save-sponsor` | `club_domain` | `save_sponsor()` | ✅ | N/A |
+| `list-events` | `events_domain` | `list_events()` | ✅ | N/A |
+| `create-event` | `events_domain` | `create_event()` | ✅ | `editor.test.tsx` |
+| `update-event` | `events_domain` | `update_event()` | ✅ | `editor.test.tsx` |
+| `set-event-rsvp` | `events_domain` | `set_rsvp()` | ✅ | N/A |
+| `set-event-attendance` | `events_domain` | `set_attendance()` | ✅ | N/A |
+| `set-event-lineup` | `events_domain` | `add_lineup()` | ✅ | N/A |
+| `set-event-duty` | `events_domain` | `set_duty()` | ✅ | N/A |
+| `set-event-roster` | `events_domain` | `set_roster()` | ✅ | N/A |
+| `set-event-recurrence` | `events_domain` | `set_recurrence()` | ✅ | N/A |
+| `get-competition` | `competition_domain` | `get_competition()` | ✅ | `hybrid-integration.test.tsx` |
+| `create-competition` | `competition_domain` | `create_competition()` | ✅ | `hybrid-integration.test.tsx` |
+| `update-competition` | `competition_domain` | `update_competition()` | ✅ | N/A |
+| `register-team-in-competition` | `competition_domain` | `register_team()` | ✅ | N/A |
+| `record-match-result` | `competition_domain` | `record_match_result()` | ✅ | N/A |
+| `create-join-token` | `competition_domain` | `create_join_token()` | ✅ | N/A |
+| `consume-join-token` | `competition_domain` | `consume_join_token()` | ✅ | N/A |
+| `create-conversation` | `messaging_domain` | `create_conversation()` | ✅ | `hybrid-message-routing.test.tsx` |
+| `send-message` | `messaging_domain` | `send_message()` | ✅ | `hybrid-message-routing.test.tsx` |
+| `list-messages` | `messaging_domain` | `list_messages_page()` | ✅ | `hybrid-message-routing.test.tsx` |
+| `delete-message` | `messaging_domain` | `delete_message()` | ✅ | N/A |
+| `mark-messages-read` | `messaging_domain` | `mark_read()` | ✅ | N/A |
+| `register-media-asset` | `media_metadata` | `register_asset()` | ✅ | `hybrid-media-routing.test.tsx` |
+| `get-media-asset` | `media_metadata` | `get_asset()` | ✅ | `hybrid-media-routing.test.tsx` |
+| `delete-media-asset` | `media_metadata` | `delete_asset()` | ✅ | N/A |
+| `issue-media-capability` | `media_metadata` | `issue_capability()` | ✅ | N/A |
 | `get-whoami` | `identity_access` | `whoami()` | ✅ | `adapter.test.tsx` |
 | `get-profile` | `identity_access` | `get_public_profile()` | ✅ | N/A |
 | `update-profile` | `identity_access` | `update_profile()` | ✅ | N/A |
 | `begin-account-link` | `identity_access` | `begin_link()` | ✅ | `account-linking.test.tsx` |
 | `accept-account-link` | `identity_access` | `accept_link()` | ✅ | `account-linking.test.tsx` |
-| `grant-role` | `events_domain_motoko` | `grant_role()` | ✅ | N/A |
+| `grant-role` | `events_domain` | `grant_role()` | ✅ | N/A |
 | Remaining 21 functions (list queries, exports, status) | Various | Export/state methods | ✅ | N/A |
 
 **Summary:** 60/60 mapped; 40 directly callable; 20 mostly covered by domain tests.
@@ -434,17 +434,17 @@ Moved to `timer_jobs` with domain callbacks.
 
 ### 2.3 Category 3: Notification Queue (7 Functions)
 
-Moved to `notification_queue_motoko` with external delivery workers.
+Moved to `notification_queue` with external delivery workers.
 
 | Source Function | Trigger | Target | Implementation | Status | Test |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| `process-event-notifications` | New/reschedule/cancel event | `notification_queue_motoko.enqueue_batch()` | Queue entry creation | ✅ | `hybrid-notification.test.tsx` |
-| `process-message-notifications` | New message, mention | `notification_queue_motoko.enqueue()` | Queue entry creation | ✅ | `hybrid-notification.test.tsx` |
-| `send-club-announcement` | Manual dispatch | `notification_queue_motoko.enqueue_priority()` | High-priority entry | ✅ | `hybrid-notification-workflow.test.tsx` |
-| `send-competition-broadcast` | Weather/fixture change | `notification_queue_motoko.enqueue_priority()` | High-priority entry | ✅ | `hybrid-notification-workflow.test.tsx` |
-| `send-duty-notification-email` | Duty roster reminder | `notification_queue_motoko.enqueue()` → external worker | Queue + worker | 🟡 | N/A |
-| `send-storage-warnings` | Quota exceeded | `notification_queue_motoko.enqueue()` → external worker | Queue + worker | 🟡 | N/A |
-| `retry-missed-push-notifications` | Backoff drainer | `notification_queue_motoko.claim()` + retry logic | Pull + retry | ✅ | `hybrid-notification.test.tsx` |
+| `process-event-notifications` | New/reschedule/cancel event | `notification_queue.enqueue_batch()` | Queue entry creation | ✅ | `hybrid-notification.test.tsx` |
+| `process-message-notifications` | New message, mention | `notification_queue.enqueue()` | Queue entry creation | ✅ | `hybrid-notification.test.tsx` |
+| `send-club-announcement` | Manual dispatch | `notification_queue.enqueue_priority()` | High-priority entry | ✅ | `hybrid-notification-workflow.test.tsx` |
+| `send-competition-broadcast` | Weather/fixture change | `notification_queue.enqueue_priority()` | High-priority entry | ✅ | `hybrid-notification-workflow.test.tsx` |
+| `send-duty-notification-email` | Duty roster reminder | `notification_queue.enqueue()` → external worker | Queue + worker | 🟡 | N/A |
+| `send-storage-warnings` | Quota exceeded | `notification_queue.enqueue()` → external worker | Queue + worker | 🟡 | N/A |
+| `retry-missed-push-notifications` | Backoff drainer | `notification_queue.claim()` + retry logic | Pull + retry | ✅ | `hybrid-notification.test.tsx` |
 
 **Summary:** 7/7 mapped; 5 proven; 2 pending full external delivery.
 
@@ -463,7 +463,7 @@ Hybrid timer + external worker boundary.
 | `archive-old-albums` | Yearly | `timer_jobs` + `media_metadata` callback | Schedule + archive | 🟡 | N/A |
 | `export-media-to-vault` | Weekly | External backup worker | Schedule + export | 🔲 | N/A |
 | `import-media-from-drive` | Manual trigger | External sync worker | Async job | 🔲 | N/A |
-| `sync-photos-to-album` | Photo event | `messaging_domain_motoko` + `media_metadata` integration | Queue trigger | 🟡 | N/A |
+| `sync-photos-to-album` | Photo event | `messaging_domain` + `media_metadata` integration | Queue trigger | 🟡 | N/A |
 
 **Summary:** 8 functions; 1 implemented; 7 partially or external.
 
@@ -504,7 +504,7 @@ External Stripe + Cloudflare/Lambda boundary.
 
 ### 2.7 Category 7: Email & Push Delivery (11 Functions)
 
-External worker boundary using `notification_queue_motoko`.
+External worker boundary using `notification_queue`.
 
 | Source Function | Trigger | Target | Implementation | Status | Test |
 | :--- | :--- | :--- | :--- | :---: | :--- |

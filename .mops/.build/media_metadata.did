@@ -1,0 +1,111 @@
+type State = 
+ record {
+   assets: vec Asset;
+   capabilities: vec Capability;
+   comments: vec Comment;
+   governor: principal;
+   reactions: vec Reaction;
+   roles: vec RoleGrant;
+   schema: nat32;
+ };
+type RoleGrant = 
+ record {
+   club_id: opt text;
+   role: text;
+   team_id: opt text;
+   user: principal;
+ };
+type Reaction = 
+ record {
+   asset_id: text;
+   created_at_ms: nat64;
+   kind: text;
+   user: principal;
+ };
+type Comment = 
+ record {
+   asset_id: text;
+   author: principal;
+   body: text;
+   created_at_ms: nat64;
+   deleted: bool;
+   id: text;
+ };
+type Capability = 
+ record {
+   action: text;
+   allowed: bool;
+   asset_id: text;
+   expires_at_ms: nat64;
+   owner: principal;
+   purpose: text;
+ };
+type Asset = 
+ record {
+   checksum: text;
+   child_sensitive: bool;
+   club_id: text;
+   content_length: nat64;
+   deleted: bool;
+   encrypted: bool;
+   expires_at_ms: nat64;
+   id: text;
+   kind: text;
+   mime: text;
+   owner: principal;
+   retention_until_ms: nat64;
+   storage_path: text;
+   visibility: text;
+ };
+service : {
+  add_comment: (asset_id: text, body: text, created_at_ms: nat64) ->
+   (variant {
+      Err: text;
+      Ok: Comment;
+    });
+  add_reaction: (asset_id: text, kind: text, created_at_ms: nat64) ->
+   (variant {
+      Err: text;
+      Ok: Reaction;
+    });
+  delete_asset: (asset_id: text) -> (variant {
+                                       Err: text;
+                                       Ok: Asset;
+                                     });
+  delete_comment: (comment_id: text) -> (variant {
+                                           Err: text;
+                                           Ok: Comment;
+                                         });
+  export_state: () -> (variant {
+                         Err: text;
+                         Ok: State;
+                       }) query;
+  get_asset: (asset_id: text) -> (opt Asset) query;
+  grant_role: ("principal": principal, role: text, club_id: opt text,
+   team_id: opt text) -> (variant {
+                            Err: text;
+                            Ok;
+                          });
+  initialize: () -> (variant {
+                       Err: text;
+                       Ok;
+                     });
+  issue_capability: (asset_id: text, action: text, purpose: text,
+   expires_at_ms: nat64) -> (variant {
+                               Err: text;
+                               Ok: Capability;
+                             });
+  list_assets: (club_id: text) -> (vec Asset) query;
+  list_comments: (asset_id: text) -> (vec Comment) query;
+  list_reactions: (asset_id: text) -> (vec Reaction) query;
+  register_asset: (club_id: text, kind: text, mime: text, checksum: text,
+   storage_path: text, visibility: text, expires_at_ms: nat64) ->
+   (variant {
+      Err: text;
+      Ok: Asset;
+    });
+  remove_reaction: (asset_id: text) -> (variant {
+                                          Err: text;
+                                          Ok;
+                                        });
+}

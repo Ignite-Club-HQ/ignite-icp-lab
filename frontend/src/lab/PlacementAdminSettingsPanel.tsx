@@ -78,12 +78,12 @@ export function PlacementAdminSettingsPanel({ controller }: { controller: Placem
 
   return <section aria-label="Placement settings" className="rounded-lg border p-5">
     <div className="flex items-center justify-between gap-4">
-      <div><h2 className="text-xl font-semibold">Placement settings</h2><p className="text-sm text-muted-foreground">App-admin control plane · country policy always wins over club selection.</p>{deviceCountry && <p className="text-xs text-muted-foreground">Device locale suggests {deviceCountry}; this is advisory only.</p>}</div>
-      <span className="text-xs text-muted-foreground">Synthetic lab</span>
+      <div><h2 className="text-xl font-semibold">Placement settings</h2><p className="text-sm text-muted-foreground">App-admin approved target registry · country policy always wins over club selection.</p>{deviceCountry && <p className="text-xs text-muted-foreground">Device locale suggests {deviceCountry}; this is advisory only.</p>}</div>
+      <span className="text-xs text-muted-foreground">Approved aliases only</span>
     </div>
     <div className="mt-4 rounded-lg border border-dashed p-3">
       <h3 className="text-sm font-semibold">Country target policy</h3>
-      <p className="text-xs text-muted-foreground">Approve synthetic target aliases only; do not enter production credentials or URLs.</p>
+      <p className="text-xs text-muted-foreground">Approve target aliases only; do not enter Supabase URLs, anon keys, service keys, canister controller credentials, cycle wallets, root keys, or Cloud Engine secrets.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-6">
         <label className="text-sm">Policy country<input aria-label="Policy country" className="mt-1 w-full rounded border p-2" value={policyCountry} onChange={event => setPolicyCountry(event.target.value)} /></label>
         <label className="text-sm">Policy backend<select aria-label="Policy backend" className="mt-1 w-full rounded border p-2" value={policyBackend} onChange={event => changePolicyBackend(event.target.value as 'icp' | 'supabase')}><option value="supabase">Supabase</option><option value="icp">ICP</option></select></label>

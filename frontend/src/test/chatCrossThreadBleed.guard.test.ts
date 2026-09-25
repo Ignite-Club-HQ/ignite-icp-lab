@@ -55,7 +55,9 @@ describe("chat cross-thread bleed guard", () => {
 
   it("TeamChatPage scopes rendered/seeded/merged/realtime messages to the active team", () => {
     const page = src("pages/TeamChatPage.tsx");
-    expect(page).toMatch(/const belongsToTeam/);
+    // The scope guard now lives in teamChatMessageHelpers.ts and is imported
+    // (aliased) into TeamChatPage.tsx rather than declared locally.
+    expect(page).toMatch(/belongsToTeamChatThread as belongsToTeam/);
     // render filter + placeholderData reuse check + seed filter + merge filter + realtime INSERT guard
     const scopedGuards = page.match(/belongsToTeam\(/g) ?? [];
     expect(scopedGuards.length).toBeGreaterThanOrEqual(6);

@@ -14,15 +14,22 @@ describe("team chat cached-message scope guard", () => {
     join(__dirname, "..", "pages", "TeamChatPage.tsx"),
     "utf8",
   );
+  // The cached-message scope guard now lives in teamChatMessageHelpers.ts and
+  // is imported (aliased) into TeamChatPage.tsx rather than declared locally.
+  const helpers = readFileSync(
+    join(__dirname, "..", "features", "messaging", "thread", "teamChatMessageHelpers.ts"),
+    "utf8",
+  );
 
   it("never rewrites a cached row's team_id with the active team", () => {
-    expect(page).not.toMatch(/^\s*team_id: teamId,\s*$/m);
+    expect(helpers).not.toMatch(/^\s*team_id: teamId,\s*$/m);
   });
 
   it("rejects cached rows whose existing team_id conflicts, keeps legacy rows", () => {
-    expect(page).toMatch(/getCachedMessages\("team", teamId\)\s*\n\s*\.filter\(/);
-    expect(page).toMatch(/typeof cachedTeamId !== "string" \|\| cachedTeamId === teamId/);
-    expect(page).toMatch(/team_id\?: unknown \}\)\.team_id as string \| undefined\) \?\? teamId/);
+    expect(helpers).toMatch(/getCachedMessages\("team", teamId\)\s*\n\s*\.filter\(/);
+    expect(helpers).toMatch(/typeof cachedTeamId !== "string" \|\| cachedTeamId === teamId/);
+    expect(helpers).toMatch(/team_id\?: unknown \}\)\.team_id as string \| undefined\) \?\? teamId/);
+    expect(page).toMatch(/getCachedTeamChatMessages as getCachedTeamMessages/);
   });
 
   it("persists an immutable team_id on cached team messages", () => {

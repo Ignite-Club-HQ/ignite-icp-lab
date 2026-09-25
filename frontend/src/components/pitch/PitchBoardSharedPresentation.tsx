@@ -15,7 +15,6 @@ export const SubConfirmDialog = lazyWithRetry(() => import("./SubConfirmDialog")
 export const AddFillInPlayerDialog = lazyWithRetry(() => import("./AddFillInPlayerDialog"));
 export const AutoSubControlPanel = lazyWithRetry(() => import("./AutoSubControlPanel"));
 export const PreGameLineupScreen = lazyWithRetry(() => import("./PreGameLineupScreen"));
-export const TrainingBoard = lazyWithRetry(() => import("./training/TrainingBoard"));
 
 export const DialogLoader = () => (
   <div className="flex items-center justify-center p-4">

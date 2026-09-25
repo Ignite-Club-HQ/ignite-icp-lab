@@ -1,0 +1,1 @@
+import{v as a,s as n}from"./product-index-Qnbm5mpM.js";function o(e){return a({queryKey:["club-seasons",e],queryFn:async()=>{if(!e)return[];const{data:r,error:s}=await n.from("seasons").select("*").eq("club_id",e).order("created_at",{ascending:!1});if(s)throw s;return r??[]},enabled:!!e})}export{o as u};

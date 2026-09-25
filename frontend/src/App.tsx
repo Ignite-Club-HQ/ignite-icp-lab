@@ -25,7 +25,12 @@ import { PWAPendingInviteHandler } from "@/components/PWAPendingInviteHandler";
 import AppNavigatorBridge from "@/components/AppNavigatorBridge";
 
 import { NativeAppUpdatePrompt } from "@/components/NativeAppUpdatePrompt";
-import { LegalReacceptanceGate } from "@/components/LegalReacceptanceGate";
+// Lazy-loaded: LegalReacceptanceGate is inert (returns null) unless an admin
+// has explicitly turned on re-acceptance, so its Radix Checkbox dependency
+// should not enter every visitor's initial chunk.
+const LegalReacceptanceGate = lazyWithRetry(() =>
+  import("@/components/LegalReacceptanceGate").then((m) => ({ default: m.LegalReacceptanceGate })),
+);
 
 import { StatusBarManager } from "@/components/StatusBarManager";
 import { NotifDebugOverlay } from "@/components/NotifDebugOverlay";
@@ -41,7 +46,7 @@ import { Loader2 } from "lucide-react";
 // Android. Auth-adjacent pages are lazy because logged-in users (the vast
 // majority of cold opens) never hit them.
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
-import VerifyResetCodePage from "./pages/VerifyResetCodePage";
+const VerifyResetCodePage = lazyWithRetry(() => import("./pages/VerifyResetCodePage"));
 const AuthPage = lazyWithRetry(() => import("./pages/AuthPage"));
 const CompleteProfilePage = lazyWithRetry(() => import("./pages/CompleteProfilePage"));
 const ResetPasswordPage = lazyWithRetry(() => import("./pages/ResetPasswordPage"));
@@ -142,7 +147,6 @@ const AdMobSettingsPage = lazyWithRetry(() => import("./pages/AdMobSettingsPage"
 const ClassEnrolmentPage = lazyWithRetry(() => import("./pages/ClassEnrolmentPage"));
 const PayFeesPage = lazyWithRetry(() => import("./pages/PayFeesPage"));
 const SendUpdateReminderPage = lazyWithRetry(() => import("./pages/SendUpdateReminderPage"));
-const AdminDrillsPage = lazyWithRetry(() => import("./pages/AdminDrillsPage"));
 const AdminDmAttachmentsPage = lazyWithRetry(() => import("./pages/AdminDmAttachmentsPage"));
 const AdminChatPhotoRemindersPage = lazyWithRetry(() => import("./pages/AdminChatPhotoRemindersPage"));
 const AdminChatVirtDebugPage = lazyWithRetry(() => import("./pages/AdminChatVirtDebugPage"));
@@ -508,7 +512,6 @@ const App = () => {
                   <Route path="/admin/icp-llm-test" element={<AdminIcpLlmTestPage />} />
                   <Route path="/admin/admob" element={<AdMobSettingsPage />} />
                  <Route path="/admin/send-update-reminder" element={<SendUpdateReminderPage />} />
-                 <Route path="/admin/drills" element={<AdminDrillsPage />} />
                 <Route path="/admin/dm-attachments" element={<AdminDmAttachmentsPage />} />
                 <Route path="/admin/chat-photo-reminders" element={<AdminChatPhotoRemindersPage />} />
                 <Route path="/admin/chat-virt-debug" element={<AdminChatVirtDebugPage />} />
@@ -538,7 +541,9 @@ const App = () => {
             <PushNotificationManager />
             <StatusBarManager />
             <NativeAppUpdatePrompt />
-            <LegalReacceptanceGate />
+            <Suspense fallback={null}>
+              <LegalReacceptanceGate />
+            </Suspense>
             
           </BrowserRouter>
           </TooltipProvider>
