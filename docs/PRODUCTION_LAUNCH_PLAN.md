@@ -1174,3 +1174,22 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   character-for-character against the `profiles.id` found earlier, and/or
   re-run `select id, email from auth.users where email = '...'` to check
   for more than one row.
+
+- Ruled out duplicate `auth.users` rows (user confirmed only one row for
+  their login email). Re-audited the client wiring once more for a
+  session/timing race (checked `fetchProfile` in `useAuth.tsx` and
+  `handleSession`) — the profile fetch runs on the same `supabase` client
+  singleton via the standard `onAuthStateChange` callback, which supabase-js
+  only fires after its internal session store (and thus the Authorization
+  header used by subsequent requests) is already updated; no header-timing
+  bug found in this repo's code. With duplicate accounts, RLS policy syntax,
+  and client wiring all ruled out, the last remaining explanation is that
+  the specific `profiles.id` value the user checked does not literally
+  equal the single `auth.users.id` found by email — e.g. if this dev
+  project's `profiles` table was seeded/copied from a different environment
+  (such as production) without a matching `auth.users` row, the visible
+  "existing profile" row would carry a foreign UUID that this session's
+  `auth.uid()` can never match, explaining both the failed SELECT (0 rows)
+  and the failed INSERT (`42501`). Asked the user to directly compare the
+  `id` from their single `auth.users` row against the `id` on the
+  `profiles` row they found earlier, character-for-character.
