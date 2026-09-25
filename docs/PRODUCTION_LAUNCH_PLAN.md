@@ -1110,3 +1110,18 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   against their own project to distinguish the two cases and, if (a), the
   exact `CREATE POLICY` statement to add. This repo cannot execute SQL
   against any real Supabase project itself.
+
+- Follow-up refinement to the RLS diagnosis above: the user pointed out that
+  their Supabase login (username/password) succeeded, which confirms this
+  IS the same Supabase project as their existing account (Supabase auth's
+  `auth.users` and the app's `public.profiles` are separate tables in the
+  same database — a successful login means the `auth.users` row is real in
+  *this* project). This effectively rules out "wrong project" as the cause.
+  Narrowed to two remaining explanations, both server-side: (1) the
+  `public.profiles` row for this `auth.users` id was never created or no
+  longer exists (e.g. deleted, or an old signup flow's insert silently
+  failed), or (2) the `profiles` table's INSERT policy is missing/broken in
+  this specific project. Gave the user three targeted SQL Editor queries:
+  look up their `auth.users` id by email, check for a matching `profiles`
+  row by that id, and list `pg_policies` for `profiles` to confirm the
+  INSERT policy exists with the correct `WITH CHECK` clause.
