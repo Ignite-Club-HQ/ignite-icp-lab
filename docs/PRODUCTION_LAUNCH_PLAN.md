@@ -1063,3 +1063,30 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   suites (19/19), `check:isolation`/`check:prod-secrets` (both pass), and a
   `build:live` rebuild confirming `warmInternetIdentityAuthClient` compiled
   into the live bundle's `internetIdentityAuth-*.js` chunk.
+
+- Improved the "complete profile" error surfacing for the reported bug
+  where an existing Supabase user is redirected to `/complete-profile` and
+  then sees a generic "Failed to update profile" toast on save. Traced the
+  redirect gate (`AppLayout.tsx`) and profile fetch (`useAuth.tsx`'s
+  `fetchProfile`, which uses `.maybeSingle()`) — both are intentional,
+  unchanged "first login" logic; a `null` profile with no fetch error means
+  the SELECT succeeded but returned zero rows, which is consistent with
+  either genuine RLS blocking the row or the row not existing under that
+  `auth.uid()` in the real dev database, neither of which can be confirmed
+  from this repo (this session has no access to the real dev Supabase
+  project's data or deployed policies; the sanitized reference migrations'
+  `profiles` RLS policies look standard). Also ruled out an
+  `AuthPage.tsx` signup-vs-signin default-view mismatch as the cause.
+  Concrete fix shipped in the meantime:
+  `frontend/src/pages/CompleteProfilePage.tsx`'s `handleSubmit` now surfaces
+  the actual Postgrest error's `message`/`hint`/`code` in the toast instead
+  of a generic message, so the true cause is visible on the next reproduction
+  without needing direct DB access. Next step is for the user to reproduce
+  and share the browser console `Error fetching profile...` /
+  `Profile update error:` log output (or the new toast's detail text) so the
+  real error code can be matched against the deployed RLS policies.
+  Validated: `typecheck:product` (101/0 new), `AuthPage.icp`/
+  `AuthPage.redirect` tests (9/9), `check:isolation`/`check:prod-secrets`
+  (both pass), rebuilt `dist-live` and confirmed the new error-detail string
+  compiled into the `CompleteProfilePage-*.js` chunk, confirmed the running
+  preview server picked up the new build hash automatically.

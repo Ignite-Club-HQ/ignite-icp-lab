@@ -447,9 +447,17 @@ function SupabaseCompleteProfilePage() {
 
       if (error) {
         console.error("Profile update error:", error);
+        // Surface the actual Postgrest/RLS error (code + message + hint) instead of a
+        // generic message, so real causes (e.g. a missing RLS policy, a column
+        // rejected by a check constraint) are visible to the user/operator instead
+        // of being swallowed. Falls back to the generic copy only if the error
+        // object is unexpectedly empty.
+        const detail = [error.message, error.hint].filter(Boolean).join(" — ");
         toast({
           title: "Error",
-          description: "Failed to update profile. Please try again.",
+          description: detail
+            ? `Failed to update profile: ${detail}${error.code ? ` (code ${error.code})` : ""}`
+            : "Failed to update profile. Please try again.",
           variant: "destructive",
         });
         setSaving(false);
