@@ -762,6 +762,77 @@ or SEV-SNP-protected) subnet where residency or confidentiality requires it.
   residency/confidentiality driver exists — building it earlier would be
   speculative infrastructure spend.
 
+### Phase 8 — Graduate this lab's code out to a real production repository
+
+**Goal:** get the hybrid Supabase/ICP codebase developed in this isolated
+lab into the actual production application, without ever requiring this
+lab (or the agent operating in it) to access, clone, or modify the real
+production repository. This lab's isolation rules are absolute and by
+design one-directional: code can be *exported outward* from the lab, but
+the lab can never *reach into* production. The migration therefore has to
+be structured as a human-supervised handoff, not an in-place merge
+performed from inside this workspace.
+
+**Why "create a new repo and migrate files across" is the right model:**
+A brand-new, not-yet-existing repository is not "the production
+repository" — it is a fresh destination the repository owner controls from
+the moment it is created. This lab can prepare and push a clean export to
+that new repository. What happens after that (reviewing it against the
+real production repo, merging it in, or replacing production's default
+branch with it, rotating real secrets, deploying it) is performed by the
+repository owner using their own production-scoped access — never by this
+lab reaching outward.
+
+**Step-by-step:**
+
+1. **Curate the export (done inside this lab).** Strip everything that is
+   lab-only and must never reach production:
+   - The fixture/mock local ICP actor layer and any lab-only fixture data
+     services.
+   - The fail-closed lab Supabase proxy client (`frontend/src/integrations/supabase/client.ts`
+     on the lab build path) — production only needs the live client.
+   - `frontend/lab-runtime-files.json`, isolation/secret-scanning guard
+     scripts (`check:isolation`, `check:prod-secrets`) and the guard/
+     characterization tests written purely to prove this lab's boundaries
+     (these protect the lab, not the shipped app).
+   - `reference/backend/**` (sanitized reference-only material; inert by
+     design and not meant to ship).
+   - This repo's own planning/tracking docs (`docs/PRODUCTION_LAUNCH_PLAN.md`,
+     `docs/PRODUCTION_DEPLOYMENT_ACTION_TRACKER.md`, etc.) — internal to the
+     porting effort, not application code.
+   - Keep everything else: all `frontend/src/pages` and features, the live
+     Supabase client and target registry, the ICP/Internet Identity auth
+     stack, and the `build:live` Vite alias configuration that wires them
+     together.
+2. **Create a new, empty GitHub repository** under an owner/org and
+   visibility the repository owner chooses (not a decision this lab makes
+   unilaterally). This is a genuinely new destination, not the existing
+   production repository, so creating and pushing to it does not violate
+   the isolation boundary.
+3. **Push the curated export** to that new repository as its initial
+   commit (or a small, reviewable number of commits), tagged clearly (for
+   example `hybrid-icp-handoff-v1`) so the repository owner has an
+   unambiguous starting point to review.
+4. **Hand off for human-supervised cutover (outside this lab entirely):**
+   the repository owner reviews the new repository against the real
+   production repository using their own access, then chooses their own
+   merge strategy — e.g. adding the new repository as a git remote and
+   merging/rebasing it into production's default branch, replacing
+   production's tree wholesale, or standing up the new repository as the
+   new canonical application repository going forward. Real production
+   Supabase credentials, real ICP mainnet canister ownership, and any DNS/
+   deployment cutover are configured directly by the repository owner at
+   this stage; this lab never receives, stores, or exercises real
+   production credentials at any point in this process.
+
+**Exit gate:** a new repository exists containing a clean, production-ready
+export of the hybrid codebase, and the repository owner has confirmed they
+can independently review and merge/adopt it using their own access. This
+phase does not require Phases 0-7 above to be fully complete first — the
+export/new-repo step can happen at any time the repository owner wants an
+external artifact to work from; only the final cutover naturally waits on
+whichever of Phases 0-7 the owner wants completed before going live.
+
 ---
 
 ## 4. Immediate next action
@@ -1262,3 +1333,16 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   Validation: focused auth/alignment suites (24/24), `typecheck:lab`, and
   `typecheck:product` (101 existing diagnostics, zero new) pass before the
   final guarded live rebuild.
+
+- Added **Phase 8 — Graduate this lab's code out to a real production
+  repository** to the phased plan. This documents the agreed path for
+  moving the hybrid codebase into the actual production application without
+  this lab ever accessing, cloning, or modifying the real production
+  repository: curate a clean export (strip lab-only fixtures, fail-closed
+  proxy client, isolation/secret-scanning guards, sanitized reference
+  material, and internal planning docs), push that export to a brand-new
+  repository the repository owner creates/controls, and let the repository
+  owner perform the actual review, merge, and production credential/
+  deployment cutover using their own access. This keeps the boundary
+  one-directional: code can leave the lab outward, but nothing reaches back
+  into production from inside it.
