@@ -785,6 +785,13 @@ lab reaching outward.
 
 **Step-by-step:**
 
+> Step 1 below is fully worked out, file-by-file, with a tested and
+> committed export script, in
+> [PRODUCTION_HANDOFF_EXPORT_GUIDE.md](PRODUCTION_HANDOFF_EXPORT_GUIDE.md).
+> Run `bash scripts/export-production-candidate.sh [destination-dir]` to
+> produce the curated export locally; steps 2-4 (creating the new
+> repository, pushing, and cutover) remain entirely yours to perform.
+
 1. **Curate the export (done inside this lab).** Strip everything that is
    lab-only and must never reach production:
    - The fixture/mock local ICP actor layer and any lab-only fixture data
@@ -1346,3 +1353,32 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   deployment cutover using their own access. This keeps the boundary
   one-directional: code can leave the lab outward, but nothing reaches back
   into production from inside it.
+
+- Completed Phase 8 Step 1 (curate the export) concretely, rather than
+  leaving it as a plan description:
+  - Audited how deeply lab/live code is interleaved: `src/lab/localRuntimeMode.ts`
+    is imported by 106 files and `src/lab/fixtureDataLayer.ts` by 56 files,
+    almost entirely as inline branches inside otherwise-shared pages/hooks,
+    not as isolated files. Concluded that deleting `src/lab/**` outright
+    would break the build, since most files under it (local ICP service
+    adapters, hybrid repositories, query-key helpers) are shared
+    infrastructure, not lab-only fixtures.
+  - Wrote [PRODUCTION_HANDOFF_EXPORT_GUIDE.md](PRODUCTION_HANDOFF_EXPORT_GUIDE.md),
+    an exact, file-by-file include/exclude classification for every
+    top-level and `frontend/`-level path, with the reasoning for each
+    decision (e.g. why `src/lab/**` is kept wholesale while
+    `src/lab/LabApp.tsx`/`src/main.tsx`/`index.html` — the true lab-only
+    entry point — are excluded).
+  - Added `scripts/export-production-candidate.sh`, a tested, idempotent
+    rsync-based export script that materializes the curated tree at a
+    local destination directory (never pushes anywhere) and renames
+    `live-index.html` to `index.html` so the export has a natural
+    default entry point. Verified by running it and confirming every
+    excluded path is absent and every required path (including the live
+    Vite config, the live Supabase client, and the renamed live entry
+    HTML pointing at `product-main.tsx`) is present.
+  - Creating the destination GitHub repository, reviewing the export,
+    pushing it, and performing the actual production cutover remain
+    entirely the repository owner's actions, per the isolation rule that
+    this lab may only prepare code to leave outward, never reach into an
+    existing repository (lab or production).
