@@ -1144,3 +1144,33 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   `profiles`) since Postgres also raises `42501` for a missing table-level
   `GRANT INSERT`, not only a failed RLS `WITH CHECK` — a possibility not
   covered by the earlier `pg_policies` check alone.
+
+- Further narrowing of the profile-RLS bug: the user's `pg_policies` query
+  result for `profiles`' INSERT policy showed `with_check =
+  (( SELECT ( SELECT auth.uid() AS uid) AS uid) = id)` — this is just
+  Postgres's verbose rendering of the standard, correct `auth.uid() = id`
+  check (the double-`SELECT` wrapping is the intentional RLS
+  perf-optimization pattern from an earlier migration, not a bug). Combined
+  with the user's earlier confirmation that a matching `profiles` row
+  already exists, this rules out both "missing profile row" and "missing/
+  broken INSERT policy" as the cause. Re-audited the live client wiring
+  (`targetRegistry.ts`, `liveClient.ts`, `supabaseAuthRetry.ts`) end-to-end:
+  confirmed a single Supabase project target, a single client singleton
+  instance shared by every page (no split-brain client), and confirmed the
+  auth-retry fetch wrapper does not strip or replace the `Authorization`
+  header on non-401/403-JWT-shaped responses (a `42501` RLS body doesn't
+  match its "isAuthShaped" substring check, so it's passed through
+  untouched, not masked). With policy, code wiring, and existing-row all
+  ruled out, the remaining explanation is that the id being checked by
+  `auth.uid()` at request time does not equal the `profiles.id` the user
+  looked up — most plausibly because the account's email has more than one
+  `auth.users` row (e.g. an old/orphaned signup attempt vs. the current
+  one), and the id used to look up the "existing" profile wasn't
+  necessarily the id of the session that's actually logged in. Gave the
+  user a way to check this directly instead of relying on the email
+  lookup: decode the actual current session JWT from
+  `localStorage['ignite-live-dev-auth']` (or the equivalent
+  `ignite-live-<alias>-auth` key) via jwt.io and compare its `sub` claim
+  character-for-character against the `profiles.id` found earlier, and/or
+  re-run `select id, email from auth.users where email = '...'` to check
+  for more than one row.
