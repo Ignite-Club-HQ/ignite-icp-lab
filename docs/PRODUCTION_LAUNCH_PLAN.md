@@ -1125,3 +1125,22 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   look up their `auth.users` id by email, check for a matching `profiles`
   row by that id, and list `pg_policies` for `profiles` to confirm the
   INSERT policy exists with the correct `WITH CHECK` clause.
+
+- Further code-side check (no DB access needed): searched the sanitized
+  `reference/backend/supabase/migrations/*.sql.md` files for a
+  `handle_new_user`-style trigger on `auth.users` that would auto-create a
+  `public.profiles` row at signup time. **None exists** — the only
+  `INSERT INTO public.profiles` in the reference migrations is the one-time
+  seed of the "Ignite Support" system user. This confirms, by design, that
+  `CompleteProfilePage.tsx`'s client-side `upsert` is the SOLE mechanism
+  that ever creates a `profiles` row for a real user — there is no
+  server-side safety net. This means an existing user's profile row can
+  only be missing in a project if either (a) they genuinely never finished
+  that flow before (unlikely per the user's report), or (b) the row existed
+  and was deleted/never migrated into this project, or (c) the INSERT is
+  being blocked now by an RLS/grant regression that wasn't present when
+  they first signed up. Added a 4th diagnostic query for the user
+  (`information_schema.role_table_grants` for the `authenticated` role on
+  `profiles`) since Postgres also raises `42501` for a missing table-level
+  `GRANT INSERT`, not only a failed RLS `WITH CHECK` — a possibility not
+  covered by the earlier `pg_policies` check alone.
