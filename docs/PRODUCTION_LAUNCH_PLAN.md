@@ -1090,3 +1090,23 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   (both pass), rebuilt `dist-live` and confirmed the new error-detail string
   compiled into the `CompleteProfilePage-*.js` chunk, confirmed the running
   preview server picked up the new build hash automatically.
+
+- Root cause confirmed for the "complete profile" bug (with the user's help
+  reproducing after the error-surfacing fix above): the failure is a genuine
+  `42501` RLS violation on the `profiles` table's `INSERT` path, not a
+  frontend bug. `fetchProfile` correctly finds zero rows for this user in
+  the connected dev Supabase project (no fetch error), so `CompleteProfilePage`
+  correctly attempts an `INSERT` via the `upsert(..., { onConflict: 'id' })`
+  call — and that insert is rejected by RLS. Two explanations, neither of
+  which this session can confirm without direct DB access (out of bounds
+  per repo isolation rules): either (a) the dev Supabase project this lab
+  is currently pointed at is missing the standard
+  `"Users can insert their own profile" ON profiles FOR INSERT WITH CHECK
+  ((SELECT auth.uid()) = id)` policy (e.g. a partial/older migration
+  snapshot), or (b) the user's existing profile genuinely lives in a
+  different Supabase project (e.g. production) than the dev project
+  currently configured for this app, making this dev DB's "new user" INSERT
+  attempt correct-but-blocked. Gave the user two SQL Editor queries to run
+  against their own project to distinguish the two cases and, if (a), the
+  exact `CREATE POLICY` statement to add. This repo cannot execute SQL
+  against any real Supabase project itself.
