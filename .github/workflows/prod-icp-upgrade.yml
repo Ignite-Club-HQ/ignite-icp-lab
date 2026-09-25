@@ -3,10 +3,14 @@ name: Production ICP Backend Upgrade
 on:
   workflow_dispatch:
     inputs:
-      network:
-        description: 'ICP network to target for production upgrade'
+      canisters:
+        description: >-
+          Space-separated canister names to deploy/upgrade on mainnet (must
+          match names in icp.yaml). Defaults to the smallest proven pair from
+          the production launch plan's Phase 3 — do not widen this without
+          reviewing docs/PRODUCTION_LAUNCH_PLAN.md first.
         required: true
-        default: 'production'
+        default: 'identity_access club_domain'
         type: string
       mode:
         description: 'Deployment mode'
@@ -27,8 +31,8 @@ jobs:
     timeout-minutes: 60
 
     env:
-      ICP_NETWORK: ${{ inputs.network || vars.ICP_NETWORK || 'production' }}
       ICP_MODE: ${{ inputs.mode || 'upgrade' }}
+      ICP_CANISTERS: ${{ inputs.canisters || 'identity_access club_domain' }}
 
     steps:
       - name: Checkout
@@ -57,10 +61,6 @@ jobs:
             echo "ICP_IDENTITY_PEM_BASE64 is required for production canister upgrade." >&2
             exit 1
           }
-          test -n "${{ secrets.ICP_NETWORK_URL || '' }}" || {
-            echo "ICP_NETWORK_URL is required for production canister upgrade." >&2
-            exit 1
-          }
 
       - name: Write ICP identity
         shell: bash
@@ -81,32 +81,54 @@ jobs:
       - name: Install ICP CLI
         shell: bash
         run: |
-          mkdir -p "$HOME/.local/bin"
-          curl -fsSL https://internetcomputer.org/install.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          npm install -g @icp-sdk/icp-cli @icp-sdk/ic-wasm
+          icp --version
 
       - name: Build ICP backend artifacts
         run: |
           cargo build --workspace --release
           cargo build --workspace --target wasm32-unknown-unknown --release
 
+      - name: Import mainnet deployment identity
+        shell: bash
+        run: |
+          # icp-cli's `ic` environment/network is built in and protected —
+          # it always targets https://icp-api.io, so no --network/--url flags
+          # exist on `icp deploy` (that was the legacy dfx flag shape). See
+          # docs/PRODUCTION_LAUNCH_PLAN.md Phase 3 for the full rationale.
+          # `--storage plaintext` is used because this runner is a fresh,
+          # single-job, ephemeral VM with no persistent keyring service; the
+          # PEM and imported key both live only for this job's lifetime.
+          icp identity import \
+            --from-pem .icp/production-identity.pem \
+            --storage plaintext \
+            production-deployer
+          icp identity default production-deployer
+          rm -f .icp/production-identity.pem
+
       - name: Upgrade ICP canisters
         shell: bash
-        env:
-          ICP_IDENTITY: .icp/production-identity.pem
-          ICP_NETWORK_URL: ${{ secrets.ICP_NETWORK_URL }}
         run: |
-          icp --version
-          icp deploy \
-            --network "$ICP_NETWORK" \
-            --identity "$ICP_IDENTITY" \
-            --url "$ICP_NETWORK_URL" \
+          # NOTE: identity_access's icp.yaml `init_args` currently points at
+          # a lab-only local bootstrap file (.local-icp/identity-init.bin,
+          # gitignored, produced by scripts/local-icp.mjs). That file will
+          # NOT exist on a fresh CI checkout, so a fresh (non-upgrade)
+          # install of identity_access will fail here until a mainnet-
+          # appropriate init argument (the canister's real `governor`
+          # principal) is decided and wired in — see
+          # docs/PRODUCTION_LAUNCH_PLAN.md Phase 3. Upgrades of an
+          # already-installed identity_access canister are unaffected since
+          # init args only apply to first install.
+          icp deploy -e ic $ICP_CANISTERS \
+            --identity production-deployer \
             --mode "$ICP_MODE" \
-            --project-root "$GITHUB_WORKSPACE"
+            --project-root-override "$GITHUB_WORKSPACE" \
+            -y
 
       - name: Smoke verification post-upgrade
         shell: bash
         run: |
-          echo "Production upgrade workflow reached the post-upgrade validation gate." 
-          echo "This step should verify the upgraded canister endpoints and callback health before release." 
-          echo "No production credentials or real user data are used in this workflow." 
+          icp canister status $ICP_CANISTERS -e ic --identity production-deployer
+          echo "Production upgrade workflow reached the post-upgrade validation gate."
+          echo "This step should verify the upgraded canister endpoints and callback health before release."
+          echo "No production credentials or real user data are used in this workflow."

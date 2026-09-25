@@ -1,0 +1,33 @@
+# Netlify config template for the LIVE track only.
+#
+# This is a separate site from the lab's staging site (which uses the root
+# ../netlify.toml). Do not use this file for the lab's staging site, and do
+# not repoint the lab's staging site at the live build.
+#
+# Usage: create a new, dedicated Netlify site for the live track, then set
+# its "Netlify configuration file" build setting to `frontend/netlify-live.toml`
+# so this file (not the root netlify.toml) governs that site's build and
+# headers. See docs/PRODUCTION_LAUNCH_PLAN.md Phase 5 for the full setup
+# steps, including required IGNITE_LIVE_* environment variables.
+#
+# Before first deploy, replace <your-project-ref> below with your real
+# Supabase project's hostname (e.g. abcdxyz.supabase.co) — never use a
+# wildcard here.
+
+[build]
+  base = "frontend"
+  publish = "dist-live"
+  command = "npm ci --no-fund --no-audit && npm run build:live"
+
+[build.environment]
+  NODE_VERSION = "22.12.0"
+  CI = "true"
+  IGNITE_LIVE_BUILD = "1"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Content-Security-Policy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://<your-project-ref>.supabase.co https://icp-api.io https://id.ai; frame-src https://id.ai; object-src 'none'; worker-src 'self'; base-uri 'none'; form-action 'none'; manifest-src 'none'; media-src 'self' blob:"

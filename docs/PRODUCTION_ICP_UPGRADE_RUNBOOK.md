@@ -11,13 +11,17 @@ This is the production promotion and ICP canister upgrade runbook for the isolat
 
 ## Required GitHub environment secrets
 
-Set these in the GitHub environment named `production`:
+Set this in the GitHub environment named `production`:
 
 - `ICP_IDENTITY_PEM_BASE64`
-- `ICP_NETWORK_URL`
 
-Optional:
-- `ICP_NETWORK` (default: `production`)
+No `ICP_NETWORK_URL`/`ICP_NETWORK` secret is needed: `icp-cli`'s `ic`
+environment is built-in/protected and always resolves to
+`https://icp-api.io`; the workflows call `icp deploy -e ic ...` directly.
+See `docs/PRODUCTION_LAUNCH_PLAN.md` Phase 3/5 and
+`docs/PRODUCTION_GITHUB_SETUP_AND_APPROVAL.md` for full detail, including
+the one-time `identity_access` governor-principal decision required before
+its first mainnet install.
 
 ## Required GitHub environments
 
