@@ -1031,3 +1031,35 @@ recommended immediate next step is deployment (see Phase 3 for the exact
   since anon keys are safe to expose client-side and are protected by RLS)
   confirmed the new copy compiled into `assets/AuthPage-*.js` and the
   running preview server picked up the new build without a restart.
+- 2026-09-25: Fixed "Signer window should not be opened outside of click
+  handler" errors when clicking "Continue with Internet Identity" (both lab
+  and live tracks). Root cause: `frontend/src/hooks/useAuth.tsx`'s
+  `IcpAuthProvider.signInWithIcp` did `await import("@/lab/internetIdentityAuth")`
+  inside the click-invoked handler, and the underlying module then did
+  further awaits (fetching local lab config / resolving the ICP target,
+  dynamically importing `@icp-sdk/auth/client`, constructing `AuthClient`)
+  before calling `client.signIn()`. The signer transport
+  (`@icp-sdk/signer`'s `PostMessageTransport`) tracks "is this call happening
+  inside a click event's dispatch" via a `window`-level capture/bubble click
+  listener pair that resets synchronously once the click event finishes
+  propagating — which happens before any pending microtask (including an
+  `await import()` or an already-resolved `await somePromise`) gets to run.
+  Any `await` before reaching `client.signIn()` therefore lets the bubble
+  listener reset the flag first, so the eventual popup-window call is always
+  seen as "outside a click handler," regardless of how fast the awaited work
+  actually was. Fix: added `warmInternetIdentityAuthClient()` (lab and live
+  `internetIdentityAuth.ts`) that eagerly fetches config/resolves the target
+  and constructs the `AuthClient` ahead of time, plus a synchronous
+  `getWarmedAuthClient()` fast-path used by `signInWithInternetIdentity` so
+  that, once warmed, zero awaits happen before `client.signIn()`. Wired the
+  warm-up to run in a `useEffect` on `IcpAuthProvider` mount (which happens
+  at app root, well before the user can reach the sign-in button) and cached
+  the resolved module in a ref so `signInWithIcp`'s click handler also skips
+  the `import()` await on the common (warmed) path. Validated:
+  `typecheck:product` (101/0 new), `typecheck:lab` (passes), the
+  `icp-internet-identity-auth`/`adapter` lab tests (5/5), the
+  `AuthPage.icp`/`AuthPage.redirect` tests (9/9), the
+  `backend-provider-matrix`/`backend-router`/`placement-admin-settings` lab
+  suites (19/19), `check:isolation`/`check:prod-secrets` (both pass), and a
+  `build:live` rebuild confirming `warmInternetIdentityAuthClient` compiled
+  into the live bundle's `internetIdentityAuth-*.js` chunk.

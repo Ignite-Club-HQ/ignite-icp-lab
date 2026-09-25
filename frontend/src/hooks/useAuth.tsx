@@ -1241,10 +1241,37 @@ export function IcpAuthProvider({ children, persona = "member" }: { children: Re
     ignite_points: 0,
     theme_preference: null,
   } : null;
+  // Preload the Internet Identity module and eagerly construct its auth
+  // client as soon as this provider mounts (well before the user can click
+  // sign-in). The signer transport used by `client.signIn()` only allows
+  // opening its popup window synchronously within the same click event's
+  // dispatch — any `await` beforehand (including a lazy `import()` or
+  // client construction) yields back to the browser, which finishes the
+  // click event before our code resumes, causing "Signer window should not
+  // be opened outside of click handler". Warming here means `signInWithIcp`
+  // below can reach the actual `signIn()` call with zero awaits in front of it.
+  const internetIdentityModuleRef = useRef<typeof import("@/lab/internetIdentityAuth") | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const mod = await import("@/lab/internetIdentityAuth");
+      if (cancelled) return;
+      internetIdentityModuleRef.current = mod;
+      void mod.warmInternetIdentityAuthClient();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const signInWithIcp = async (): Promise<{ error: Error | null }> => {
     try {
-      const { signInWithInternetIdentity } = await import("@/lab/internetIdentityAuth");
-      const nextSession = await signInWithInternetIdentity(
+      // Use the already-preloaded module reference when available so this
+      // call chain reaches `signInWithInternetIdentity()` (and, inside it,
+      // `client.signIn()`) synchronously — see the warm-up effect above.
+      // The `??` short-circuits, so the fallback `import()` is never
+      // evaluated (and never adds an await) on the common warmed path.
+      const mod = internetIdentityModuleRef.current ?? (await import("@/lab/internetIdentityAuth"));
+      const nextSession = await mod.signInWithInternetIdentity(
         typeof window !== "undefined" ? `${location.pathname}${location.search}${location.hash}` : undefined,
       );
       localStorage.setItem("ignite_icp_internet_identity_session", JSON.stringify(nextSession));

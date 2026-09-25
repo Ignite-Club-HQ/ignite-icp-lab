@@ -106,8 +106,33 @@ async function getAuthClient(): Promise<{ client: InternetIdentityAuthClient; ta
   return { client: activeClient, target };
 }
 
+let warmupPromise: Promise<void> | undefined;
+
+/**
+ * Pre-constructs the Internet Identity auth client ahead of time (resolving
+ * the active ICP target, loading the `@icp-sdk/auth` chunk, constructing the
+ * `AuthClient`) so the eventual `signInWithInternetIdentity()` call made from
+ * a click handler doesn't need to `await` anything before reaching
+ * `client.signIn()`. The underlying signer transport only allows opening its
+ * popup window synchronously within the same click event's dispatch; any
+ * `await` beforehand — even one that resolves immediately — yields back to
+ * the browser, which finishes the click event (and its "was this a click?"
+ * bookkeeping) before our code resumes. Call this once, e.g. on mount, well
+ * before the user can click the sign-in button.
+ */
+export function warmInternetIdentityAuthClient(): Promise<void> {
+  warmupPromise ??= getAuthClient().then(() => undefined, () => undefined);
+  return warmupPromise;
+}
+
+/** Synchronous fast-path used by `signInWithInternetIdentity` when already warmed. */
+function getWarmedAuthClient(): { client: InternetIdentityAuthClient; target: IcpTargetConfig } | undefined {
+  const target = getActiveIcpTarget();
+  return activeClient && activeTarget?.alias === target.alias ? { client: activeClient, target } : undefined;
+}
+
 export async function signInWithInternetIdentity(returnTo?: string): Promise<InternetIdentitySession> {
-  const { client, target } = await getAuthClient();
+  const { client, target } = getWarmedAuthClient() ?? (await getAuthClient());
   const identity = client.isAuthenticated() ? await client.getIdentity() : await client.signIn(returnTo ? { returnTo } : undefined);
   const principal = identity.getPrincipal();
   if (principal.isAnonymous() || principal.toText() === "2vxsx-fae") {
@@ -130,5 +155,7 @@ export function resetInternetIdentityAuthForTests(): void {
   activeClient?.dispose?.();
   activeClient = undefined;
   activeTarget = undefined;
+  warmupPromise = undefined;
   accountProvisionerOverride = undefined;
 }
+

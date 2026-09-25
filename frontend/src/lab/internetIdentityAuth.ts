@@ -137,14 +137,37 @@ async function provisionInternetIdentityAccount(identity: Identity, principal: s
 }
 
 let activeClient: InternetIdentityAuthClient | undefined;
+let warmupPromise: Promise<void> | undefined;
 
 async function getAuthClient(): Promise<InternetIdentityAuthClient> {
   activeClient ??= await createAuthClient();
   return activeClient;
 }
 
+/**
+ * Pre-constructs the Internet Identity auth client ahead of time (fetching
+ * local lab config, resolving the provider, loading the `@icp-sdk/auth`
+ * chunk) so the eventual `signInWithInternetIdentity()` call made from a
+ * click handler doesn't need to `await` anything before reaching
+ * `client.signIn()`. The underlying signer transport only allows opening its
+ * popup window synchronously within the same click event's dispatch; any
+ * `await` beforehand — even one that resolves immediately — yields back to
+ * the browser, which finishes the click event (and its "was this a click?"
+ * bookkeeping) before our code resumes. Call this once, e.g. on mount, well
+ * before the user can click the sign-in button.
+ */
+export function warmInternetIdentityAuthClient(): Promise<void> {
+  warmupPromise ??= getAuthClient().then(() => undefined, () => undefined);
+  return warmupPromise;
+}
+
+/** Synchronous fast-path used by `signInWithInternetIdentity` when already warmed. */
+function getWarmedAuthClient(): InternetIdentityAuthClient | undefined {
+  return activeClient;
+}
+
 export async function signInWithInternetIdentity(returnTo?: string): Promise<InternetIdentitySession> {
-  const client = await getAuthClient();
+  const client = getWarmedAuthClient() ?? (await getAuthClient());
   const identity = client.isAuthenticated() ? await client.getIdentity() : await client.signIn(returnTo ? { returnTo } : undefined);
   const principal = identity.getPrincipal();
   if (principal.isAnonymous() || principal.toText() === "2vxsx-fae") {
@@ -165,6 +188,7 @@ export async function signOutInternetIdentity(): Promise<void> {
 export function resetInternetIdentityAuthForTests(): void {
   activeClient?.dispose?.();
   activeClient = undefined;
+  warmupPromise = undefined;
   authClientFactoryOverride = undefined;
   accountProvisionerOverride = undefined;
 }
